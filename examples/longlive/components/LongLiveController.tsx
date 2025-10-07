@@ -31,7 +31,10 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
   // Listen for progress messages from the LongLive model
   // These messages contain the current_start_frame which tells us where we are in the generation
   useReactorMessage((message: any) => {
-    if (message?.type === "progress" && message?.data?.current_start_frame !== undefined) {
+    if (
+      message?.type === "progress" &&
+      message?.data?.current_start_frame !== undefined
+    ) {
       setCurrentStartFrame(message.data.current_start_frame);
     }
   });
@@ -70,9 +73,17 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
   };
 
   return (
-    <div className={`bg-white rounded-lg p-4 shadow-lg ${className}`}>
-      <div className="mb-2 text-sm text-gray-600">
-        Current Frame: <span className="font-semibold">{currentStartFrame}</span>
+    <div
+      className={`bg-gray-900/40 rounded-lg p-3 border border-gray-700/30 ${className}`}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-gray-400">Prompt</span>
+        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-gray-800/50 rounded-md">
+          <span className="text-xs text-gray-500">Frame:</span>
+          <span className="text-xs font-semibold text-gray-300 tabular-nums">
+            {currentStartFrame}
+          </span>
+        </div>
       </div>
       <form onSubmit={handleSubmit} className="flex gap-2">
         <input
@@ -80,13 +91,13 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="Enter your prompt..."
-          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 px-3 py-2 bg-gray-800/50 border border-gray-700/50 rounded-md text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
           disabled={status === "disconnected"}
         />
         <button
           type="submit"
           disabled={!prompt.trim() || status === "disconnected"}
-          className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
+          className="px-5 py-2 bg-green-600/80 text-white rounded-md hover:bg-green-600 disabled:bg-gray-700/50 disabled:cursor-not-allowed transition-all duration-200 text-sm font-medium"
         >
           Send
         </button>

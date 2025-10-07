@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@reactor-team/js-sdk':
-        specifier: ^1.0.1
-        version: 1.0.1(@types/dom-mediacapture-record@1.0.22)(react@19.1.0)(zustand@5.0.8(@types/react@19.2.1)(react@19.1.0))
+        specifier: ^1.0.3
+        version: 1.0.3(@types/dom-mediacapture-record@1.0.22)(react@19.1.0)(zustand@5.0.8(@types/react@19.2.1)(react@19.1.0))
       next:
         specifier: 15.5.4
         version: 15.5.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -22,22 +22,22 @@ importers:
         version: 19.1.0(react@19.1.0)
     devDependencies:
       '@tailwindcss/postcss':
-        specifier: ^4
+        specifier: ^4.1.14
         version: 4.1.14
       '@types/node':
-        specifier: ^20
+        specifier: ^20.19.19
         version: 20.19.19
       '@types/react':
-        specifier: ^19
+        specifier: ^19.2.1
         version: 19.2.1
       '@types/react-dom':
-        specifier: ^19
+        specifier: ^19.2.0
         version: 19.2.0(@types/react@19.2.1)
       tailwindcss:
-        specifier: ^4
+        specifier: ^4.1.14
         version: 4.1.14
       typescript:
-        specifier: ^5
+        specifier: ^5.9.3
         version: 5.9.3
 
 packages:
@@ -255,8 +255,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@reactor-team/js-sdk@1.0.1':
-    resolution: {integrity: sha512-YMp02H5I9nHjhcro1nBSFc8OiXU9sMlIaqP3XcjbNhfqWfJAnRSYZPQMhwop497wldSNepxxzbJFp1BcPK2rVA==}
+  '@reactor-team/js-sdk@1.0.3':
+    resolution: {integrity: sha512-YnTAxP1Ql96B2zHKldlJORW+OJOPOMrAvBWnGx5frX9cVIK8wQZPyKA4YJfEGp4YBw4e1qFv8jIbTFJF9s4ZyA==}
     peerDependencies:
       react: ^17.0.0 || ^18.0.0
       zustand: ^5.0.6
@@ -794,7 +794,7 @@ snapshots:
   '@next/swc-win32-x64-msvc@15.5.4':
     optional: true
 
-  '@reactor-team/js-sdk@1.0.1(@types/dom-mediacapture-record@1.0.22)(react@19.1.0)(zustand@5.0.8(@types/react@19.2.1)(react@19.1.0))':
+  '@reactor-team/js-sdk@1.0.3(@types/dom-mediacapture-record@1.0.22)(react@19.1.0)(zustand@5.0.8(@types/react@19.2.1)(react@19.1.0))':
     dependencies:
       livekit-client: 2.15.8(@types/dom-mediacapture-record@1.0.22)
       react: 19.1.0
