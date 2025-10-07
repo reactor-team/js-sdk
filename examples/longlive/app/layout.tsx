@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Reactor Longlive Demo",
-  description: "Reactor Longlive Demo",
+  title: "Reactor LongLive Demo",
+  description: "Reactor LongLive Demo",
 };
 
 export default function RootLayout({
