@@ -23,6 +23,7 @@ interface KeyButtonProps {
   isKeyboard: boolean;
 }
 
+// Visual button component for displaying individual keys
 function KeyButton({ label, isActive, isKeyboard }: KeyButtonProps) {
   const baseClasses = "w-10 h-10 rounded font-bold text-sm transition-all duration-200";
   const activeClasses = isKeyboard
@@ -37,6 +38,16 @@ function KeyButton({ label, isActive, isKeyboard }: KeyButtonProps) {
   );
 }
 
+/**
+ * MatrixController
+ *
+ * A keyboard-controlled interface for the Matrix-2 model that:
+ * - Listens for WASD keys to control player movement
+ * - Listens for IJKL keys to control camera movement
+ * - Sends control messages in real-time as keys are pressed/released
+ * - Displays visual feedback for which keys are currently active
+ * - Provides a reset button to restart the model
+ */
 export function MatrixController({ className = "" }: MatrixControllerProps) {
   const { status, sendMessage } = useReactor((state) => ({
     status: state.status,
@@ -49,6 +60,16 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
     mouse_key: "U",
     keyboard_key: "Q",
   });
+
+  // Send reset message to restart the model
+  const handleReset = () => {
+    try {
+      sendMessage({ type: "reset" });
+      console.log("Reset message sent");
+    } catch (error) {
+      console.error("Failed to send reset:", error);
+    }
+  };
 
   // Handle keyboard input for both WASD (player movement) and IJKL (camera movement)
   const handleKeyboardInput = useCallback(
@@ -125,16 +146,21 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
     };
   }, [status, handleKeyboardInput]);
 
-  if (status !== "ready") {
-    return null;
-  }
-
   return (
-    <div className={`p-4 bg-white rounded-lg shadow-lg ${className}`}>
-      <div className="flex justify-center gap-8">
+    <div className={`bg-gray-900/40 rounded-lg p-2 border border-gray-700/30 ${className} ${status !== "ready" ? "opacity-50 pointer-events-none" : ""}`}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-gray-400">Controls</span>
+        <button
+          onClick={handleReset}
+          className="px-4 py-1.5 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all duration-200 text-sm font-medium"
+        >
+          Reset Model
+        </button>
+      </div>
+      <div className="flex justify-center gap-6">
         {/* WASD Keyboard Controls */}
         <div className="flex flex-col items-center gap-2">
-          <h3 className="text-sm font-semibold text-blue-600">
+          <h3 className="text-xs font-semibold text-blue-400">
             Keyboard (WASD)
           </h3>
           <div className="grid grid-cols-3 gap-1">
@@ -152,7 +178,7 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
 
         {/* IJKL Mouse Controls */}
         <div className="flex flex-col items-center gap-2">
-          <h3 className="text-sm font-semibold text-green-600">
+          <h3 className="text-xs font-semibold text-green-400">
             Mouse (IJKL)
           </h3>
           <div className="grid grid-cols-3 gap-1">
