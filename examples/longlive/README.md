@@ -48,7 +48,18 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 4. Add additional prompts to guide the video generation in real-time
 5. Track the current frame position to see where you are in the generation
 
+## About the LongLive Model
+
+LongLive is a frame-level autoregressive framework for real-time and interactive long video generation. The model supports minute-long video generation at 20.7 FPS and enables dynamic prompt scheduling during generation.
+
+Developed by NVIDIA (NVlabs) • [View Research](https://github.com/NVlabs/LongLive)
+
 ## Learn More
 
+- [Reactor Website](https://reactor.inc) - Learn more about Reactor and our platform
 - [Reactor Documentation](https://reactor-technologies.readme.io/docs/overview) - Learn about Reactor's AI models and SDK
 - [Reactor JS SDK](https://github.com/reactor-team/js-sdk) - Explore the SDK repository
+
+## Support
+
+For questions or issues, contact our support team at [team@reactor.inc](mailto:team@reactor.inc).
