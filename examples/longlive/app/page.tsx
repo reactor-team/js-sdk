@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  ReactorProvider,
-  ReactorView
-} from "@reactor-team/js-sdk";
+import { ReactorProvider, ReactorView } from "@reactor-team/js-sdk";
 import { LongLiveController } from "@/components/LongLiveController";
 import { ReactorStatus } from "@/components/ReactorStatus";
 
@@ -14,8 +11,6 @@ export default function Home() {
         <h1 className="text-white text-3xl font-bold text-center">Longlive</h1>
         <ReactorProvider
           modelName="longlive"
-          autoConnect={true}
-          coordinatorUrl={process.env.NEXT_PUBLIC_COORDINATOR_URL!}
           insecureApiKey={process.env.NEXT_PUBLIC_REACTOR_API_KEY!}
         >
           <div className="flex flex-col gap-4">
