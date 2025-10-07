@@ -1,36 +1,86 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Matrix-2 World Model Example
+
+An interactive demo showcasing the Reactor JS SDK with the **matrix-2** world model for real-time AI-powered video control.
+
+## What This Example Does
+
+This Next.js app demonstrates how to:
+- Connect to Reactor's matrix-2 world model for interactive video generation
+- Control video generation in real-time using keyboard inputs
+- Send control messages (WASD for player movement, IJKL for camera)
+- Display AI-generated video with `ReactorView`
+- Reset and restart the model as needed
 
 ## Getting Started
 
-First, run the development server:
+### 1. Install Dependencies
+
+```bash
+npm install
+# or
+pnpm install
+```
+
+### 2. Set Up Your API Key
+
+Copy the example environment file and add your Reactor API key:
+
+```bash
+cp .env.example .env.local
+```
+
+Edit `.env.local` and replace `<your-api-key-here>` with your actual Reactor API key.
+
+### 3. Run the Development Server
 
 ```bash
 npm run dev
 # or
-yarn dev
-# or
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## How to Use
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Keyboard Controls
+
+The matrix-2 model responds to keyboard inputs in real-time:
+
+**Player Movement (Blue keys):**
+- **W** - Move forward
+- **A** - Move left
+- **S** - Move backward
+- **D** - Move right
+- **Q** - Neutral (no movement)
+
+**Camera Control (Green keys):**
+- **I** - Look up
+- **J** - Look left
+- **K** - Look down
+- **L** - Look right
+- **U** - Neutral (center view)
+
+### Using the App
+
+1. Wait for the model to connect (status indicator will show "Ready")
+2. Use the keyboard controls to move and look around
+3. Watch as the AI generates video in real-time based on your inputs
+4. Press the "Reset Model" button to restart from the beginning
+5. Visual feedback shows which keys are currently active
+
+## About the Matrix-Game 2.0 Model
+
+Matrix-Game 2.0 is an open-source, real-time, and streaming interactive world model that generates long videos on-the-fly via few-step auto-regressive diffusion. Trained on approximately 1200 hours of video data from Unreal Engine and GTA5 environments, the model supports frame-level mouse and keyboard inputs for interactive video generation at 25 FPS.
+
+See more details on the project page: [View Project](https://matrix-game-v2.github.io)
 
 ## Learn More
 
-To learn more about Next.js, take a look at the following resources:
+- [Reactor Website](https://reactor.inc) - Learn more about Reactor and our platform
+- [Reactor Documentation](https://reactor-technologies.readme.io/docs/overview) - Learn about Reactor's AI models and SDK
+- [Reactor JS SDK](https://github.com/reactor-team/js-sdk) - Explore the SDK repository
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Support
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+For questions or issues, contact our support team at [team@reactor.inc](mailto:team@reactor.inc).
