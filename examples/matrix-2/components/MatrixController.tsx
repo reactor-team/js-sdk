@@ -25,14 +25,19 @@ interface KeyButtonProps {
 
 // Visual button component for displaying individual keys
 function KeyButton({ label, isActive, isKeyboard }: KeyButtonProps) {
-  const baseClasses = "w-10 h-10 rounded font-bold text-sm transition-all duration-200";
+  const baseClasses =
+    "w-10 h-10 rounded font-bold text-sm transition-all duration-200";
   const activeClasses = isKeyboard
     ? "bg-blue-500 text-white border-2 border-blue-600 shadow-lg"
     : "bg-green-500 text-white border-2 border-green-600 shadow-lg";
   const inactiveClasses = "bg-gray-200 text-gray-700 border-2 border-gray-300";
 
   return (
-    <div className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses} flex items-center justify-center`}>
+    <div
+      className={`${baseClasses} ${
+        isActive ? activeClasses : inactiveClasses
+      } flex items-center justify-center`}
+    >
       {label}
     </div>
   );
@@ -147,7 +152,11 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
   }, [status, handleKeyboardInput]);
 
   return (
-    <div className={`bg-gray-900/40 rounded-lg p-2 border border-gray-700/30 ${className} ${status !== "ready" ? "opacity-50 pointer-events-none" : ""}`}>
+    <div
+      className={`bg-gray-900/40 rounded-lg p-3 border border-gray-700/30 ${className} ${
+        status !== "ready" ? "opacity-50 pointer-events-none" : ""
+      }`}
+    >
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-medium text-gray-400">Controls</span>
         <button
@@ -165,31 +174,69 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
           </h3>
           <div className="grid grid-cols-3 gap-1">
             <div />
-            <KeyButton label="W" isActive={currentControl.keyboard_key === "W"} isKeyboard={true} />
+            <KeyButton
+              label="W"
+              isActive={currentControl.keyboard_key === "W"}
+              isKeyboard={true}
+            />
             <div />
-            <KeyButton label="A" isActive={currentControl.keyboard_key === "A"} isKeyboard={true} />
-            <KeyButton label="Q" isActive={currentControl.keyboard_key === "Q"} isKeyboard={true} />
-            <KeyButton label="D" isActive={currentControl.keyboard_key === "D"} isKeyboard={true} />
+            <KeyButton
+              label="A"
+              isActive={currentControl.keyboard_key === "A"}
+              isKeyboard={true}
+            />
+            <KeyButton
+              label="Q"
+              isActive={currentControl.keyboard_key === "Q"}
+              isKeyboard={true}
+            />
+            <KeyButton
+              label="D"
+              isActive={currentControl.keyboard_key === "D"}
+              isKeyboard={true}
+            />
             <div />
-            <KeyButton label="S" isActive={currentControl.keyboard_key === "S"} isKeyboard={true} />
+            <KeyButton
+              label="S"
+              isActive={currentControl.keyboard_key === "S"}
+              isKeyboard={true}
+            />
             <div />
           </div>
         </div>
 
         {/* IJKL Mouse Controls */}
         <div className="flex flex-col items-center gap-2">
-          <h3 className="text-xs font-semibold text-green-400">
-            Mouse (IJKL)
-          </h3>
+          <h3 className="text-xs font-semibold text-green-400">Mouse (IJKL)</h3>
           <div className="grid grid-cols-3 gap-1">
             <div />
-            <KeyButton label="I" isActive={currentControl.mouse_key === "I"} isKeyboard={false} />
+            <KeyButton
+              label="I"
+              isActive={currentControl.mouse_key === "I"}
+              isKeyboard={false}
+            />
             <div />
-            <KeyButton label="J" isActive={currentControl.mouse_key === "J"} isKeyboard={false} />
-            <KeyButton label="U" isActive={currentControl.mouse_key === "U"} isKeyboard={false} />
-            <KeyButton label="L" isActive={currentControl.mouse_key === "L"} isKeyboard={false} />
+            <KeyButton
+              label="J"
+              isActive={currentControl.mouse_key === "J"}
+              isKeyboard={false}
+            />
+            <KeyButton
+              label="U"
+              isActive={currentControl.mouse_key === "U"}
+              isKeyboard={false}
+            />
+            <KeyButton
+              label="L"
+              isActive={currentControl.mouse_key === "L"}
+              isKeyboard={false}
+            />
             <div />
-            <KeyButton label="K" isActive={currentControl.mouse_key === "K"} isKeyboard={false} />
+            <KeyButton
+              label="K"
+              isActive={currentControl.mouse_key === "K"}
+              isKeyboard={false}
+            />
             <div />
           </div>
         </div>

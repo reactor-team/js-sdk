@@ -24,7 +24,7 @@ export function ReactorStatus({ className }: ReactorStatusProps) {
 
   return (
     <div
-      className={`border border-gray-700/30 bg-gray-900/40 p-2 rounded-lg ${className}`}
+      className={`border border-gray-700/30 bg-gray-900/40 p-3 rounded-lg ${className}`}
     >
       <div className="flex flex-row justify-between items-center">
         <div className="flex items-center gap-2">
@@ -63,7 +63,7 @@ export function ReactorStatus({ className }: ReactorStatusProps) {
           </button>
         ) : (
           <button
-            className="px-4 py-1.5 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all duration-200 text-sm font-medium"
+            className="px-4 py-1.5 rounded-md bg-red-600/80 text-white hover:bg-red-600 transition-all duration-200 text-sm font-medium"
             onClick={() => disconnect()}
           >
             Disconnect

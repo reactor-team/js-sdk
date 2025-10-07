@@ -60,9 +60,15 @@ export function ImageUploader({ className = "" }: ImageUploaderProps) {
   };
 
   return (
-    <div className={`bg-gray-900/40 rounded-lg p-2 border border-gray-700/30 flex flex-col ${className} ${status !== "ready" ? "opacity-50 pointer-events-none" : ""}`}>
+    <div
+      className={`bg-gray-900/40 rounded-lg p-3 border border-gray-700/30 flex flex-col ${className} ${
+        status !== "ready" ? "opacity-50 pointer-events-none" : ""
+      }`}
+    >
       <div className="flex justify-between items-center mb-2">
-        <span className="text-xs font-medium text-gray-400">Starting Image</span>
+        <span className="text-xs font-medium text-gray-400">
+          Starting Image
+        </span>
       </div>
 
       <div className="flex flex-col gap-2">
