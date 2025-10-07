@@ -1,6 +1,7 @@
 "use client";
 
-import { useReactor } from "@reactor-team/js-sdk";
+import { useState } from "react";
+import { useReactor, useReactorMessage } from "@reactor-team/js-sdk";
 
 interface ReactorStatusProps {
   className?: string;
@@ -12,6 +13,14 @@ export function ReactorStatus({ className }: ReactorStatusProps) {
     connect: state.connect,
     disconnect: state.disconnect,
   }));
+
+  const [generatorStatus, setGeneratorStatus] = useState<string | null>(null);
+
+  useReactorMessage((message: any) => {
+    if (message.type === "status") {
+      setGeneratorStatus(message.data.status);
+    }
+  });
 
   return (
     <div
@@ -37,6 +46,13 @@ export function ReactorStatus({ className }: ReactorStatusProps) {
               {status === "disconnected" ? "Disconnected" : "Connected"}
             </span>
           </div>
+          {generatorStatus && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border transition-all duration-200 text-purple-400 bg-purple-500/10 border-purple-500/20">
+              <span className="font-medium text-xs">
+                {generatorStatus}
+              </span>
+            </div>
+          )}
         </div>
         {status === "disconnected" ? (
           <button
