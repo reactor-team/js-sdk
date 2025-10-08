@@ -38,7 +38,7 @@ export function ImageUploader({ className = "" }: ImageUploaderProps) {
   };
 
   // Send the uploaded image to the model as the starting frame
-  const handleSetStartingImage = () => {
+  const handleSetStartingImage = async () => {
     if (!uploadedImage) return;
 
     // Extract base64 data (remove the data:image/...;base64, prefix)
@@ -46,7 +46,7 @@ export function ImageUploader({ className = "" }: ImageUploaderProps) {
     const imageId = `upload_${Date.now()}`;
 
     try {
-      sendMessage({
+      await sendMessage({
         type: "set_starting_image",
         data: {
           base64_image: base64Data,

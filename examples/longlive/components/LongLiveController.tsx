@@ -46,7 +46,7 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
     }
   }, [status]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim()) return;
 
@@ -56,7 +56,7 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
     const timestamp = currentStartFrame === 0 ? 0 : currentStartFrame + 3;
 
     // Send the prompt with the calculated timestamp
-    sendMessage({
+    await sendMessage({
       type: "schedule_prompt",
       data: {
         new_prompt: prompt.trim(),
@@ -66,7 +66,7 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
 
     // On the first prompt, also send a "start" message to begin the generation process
     if (currentStartFrame === 0) {
-      sendMessage({ type: "start" });
+      await sendMessage({ type: "start" });
     }
 
     setPrompt("");

@@ -67,9 +67,9 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
   });
 
   // Send reset message to restart the model
-  const handleReset = () => {
+  const handleReset = async () => {
     try {
-      sendMessage({ type: "reset" });
+      await sendMessage({ type: "reset" });
       console.log("Reset message sent");
     } catch (error) {
       console.error("Failed to send reset:", error);
@@ -106,7 +106,7 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
               mouse_key: prev.mouse_key,
               keyboard_key: newKeyboardKey,
             };
-            sendMessage({ type: "control", data: newControl });
+            void sendMessage({ type: "control", data: newControl });
             return newControl;
           }
           return prev;
@@ -120,7 +120,7 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
               keyboard_key: prev.keyboard_key,
               mouse_key: newMouseKey,
             };
-            sendMessage({ type: "control", data: newControl });
+            void sendMessage({ type: "control", data: newControl });
             return newControl;
           }
           return prev;
