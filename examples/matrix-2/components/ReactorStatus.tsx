@@ -54,15 +54,17 @@ export function ReactorStatus({ className }: ReactorStatusProps) {
         </div>
         {status === "disconnected" ? (
           <button
-            className="px-4 py-1.5 rounded-md bg-gray-700/50 text-gray-300 border border-gray-600/50 hover:bg-gray-700 hover:text-white transition-all duration-200 text-xs font-medium"
+            className="px-4 py-2 sm:px-4 sm:py-1.5 rounded-md bg-gray-700/50 text-gray-300 border border-gray-600/50 hover:bg-gray-700 hover:text-white active:scale-95 transition-all duration-200 text-xs sm:text-xs font-medium touch-none"
             onClick={() => connect()}
+            style={{ touchAction: "manipulation" }}
           >
             Connect
           </button>
         ) : (
           <button
-            className="px-4 py-1.5 rounded-md bg-red-600/80 text-white hover:bg-red-600 transition-all duration-200 text-xs font-medium"
+            className="px-4 py-2 sm:px-4 sm:py-1.5 rounded-md bg-red-600/80 text-white hover:bg-red-600 active:scale-95 transition-all duration-200 text-xs sm:text-xs font-medium touch-none"
             onClick={() => disconnect()}
+            style={{ touchAction: "manipulation" }}
           >
             Disconnect
           </button>
