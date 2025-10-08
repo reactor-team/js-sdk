@@ -2,6 +2,8 @@
 
 An interactive demo showcasing the Reactor JS SDK with the **matrix-2** world model for real-time AI-powered video control.
 
+**Live Demo:** [https://js-sdk-example-matrix-2.vercel.app/](https://js-sdk-example-matrix-2.vercel.app/)
+
 ## What This Example Does
 
 This Next.js app demonstrates how to:

@@ -21,27 +21,16 @@ This repository provides practical examples showing how to:
 ### LongLive Realtime Video Generation
 
 **Location:** `examples/longlive/`
+**Live Demo:** [https://js-sdk-example-longlive.vercel.app/](https://js-sdk-example-longlive.vercel.app/)
 
-A Next.js application demonstrating real-time AI video generation with the **longlive** model. Users can:
-- Submit text prompts at specific timestamps
-- Guide video generation dynamically as it runs
-- Track frame position and generation progress
-- See results in real-time through the `ReactorView` component
-
-Perfect for understanding prompt-based realtime video generation and how to schedule inputs during generation.
+A Next.js application demonstrating real-time AI video generation with the **longlive** model. [See full documentation →](examples/longlive/README.md)
 
 ### Matrix-2 World Model
 
 **Location:** `examples/matrix-2/`
+**Live Demo:** [https://js-sdk-example-matrix-2.vercel.app/](https://js-sdk-example-matrix-2.vercel.app/)
 
-A keyboard-controlled interface for the **matrix-2** model, showcasing interactive relatime world models. Features include:
-- WASD controls for player movement
-- IJKL controls for camera positioning
-- Real-time control message sending
-- Visual feedback for active inputs
-- Model reset functionality
-
-Ideal for learning how to implement interactive control systems for AI realtime world models.
+A keyboard-controlled interface for the **matrix-2** model, showcasing interactive realtime world models. [See full documentation →](examples/matrix-2/README.md)
 
 ## Quick Start
 

@@ -2,6 +2,8 @@
 
 A simple demo application showcasing the Reactor JS SDK with the **longlive** video generation model.
 
+**Live Demo:** [https://js-sdk-example-longlive.vercel.app/](https://js-sdk-example-longlive.vercel.app/)
+
 ## What This Example Does
 
 This Next.js app demonstrates how to:
