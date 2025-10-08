@@ -72,7 +72,7 @@ export function ImageUploader({ className = "" }: ImageUploaderProps) {
       </div>
 
       <div className="flex flex-col gap-2">
-        <label className="px-4 py-1.5 rounded-md bg-gray-500/10 text-gray-300 border border-gray-500/20 hover:bg-gray-500/20 transition-all duration-200 text-sm font-medium cursor-pointer text-center flex-shrink-0">
+        <label className="px-4 py-1.5 rounded-md bg-gray-500/10 text-gray-300 border border-gray-500/20 hover:bg-gray-500/20 transition-all duration-200 text-xs font-medium cursor-pointer text-center flex-shrink-0">
           Upload Image
           <input
             type="file"
@@ -92,7 +92,7 @@ export function ImageUploader({ className = "" }: ImageUploaderProps) {
             </div>
             <button
               onClick={handleSetStartingImage}
-              className="px-4 py-1.5 rounded-md bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-all duration-200 text-sm font-medium flex-shrink-0"
+              className="px-4 py-1.5 rounded-md bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-all duration-200 text-xs font-medium flex-shrink-0"
             >
               Set as Starting Frame
             </button>

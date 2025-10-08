@@ -48,22 +48,20 @@ export function ReactorStatus({ className }: ReactorStatusProps) {
           </div>
           {generatorStatus && (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border transition-all duration-200 text-purple-400 bg-purple-500/10 border-purple-500/20">
-              <span className="font-medium text-xs">
-                {generatorStatus}
-              </span>
+              <span className="font-medium text-xs">{generatorStatus}</span>
             </div>
           )}
         </div>
         {status === "disconnected" ? (
           <button
-            className="px-4 py-1.5 rounded-md bg-blue-600/80 text-white hover:bg-blue-600 transition-all duration-200 text-sm font-medium"
+            className="px-4 py-1.5 rounded-md bg-gray-700/50 text-gray-300 border border-gray-600/50 hover:bg-gray-700 hover:text-white transition-all duration-200 text-xs font-medium"
             onClick={() => connect()}
           >
             Connect
           </button>
         ) : (
           <button
-            className="px-4 py-1.5 rounded-md bg-red-600/80 text-white hover:bg-red-600 transition-all duration-200 text-sm font-medium"
+            className="px-4 py-1.5 rounded-md bg-red-600/80 text-white hover:bg-red-600 transition-all duration-200 text-xs font-medium"
             onClick={() => disconnect()}
           >
             Disconnect

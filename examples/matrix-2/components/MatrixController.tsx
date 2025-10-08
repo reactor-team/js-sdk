@@ -26,7 +26,7 @@ interface KeyButtonProps {
 // Visual button component for displaying individual keys
 function KeyButton({ label, isActive, isKeyboard }: KeyButtonProps) {
   const baseClasses =
-    "w-10 h-10 rounded font-bold text-sm transition-all duration-200";
+    "w-10 h-10 rounded font-bold text-xs transition-all duration-200";
   const activeClasses = isKeyboard
     ? "bg-blue-500 text-white border-2 border-blue-600 shadow-lg"
     : "bg-green-500 text-white border-2 border-green-600 shadow-lg";
@@ -161,7 +161,7 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
         <span className="text-xs font-medium text-gray-400">Controls</span>
         <button
           onClick={handleReset}
-          className="px-4 py-1.5 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all duration-200 text-sm font-medium"
+          className="px-4 py-1.5 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all duration-200 text-xs font-medium"
         >
           Reset Model
         </button>

@@ -97,7 +97,7 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
         <button
           type="submit"
           disabled={!prompt.trim() || status === "disconnected"}
-          className="px-5 py-2 bg-green-600/80 text-white rounded-md hover:bg-green-600 disabled:bg-gray-700/50 disabled:cursor-not-allowed transition-all duration-200 text-sm font-medium"
+          className="px-5 py-2 bg-green-600/80 text-white rounded-md hover:bg-green-600 disabled:bg-gray-700/50 disabled:cursor-not-allowed transition-all duration-200 text-xs font-medium"
         >
           Send
         </button>
