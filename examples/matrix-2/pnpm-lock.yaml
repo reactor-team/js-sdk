@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@reactor-team/js-sdk':
-        specifier: ^1.0.9
-        version: 1.0.9(@types/dom-mediacapture-record@1.0.22)(@types/node@20.19.19)(react@19.1.0)(zustand@5.0.8(@types/react@19.2.2)(react@19.1.0))
+        specifier: ^1.0.10
+        version: 1.0.10(@types/dom-mediacapture-record@1.0.22)(@types/node@20.19.19)(react@19.1.0)(zustand@5.0.8(@types/react@19.2.2)(react@19.1.0))
       '@vercel/analytics':
         specifier: ^1.5.0
         version: 1.5.0(next@15.5.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)
@@ -277,8 +277,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@reactor-team/js-sdk@1.0.9':
-    resolution: {integrity: sha512-CSaM0ktBDz/o56wryIoO/VuadlPjFrvEybcpZNquvWx+z03ngSWN4beCc2qFYzGNTWAef0WrQaRVi5Q2iVWYaw==}
+  '@reactor-team/js-sdk@1.0.10':
+    resolution: {integrity: sha512-1OkBdpmCWt7EFHV2mtXrkGIQ2t/jdUkY2YVcEi2ASAHGb2dtY4EE3LtAx3X5Gx8umZ+LHK7vbNppJ6lDM5m9DQ==}
     peerDependencies:
       react: ^17.0.0 || ^18.0.0 || ^19.0.0
       zustand: ^5.0.6
@@ -1039,7 +1039,7 @@ snapshots:
   '@next/swc-win32-x64-msvc@15.5.4':
     optional: true
 
-  '@reactor-team/js-sdk@1.0.9(@types/dom-mediacapture-record@1.0.22)(@types/node@20.19.19)(react@19.1.0)(zustand@5.0.8(@types/react@19.2.2)(react@19.1.0))':
+  '@reactor-team/js-sdk@1.0.10(@types/dom-mediacapture-record@1.0.22)(@types/node@20.19.19)(react@19.1.0)(zustand@5.0.8(@types/react@19.2.2)(react@19.1.0))':
     dependencies:
       chalk: 5.6.2
       inquirer: 9.3.8(@types/node@20.19.19)

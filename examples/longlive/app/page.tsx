@@ -33,6 +33,7 @@ export default function Home() {
         <ReactorProvider
           modelName="longlive"
           insecureApiKey={process.env.NEXT_PUBLIC_REACTOR_API_KEY!}
+          queueing
         >
           <div className="flex flex-col gap-3">
             <ReactorView className="w-full aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700/50 shadow-xl overflow-hidden" />
