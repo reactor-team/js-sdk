@@ -80,7 +80,7 @@ See more details on the project page: [View Project](https://matrix-game-v2.gith
 ## Learn More
 
 - [Reactor Website](https://reactor.inc) - Learn more about Reactor and our platform
-- [Reactor Documentation](https://reactor-technologies.readme.io/docs/overview) - Learn about Reactor's AI models and SDK
+- [Reactor Documentation](https://docs.reactor.inc) - Learn about Reactor's AI models and SDK
 - [Reactor JS SDK](https://github.com/reactor-team/js-sdk) - Explore the SDK repository
 
 ## Support

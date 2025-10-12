@@ -53,7 +53,7 @@ A keyboard-controlled interface for the **matrix-2** model, showcasing interacti
    cp .env.example .env.local
    ```
    
-   Then edit `.env.local` and add your Reactor API key. You can obtain an API key from the [Reactor Dashboard](https://reactor-technologies.readme.io/docs/getting-started).
+   Then edit `.env.local` and add your Reactor API key. You can obtain an API key by emailing us at [team@reactor.inc](mailto:team@reactor.inc).
 
 4. **Run the development server:**
    ```bash
@@ -67,13 +67,13 @@ A keyboard-controlled interface for the **matrix-2** model, showcasing interacti
 ## Documentation & Resources
 
 - **[Reactor Website](https://reactor.inc)** - Learn more about Reactor and our platform
-- **[Getting Started Guide](https://reactor-technologies.readme.io/docs/getting-started)** - Complete setup instructions and tutorials
-- **[SDK Documentation](https://reactor-technologies.readme.io/docs/overview)** - Detailed API reference and model information
+- **[Getting Started Guide](https://docs.reactor.inc)** - Complete setup instructions and tutorials
+- **[SDK Documentation](https://docs.reactor.inc/api-reference/overview)** - Detailed API reference and model information
 - **[NPM Package](https://www.npmjs.com/package/@reactor-team/js-sdk)** - Install the SDK in your own projects
 
 ## Support
 
-For questions, issues, or feature requests, please visit our [documentation](https://reactor-technologies.readme.io) or contact our support team at [team@reactor.inc](mailto:team@reactor.inc).
+For questions, issues, or feature requests, please visit our [documentation](https://docs.reactor.inc/) or contact our support team at [team@reactor.inc](mailto:team@reactor.inc).
 
 ---
 
