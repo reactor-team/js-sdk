@@ -52,7 +52,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="w-full max-w-3xl md:min-w-[640px] lg:min-w-[768px] mx-auto mt-8 pt-6 pb-4 border-t border-gray-800/50">
         <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 text-xs text-gray-500">
-          <span>© 2025 Reactor Technologies, Inc.</span>
+          <span>© {new Date().getFullYear()} Reactor Technologies, Inc.</span>
           <span className="hidden sm:inline">-</span>
           <a
             href="https://reactor.inc"
@@ -64,7 +64,7 @@ export default function Home() {
           </a>
           <span className="hidden sm:inline">-</span>
           <a
-            href="https://reactor-technologies.readme.io"
+            href="https://docs.reactor.inc/"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-gray-300 transition-colors"
