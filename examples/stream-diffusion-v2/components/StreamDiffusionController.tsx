@@ -7,6 +7,9 @@ interface StreamDiffusionControllerProps {
   className?: string;
 }
 
+const DEFAULT_PROMPT =
+  "Full skeleton with glowing green eye sockets, exposed skull and ribcage, bony hands with long skeletal fingers reaching forward, complete leg bones and spine visible, tattered black robes, swirling green fog, dark graveyard background, moonlight on white bones, jaw open showing teeth, standing pose, photorealistic, 4k quality";
+
 /**
  * StreamDiffusionController
  *
@@ -36,11 +39,38 @@ export function StreamDiffusionController({
     if (status === "disconnected") {
       setPrompt("");
       setDenoisingSteps("700, 500, 200");
-      setCurrentPrompt(null);
       setCurrentDenoisingSteps(null);
       setIsStarted(false);
     }
   }, [status]);
+
+  // Auto-start with prompt when connection is ready
+  useEffect(() => {
+    const autoStart = async () => {
+      if (status === "ready" && !isStarted) {
+        const promptToUse = currentPrompt || DEFAULT_PROMPT;
+
+        try {
+          await sendMessage({
+            type: "set_prompt",
+            data: {
+              prompt: promptToUse,
+            },
+          });
+          setCurrentPrompt(promptToUse);
+
+          await sendMessage({
+            type: "start",
+          });
+          setIsStarted(true);
+        } catch (error) {
+          console.error("[StreamDiffusion] Failed to auto-start:", error);
+        }
+      }
+    };
+
+    autoStart();
+  }, [status, isStarted, sendMessage, currentPrompt]);
 
   const validateDenoisingSteps = (input: string): number[] | null => {
     try {
@@ -74,8 +104,6 @@ export function StreamDiffusionController({
     const trimmedPrompt = prompt.trim();
     if (!trimmedPrompt) return;
 
-    const isFirstPrompt = !currentPrompt;
-
     try {
       await sendMessage({
         type: "set_prompt",
@@ -85,14 +113,6 @@ export function StreamDiffusionController({
       });
       setCurrentPrompt(trimmedPrompt);
       setPrompt("");
-
-      // Auto-start on first prompt
-      if (isFirstPrompt) {
-        await sendMessage({
-          type: "start",
-        });
-        setIsStarted(true);
-      }
     } catch (error) {
       console.error("[StreamDiffusion] Failed to set prompt:", error);
     }
@@ -120,19 +140,6 @@ export function StreamDiffusionController({
     }
   };
 
-  const handleReset = async () => {
-    try {
-      await sendMessage({
-        type: "reset",
-      });
-      setCurrentPrompt(null);
-      setCurrentDenoisingSteps(null);
-      setIsStarted(false);
-    } catch (error) {
-      console.error("[StreamDiffusion] Failed to reset:", error);
-    }
-  };
-
   const isReady = status === "ready";
 
   return (
@@ -142,13 +149,6 @@ export function StreamDiffusionController({
       {/* Header */}
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-gray-400">Controls</span>
-        <button
-          onClick={handleReset}
-          disabled={!isReady || !isStarted}
-          className="px-3 py-1.5 rounded-md bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/30 active:scale-95 transition-all duration-200 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Reset
-        </button>
       </div>
 
       {/* Current Settings Display */}
@@ -197,13 +197,9 @@ export function StreamDiffusionController({
           <button
             onClick={handleSetPrompt}
             disabled={!isReady || !prompt.trim()}
-            className={`px-4 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-xs font-semibold ${
-              !currentPrompt
-                ? "bg-green-500/20 text-green-400 border border-green-500/40 hover:bg-green-500/30 active:scale-95"
-                : "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-blue-500/30"
-            }`}
+            className="px-4 py-2 rounded-md bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-xs font-semibold"
           >
-            {!currentPrompt ? "Start" : "Set"}
+            Set
           </button>
         </div>
         <p className="mt-1 text-xs text-gray-500">
