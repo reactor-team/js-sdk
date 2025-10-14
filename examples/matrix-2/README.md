@@ -73,9 +73,11 @@ The matrix-2 model responds to keyboard inputs in real-time:
 
 ## About the Matrix-Game 2.0 Model
 
-Matrix-Game 2.0 is an open-source, real-time, and streaming interactive world model that generates long videos on-the-fly via few-step auto-regressive diffusion. Trained on approximately 1200 hours of video data from Unreal Engine and GTA5 environments, the model supports frame-level mouse and keyboard inputs for interactive video generation at 25 FPS.
+Matrix-Game 2.0 is an open-source, real-time, and streaming interactive world model that generates long videos on-the-fly via few-step auto-regressive diffusion.
 
-See more details on the project page: [View Project](https://matrix-game-v2.github.io)
+Developed by Xianglong He, Chunli Peng, Zexiang Liu, Boyang Wang, Yifan Zhang, Qi Cui, Fei Kang, Biao Jiang, Mengyin An, Yangyang Ren, Baixin Xu, Hao-Xiang Guo, Kaixiong Gong, Cyrus Wu, Wei Li, Xuchen Song, Yang Liu, Eric Li, and Yahui Zhou (Skywork AI)
+
+[Project Page](https://matrix-game-v2.github.io/) - [View on GitHub](https://github.com/SkyworkAI/Matrix-Game/tree/main/Matrix-Game-2)
 
 ## Learn More
 

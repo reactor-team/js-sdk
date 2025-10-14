@@ -54,9 +54,11 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 
 ## About the LongLive Model
 
-LongLive is a frame-level autoregressive framework for real-time and interactive long video generation. The model supports minute-long video generation at 20.7 FPS and enables dynamic prompt scheduling during generation.
+LongLive is a frame-level autoregressive framework for real-time and interactive long video generation.
 
-Developed by NVIDIA (NVlabs) • [View Research](https://github.com/NVlabs/LongLive)
+Developed by Shuai Yang, Wei Huang, Ruihang Chu, Yicheng Xiao, Yuyang Zhao, Xianbang Wang, Muyang Li, Enze Xie, Yingcong Chen, Yao Lu, Song Han, and Yukang Chen (NVIDIA Labs)
+
+[Project Page](https://nvlabs.github.io/LongLive) - [View on GitHub](https://github.com/NVlabs/LongLive)
 
 ## Learn More
 
