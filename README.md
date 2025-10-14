@@ -32,6 +32,13 @@ A Next.js application demonstrating real-time AI video generation with the **lon
 
 A keyboard-controlled interface for the **matrix-2** model, showcasing interactive realtime world models. [See full documentation →](examples/matrix-2/README.md)
 
+### StreamDiffusionV2 Real-time Video Transformation
+
+**Location:** `examples/stream-diffusion-v2/`
+**Live Demo:** [https://js-sdk-stream-diffusion-v2.vercel.app/](https://js-sdk-stream-diffusion-v2.vercel.app/)
+
+A Next.js application demonstrating real-time webcam-to-video AI transformation with the **StreamDiffusionV2** model. [See full documentation →](examples/stream-diffusion-v2/README.md)
+
 ## Quick Start
 
 1. **Choose an example** and navigate to its directory:
@@ -39,6 +46,8 @@ A keyboard-controlled interface for the **matrix-2** model, showcasing interacti
    cd examples/longlive
    # or
    cd examples/matrix-2
+   # or
+   cd examples/stream-diffusion-v2
    ```
 
 2. **Install dependencies:**

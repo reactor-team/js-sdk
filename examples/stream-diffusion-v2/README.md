@@ -2,7 +2,7 @@
 
 A real-time video-to-video AI transformation demo showcasing the Reactor JS SDK with the **StreamDiffusionV2** model.
 
-**Live Demo:** [Coming Soon]
+**Live Demo:** [https://js-sdk-stream-diffusion-v2.vercel.app/](https://js-sdk-stream-diffusion-v2.vercel.app/)
 
 ## What This Example Does
 
