@@ -51,13 +51,19 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
     }
   });
 
+  // Reset all UI state to initial values
+  const resetUIState = () => {
+    setPrompt("");
+    setCurrentStartFrame(0);
+    setSelectedStoryId(null);
+    setCurrentStep(0);
+    setCurrentPrompt("");
+  };
+
   // Reset the frame counter and story progress when we disconnect from the model
   useEffect(() => {
     if (status === "disconnected") {
-      setCurrentStartFrame(0);
-      setSelectedStoryId(null);
-      setCurrentStep(0);
-      setCurrentPrompt("");
+      resetUIState();
     }
   }, [status]);
 
@@ -177,10 +183,33 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
     }
   };
 
+  // Send reset message to restart the model and reset UI state
+  const handleReset = async () => {
+    try {
+      await sendMessage({ type: "reset" });
+      resetUIState();
+      console.log("Reset message sent");
+    } catch (error) {
+      console.error("Failed to send reset:", error);
+    }
+  };
+
   return (
     <div
       className={`bg-gray-900/40 rounded-lg p-3 border border-gray-700/30 space-y-3 ${className}`}
     >
+      {/* Header with Reset Button */}
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-gray-400">Prompts</span>
+        <button
+          onClick={handleReset}
+          disabled={status === "disconnected"}
+          className="px-3 py-1.5 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 active:scale-95 transition-all duration-200 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Reset
+        </button>
+      </div>
+
       {/* Current Prompt Display */}
       {currentPrompt && (
         <div className="bg-gray-800/30 rounded-md p-2 border border-gray-700/30">
