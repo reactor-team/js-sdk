@@ -128,8 +128,10 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
       };
 
       mediaRecorder.onstop = async () => {
+        // Use the MediaRecorder's actual MIME type instead of hardcoding
+        const mimeType = mediaRecorder.mimeType || "audio/webm";
         const audioBlob = new Blob(audioChunksRef.current, {
-          type: "audio/webm",
+          type: mimeType,
         });
         await transcribeAudio(audioBlob);
         stream.getTracks().forEach((track) => track.stop());
@@ -153,8 +155,22 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
   const transcribeAudio = async (audioBlob: Blob) => {
     setIsTranscribing(true);
     try {
+      // Determine the correct file extension based on the MIME type
+      const mimeType = audioBlob.type;
+      let extension = "webm";
+
+      if (mimeType.includes("mp4") || mimeType.includes("m4a")) {
+        extension = "mp4";
+      } else if (mimeType.includes("mpeg")) {
+        extension = "mp3";
+      } else if (mimeType.includes("wav")) {
+        extension = "wav";
+      } else if (mimeType.includes("ogg")) {
+        extension = "ogg";
+      }
+
       const formData = new FormData();
-      formData.append("audio", audioBlob, "recording.webm");
+      formData.append("audio", audioBlob, `recording.${extension}`);
 
       const response = await fetch("/api/transcribe", {
         method: "POST",
