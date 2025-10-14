@@ -11,6 +11,7 @@
     "@reactor-team/js-sdk": "^1.0.11",
     "@vercel/analytics": "^1.5.0",
     "next": "15.5.4",
+    "openai": "^6.3.0",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },

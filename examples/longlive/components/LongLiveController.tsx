@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useReactor, useReactorMessage } from "@reactor-team/js-sdk";
 import { PromptSuggestions } from "./PromptSuggestions";
 import type { StoryPrompt } from "@/lib/prompts";
@@ -28,6 +28,11 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
   const [currentStep, setCurrentStep] = useState(0);
   // Track the current active prompt
   const [currentPrompt, setCurrentPrompt] = useState<string>("");
+  // Voice recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   // Get sendMessage function and connection status from Reactor state
   const { sendMessage, status } = useReactor((state) => ({
@@ -103,6 +108,75 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
     setPrompt("");
   };
 
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm",
+        });
+        await transcribeAudio(audioBlob);
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error("Error starting recording:", error);
+      alert("Failed to access microphone. Please check permissions.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const transcribeAudio = async (audioBlob: Blob) => {
+    setIsTranscribing(true);
+    try {
+      const formData = new FormData();
+      formData.append("audio", audioBlob, "recording.webm");
+
+      const response = await fetch("/api/transcribe", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Transcription failed");
+      }
+
+      const data = await response.json();
+      setPrompt(data.text);
+    } catch (error) {
+      console.error("Transcription error:", error);
+      alert("Failed to transcribe audio. Please try again.");
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const handleVoiceInput = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
   return (
     <div
       className={`bg-gray-900/40 rounded-lg p-3 border border-gray-700/30 space-y-3 ${className}`}
@@ -145,10 +219,46 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
             type="text"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Enter your prompt..."
+            placeholder={
+              isTranscribing
+                ? "Transcribing..."
+                : "Enter your prompt or use voice..."
+            }
             className="flex-1 px-3 py-2 bg-gray-800/50 border border-gray-700/50 rounded-md text-white text-xs placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
-            disabled={status === "disconnected"}
+            disabled={status === "disconnected" || isTranscribing}
           />
+          <button
+            type="button"
+            onClick={handleVoiceInput}
+            disabled={status === "disconnected" || isTranscribing}
+            className={`px-3 py-2 rounded-md transition-all duration-200 text-xs font-medium flex items-center gap-1.5 ${
+              isRecording
+                ? "bg-red-600/80 hover:bg-red-600 animate-pulse"
+                : "bg-blue-600/80 hover:bg-blue-600"
+            } text-white disabled:bg-gray-700/50 disabled:cursor-not-allowed`}
+            title={isRecording ? "Stop recording" : "Start voice input"}
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              {isRecording ? (
+                <rect x="6" y="4" width="12" height="16" rx="2" />
+              ) : (
+                <>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                  />
+                </>
+              )}
+            </svg>
+            {isRecording ? "Stop" : ""}
+          </button>
           <button
             type="submit"
             disabled={!prompt.trim() || status === "disconnected"}

@@ -22,15 +22,17 @@ npm install
 pnpm install
 ```
 
-### 2. Set Up Your API Key
+### 2. Set Up Your API Keys
 
-Copy the example environment file and add your Reactor API key:
+Copy the example environment file and add your API keys:
 
 ```bash
 cp .env.example .env.local
 ```
 
-Edit `.env.local` and replace `<your-api-key-here>` with your actual Reactor API key.
+Edit `.env.local` and add:
+- `NEXT_PUBLIC_REACTOR_API_KEY` - Your Reactor API key
+- `OPENAI_API_KEY` - Your OpenAI API key (required for voice input feature)
 
 ### 3. Run the Development Server
 
@@ -44,8 +46,8 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 
 ## How to Use
 
-1. Enter a prompt in the text field
-2. Click "Send" to schedule the prompt
+1. **Text Input**: Enter a prompt in the text field and click "Send"
+2. **Voice Input**: Click the microphone button to record your prompt, click again to stop and transcribe
 3. Watch as the longlive model generates video based on your prompts
 4. Add additional prompts to guide the video generation in real-time
 5. Track the current frame position to see where you are in the generation
