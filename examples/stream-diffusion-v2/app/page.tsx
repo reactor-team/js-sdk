@@ -40,15 +40,18 @@ export default function Home() {
           queueing
         >
           <div className="flex flex-col gap-3">
-            <div className="flex flex-col md:flex-row gap-3">
-              <WebcamStream
-                className="flex-1 aspect-video rounded-xl border border-gray-700/50 overflow-hidden"
-                videoObjectFit="cover"
-              />
-              <ReactorView
-                className="flex-1 aspect-video rounded-xl border border-gray-700/50 overflow-hidden"
-                videoObjectFit="cover"
-              />
+            <div className="relative aspect-video rounded-xl border border-gray-700/50 overflow-hidden">
+              <div className="absolute inset-0">
+                <ReactorView className="w-full h-full" videoObjectFit="cover" />
+              </div>
+              <div className="absolute inset-0 pointer-events-none ">
+                <div className="absolute bottom-0 left-0 p-4">
+                  <WebcamStream
+                    className="w-1/4 aspect-video rounded-lg border-2 border-gray-600/80 overflow-hidden shadow-2xl pointer-events-auto"
+                    videoObjectFit="cover"
+                  />
+                </div>
+              </div>
             </div>
             <ReactorStatus />
             <StreamDiffusionController />
