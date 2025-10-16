@@ -47,7 +47,7 @@ export default function Home() {
               <div className="absolute inset-0 pointer-events-none ">
                 <div className="absolute bottom-0 left-0 p-4">
                   <WebcamStream
-                    className="w-1/4 aspect-video rounded-lg border-2 border-gray-600/80 overflow-hidden shadow-2xl pointer-events-auto"
+                    className="w-1/4 aspect-video rounded-lg border border-gray-700/70 overflow-hidden shadow-2xl pointer-events-auto"
                     videoObjectFit="cover"
                   />
                 </div>
