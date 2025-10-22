@@ -36,8 +36,7 @@ export default function Home() {
         </div>
         <ReactorProvider
           modelName="stream-diffusion-v2"
-          insecureApiKey="1234"
-          coordinatorUrl="wss://api-test.reactor.inc/ws"
+          insecureApiKey={process.env.NEXT_PUBLIC_REACTOR_API_KEY!}
           queueing
         >
           <div className="flex flex-col gap-3">
