@@ -48,7 +48,11 @@ export default function Home() {
                 <div className="absolute bottom-0 left-0 p-4">
                   <WebcamStream
                     className="w-1/4 aspect-video rounded-lg border border-gray-700/70 overflow-hidden shadow-2xl pointer-events-auto"
-                    videoObjectFit="cover"
+                    videoObjectFit="fill"
+                    videoConstraints={{
+                      width: 672,
+                      height: 384,
+                    }}
                   />
                 </div>
               </div>
