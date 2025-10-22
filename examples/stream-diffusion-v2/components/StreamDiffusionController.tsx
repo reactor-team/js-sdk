@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useReactor } from "@reactor-team/js-sdk";
+import { PromptSuggestions } from "./PromptSuggestions";
 
 interface StreamDiffusionControllerProps {
   className?: string;
@@ -118,6 +119,20 @@ export function StreamDiffusionController({
     }
   };
 
+  const handlePromptSelect = async (selectedPrompt: string) => {
+    try {
+      await sendMessage({
+        type: "set_prompt",
+        data: {
+          prompt: selectedPrompt,
+        },
+      });
+      setCurrentPrompt(selectedPrompt);
+    } catch (error) {
+      console.error("[StreamDiffusion] Failed to set prompt:", error);
+    }
+  };
+
   const handleSetDenoisingSteps = async () => {
     const steps = validateDenoisingSteps(denoisingSteps);
     if (!steps) {
@@ -174,6 +189,9 @@ export function StreamDiffusionController({
           )}
         </div>
       )}
+
+      {/* Prompt Suggestions */}
+      <PromptSuggestions onPromptSelect={handlePromptSelect} disabled={!isReady} />
 
       {/* Prompt Input */}
       <div>
