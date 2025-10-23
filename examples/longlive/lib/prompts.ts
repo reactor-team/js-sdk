@@ -20,7 +20,7 @@ export const stories: Story[] = [
     title: "Epic Fantasy Quest",
     description: "Journey through magical realms",
     theme: "from-purple-900 to-pink-900",
-    audio: "/audio/fantasy.mp4",
+    audio: "/audio/honor.mp4",
     startPrompt: {
       id: "fantasy-1",
       title: "Misty Temple",
@@ -59,6 +59,7 @@ export const stories: Story[] = [
     title: "Cyberpunk Metropolis",
     description: "Navigate the neon-lit future",
     theme: "from-cyan-900 to-blue-900",
+    audio: "/audio/cyberpunk.mp4",
     startPrompt: {
       id: "cyber-1",
       title: "Neon Rain",
@@ -103,7 +104,7 @@ export const stories: Story[] = [
     title: "Ocean Depths",
     description: "Explore underwater wonders",
     theme: "from-blue-900 to-teal-900",
-    audio: "/audio/ocean.mp4",
+    audio: "/audio/water.mp4",
     startPrompt: {
       id: "ocean-1",
       title: "Empty Reef",

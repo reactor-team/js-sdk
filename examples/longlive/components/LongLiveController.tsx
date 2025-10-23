@@ -36,6 +36,7 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
   const audioChunksRef = useRef<Blob[]>([]);
   // Audio playback ref for story music
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
 
   // Get sendMessage function and connection status from Reactor state
   const { sendMessage, status } = useReactor((state) => ({
@@ -54,6 +55,29 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
     }
   });
 
+  // Fade out audio smoothly
+  const fadeOutAudio = () => {
+    if (!audioRef.current) return;
+
+    const audio = audioRef.current;
+    const fadeOutDuration = 500; // 500ms fade out
+    const fadeOutSteps = 20;
+    const volumeStep = audio.volume / fadeOutSteps;
+    const stepDuration = fadeOutDuration / fadeOutSteps;
+
+    const fadeInterval = setInterval(() => {
+      if (audio.volume > volumeStep) {
+        audio.volume = Math.max(0, audio.volume - volumeStep);
+      } else {
+        audio.volume = 0;
+        audio.pause();
+        audio.currentTime = 0;
+        audio.volume = 1; // Reset volume for next play
+        clearInterval(fadeInterval);
+      }
+    }, stepDuration);
+  };
+
   // Reset all UI state to initial values
   const resetUIState = () => {
     setPrompt("");
@@ -61,11 +85,8 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
     setSelectedStoryId(null);
     setCurrentStep(0);
     setCurrentPrompt("");
-    // Stop and reset audio
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
+    // Fade out and reset audio
+    fadeOutAudio();
   };
 
   // Reset the frame counter and story progress when we disconnect from the model
@@ -74,6 +95,19 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
       resetUIState();
     }
   }, [status]);
+
+  // Control audio playback based on isAudioEnabled
+  useEffect(() => {
+    if (audioRef.current) {
+      if (isAudioEnabled) {
+        audioRef.current.play().catch((error) => {
+          console.error("Failed to play audio:", error);
+        });
+      } else {
+        audioRef.current.pause();
+      }
+    }
+  }, [isAudioEnabled]);
 
   const handleSubmitPrompt = async (promptText: string) => {
     if (!promptText.trim()) return;
@@ -123,11 +157,13 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
           audioRef.current.currentTime = 0;
         }
 
-        // Play the audio
-        try {
-          await audioRef.current.play();
-        } catch (error) {
-          console.error("Failed to play audio:", error);
+        // Play the audio only if enabled
+        if (isAudioEnabled) {
+          try {
+            await audioRef.current.play();
+          } catch (error) {
+            console.error("Failed to play audio:", error);
+          }
         }
       }
     }
@@ -244,16 +280,60 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
     <div
       className={`bg-gray-900/40 rounded-lg p-3 border border-gray-700/30 space-y-3 ${className}`}
     >
-      {/* Header with Reset Button */}
+      {/* Header with Audio Toggle and Reset Button */}
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-gray-400">Prompts</span>
-        <button
-          onClick={handleReset}
-          disabled={status === "disconnected"}
-          className="px-3 py-1.5 rounded-md bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/30 active:scale-95 transition-all duration-200 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Reset
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Audio Toggle */}
+          <button
+            onClick={() => setIsAudioEnabled(!isAudioEnabled)}
+            className={`p-1.5 rounded-md transition-all duration-200 active:scale-95 border ${
+              isAudioEnabled
+                ? "bg-blue-500/20 text-blue-400 border-blue-500/40 hover:bg-blue-500/30"
+                : "bg-gray-500/20 text-gray-400 border-gray-500/40 hover:bg-gray-500/30"
+            }`}
+            title={isAudioEnabled ? "Mute audio" : "Unmute audio"}
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              {isAudioEnabled ? (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+                />
+              ) : (
+                <>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"
+                  />
+                </>
+              )}
+            </svg>
+          </button>
+          {/* Reset Button */}
+          <button
+            onClick={handleReset}
+            disabled={status === "disconnected"}
+            className="px-3 py-1.5 rounded-md bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/30 active:scale-95 transition-all duration-200 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Reset
+          </button>
+        </div>
       </div>
 
       {/* Current Prompt Display */}
