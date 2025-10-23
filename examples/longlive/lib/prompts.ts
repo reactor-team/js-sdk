@@ -57,7 +57,6 @@ export const stories: Story[] = [
     title: "Cyberpunk Metropolis",
     description: "Navigate the neon-lit future",
     theme: "from-cyan-900 to-blue-900",
-    audio: "/audio/cyberpunk.mp4",
     startPrompt: {
       id: "cyber-1",
       title: "Neon Rain",
