@@ -7,6 +7,30 @@ interface ImageUploaderProps {
   className?: string;
 }
 
+// Example starting images for Matrix-2
+const EXAMPLE_IMAGES = [
+  {
+    id: "water-temple",
+    title: "Templte",
+    url: "/examples/water-temple.png",
+  },
+  {
+    id: "water-game",
+    title: "Water Park",
+    url: "/examples/water-game.png",
+  },
+  {
+    id: "beach",
+    title: "Beach Scene",
+    url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&h=300&fit=crop",
+  },
+  {
+    id: "Snow",
+    title: "Snowy Village",
+    url: "/examples/snow.png",
+  },
+];
+
 /**
  * ImageUploader
  *
@@ -23,6 +47,7 @@ export function ImageUploader({ className = "" }: ImageUploaderProps) {
   }));
 
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [selectedExampleId, setSelectedExampleId] = useState<string | null>(null);
 
   // Handle image file upload and convert to base64
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,8 +58,28 @@ export function ImageUploader({ className = "" }: ImageUploaderProps) {
     reader.onloadend = () => {
       const base64String = reader.result as string;
       setUploadedImage(base64String);
+      setSelectedExampleId(null);
     };
     reader.readAsDataURL(file);
+  };
+
+  // Handle selecting an example image
+  const handleExampleSelect = async (imageUrl: string, imageId: string) => {
+    try {
+      // Fetch the image and convert to base64
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setUploadedImage(base64String);
+        setSelectedExampleId(imageId);
+      };
+      reader.readAsDataURL(blob);
+    } catch (error) {
+      console.error("Failed to load example image:", error);
+    }
   };
 
   // Send the uploaded image to the model as the starting frame
@@ -81,9 +126,45 @@ export function ImageUploader({ className = "" }: ImageUploaderProps) {
             className="hidden"
           />
         </label>
+
+        {/* Example Images */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-gray-400">
+              Or choose an example
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {EXAMPLE_IMAGES.map((example) => (
+              <button
+                key={example.id}
+                onClick={() => handleExampleSelect(example.url, example.id)}
+                className={`group relative overflow-hidden rounded-md border transition-all duration-200 ${
+                  selectedExampleId === example.id
+                    ? "border-blue-500/50 ring-1 ring-blue-500/30"
+                    : "border-gray-700/50 hover:border-gray-600/50"
+                }`}
+              >
+                <div className="h-16 overflow-hidden bg-gray-800/30">
+                  <img
+                    src={example.url}
+                    alt={example.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1">
+                  <p className="text-[10px] text-white font-medium">
+                    {example.title}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {uploadedImage && (
           <>
-            <div className="h-32 sm:h-36 overflow-hidden rounded-md border border-gray-700/50 bg-gray-800/30">
+            <div className="h-16 sm:h-18 overflow-hidden rounded-md border border-gray-700/50 bg-gray-800/30">
               <img
                 src={uploadedImage}
                 alt="Uploaded preview"

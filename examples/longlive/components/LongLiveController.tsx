@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useReactor, useReactorMessage } from "@reactor-team/js-sdk";
 import { PromptSuggestions } from "./PromptSuggestions";
+import { stories } from "@/lib/prompts";
 import type { StoryPrompt } from "@/lib/prompts";
 
 interface LongLiveControllerProps {
@@ -33,6 +34,8 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  // Audio playback ref for story music
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Get sendMessage function and connection status from Reactor state
   const { sendMessage, status } = useReactor((state) => ({
@@ -58,6 +61,11 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
     setSelectedStoryId(null);
     setCurrentStep(0);
     setCurrentPrompt("");
+    // Stop and reset audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
   };
 
   // Reset the frame counter and story progress when we disconnect from the model
@@ -101,6 +109,28 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
     // Set the selected story and step
     setSelectedStoryId(storyId);
     setCurrentStep(step);
+
+    // Play audio when starting a new story (step 0)
+    if (step === 0) {
+      const story = stories.find((s) => s.id === storyId);
+      if (story?.audio) {
+        // Create or update the audio element
+        if (!audioRef.current) {
+          audioRef.current = new Audio(story.audio);
+          audioRef.current.loop = true; // Loop the audio
+        } else {
+          audioRef.current.src = story.audio;
+          audioRef.current.currentTime = 0;
+        }
+
+        // Play the audio
+        try {
+          await audioRef.current.play();
+        } catch (error) {
+          console.error("Failed to play audio:", error);
+        }
+      }
+    }
 
     // Submit the prompt
     await handleSubmitPrompt(storyPrompt.prompt);

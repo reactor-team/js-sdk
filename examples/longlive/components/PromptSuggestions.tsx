@@ -58,9 +58,16 @@ export function PromptSuggestions({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-gray-400">
-          {isStartingPrompts ? "Choose Your Story" : "Continue Your Story"}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-gray-400">
+            {isStartingPrompts ? "Choose Your Story" : "Continue Your Story"}
+          </span>
+          {!isStartingPrompts && (
+            <span className="text-[10px] text-gray-500 italic">
+              (click the box below)
+            </span>
+          )}
+        </div>
         {!isStartingPrompts && (
           <span className="text-xs text-gray-500">
             Step {currentStep + 1} of{" "}
