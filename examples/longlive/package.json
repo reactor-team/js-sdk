@@ -8,7 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "@reactor-team/js-sdk": "^1.0.15",
+    "@reactor-team/js-sdk": "^1.0.16",
     "@vercel/analytics": "^1.5.0",
     "next": "15.5.4",
     "openai": "^6.3.0",
