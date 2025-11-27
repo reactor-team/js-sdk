@@ -1,10 +1,11 @@
 "use client";
 
-import { ReactorProvider, ReactorView } from "@reactor-team/js-sdk";
+import { ReactorController, ReactorProvider, ReactorView } from "@reactor-team/js-sdk";
 import { ReactorStatus } from "@/components/ReactorStatus";
 import { MatrixController } from "@/components/MatrixController";
 import { ImageUploader } from "@/components/ImageUploader";
 import { PromptInput } from "@/components/PromptInput";
+import { PromptSelector } from "@/components/PromptSelector";
 
 export default function Home() {
   return (
@@ -42,11 +43,13 @@ export default function Home() {
           <div className="flex flex-col gap-3">
             <ReactorView className="w-full aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700/50 shadow-xl overflow-hidden" />
             <ReactorStatus />
+            <PromptSelector />
             <PromptInput />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <MatrixController />
               <ImageUploader />
             </div>
+            <ReactorController />
           </div>
         </ReactorProvider>
       </div>
