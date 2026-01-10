@@ -10,7 +10,7 @@ The official JavaScript SDK for building real-time AI video applications with [R
 ## Installation
 
 ```bash
-npm install @reactor-team/js-sdk zustand
+npm install @reactor-team/js-sdk
 ```
 
 ## Quick Start
