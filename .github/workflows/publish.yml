@@ -31,7 +31,7 @@ jobs:
 
       - name: Publish SDK to npm
         run: npm publish --provenance --access public
-        working-directory: libs/client
+        working-directory: packages/js-sdk
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -61,6 +61,6 @@ jobs:
 
       - name: Publish create-app to npm
         run: npm publish --provenance --access public
-        working-directory: libs/create-app
+        working-directory: packages/create-app
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
