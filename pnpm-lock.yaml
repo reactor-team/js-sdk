@@ -55,7 +55,7 @@ importers:
     dependencies:
       "@reactor-team/js-sdk":
         specifier: workspace:*
-        version: link:../../libs/client
+        version: link:../../packages/js-sdk
       "@vercel/analytics":
         specifier: ^1.5.0
         version: 1.6.1(next@15.5.9(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)
@@ -98,7 +98,7 @@ importers:
     dependencies:
       "@reactor-team/js-sdk":
         specifier: workspace:*
-        version: link:../../libs/client
+        version: link:../../packages/js-sdk
       "@vercel/analytics":
         specifier: ^1.5.0
         version: 1.6.1(next@15.5.9(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)
@@ -175,7 +175,7 @@ importers:
     dependencies:
       "@reactor-team/js-sdk":
         specifier: workspace:*
-        version: link:../../libs/client
+        version: link:../../packages/js-sdk
       "@vercel/analytics":
         specifier: ^1.5.0
         version: 1.6.1(next@15.4.10(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)
@@ -211,7 +211,32 @@ importers:
         specifier: ^5
         version: 5.9.3
 
-  libs/client:
+  packages/create-app:
+    dependencies:
+      "@reactor-team/js-sdk":
+        specifier: ^1.0.0
+        version: 1.0.22(@types/node@22.19.5)(react@19.1.0)(zustand@5.0.9(@types/react@19.2.8)(react@19.1.0))
+      chalk:
+        specifier: ^5.3.0
+        version: 5.6.2
+      inquirer:
+        specifier: ^9.3.0
+        version: 9.3.8(@types/node@22.19.5)
+      simple-git:
+        specifier: ^3.24.0
+        version: 3.30.0
+    devDependencies:
+      "@types/node":
+        specifier: ^22.8.1
+        version: 22.19.5
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.6)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+
+  packages/js-sdk:
     dependencies:
       "@bufbuild/protobuf":
         specifier: ^2.0.0
@@ -258,31 +283,6 @@ importers:
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.6)(typescript@5.9.3)
       typescript:
         specifier: ^5.8.3
-        version: 5.9.3
-
-  libs/create-app:
-    dependencies:
-      "@reactor-team/js-sdk":
-        specifier: ^1.0.0
-        version: 1.0.19(@types/dom-mediacapture-record@1.0.22)(@types/node@22.19.5)(react@19.1.0)(zustand@5.0.9(@types/react@19.2.8)(react@19.1.0))
-      chalk:
-        specifier: ^5.3.0
-        version: 5.6.2
-      inquirer:
-        specifier: ^9.3.0
-        version: 9.3.8(@types/node@22.19.5)
-      simple-git:
-        specifier: ^3.24.0
-        version: 3.30.0
-    devDependencies:
-      "@types/node":
-        specifier: ^22.8.1
-        version: 22.19.5
-      tsup:
-        specifier: ^8.0.1
-        version: 8.5.1(jiti@2.6.1)(postcss@8.5.6)(typescript@5.9.3)
-      typescript:
-        specifier: ^5.6.3
         version: 5.9.3
 
 packages:
@@ -1069,6 +1069,15 @@ packages:
     resolution:
       {
         integrity: sha512-NUl/ofgtejarh8TvjTjrVtQ3tO3jZGWoeVO9tsR/GzR0vmtvlIyq7HoMIzCqSC1EXwd0VG2ugl1tlNBot0fqdQ==,
+      }
+    peerDependencies:
+      react: ^17.0.0 || ^18.0.0 || ^19.0.0
+      zustand: ^5.0.6
+
+  "@reactor-team/js-sdk@1.0.22":
+    resolution:
+      {
+        integrity: sha512-EwXesZ0T9BOJQI6pOtg4MbnXTY50RLK4CcpCdsPjnp/nuOI0bWWcARDpKmiU/qsy66ZkEoo9rBKf9p0h3o43Ig==,
       }
     peerDependencies:
       react: ^17.0.0 || ^18.0.0 || ^19.0.0
@@ -2934,18 +2943,17 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  "@reactor-team/js-sdk@1.0.19(@types/dom-mediacapture-record@1.0.22)(@types/node@22.19.5)(react@19.1.0)(zustand@5.0.9(@types/react@19.2.8)(react@19.1.0))":
+  "@reactor-team/js-sdk@1.0.22(@types/node@22.19.5)(react@19.1.0)(zustand@5.0.9(@types/react@19.2.8)(react@19.1.0))":
     dependencies:
+      "@bufbuild/protobuf": 2.10.2
       chalk: 5.6.2
       inquirer: 9.3.8(@types/node@22.19.5)
-      livekit-client: 2.16.1(@types/dom-mediacapture-record@1.0.22)
       react: 19.1.0
       simple-git: 3.30.0
       ws: 8.19.0
       zod: 4.3.5
       zustand: 5.0.9(@types/react@19.2.8)(react@19.1.0)
     transitivePeerDependencies:
-      - "@types/dom-mediacapture-record"
       - "@types/node"
       - bufferutil
       - supports-color
