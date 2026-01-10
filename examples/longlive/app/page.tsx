@@ -33,6 +33,7 @@ export default function Home() {
         <ReactorProvider
           modelName="longlive"
           insecureApiKey={process.env.NEXT_PUBLIC_REACTOR_API_KEY!}
+          coordinatorUrl={process.env.NEXT_PUBLIC_COORDINATOR_URL!}
           queueing
         >
           <div className="flex flex-col gap-3">

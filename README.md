@@ -1,89 +1,128 @@
-# Reactor JS SDK Examples
+# Reactor JS SDK
 
-This repository contains example applications demonstrating how to use the [Reactor JS SDK](https://www.npmjs.com/package/@reactor-team/js-sdk) to build interactive AI-powered video experiences.
+[![client](https://img.shields.io/npm/v/@reactor-team/js-sdk?label=client&color=blue)](https://www.npmjs.com/package/@reactor-team/js-sdk)
+[![create-app](https://img.shields.io/npm/v/create-reactor-app?label=create-app&color=blue)](https://www.npmjs.com/package/create-reactor-app)
+[![build](https://img.shields.io/github/actions/workflow/status/reactor-team/js-sdk/ci.yml?label=build)](https://github.com/reactor-team/js-sdk/actions)
+[![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
-## About Reactor
+The official JavaScript/TypeScript SDK for building real-time AI video applications with [Reactor](https://reactor.inc).
 
-[Reactor](https://reactor.inc) is a platform for real-time AI video generation and interaction. Our SDK allows developers to integrate cutting-edge generative AI models into web applications, enabling experiences like relatime text-to-video generation, interactive video control, and more.
+## Installation
 
-## What's Included
-
-This repository provides practical examples showing how to:
-
-- Connect to Reactor's AI models through a simple React interface
-- Send real-time prompts and controls to guide realtime video generation
-- Display AI-generated video streams in your applications
-- Handle model state and connection management
-- Build interactive video experiences with keyboard and text inputs
-
-## Available Examples
-
-### LongLive Realtime Video Generation
-
-**Location:** `examples/longlive/`
-**Live Demo:** [https://js-sdk-example-longlive.vercel.app/](https://js-sdk-example-longlive.vercel.app/)
-
-A Next.js application demonstrating real-time AI video generation with the **longlive** model. [See full documentation →](examples/longlive/README.md)
-
-### Matrix-2 World Model
-
-**Location:** `examples/matrix-2/`
-**Live Demo:** [https://js-sdk-example-matrix-2.vercel.app/](https://js-sdk-example-matrix-2.vercel.app/)
-
-A keyboard-controlled interface for the **matrix-2** model, showcasing interactive realtime world models. [See full documentation →](examples/matrix-2/README.md)
-
-### StreamDiffusionV2 Real-time Video Transformation
-
-**Location:** `examples/stream-diffusion-v2/`
-**Live Demo:** [https://js-sdk-stream-diffusion-v2.vercel.app/](https://js-sdk-stream-diffusion-v2.vercel.app/)
-
-A Next.js application demonstrating real-time webcam-to-video AI transformation with the **StreamDiffusionV2** model. [See full documentation →](examples/stream-diffusion-v2/README.md)
+```bash
+npm install @reactor-team/js-sdk
+# or
+pnpm add @reactor-team/js-sdk
+```
 
 ## Quick Start
 
-1. **Choose an example** and navigate to its directory:
-   ```bash
-   cd examples/longlive
-   # or
-   cd examples/matrix-2
-   # or
-   cd examples/stream-diffusion-v2
-   ```
+### Create a New App
 
-2. **Install dependencies:**
-   ```bash
-   npm install
-   # or
-   pnpm install
-   ```
+The fastest way to get started is with our CLI:
 
-3. **Set up your API key:**
-   ```bash
-   cp .env.example .env.local
-   ```
-   
-   Then edit `.env.local` and add your Reactor API key. You can obtain an API key by emailing us at [team@reactor.inc](mailto:team@reactor.inc).
+```bash
+npx create-reactor-app my-app
+# or
+pnpm dlx create-reactor-app my-app
+```
 
-4. **Run the development server:**
-   ```bash
-   npm run dev
-   # or
-   pnpm dev
-   ```
+### Manual Setup
 
-5. **Open your browser** at [http://localhost:3000](http://localhost:3000) and start experimenting!
+```tsx
+import { ReactorProvider, ReactorView } from "@reactor-team/js-sdk";
 
-## Documentation & Resources
+function App() {
+  return (
+    <ReactorProvider
+      modelName="your-model"
+      jwtToken={token}
+    >
+      <ReactorView className="w-full aspect-video" />
+    </ReactorProvider>
+  );
+}
+```
 
-- **[Reactor Website](https://reactor.inc)** - Learn more about Reactor and our platform
-- **[Getting Started Guide](https://docs.reactor.inc)** - Complete setup instructions and tutorials
-- **[SDK Documentation](https://docs.reactor.inc/api-reference/overview)** - Detailed API reference and model information
-- **[NPM Package](https://www.npmjs.com/package/@reactor-team/js-sdk)** - Install the SDK in your own projects
+### Using Hooks
+
+```tsx
+import { useReactor, useReactorMessage } from "@reactor-team/js-sdk";
+
+function Controls() {
+  const { status, sendCommand } = useReactor((state) => ({
+    status: state.status,
+    sendCommand: state.sendCommand,
+  }));
+
+  useReactorMessage((message) => {
+    console.log("Received:", message);
+  });
+
+  return (
+    <button
+      onClick={() => sendCommand("start", {})}
+      disabled={status !== "ready"}
+    >
+      Start
+    </button>
+  );
+}
+```
+
+## Examples
+
+This repository includes working examples:
+
+| Example | Description | Demo |
+|---------|-------------|------|
+| [longlive](./examples/longlive) | Real-time text-to-video generation | [Live Demo](https://js-sdk-example-longlive.vercel.app/) |
+| [matrix-2](./examples/matrix-2) | Interactive world model with keyboard controls | [Live Demo](https://js-sdk-example-matrix-2.vercel.app/) |
+| [stream-diffusion-v2](./examples/stream-diffusion-v2) | Real-time webcam-to-video transformation | [Live Demo](https://js-sdk-stream-diffusion-v2.vercel.app/) |
+
+To run an example locally:
+
+```bash
+cd examples/longlive
+pnpm install
+cp .env.example .env.local
+# Add your API key to .env.local
+pnpm dev
+```
+
+## Repository Structure
+
+```
+js-sdk/
+├── libs/
+│   ├── client/       # @reactor-team/js-sdk - Core SDK
+│   └── create-app/   # create-reactor-app CLI
+└── examples/         # Example applications
+```
+
+## Development
+
+```bash
+# Install dependencies
+pnpm install
+
+# Build the SDK
+pnpm build
+
+# Run an example
+pnpm dev:longlive
+```
+
+## Documentation
+
+- [Reactor Website](https://reactor.inc)
+- [Getting Started Guide](https://docs.reactor.inc)
+- [SDK Documentation](https://docs.reactor.inc/api-reference/overview)
 
 ## Support
 
-For questions, issues, or feature requests, please visit our [documentation](https://docs.reactor.inc/) or contact our support team at [team@reactor.inc](mailto:team@reactor.inc).
+For questions or issues, contact us at [team@reactor.inc](mailto:team@reactor.inc).
 
----
+## License
 
-Built with Reactor - Real-time AI video generation
+ISC

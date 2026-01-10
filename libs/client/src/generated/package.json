@@ -1,0 +1,24 @@
+{
+  "name": "@reactor-team/reactor-proto",
+  "version": "0.4.5",
+  "description": "Protobuf bindings for the Reactor API",
+  "main": "api/index.js",
+  "types": "api/index.d.ts",
+  "files": [
+    "api/**/*",
+    "google/**/*"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/reactor-team/reactor-proto.git"
+  },
+  "homepage": "https://reactor.inc",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@grpc/grpc-js": "^1.9.0",
+    "protobufjs": "^7.2.0"
+  },
+  "peerDependencies": {
+    "ts-proto": "^1.165.0"
+  }
+}

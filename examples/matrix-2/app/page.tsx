@@ -34,8 +34,8 @@ export default function Home() {
         <ReactorProvider
           modelName="matrix-2"
           autoConnect={true}
-          coordinatorUrl={process.env.NEXT_PUBLIC_COORDINATOR_URL!}
-          insecureApiKey={process.env.NEXT_PUBLIC_REACTOR_API_KEY!}
+          insecureApiKey="1234"
+          coordinatorUrl="wss://api-dev.reactor.inc/ws"
           queueing
         >
           <div className="flex flex-col gap-3">
