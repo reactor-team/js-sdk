@@ -8,11 +8,12 @@
     "start": "next start"
   },
   "dependencies": {
-    "@reactor-team/js-sdk": "^1.0.17",
+    "@reactor-team/js-sdk": "workspace:*",
     "@vercel/analytics": "^1.5.0",
     "next": "15.5.9",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "zustand": "^5.0.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.14",

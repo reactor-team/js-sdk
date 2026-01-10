@@ -11,8 +11,9 @@
     "next": "15.4.10",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "@reactor-team/js-sdk": "^1.0.17",
-    "@vercel/analytics": "^1.5.0"
+    "@reactor-team/js-sdk": "workspace:*",
+    "@vercel/analytics": "^1.5.0",
+    "zustand": "^5.0.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
