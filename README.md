@@ -38,10 +38,10 @@ function App() {
 
 ## Examples
 
-| Example | Description |
-|---------|-------------|
-| [longlive](./examples/longlive) | Text-to-video generation |
-| [matrix-2](./examples/matrix-2) | Interactive world model |
+| Example                                               | Description                    |
+| ----------------------------------------------------- | ------------------------------ |
+| [longlive](./examples/longlive)                       | Text-to-video generation       |
+| [matrix-2](./examples/matrix-2)                       | Interactive world model        |
 | [stream-diffusion-v2](./examples/stream-diffusion-v2) | Webcam-to-video transformation |
 
 ## Documentation
