@@ -1,6 +1,6 @@
 {
   "name": "@reactor-team/js-sdk",
-  "version": "1.0.21",
+  "version": "1.0.22",
   "protobufsVersion": "0.5.5-g79eb6a6",
   "description": "Reactor JavaScript frontend SDK",
   "main": "dist/index.js",
