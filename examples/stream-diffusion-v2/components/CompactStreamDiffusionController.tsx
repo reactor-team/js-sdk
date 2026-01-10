@@ -123,7 +123,7 @@ export function CompactStreamDiffusionController() {
     const steps = validateDenoisingSteps(denoisingSteps);
     if (!steps) {
       alert(
-        "Invalid denoising steps. Enter 0-5 comma-separated values between 0 and 1000."
+        "Invalid denoising steps. Enter 0-5 comma-separated values between 0 and 1000.",
       );
       return;
     }

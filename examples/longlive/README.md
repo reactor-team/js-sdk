@@ -7,6 +7,7 @@ A simple demo application showcasing the Reactor JS SDK with the **longlive** vi
 ## What This Example Does
 
 This Next.js app demonstrates how to:
+
 - Connect to Reactor's longlive model for AI video generation
 - Send prompts at specific timestamps to guide video creation
 - Display real-time video output with `ReactorView`
@@ -31,6 +32,7 @@ cp .env.example .env.local
 ```
 
 Edit `.env.local` and add:
+
 - `NEXT_PUBLIC_REACTOR_API_KEY` - Your Reactor API key
 - `OPENAI_API_KEY` - Your OpenAI API key (required for voice input feature)
 

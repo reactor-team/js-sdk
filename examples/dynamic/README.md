@@ -13,6 +13,7 @@ To learn how to build your own model and use this UI, check out the runtime docs
 ## What This Example Does
 
 This Next.js app demonstrates how to:
+
 - Connect to Reactor's local model
 - see the UI dynamically appear with no custom code
 - Send commands using parameters and buttons dynamically generated

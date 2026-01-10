@@ -19,8 +19,8 @@ export function CompactReactorStatus() {
               status === "disconnected"
                 ? "text-red-400 bg-red-500/10 border-red-500/20"
                 : status === "waiting"
-                ? "text-gray-300 bg-gray-700/30 border-gray-600/40"
-                : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                  ? "text-gray-300 bg-gray-700/30 border-gray-600/40"
+                  : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
             }`}
           >
             <div
@@ -28,18 +28,18 @@ export function CompactReactorStatus() {
                 status === "disconnected"
                   ? "bg-red-500"
                   : status === "waiting"
-                  ? "bg-gray-400 animate-pulse"
-                  : "bg-emerald-500 animate-pulse"
+                    ? "bg-gray-400 animate-pulse"
+                    : "bg-emerald-500 animate-pulse"
               }`}
             />
             <span>
               {status === "disconnected"
                 ? "Disconnected"
                 : status === "waiting"
-                ? "Waiting"
-                : status === "connecting"
-                ? "Connecting"
-                : "Ready"}
+                  ? "Waiting"
+                  : status === "connecting"
+                    ? "Connecting"
+                    : "Ready"}
             </span>
           </div>
           {status === "disconnected" ? (

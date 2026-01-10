@@ -46,7 +46,7 @@ export function ImageRefresher({ className = "" }: ImageRefresherProps) {
     state: { value: number; enabled: boolean },
     setState: React.Dispatch<
       React.SetStateAction<{ value: number; enabled: boolean }>
-    >
+    >,
   ) => (
     <div className="flex flex-col items-center gap-2 h-full flex-1">
       <span className="text-xs text-gray-400 font-mono">{label}</span>

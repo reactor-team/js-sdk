@@ -13,13 +13,15 @@ const EXAMPLES_PATH = "examples";
 async function getTemplates(): Promise<string[]> {
   try {
     const res = await fetch(
-      `https://api.github.com/repos/reactor-team/js-sdk/contents/${EXAMPLES_PATH}`
+      `https://api.github.com/repos/reactor-team/js-sdk/contents/${EXAMPLES_PATH}`,
     );
     const data = (await res.json()) as { name: string; type: string }[];
     return data.filter((item) => item.type === "dir").map((item) => item.name);
   } catch {
     console.log(
-      chalk.yellow("⚠️  Could not fetch from GitHub, using fallback templates.")
+      chalk.yellow(
+        "⚠️  Could not fetch from GitHub, using fallback templates.",
+      ),
     );
     return ["longlive", "matrix-2"];
   }
@@ -33,13 +35,13 @@ function showUsage(): void {
   console.log(chalk.white("  project-name  Name of the project to create"));
   console.log(
     chalk.white(
-      "  template      Template to use (longlive, matrix-2, mk64, etc.)\n"
-    )
+      "  template      Template to use (longlive, matrix-2, mk64, etc.)\n",
+    ),
   );
   console.log(
     chalk.white(
-      "If arguments are not provided, you will be prompted interactively.\n"
-    )
+      "If arguments are not provided, you will be prompted interactively.\n",
+    ),
   );
 }
 
@@ -178,8 +180,8 @@ async function main(): Promise<void> {
 
   console.log(
     chalk.green(
-      `\n✅ Project "${projectName}" created successfully using "${template}" template!\n`
-    )
+      `\n✅ Project "${projectName}" created successfully using "${template}" template!\n`,
+    ),
   );
   console.log(chalk.cyan("Next steps:"));
   console.log(chalk.white(`	cd ${projectName}`));
@@ -187,11 +189,13 @@ async function main(): Promise<void> {
   console.log(chalk.white(`\nFor development scenarios:`));
   console.log(chalk.cyan(`	• Using an existing model:`));
   console.log(
-    chalk.white(`	  - Edit .env and set your NEXT_PUBLIC_REACTOR_API_KEY`)
+    chalk.white(`	  - Edit .env and set your NEXT_PUBLIC_REACTOR_API_KEY`),
   );
   console.log(chalk.cyan(`\n	• Local development with custom model:`));
   console.log(
-    chalk.white(`	  - Set local={true} in your ReactorProvider in app/page.tsx:`)
+    chalk.white(
+      `	  - Set local={true} in your ReactorProvider in app/page.tsx:`,
+    ),
   );
   console.log(chalk.gray(`	    <ReactorProvider modelName="..." local={true}>`));
   console.log(chalk.white(`\n	pnpm dev\n`));

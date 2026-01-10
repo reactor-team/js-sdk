@@ -7,6 +7,7 @@ A real-time video-to-video AI transformation demo showcasing the Reactor JS SDK 
 ## What This Example Does
 
 This Next.js app demonstrates how to:
+
 - Transform webcam video in real-time using AI
 - Control video styling with text prompts
 - Configure denoising steps for quality/speed balance
@@ -57,7 +58,7 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 
 ## About the StreamDiffusionV2 Model
 
-StreamDiffusionV2 is an open-source interactive diffusion pipeline for real-time streaming applications. 
+StreamDiffusionV2 is an open-source interactive diffusion pipeline for real-time streaming applications.
 
 Developed by Tianrui Feng, Zhi Li, Haocheng Xi, Muyang Li, Shuo Yang, Xiuyu Li, Lvmin Zhang, Kelly Peng, Song Han, Maneesh Agrawala, Kurt Keutzer, Akio Kodaira, and Chenfeng Xu (UC Berkeley, MIT, Stanford University, First Intelligence, UT Austin)
 

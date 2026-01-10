@@ -134,7 +134,7 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
     (control: Control) => {
       void sendMessage({ type: "control", data: control });
     },
-    [sendMessage]
+    [sendMessage],
   );
 
   // Handle button press for keyboard controls
@@ -149,7 +149,7 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
         return newControl;
       });
     },
-    [sendControl]
+    [sendControl],
   );
 
   // Handle button release for keyboard controls (return to neutral Q)
@@ -176,7 +176,7 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
         return newControl;
       });
     },
-    [sendControl]
+    [sendControl],
   );
 
   // Handle button release for mouse controls (return to neutral U)
@@ -243,7 +243,7 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
       handleKeyboardRelease,
       handleMousePress,
       handleMouseRelease,
-    ]
+    ],
   );
 
   // Set up physical keyboard event listeners when connection is ready
