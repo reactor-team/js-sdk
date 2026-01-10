@@ -122,4 +122,4 @@ For questions or issues, contact us at [team@reactor.inc](mailto:team@reactor.in
 
 ## License
 
-ISC
+MIT
