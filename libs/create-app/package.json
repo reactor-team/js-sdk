@@ -5,7 +5,11 @@
     "create-reactor-app": "dist/bin/create-reactor-app.js"
   },
   "author": "Reactor Technologies, Inc.",
-  "license": "ISC",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/reactor-team/js-sdk"
+  },
   "packageManager": "pnpm@10.12.1",
   "dependencies": {
     "@reactor-team/js-sdk": "^1.0.0",
