@@ -30,28 +30,40 @@ export const SupervisorService = {
     path: "/api.Supervisor/Health",
     requestStream: false,
     responseStream: false,
-    requestSerialize: (value: HealthRequest): Buffer => Buffer.from(HealthRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): HealthRequest => HealthRequest.decode(value),
-    responseSerialize: (value: HealthResponse): Buffer => Buffer.from(HealthResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): HealthResponse => HealthResponse.decode(value),
+    requestSerialize: (value: HealthRequest): Buffer =>
+      Buffer.from(HealthRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): HealthRequest =>
+      HealthRequest.decode(value),
+    responseSerialize: (value: HealthResponse): Buffer =>
+      Buffer.from(HealthResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): HealthResponse =>
+      HealthResponse.decode(value),
   },
   info: {
     path: "/api.Supervisor/Info",
     requestStream: false,
     responseStream: false,
-    requestSerialize: (value: InfoRequest): Buffer => Buffer.from(InfoRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): InfoRequest => InfoRequest.decode(value),
-    responseSerialize: (value: InfoResponse): Buffer => Buffer.from(InfoResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): InfoResponse => InfoResponse.decode(value),
+    requestSerialize: (value: InfoRequest): Buffer =>
+      Buffer.from(InfoRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): InfoRequest =>
+      InfoRequest.decode(value),
+    responseSerialize: (value: InfoResponse): Buffer =>
+      Buffer.from(InfoResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): InfoResponse =>
+      InfoResponse.decode(value),
   },
   ping: {
     path: "/api.Supervisor/Ping",
     requestStream: false,
     responseStream: false,
-    requestSerialize: (value: PingRequest): Buffer => Buffer.from(PingRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): PingRequest => PingRequest.decode(value),
-    responseSerialize: (value: PingResponse): Buffer => Buffer.from(PingResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): PingResponse => PingResponse.decode(value),
+    requestSerialize: (value: PingRequest): Buffer =>
+      Buffer.from(PingRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): PingRequest =>
+      PingRequest.decode(value),
+    responseSerialize: (value: PingResponse): Buffer =>
+      Buffer.from(PingResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): PingResponse =>
+      PingResponse.decode(value),
   },
 } as const;
 
@@ -64,47 +76,60 @@ export interface SupervisorServer extends UntypedServiceImplementation {
 export interface SupervisorClient extends Client {
   health(
     request: HealthRequest,
-    callback: (error: ServiceError | null, response: HealthResponse) => void,
+    callback: (error: ServiceError | null, response: HealthResponse) => void
   ): ClientUnaryCall;
   health(
     request: HealthRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: HealthResponse) => void,
+    callback: (error: ServiceError | null, response: HealthResponse) => void
   ): ClientUnaryCall;
   health(
     request: HealthRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: HealthResponse) => void,
+    callback: (error: ServiceError | null, response: HealthResponse) => void
   ): ClientUnaryCall;
-  info(request: InfoRequest, callback: (error: ServiceError | null, response: InfoResponse) => void): ClientUnaryCall;
+  info(
+    request: InfoRequest,
+    callback: (error: ServiceError | null, response: InfoResponse) => void
+  ): ClientUnaryCall;
   info(
     request: InfoRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: InfoResponse) => void,
+    callback: (error: ServiceError | null, response: InfoResponse) => void
   ): ClientUnaryCall;
   info(
     request: InfoRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: InfoResponse) => void,
+    callback: (error: ServiceError | null, response: InfoResponse) => void
   ): ClientUnaryCall;
-  ping(request: PingRequest, callback: (error: ServiceError | null, response: PingResponse) => void): ClientUnaryCall;
+  ping(
+    request: PingRequest,
+    callback: (error: ServiceError | null, response: PingResponse) => void
+  ): ClientUnaryCall;
   ping(
     request: PingRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: PingResponse) => void,
+    callback: (error: ServiceError | null, response: PingResponse) => void
   ): ClientUnaryCall;
   ping(
     request: PingRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: PingResponse) => void,
+    callback: (error: ServiceError | null, response: PingResponse) => void
   ): ClientUnaryCall;
 }
 
-export const SupervisorClient = makeGenericClientConstructor(SupervisorService, "api.Supervisor") as unknown as {
-  new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): SupervisorClient;
+export const SupervisorClient = makeGenericClientConstructor(
+  SupervisorService,
+  "api.Supervisor"
+) as unknown as {
+  new (
+    address: string,
+    credentials: ChannelCredentials,
+    options?: Partial<ClientOptions>
+  ): SupervisorClient;
   service: typeof SupervisorService;
   serviceName: string;
 };

@@ -96,7 +96,7 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
   const handlePromptSelect = async (
     storyId: string,
     storyPrompt: StoryPrompt,
-    step: number
+    step: number,
   ) => {
     // Set the selected story and step
     setSelectedStoryId(storyId);

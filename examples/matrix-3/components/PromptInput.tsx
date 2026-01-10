@@ -59,4 +59,3 @@ export function PromptInput({ className = "" }: PromptInputProps) {
     </div>
   );
 }
-

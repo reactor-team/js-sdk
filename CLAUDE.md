@@ -85,23 +85,23 @@ pnpm build          # Production build
 
 ### Core Modules (libs/client/src/core/)
 
-| File | Purpose |
-|------|---------|
-| `Reactor.ts` | Main class with event-emitter API for connection lifecycle |
-| `CoordinatorClient.ts` | HTTP client for session creation and SDP polling |
-| `GPUMachineClient.ts` | WebRTC peer connection for video/data streaming |
-| `store.ts` | Zustand store factory bridging events to React state |
-| `types.ts` | Zod schemas for API request/response validation |
+| File                   | Purpose                                                    |
+| ---------------------- | ---------------------------------------------------------- |
+| `Reactor.ts`           | Main class with event-emitter API for connection lifecycle |
+| `CoordinatorClient.ts` | HTTP client for session creation and SDP polling           |
+| `GPUMachineClient.ts`  | WebRTC peer connection for video/data streaming            |
+| `store.ts`             | Zustand store factory bridging events to React state       |
+| `types.ts`             | Zod schemas for API request/response validation            |
 
 ### React Components (libs/client/src/react/)
 
-| Component | Purpose |
-|-----------|---------|
-| `ReactorProvider` | Context provider managing connection lifecycle |
-| `ReactorView` | Video element displaying GPU machine output |
-| `WebcamStream` | Webcam capture and publishing to model |
-| `ReactorController` | Dynamic command UI from model schema |
-| `hooks.ts` | `useReactor`, `useReactorMessage` hooks |
+| Component           | Purpose                                        |
+| ------------------- | ---------------------------------------------- |
+| `ReactorProvider`   | Context provider managing connection lifecycle |
+| `ReactorView`       | Video element displaying GPU machine output    |
+| `WebcamStream`      | Webcam capture and publishing to model         |
+| `ReactorController` | Dynamic command UI from model schema           |
+| `hooks.ts`          | `useReactor`, `useReactorMessage` hooks        |
 
 ### Connection Flow
 
@@ -123,10 +123,10 @@ import { ReactorProvider, ReactorView } from "@reactor-team/js-sdk";
 <ReactorProvider
   modelName="model-name"
   jwtToken={token}
-  coordinatorUrl="https://coordinator.reactor.inc"  // optional
+  coordinatorUrl="https://coordinator.reactor.inc" // optional
 >
   <ReactorView className="w-full aspect-video" />
-</ReactorProvider>
+</ReactorProvider>;
 ```
 
 ### Hook Usage

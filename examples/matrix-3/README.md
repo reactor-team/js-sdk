@@ -7,6 +7,7 @@ An interactive demo showcasing the Reactor JS SDK with the **matrix-2** world mo
 ## What This Example Does
 
 This Next.js app demonstrates how to:
+
 - Connect to Reactor's matrix-2 world model for interactive video generation
 - Control video generation in real-time using keyboard inputs
 - Send control messages (WASD for player movement, IJKL for camera)
@@ -50,6 +51,7 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 The matrix-2 model responds to keyboard inputs in real-time:
 
 **Player Movement (Blue keys):**
+
 - **W** - Move forward
 - **A** - Move left
 - **S** - Move backward
@@ -57,6 +59,7 @@ The matrix-2 model responds to keyboard inputs in real-time:
 - **Q** - Neutral (no movement)
 
 **Camera Control (Green keys):**
+
 - **I** - Look up
 - **J** - Look left
 - **K** - Look down

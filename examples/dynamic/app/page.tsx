@@ -1,6 +1,10 @@
 "use client";
 
-import { ReactorProvider, ReactorView, ReactorController } from "@reactor-team/js-sdk";
+import {
+  ReactorProvider,
+  ReactorView,
+  ReactorController,
+} from "@reactor-team/js-sdk";
 import { ReactorStatus } from "@/components/ReactorStatus";
 
 export default function Home() {
@@ -29,16 +33,11 @@ export default function Home() {
             </a>
           </div>
         </div>
-        <ReactorProvider
-          modelName="longlive"
-          queueing
-          local
-          autoConnect
-        >
+        <ReactorProvider modelName="longlive" queueing local autoConnect>
           <div className="flex flex-col gap-3">
             <ReactorView className="w-full aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700/50 shadow-xl overflow-hidden" />
             <ReactorStatus />
-            <ReactorController className="bg-white rounded-xl p-2"/>
+            <ReactorController className="bg-white rounded-xl p-2" />
           </div>
         </ReactorProvider>
       </div>

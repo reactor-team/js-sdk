@@ -7,7 +7,7 @@ import { CoordinatorClient } from "./CoordinatorClient";
 
 export class LocalCoordinatorClient extends CoordinatorClient {
   private localBaseUrl: string;
-  private sdpOffer: string|undefined;
+  private sdpOffer: string | undefined;
 
   constructor(baseUrl: string) {
     // Pass dummy values to parent - they won't be used for local

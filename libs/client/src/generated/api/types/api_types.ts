@@ -98,9 +98,7 @@ export interface CreateSessionRequest {
    * The requested Video Model for the Session; will be
    * ignored for a reconnect request.
    */
-  model:
-    | Model
-    | undefined;
+  model: Model | undefined;
   /**
    * SDP Offer parameters for the STUN session
    *
@@ -176,9 +174,7 @@ export interface SessionInfoResponse {
   /** The unique session ID, as returned by the POST request. */
   sessionId: string;
   /** Info about the session that was created. */
-  sessionInfo:
-    | CreateSessionRequest
-    | undefined;
+  sessionInfo: CreateSessionRequest | undefined;
   /** Current state of the session. */
   state: SessionState;
 }
@@ -218,7 +214,10 @@ function createBaseHealthResponse(): HealthResponse {
 }
 
 export const HealthResponse: MessageFns<HealthResponse> = {
-  encode(message: HealthResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: HealthResponse,
+    writer: BinaryWriter = new BinaryWriter()
+  ): BinaryWriter {
     if (message.status !== "") {
       writer.uint32(10).string(message.status);
     }
@@ -226,7 +225,8 @@ export const HealthResponse: MessageFns<HealthResponse> = {
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): HealthResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseHealthResponse();
     while (reader.pos < end) {
@@ -250,7 +250,9 @@ export const HealthResponse: MessageFns<HealthResponse> = {
   },
 
   fromJSON(object: any): HealthResponse {
-    return { status: isSet(object.status) ? globalThis.String(object.status) : "" };
+    return {
+      status: isSet(object.status) ? globalThis.String(object.status) : "",
+    };
   },
 
   toJSON(message: HealthResponse): unknown {
@@ -261,10 +263,14 @@ export const HealthResponse: MessageFns<HealthResponse> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<HealthResponse>, I>>(base?: I): HealthResponse {
+  create<I extends Exact<DeepPartial<HealthResponse>, I>>(
+    base?: I
+  ): HealthResponse {
     return HealthResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<HealthResponse>, I>>(object: I): HealthResponse {
+  fromPartial<I extends Exact<DeepPartial<HealthResponse>, I>>(
+    object: I
+  ): HealthResponse {
     const message = createBaseHealthResponse();
     message.status = object.status ?? "";
     return message;
@@ -276,7 +282,10 @@ function createBaseInfoResponse(): InfoResponse {
 }
 
 export const InfoResponse: MessageFns<InfoResponse> = {
-  encode(message: InfoResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: InfoResponse,
+    writer: BinaryWriter = new BinaryWriter()
+  ): BinaryWriter {
     if (message.service !== "") {
       writer.uint32(10).string(message.service);
     }
@@ -289,14 +298,20 @@ export const InfoResponse: MessageFns<InfoResponse> = {
     if (message.zone !== "") {
       writer.uint32(34).string(message.zone);
     }
-    globalThis.Object.entries(message.configs).forEach(([key, value]: [string, string]) => {
-      InfoResponse_ConfigsEntry.encode({ key: key as any, value }, writer.uint32(42).fork()).join();
-    });
+    globalThis.Object.entries(message.configs).forEach(
+      ([key, value]: [string, string]) => {
+        InfoResponse_ConfigsEntry.encode(
+          { key: key as any, value },
+          writer.uint32(42).fork()
+        ).join();
+      }
+    );
     return writer;
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): InfoResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseInfoResponse();
     while (reader.pos < end) {
@@ -339,7 +354,10 @@ export const InfoResponse: MessageFns<InfoResponse> = {
             break;
           }
 
-          const entry5 = InfoResponse_ConfigsEntry.decode(reader, reader.uint32());
+          const entry5 = InfoResponse_ConfigsEntry.decode(
+            reader,
+            reader.uint32()
+          );
           if (entry5.value !== undefined) {
             message.configs[entry5.key] = entry5.value;
           }
@@ -362,12 +380,12 @@ export const InfoResponse: MessageFns<InfoResponse> = {
       zone: isSet(object.zone) ? globalThis.String(object.zone) : "",
       configs: isObject(object.configs)
         ? (globalThis.Object.entries(object.configs) as [string, any][]).reduce(
-          (acc: { [key: string]: string }, [key, value]: [string, any]) => {
-            acc[key] = globalThis.String(value);
-            return acc;
-          },
-          {},
-        )
+            (acc: { [key: string]: string }, [key, value]: [string, any]) => {
+              acc[key] = globalThis.String(value);
+              return acc;
+            },
+            {}
+          )
         : {},
     };
   },
@@ -387,7 +405,10 @@ export const InfoResponse: MessageFns<InfoResponse> = {
       obj.zone = message.zone;
     }
     if (message.configs) {
-      const entries = globalThis.Object.entries(message.configs) as [string, string][];
+      const entries = globalThis.Object.entries(message.configs) as [
+        string,
+        string,
+      ][];
       if (entries.length > 0) {
         obj.configs = {};
         entries.forEach(([k, v]) => {
@@ -398,23 +419,29 @@ export const InfoResponse: MessageFns<InfoResponse> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<InfoResponse>, I>>(base?: I): InfoResponse {
+  create<I extends Exact<DeepPartial<InfoResponse>, I>>(
+    base?: I
+  ): InfoResponse {
     return InfoResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<InfoResponse>, I>>(object: I): InfoResponse {
+  fromPartial<I extends Exact<DeepPartial<InfoResponse>, I>>(
+    object: I
+  ): InfoResponse {
     const message = createBaseInfoResponse();
     message.service = object.service ?? "";
     message.pod = object.pod ?? "";
     message.version = object.version ?? "";
     message.zone = object.zone ?? "";
-    message.configs = (globalThis.Object.entries(object.configs ?? {}) as [string, string][]).reduce(
+    message.configs = (
+      globalThis.Object.entries(object.configs ?? {}) as [string, string][]
+    ).reduce(
       (acc: { [key: string]: string }, [key, value]: [string, string]) => {
         if (value !== undefined) {
           acc[key] = globalThis.String(value);
         }
         return acc;
       },
-      {},
+      {}
     );
     return message;
   },
@@ -424,101 +451,130 @@ function createBaseInfoResponse_ConfigsEntry(): InfoResponse_ConfigsEntry {
   return { key: "", value: "" };
 }
 
-export const InfoResponse_ConfigsEntry: MessageFns<InfoResponse_ConfigsEntry> = {
-  encode(message: InfoResponse_ConfigsEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.key !== "") {
-      writer.uint32(10).string(message.key);
-    }
-    if (message.value !== "") {
-      writer.uint32(18).string(message.value);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): InfoResponse_ConfigsEntry {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseInfoResponse_ConfigsEntry();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.key = reader.string();
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
-          message.value = reader.string();
-          continue;
-        }
+export const InfoResponse_ConfigsEntry: MessageFns<InfoResponse_ConfigsEntry> =
+  {
+    encode(
+      message: InfoResponse_ConfigsEntry,
+      writer: BinaryWriter = new BinaryWriter()
+    ): BinaryWriter {
+      if (message.key !== "") {
+        writer.uint32(10).string(message.key);
       }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
+      if (message.value !== "") {
+        writer.uint32(18).string(message.value);
       }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
+      return writer;
+    },
 
-  fromJSON(object: any): InfoResponse_ConfigsEntry {
-    return {
-      key: isSet(object.key) ? globalThis.String(object.key) : "",
-      value: isSet(object.value) ? globalThis.String(object.value) : "",
-    };
-  },
+    decode(
+      input: BinaryReader | Uint8Array,
+      length?: number
+    ): InfoResponse_ConfigsEntry {
+      const reader =
+        input instanceof BinaryReader ? input : new BinaryReader(input);
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseInfoResponse_ConfigsEntry();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
 
-  toJSON(message: InfoResponse_ConfigsEntry): unknown {
-    const obj: any = {};
-    if (message.key !== "") {
-      obj.key = message.key;
-    }
-    if (message.value !== "") {
-      obj.value = message.value;
-    }
-    return obj;
-  },
+            message.key = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
 
-  create<I extends Exact<DeepPartial<InfoResponse_ConfigsEntry>, I>>(base?: I): InfoResponse_ConfigsEntry {
-    return InfoResponse_ConfigsEntry.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<InfoResponse_ConfigsEntry>, I>>(object: I): InfoResponse_ConfigsEntry {
-    const message = createBaseInfoResponse_ConfigsEntry();
-    message.key = object.key ?? "";
-    message.value = object.value ?? "";
-    return message;
-  },
-};
+            message.value = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    },
+
+    fromJSON(object: any): InfoResponse_ConfigsEntry {
+      return {
+        key: isSet(object.key) ? globalThis.String(object.key) : "",
+        value: isSet(object.value) ? globalThis.String(object.value) : "",
+      };
+    },
+
+    toJSON(message: InfoResponse_ConfigsEntry): unknown {
+      const obj: any = {};
+      if (message.key !== "") {
+        obj.key = message.key;
+      }
+      if (message.value !== "") {
+        obj.value = message.value;
+      }
+      return obj;
+    },
+
+    create<I extends Exact<DeepPartial<InfoResponse_ConfigsEntry>, I>>(
+      base?: I
+    ): InfoResponse_ConfigsEntry {
+      return InfoResponse_ConfigsEntry.fromPartial(base ?? ({} as any));
+    },
+    fromPartial<I extends Exact<DeepPartial<InfoResponse_ConfigsEntry>, I>>(
+      object: I
+    ): InfoResponse_ConfigsEntry {
+      const message = createBaseInfoResponse_ConfigsEntry();
+      message.key = object.key ?? "";
+      message.value = object.value ?? "";
+      return message;
+    },
+  };
 
 function createBaseCreateSessionRequest(): CreateSessionRequest {
   return { sessionId: "", model: undefined, sdpOffer: {}, extraConfigs: {} };
 }
 
 export const CreateSessionRequest: MessageFns<CreateSessionRequest> = {
-  encode(message: CreateSessionRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: CreateSessionRequest,
+    writer: BinaryWriter = new BinaryWriter()
+  ): BinaryWriter {
     if (message.sessionId !== "") {
       writer.uint32(10).string(message.sessionId);
     }
     if (message.model !== undefined) {
       Model.encode(message.model, writer.uint32(18).fork()).join();
     }
-    globalThis.Object.entries(message.sdpOffer).forEach(([key, value]: [string, string]) => {
-      CreateSessionRequest_SdpOfferEntry.encode({ key: key as any, value }, writer.uint32(26).fork()).join();
-    });
-    globalThis.Object.entries(message.extraConfigs).forEach(([key, value]: [string, string]) => {
-      CreateSessionRequest_ExtraConfigsEntry.encode({ key: key as any, value }, writer.uint32(794).fork()).join();
-    });
+    globalThis.Object.entries(message.sdpOffer).forEach(
+      ([key, value]: [string, string]) => {
+        CreateSessionRequest_SdpOfferEntry.encode(
+          { key: key as any, value },
+          writer.uint32(26).fork()
+        ).join();
+      }
+    );
+    globalThis.Object.entries(message.extraConfigs).forEach(
+      ([key, value]: [string, string]) => {
+        CreateSessionRequest_ExtraConfigsEntry.encode(
+          { key: key as any, value },
+          writer.uint32(794).fork()
+        ).join();
+      }
+    );
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): CreateSessionRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number
+  ): CreateSessionRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseCreateSessionRequest();
     while (reader.pos < end) {
@@ -545,7 +601,10 @@ export const CreateSessionRequest: MessageFns<CreateSessionRequest> = {
             break;
           }
 
-          const entry3 = CreateSessionRequest_SdpOfferEntry.decode(reader, reader.uint32());
+          const entry3 = CreateSessionRequest_SdpOfferEntry.decode(
+            reader,
+            reader.uint32()
+          );
           if (entry3.value !== undefined) {
             message.sdpOffer[entry3.key] = entry3.value;
           }
@@ -556,7 +615,10 @@ export const CreateSessionRequest: MessageFns<CreateSessionRequest> = {
             break;
           }
 
-          const entry99 = CreateSessionRequest_ExtraConfigsEntry.decode(reader, reader.uint32());
+          const entry99 = CreateSessionRequest_ExtraConfigsEntry.decode(
+            reader,
+            reader.uint32()
+          );
           if (entry99.value !== undefined) {
             message.extraConfigs[entry99.key] = entry99.value;
           }
@@ -573,25 +635,31 @@ export const CreateSessionRequest: MessageFns<CreateSessionRequest> = {
 
   fromJSON(object: any): CreateSessionRequest {
     return {
-      sessionId: isSet(object.sessionId) ? globalThis.String(object.sessionId) : "",
+      sessionId: isSet(object.sessionId)
+        ? globalThis.String(object.sessionId)
+        : "",
       model: isSet(object.model) ? Model.fromJSON(object.model) : undefined,
       sdpOffer: isObject(object.sdpOffer)
-        ? (globalThis.Object.entries(object.sdpOffer) as [string, any][]).reduce(
-          (acc: { [key: string]: string }, [key, value]: [string, any]) => {
-            acc[key] = globalThis.String(value);
-            return acc;
-          },
-          {},
-        )
+        ? (
+            globalThis.Object.entries(object.sdpOffer) as [string, any][]
+          ).reduce(
+            (acc: { [key: string]: string }, [key, value]: [string, any]) => {
+              acc[key] = globalThis.String(value);
+              return acc;
+            },
+            {}
+          )
         : {},
       extraConfigs: isObject(object.extraConfigs)
-        ? (globalThis.Object.entries(object.extraConfigs) as [string, any][]).reduce(
-          (acc: { [key: string]: string }, [key, value]: [string, any]) => {
-            acc[key] = globalThis.String(value);
-            return acc;
-          },
-          {},
-        )
+        ? (
+            globalThis.Object.entries(object.extraConfigs) as [string, any][]
+          ).reduce(
+            (acc: { [key: string]: string }, [key, value]: [string, any]) => {
+              acc[key] = globalThis.String(value);
+              return acc;
+            },
+            {}
+          )
         : {},
     };
   },
@@ -605,7 +673,10 @@ export const CreateSessionRequest: MessageFns<CreateSessionRequest> = {
       obj.model = Model.toJSON(message.model);
     }
     if (message.sdpOffer) {
-      const entries = globalThis.Object.entries(message.sdpOffer) as [string, string][];
+      const entries = globalThis.Object.entries(message.sdpOffer) as [
+        string,
+        string,
+      ][];
       if (entries.length > 0) {
         obj.sdpOffer = {};
         entries.forEach(([k, v]) => {
@@ -614,7 +685,10 @@ export const CreateSessionRequest: MessageFns<CreateSessionRequest> = {
       }
     }
     if (message.extraConfigs) {
-      const entries = globalThis.Object.entries(message.extraConfigs) as [string, string][];
+      const entries = globalThis.Object.entries(message.extraConfigs) as [
+        string,
+        string,
+      ][];
       if (entries.length > 0) {
         obj.extraConfigs = {};
         entries.forEach(([k, v]) => {
@@ -625,30 +699,41 @@ export const CreateSessionRequest: MessageFns<CreateSessionRequest> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CreateSessionRequest>, I>>(base?: I): CreateSessionRequest {
+  create<I extends Exact<DeepPartial<CreateSessionRequest>, I>>(
+    base?: I
+  ): CreateSessionRequest {
     return CreateSessionRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CreateSessionRequest>, I>>(object: I): CreateSessionRequest {
+  fromPartial<I extends Exact<DeepPartial<CreateSessionRequest>, I>>(
+    object: I
+  ): CreateSessionRequest {
     const message = createBaseCreateSessionRequest();
     message.sessionId = object.sessionId ?? "";
-    message.model = (object.model !== undefined && object.model !== null) ? Model.fromPartial(object.model) : undefined;
-    message.sdpOffer = (globalThis.Object.entries(object.sdpOffer ?? {}) as [string, string][]).reduce(
+    message.model =
+      object.model !== undefined && object.model !== null
+        ? Model.fromPartial(object.model)
+        : undefined;
+    message.sdpOffer = (
+      globalThis.Object.entries(object.sdpOffer ?? {}) as [string, string][]
+    ).reduce(
       (acc: { [key: string]: string }, [key, value]: [string, string]) => {
         if (value !== undefined) {
           acc[key] = globalThis.String(value);
         }
         return acc;
       },
-      {},
+      {}
     );
-    message.extraConfigs = (globalThis.Object.entries(object.extraConfigs ?? {}) as [string, string][]).reduce(
+    message.extraConfigs = (
+      globalThis.Object.entries(object.extraConfigs ?? {}) as [string, string][]
+    ).reduce(
       (acc: { [key: string]: string }, [key, value]: [string, string]) => {
         if (value !== undefined) {
           acc[key] = globalThis.String(value);
         }
         return acc;
       },
-      {},
+      {}
     );
     return message;
   },
@@ -658,176 +743,203 @@ function createBaseCreateSessionRequest_SdpOfferEntry(): CreateSessionRequest_Sd
   return { key: "", value: "" };
 }
 
-export const CreateSessionRequest_SdpOfferEntry: MessageFns<CreateSessionRequest_SdpOfferEntry> = {
-  encode(message: CreateSessionRequest_SdpOfferEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.key !== "") {
-      writer.uint32(10).string(message.key);
-    }
-    if (message.value !== "") {
-      writer.uint32(18).string(message.value);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): CreateSessionRequest_SdpOfferEntry {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseCreateSessionRequest_SdpOfferEntry();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.key = reader.string();
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
-          message.value = reader.string();
-          continue;
-        }
+export const CreateSessionRequest_SdpOfferEntry: MessageFns<CreateSessionRequest_SdpOfferEntry> =
+  {
+    encode(
+      message: CreateSessionRequest_SdpOfferEntry,
+      writer: BinaryWriter = new BinaryWriter()
+    ): BinaryWriter {
+      if (message.key !== "") {
+        writer.uint32(10).string(message.key);
       }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
+      if (message.value !== "") {
+        writer.uint32(18).string(message.value);
       }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
+      return writer;
+    },
 
-  fromJSON(object: any): CreateSessionRequest_SdpOfferEntry {
-    return {
-      key: isSet(object.key) ? globalThis.String(object.key) : "",
-      value: isSet(object.value) ? globalThis.String(object.value) : "",
-    };
-  },
+    decode(
+      input: BinaryReader | Uint8Array,
+      length?: number
+    ): CreateSessionRequest_SdpOfferEntry {
+      const reader =
+        input instanceof BinaryReader ? input : new BinaryReader(input);
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCreateSessionRequest_SdpOfferEntry();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
 
-  toJSON(message: CreateSessionRequest_SdpOfferEntry): unknown {
-    const obj: any = {};
-    if (message.key !== "") {
-      obj.key = message.key;
-    }
-    if (message.value !== "") {
-      obj.value = message.value;
-    }
-    return obj;
-  },
+            message.key = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
 
-  create<I extends Exact<DeepPartial<CreateSessionRequest_SdpOfferEntry>, I>>(
-    base?: I,
-  ): CreateSessionRequest_SdpOfferEntry {
-    return CreateSessionRequest_SdpOfferEntry.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<CreateSessionRequest_SdpOfferEntry>, I>>(
-    object: I,
-  ): CreateSessionRequest_SdpOfferEntry {
-    const message = createBaseCreateSessionRequest_SdpOfferEntry();
-    message.key = object.key ?? "";
-    message.value = object.value ?? "";
-    return message;
-  },
-};
+            message.value = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    },
+
+    fromJSON(object: any): CreateSessionRequest_SdpOfferEntry {
+      return {
+        key: isSet(object.key) ? globalThis.String(object.key) : "",
+        value: isSet(object.value) ? globalThis.String(object.value) : "",
+      };
+    },
+
+    toJSON(message: CreateSessionRequest_SdpOfferEntry): unknown {
+      const obj: any = {};
+      if (message.key !== "") {
+        obj.key = message.key;
+      }
+      if (message.value !== "") {
+        obj.value = message.value;
+      }
+      return obj;
+    },
+
+    create<I extends Exact<DeepPartial<CreateSessionRequest_SdpOfferEntry>, I>>(
+      base?: I
+    ): CreateSessionRequest_SdpOfferEntry {
+      return CreateSessionRequest_SdpOfferEntry.fromPartial(
+        base ?? ({} as any)
+      );
+    },
+    fromPartial<
+      I extends Exact<DeepPartial<CreateSessionRequest_SdpOfferEntry>, I>,
+    >(object: I): CreateSessionRequest_SdpOfferEntry {
+      const message = createBaseCreateSessionRequest_SdpOfferEntry();
+      message.key = object.key ?? "";
+      message.value = object.value ?? "";
+      return message;
+    },
+  };
 
 function createBaseCreateSessionRequest_ExtraConfigsEntry(): CreateSessionRequest_ExtraConfigsEntry {
   return { key: "", value: "" };
 }
 
-export const CreateSessionRequest_ExtraConfigsEntry: MessageFns<CreateSessionRequest_ExtraConfigsEntry> = {
-  encode(message: CreateSessionRequest_ExtraConfigsEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.key !== "") {
-      writer.uint32(10).string(message.key);
-    }
-    if (message.value !== "") {
-      writer.uint32(18).string(message.value);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): CreateSessionRequest_ExtraConfigsEntry {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseCreateSessionRequest_ExtraConfigsEntry();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.key = reader.string();
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
-          message.value = reader.string();
-          continue;
-        }
+export const CreateSessionRequest_ExtraConfigsEntry: MessageFns<CreateSessionRequest_ExtraConfigsEntry> =
+  {
+    encode(
+      message: CreateSessionRequest_ExtraConfigsEntry,
+      writer: BinaryWriter = new BinaryWriter()
+    ): BinaryWriter {
+      if (message.key !== "") {
+        writer.uint32(10).string(message.key);
       }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
+      if (message.value !== "") {
+        writer.uint32(18).string(message.value);
       }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
+      return writer;
+    },
 
-  fromJSON(object: any): CreateSessionRequest_ExtraConfigsEntry {
-    return {
-      key: isSet(object.key) ? globalThis.String(object.key) : "",
-      value: isSet(object.value) ? globalThis.String(object.value) : "",
-    };
-  },
+    decode(
+      input: BinaryReader | Uint8Array,
+      length?: number
+    ): CreateSessionRequest_ExtraConfigsEntry {
+      const reader =
+        input instanceof BinaryReader ? input : new BinaryReader(input);
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCreateSessionRequest_ExtraConfigsEntry();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
 
-  toJSON(message: CreateSessionRequest_ExtraConfigsEntry): unknown {
-    const obj: any = {};
-    if (message.key !== "") {
-      obj.key = message.key;
-    }
-    if (message.value !== "") {
-      obj.value = message.value;
-    }
-    return obj;
-  },
+            message.key = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
 
-  create<I extends Exact<DeepPartial<CreateSessionRequest_ExtraConfigsEntry>, I>>(
-    base?: I,
-  ): CreateSessionRequest_ExtraConfigsEntry {
-    return CreateSessionRequest_ExtraConfigsEntry.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<CreateSessionRequest_ExtraConfigsEntry>, I>>(
-    object: I,
-  ): CreateSessionRequest_ExtraConfigsEntry {
-    const message = createBaseCreateSessionRequest_ExtraConfigsEntry();
-    message.key = object.key ?? "";
-    message.value = object.value ?? "";
-    return message;
-  },
-};
+            message.value = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    },
+
+    fromJSON(object: any): CreateSessionRequest_ExtraConfigsEntry {
+      return {
+        key: isSet(object.key) ? globalThis.String(object.key) : "",
+        value: isSet(object.value) ? globalThis.String(object.value) : "",
+      };
+    },
+
+    toJSON(message: CreateSessionRequest_ExtraConfigsEntry): unknown {
+      const obj: any = {};
+      if (message.key !== "") {
+        obj.key = message.key;
+      }
+      if (message.value !== "") {
+        obj.value = message.value;
+      }
+      return obj;
+    },
+
+    create<
+      I extends Exact<DeepPartial<CreateSessionRequest_ExtraConfigsEntry>, I>,
+    >(base?: I): CreateSessionRequest_ExtraConfigsEntry {
+      return CreateSessionRequest_ExtraConfigsEntry.fromPartial(
+        base ?? ({} as any)
+      );
+    },
+    fromPartial<
+      I extends Exact<DeepPartial<CreateSessionRequest_ExtraConfigsEntry>, I>,
+    >(object: I): CreateSessionRequest_ExtraConfigsEntry {
+      const message = createBaseCreateSessionRequest_ExtraConfigsEntry();
+      message.key = object.key ?? "";
+      message.value = object.value ?? "";
+      return message;
+    },
+  };
 
 function createBaseCreateSessionResponse(): CreateSessionResponse {
   return { sessionId: "" };
 }
 
 export const CreateSessionResponse: MessageFns<CreateSessionResponse> = {
-  encode(message: CreateSessionResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: CreateSessionResponse,
+    writer: BinaryWriter = new BinaryWriter()
+  ): BinaryWriter {
     if (message.sessionId !== "") {
       writer.uint32(10).string(message.sessionId);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): CreateSessionResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number
+  ): CreateSessionResponse {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseCreateSessionResponse();
     while (reader.pos < end) {
@@ -851,7 +963,11 @@ export const CreateSessionResponse: MessageFns<CreateSessionResponse> = {
   },
 
   fromJSON(object: any): CreateSessionResponse {
-    return { sessionId: isSet(object.sessionId) ? globalThis.String(object.sessionId) : "" };
+    return {
+      sessionId: isSet(object.sessionId)
+        ? globalThis.String(object.sessionId)
+        : "",
+    };
   },
 
   toJSON(message: CreateSessionResponse): unknown {
@@ -862,10 +978,14 @@ export const CreateSessionResponse: MessageFns<CreateSessionResponse> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CreateSessionResponse>, I>>(base?: I): CreateSessionResponse {
+  create<I extends Exact<DeepPartial<CreateSessionResponse>, I>>(
+    base?: I
+  ): CreateSessionResponse {
     return CreateSessionResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CreateSessionResponse>, I>>(object: I): CreateSessionResponse {
+  fromPartial<I extends Exact<DeepPartial<CreateSessionResponse>, I>>(
+    object: I
+  ): CreateSessionResponse {
     const message = createBaseCreateSessionResponse();
     message.sessionId = object.sessionId ?? "";
     return message;
@@ -877,21 +997,38 @@ function createBaseAcceptSessionRequest(): AcceptSessionRequest {
 }
 
 export const AcceptSessionRequest: MessageFns<AcceptSessionRequest> = {
-  encode(message: AcceptSessionRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: AcceptSessionRequest,
+    writer: BinaryWriter = new BinaryWriter()
+  ): BinaryWriter {
     if (message.sessionId !== "") {
       writer.uint32(10).string(message.sessionId);
     }
-    globalThis.Object.entries(message.sdpOffer).forEach(([key, value]: [string, string]) => {
-      AcceptSessionRequest_SdpOfferEntry.encode({ key: key as any, value }, writer.uint32(26).fork()).join();
-    });
-    globalThis.Object.entries(message.extraConfigs).forEach(([key, value]: [string, string]) => {
-      AcceptSessionRequest_ExtraConfigsEntry.encode({ key: key as any, value }, writer.uint32(794).fork()).join();
-    });
+    globalThis.Object.entries(message.sdpOffer).forEach(
+      ([key, value]: [string, string]) => {
+        AcceptSessionRequest_SdpOfferEntry.encode(
+          { key: key as any, value },
+          writer.uint32(26).fork()
+        ).join();
+      }
+    );
+    globalThis.Object.entries(message.extraConfigs).forEach(
+      ([key, value]: [string, string]) => {
+        AcceptSessionRequest_ExtraConfigsEntry.encode(
+          { key: key as any, value },
+          writer.uint32(794).fork()
+        ).join();
+      }
+    );
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): AcceptSessionRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number
+  ): AcceptSessionRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseAcceptSessionRequest();
     while (reader.pos < end) {
@@ -910,7 +1047,10 @@ export const AcceptSessionRequest: MessageFns<AcceptSessionRequest> = {
             break;
           }
 
-          const entry3 = AcceptSessionRequest_SdpOfferEntry.decode(reader, reader.uint32());
+          const entry3 = AcceptSessionRequest_SdpOfferEntry.decode(
+            reader,
+            reader.uint32()
+          );
           if (entry3.value !== undefined) {
             message.sdpOffer[entry3.key] = entry3.value;
           }
@@ -921,7 +1061,10 @@ export const AcceptSessionRequest: MessageFns<AcceptSessionRequest> = {
             break;
           }
 
-          const entry99 = AcceptSessionRequest_ExtraConfigsEntry.decode(reader, reader.uint32());
+          const entry99 = AcceptSessionRequest_ExtraConfigsEntry.decode(
+            reader,
+            reader.uint32()
+          );
           if (entry99.value !== undefined) {
             message.extraConfigs[entry99.key] = entry99.value;
           }
@@ -938,24 +1081,30 @@ export const AcceptSessionRequest: MessageFns<AcceptSessionRequest> = {
 
   fromJSON(object: any): AcceptSessionRequest {
     return {
-      sessionId: isSet(object.sessionId) ? globalThis.String(object.sessionId) : "",
+      sessionId: isSet(object.sessionId)
+        ? globalThis.String(object.sessionId)
+        : "",
       sdpOffer: isObject(object.sdpOffer)
-        ? (globalThis.Object.entries(object.sdpOffer) as [string, any][]).reduce(
-          (acc: { [key: string]: string }, [key, value]: [string, any]) => {
-            acc[key] = globalThis.String(value);
-            return acc;
-          },
-          {},
-        )
+        ? (
+            globalThis.Object.entries(object.sdpOffer) as [string, any][]
+          ).reduce(
+            (acc: { [key: string]: string }, [key, value]: [string, any]) => {
+              acc[key] = globalThis.String(value);
+              return acc;
+            },
+            {}
+          )
         : {},
       extraConfigs: isObject(object.extraConfigs)
-        ? (globalThis.Object.entries(object.extraConfigs) as [string, any][]).reduce(
-          (acc: { [key: string]: string }, [key, value]: [string, any]) => {
-            acc[key] = globalThis.String(value);
-            return acc;
-          },
-          {},
-        )
+        ? (
+            globalThis.Object.entries(object.extraConfigs) as [string, any][]
+          ).reduce(
+            (acc: { [key: string]: string }, [key, value]: [string, any]) => {
+              acc[key] = globalThis.String(value);
+              return acc;
+            },
+            {}
+          )
         : {},
     };
   },
@@ -966,7 +1115,10 @@ export const AcceptSessionRequest: MessageFns<AcceptSessionRequest> = {
       obj.sessionId = message.sessionId;
     }
     if (message.sdpOffer) {
-      const entries = globalThis.Object.entries(message.sdpOffer) as [string, string][];
+      const entries = globalThis.Object.entries(message.sdpOffer) as [
+        string,
+        string,
+      ][];
       if (entries.length > 0) {
         obj.sdpOffer = {};
         entries.forEach(([k, v]) => {
@@ -975,7 +1127,10 @@ export const AcceptSessionRequest: MessageFns<AcceptSessionRequest> = {
       }
     }
     if (message.extraConfigs) {
-      const entries = globalThis.Object.entries(message.extraConfigs) as [string, string][];
+      const entries = globalThis.Object.entries(message.extraConfigs) as [
+        string,
+        string,
+      ][];
       if (entries.length > 0) {
         obj.extraConfigs = {};
         entries.forEach(([k, v]) => {
@@ -986,29 +1141,37 @@ export const AcceptSessionRequest: MessageFns<AcceptSessionRequest> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<AcceptSessionRequest>, I>>(base?: I): AcceptSessionRequest {
+  create<I extends Exact<DeepPartial<AcceptSessionRequest>, I>>(
+    base?: I
+  ): AcceptSessionRequest {
     return AcceptSessionRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<AcceptSessionRequest>, I>>(object: I): AcceptSessionRequest {
+  fromPartial<I extends Exact<DeepPartial<AcceptSessionRequest>, I>>(
+    object: I
+  ): AcceptSessionRequest {
     const message = createBaseAcceptSessionRequest();
     message.sessionId = object.sessionId ?? "";
-    message.sdpOffer = (globalThis.Object.entries(object.sdpOffer ?? {}) as [string, string][]).reduce(
+    message.sdpOffer = (
+      globalThis.Object.entries(object.sdpOffer ?? {}) as [string, string][]
+    ).reduce(
       (acc: { [key: string]: string }, [key, value]: [string, string]) => {
         if (value !== undefined) {
           acc[key] = globalThis.String(value);
         }
         return acc;
       },
-      {},
+      {}
     );
-    message.extraConfigs = (globalThis.Object.entries(object.extraConfigs ?? {}) as [string, string][]).reduce(
+    message.extraConfigs = (
+      globalThis.Object.entries(object.extraConfigs ?? {}) as [string, string][]
+    ).reduce(
       (acc: { [key: string]: string }, [key, value]: [string, string]) => {
         if (value !== undefined) {
           acc[key] = globalThis.String(value);
         }
         return acc;
       },
-      {},
+      {}
     );
     return message;
   },
@@ -1018,173 +1181,199 @@ function createBaseAcceptSessionRequest_SdpOfferEntry(): AcceptSessionRequest_Sd
   return { key: "", value: "" };
 }
 
-export const AcceptSessionRequest_SdpOfferEntry: MessageFns<AcceptSessionRequest_SdpOfferEntry> = {
-  encode(message: AcceptSessionRequest_SdpOfferEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.key !== "") {
-      writer.uint32(10).string(message.key);
-    }
-    if (message.value !== "") {
-      writer.uint32(18).string(message.value);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): AcceptSessionRequest_SdpOfferEntry {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseAcceptSessionRequest_SdpOfferEntry();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.key = reader.string();
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
-          message.value = reader.string();
-          continue;
-        }
+export const AcceptSessionRequest_SdpOfferEntry: MessageFns<AcceptSessionRequest_SdpOfferEntry> =
+  {
+    encode(
+      message: AcceptSessionRequest_SdpOfferEntry,
+      writer: BinaryWriter = new BinaryWriter()
+    ): BinaryWriter {
+      if (message.key !== "") {
+        writer.uint32(10).string(message.key);
       }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
+      if (message.value !== "") {
+        writer.uint32(18).string(message.value);
       }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
+      return writer;
+    },
 
-  fromJSON(object: any): AcceptSessionRequest_SdpOfferEntry {
-    return {
-      key: isSet(object.key) ? globalThis.String(object.key) : "",
-      value: isSet(object.value) ? globalThis.String(object.value) : "",
-    };
-  },
+    decode(
+      input: BinaryReader | Uint8Array,
+      length?: number
+    ): AcceptSessionRequest_SdpOfferEntry {
+      const reader =
+        input instanceof BinaryReader ? input : new BinaryReader(input);
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseAcceptSessionRequest_SdpOfferEntry();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
 
-  toJSON(message: AcceptSessionRequest_SdpOfferEntry): unknown {
-    const obj: any = {};
-    if (message.key !== "") {
-      obj.key = message.key;
-    }
-    if (message.value !== "") {
-      obj.value = message.value;
-    }
-    return obj;
-  },
+            message.key = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
 
-  create<I extends Exact<DeepPartial<AcceptSessionRequest_SdpOfferEntry>, I>>(
-    base?: I,
-  ): AcceptSessionRequest_SdpOfferEntry {
-    return AcceptSessionRequest_SdpOfferEntry.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<AcceptSessionRequest_SdpOfferEntry>, I>>(
-    object: I,
-  ): AcceptSessionRequest_SdpOfferEntry {
-    const message = createBaseAcceptSessionRequest_SdpOfferEntry();
-    message.key = object.key ?? "";
-    message.value = object.value ?? "";
-    return message;
-  },
-};
+            message.value = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    },
+
+    fromJSON(object: any): AcceptSessionRequest_SdpOfferEntry {
+      return {
+        key: isSet(object.key) ? globalThis.String(object.key) : "",
+        value: isSet(object.value) ? globalThis.String(object.value) : "",
+      };
+    },
+
+    toJSON(message: AcceptSessionRequest_SdpOfferEntry): unknown {
+      const obj: any = {};
+      if (message.key !== "") {
+        obj.key = message.key;
+      }
+      if (message.value !== "") {
+        obj.value = message.value;
+      }
+      return obj;
+    },
+
+    create<I extends Exact<DeepPartial<AcceptSessionRequest_SdpOfferEntry>, I>>(
+      base?: I
+    ): AcceptSessionRequest_SdpOfferEntry {
+      return AcceptSessionRequest_SdpOfferEntry.fromPartial(
+        base ?? ({} as any)
+      );
+    },
+    fromPartial<
+      I extends Exact<DeepPartial<AcceptSessionRequest_SdpOfferEntry>, I>,
+    >(object: I): AcceptSessionRequest_SdpOfferEntry {
+      const message = createBaseAcceptSessionRequest_SdpOfferEntry();
+      message.key = object.key ?? "";
+      message.value = object.value ?? "";
+      return message;
+    },
+  };
 
 function createBaseAcceptSessionRequest_ExtraConfigsEntry(): AcceptSessionRequest_ExtraConfigsEntry {
   return { key: "", value: "" };
 }
 
-export const AcceptSessionRequest_ExtraConfigsEntry: MessageFns<AcceptSessionRequest_ExtraConfigsEntry> = {
-  encode(message: AcceptSessionRequest_ExtraConfigsEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.key !== "") {
-      writer.uint32(10).string(message.key);
-    }
-    if (message.value !== "") {
-      writer.uint32(18).string(message.value);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): AcceptSessionRequest_ExtraConfigsEntry {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseAcceptSessionRequest_ExtraConfigsEntry();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.key = reader.string();
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
-          message.value = reader.string();
-          continue;
-        }
+export const AcceptSessionRequest_ExtraConfigsEntry: MessageFns<AcceptSessionRequest_ExtraConfigsEntry> =
+  {
+    encode(
+      message: AcceptSessionRequest_ExtraConfigsEntry,
+      writer: BinaryWriter = new BinaryWriter()
+    ): BinaryWriter {
+      if (message.key !== "") {
+        writer.uint32(10).string(message.key);
       }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
+      if (message.value !== "") {
+        writer.uint32(18).string(message.value);
       }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
+      return writer;
+    },
 
-  fromJSON(object: any): AcceptSessionRequest_ExtraConfigsEntry {
-    return {
-      key: isSet(object.key) ? globalThis.String(object.key) : "",
-      value: isSet(object.value) ? globalThis.String(object.value) : "",
-    };
-  },
+    decode(
+      input: BinaryReader | Uint8Array,
+      length?: number
+    ): AcceptSessionRequest_ExtraConfigsEntry {
+      const reader =
+        input instanceof BinaryReader ? input : new BinaryReader(input);
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseAcceptSessionRequest_ExtraConfigsEntry();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
 
-  toJSON(message: AcceptSessionRequest_ExtraConfigsEntry): unknown {
-    const obj: any = {};
-    if (message.key !== "") {
-      obj.key = message.key;
-    }
-    if (message.value !== "") {
-      obj.value = message.value;
-    }
-    return obj;
-  },
+            message.key = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
 
-  create<I extends Exact<DeepPartial<AcceptSessionRequest_ExtraConfigsEntry>, I>>(
-    base?: I,
-  ): AcceptSessionRequest_ExtraConfigsEntry {
-    return AcceptSessionRequest_ExtraConfigsEntry.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<AcceptSessionRequest_ExtraConfigsEntry>, I>>(
-    object: I,
-  ): AcceptSessionRequest_ExtraConfigsEntry {
-    const message = createBaseAcceptSessionRequest_ExtraConfigsEntry();
-    message.key = object.key ?? "";
-    message.value = object.value ?? "";
-    return message;
-  },
-};
+            message.value = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    },
+
+    fromJSON(object: any): AcceptSessionRequest_ExtraConfigsEntry {
+      return {
+        key: isSet(object.key) ? globalThis.String(object.key) : "",
+        value: isSet(object.value) ? globalThis.String(object.value) : "",
+      };
+    },
+
+    toJSON(message: AcceptSessionRequest_ExtraConfigsEntry): unknown {
+      const obj: any = {};
+      if (message.key !== "") {
+        obj.key = message.key;
+      }
+      if (message.value !== "") {
+        obj.value = message.value;
+      }
+      return obj;
+    },
+
+    create<
+      I extends Exact<DeepPartial<AcceptSessionRequest_ExtraConfigsEntry>, I>,
+    >(base?: I): AcceptSessionRequest_ExtraConfigsEntry {
+      return AcceptSessionRequest_ExtraConfigsEntry.fromPartial(
+        base ?? ({} as any)
+      );
+    },
+    fromPartial<
+      I extends Exact<DeepPartial<AcceptSessionRequest_ExtraConfigsEntry>, I>,
+    >(object: I): AcceptSessionRequest_ExtraConfigsEntry {
+      const message = createBaseAcceptSessionRequest_ExtraConfigsEntry();
+      message.key = object.key ?? "";
+      message.value = object.value ?? "";
+      return message;
+    },
+  };
 
 function createBaseSessionInfoResponse(): SessionInfoResponse {
   return { sessionId: "", sessionInfo: undefined, state: 0 };
 }
 
 export const SessionInfoResponse: MessageFns<SessionInfoResponse> = {
-  encode(message: SessionInfoResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: SessionInfoResponse,
+    writer: BinaryWriter = new BinaryWriter()
+  ): BinaryWriter {
     if (message.sessionId !== "") {
       writer.uint32(10).string(message.sessionId);
     }
     if (message.sessionInfo !== undefined) {
-      CreateSessionRequest.encode(message.sessionInfo, writer.uint32(18).fork()).join();
+      CreateSessionRequest.encode(
+        message.sessionInfo,
+        writer.uint32(18).fork()
+      ).join();
     }
     if (message.state !== 0) {
       writer.uint32(24).int32(message.state);
@@ -1192,8 +1381,12 @@ export const SessionInfoResponse: MessageFns<SessionInfoResponse> = {
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): SessionInfoResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number
+  ): SessionInfoResponse {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseSessionInfoResponse();
     while (reader.pos < end) {
@@ -1212,7 +1405,10 @@ export const SessionInfoResponse: MessageFns<SessionInfoResponse> = {
             break;
           }
 
-          message.sessionInfo = CreateSessionRequest.decode(reader, reader.uint32());
+          message.sessionInfo = CreateSessionRequest.decode(
+            reader,
+            reader.uint32()
+          );
           continue;
         }
         case 3: {
@@ -1234,8 +1430,12 @@ export const SessionInfoResponse: MessageFns<SessionInfoResponse> = {
 
   fromJSON(object: any): SessionInfoResponse {
     return {
-      sessionId: isSet(object.sessionId) ? globalThis.String(object.sessionId) : "",
-      sessionInfo: isSet(object.sessionInfo) ? CreateSessionRequest.fromJSON(object.sessionInfo) : undefined,
+      sessionId: isSet(object.sessionId)
+        ? globalThis.String(object.sessionId)
+        : "",
+      sessionInfo: isSet(object.sessionInfo)
+        ? CreateSessionRequest.fromJSON(object.sessionInfo)
+        : undefined,
       state: isSet(object.state) ? sessionStateFromJSON(object.state) : 0,
     };
   },
@@ -1254,15 +1454,20 @@ export const SessionInfoResponse: MessageFns<SessionInfoResponse> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<SessionInfoResponse>, I>>(base?: I): SessionInfoResponse {
+  create<I extends Exact<DeepPartial<SessionInfoResponse>, I>>(
+    base?: I
+  ): SessionInfoResponse {
     return SessionInfoResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<SessionInfoResponse>, I>>(object: I): SessionInfoResponse {
+  fromPartial<I extends Exact<DeepPartial<SessionInfoResponse>, I>>(
+    object: I
+  ): SessionInfoResponse {
     const message = createBaseSessionInfoResponse();
     message.sessionId = object.sessionId ?? "";
-    message.sessionInfo = (object.sessionInfo !== undefined && object.sessionInfo !== null)
-      ? CreateSessionRequest.fromPartial(object.sessionInfo)
-      : undefined;
+    message.sessionInfo =
+      object.sessionInfo !== undefined && object.sessionInfo !== null
+        ? CreateSessionRequest.fromPartial(object.sessionInfo)
+        : undefined;
     message.state = object.state ?? 0;
     return message;
   },
@@ -1273,18 +1478,27 @@ function createBaseSDPParamsRequest(): SDPParamsRequest {
 }
 
 export const SDPParamsRequest: MessageFns<SDPParamsRequest> = {
-  encode(message: SDPParamsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: SDPParamsRequest,
+    writer: BinaryWriter = new BinaryWriter()
+  ): BinaryWriter {
     if (message.sdpOffer !== "") {
       writer.uint32(10).string(message.sdpOffer);
     }
-    globalThis.Object.entries(message.extraArgs).forEach(([key, value]: [string, string]) => {
-      SDPParamsRequest_ExtraArgsEntry.encode({ key: key as any, value }, writer.uint32(18).fork()).join();
-    });
+    globalThis.Object.entries(message.extraArgs).forEach(
+      ([key, value]: [string, string]) => {
+        SDPParamsRequest_ExtraArgsEntry.encode(
+          { key: key as any, value },
+          writer.uint32(18).fork()
+        ).join();
+      }
+    );
     return writer;
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SDPParamsRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseSDPParamsRequest();
     while (reader.pos < end) {
@@ -1303,7 +1517,10 @@ export const SDPParamsRequest: MessageFns<SDPParamsRequest> = {
             break;
           }
 
-          const entry2 = SDPParamsRequest_ExtraArgsEntry.decode(reader, reader.uint32());
+          const entry2 = SDPParamsRequest_ExtraArgsEntry.decode(
+            reader,
+            reader.uint32()
+          );
           if (entry2.value !== undefined) {
             message.extraArgs[entry2.key] = entry2.value;
           }
@@ -1320,15 +1537,19 @@ export const SDPParamsRequest: MessageFns<SDPParamsRequest> = {
 
   fromJSON(object: any): SDPParamsRequest {
     return {
-      sdpOffer: isSet(object.sdpOffer) ? globalThis.String(object.sdpOffer) : "",
+      sdpOffer: isSet(object.sdpOffer)
+        ? globalThis.String(object.sdpOffer)
+        : "",
       extraArgs: isObject(object.extraArgs)
-        ? (globalThis.Object.entries(object.extraArgs) as [string, any][]).reduce(
-          (acc: { [key: string]: string }, [key, value]: [string, any]) => {
-            acc[key] = globalThis.String(value);
-            return acc;
-          },
-          {},
-        )
+        ? (
+            globalThis.Object.entries(object.extraArgs) as [string, any][]
+          ).reduce(
+            (acc: { [key: string]: string }, [key, value]: [string, any]) => {
+              acc[key] = globalThis.String(value);
+              return acc;
+            },
+            {}
+          )
         : {},
     };
   },
@@ -1339,7 +1560,10 @@ export const SDPParamsRequest: MessageFns<SDPParamsRequest> = {
       obj.sdpOffer = message.sdpOffer;
     }
     if (message.extraArgs) {
-      const entries = globalThis.Object.entries(message.extraArgs) as [string, string][];
+      const entries = globalThis.Object.entries(message.extraArgs) as [
+        string,
+        string,
+      ][];
       if (entries.length > 0) {
         obj.extraArgs = {};
         entries.forEach(([k, v]) => {
@@ -1350,20 +1574,26 @@ export const SDPParamsRequest: MessageFns<SDPParamsRequest> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<SDPParamsRequest>, I>>(base?: I): SDPParamsRequest {
+  create<I extends Exact<DeepPartial<SDPParamsRequest>, I>>(
+    base?: I
+  ): SDPParamsRequest {
     return SDPParamsRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<SDPParamsRequest>, I>>(object: I): SDPParamsRequest {
+  fromPartial<I extends Exact<DeepPartial<SDPParamsRequest>, I>>(
+    object: I
+  ): SDPParamsRequest {
     const message = createBaseSDPParamsRequest();
     message.sdpOffer = object.sdpOffer ?? "";
-    message.extraArgs = (globalThis.Object.entries(object.extraArgs ?? {}) as [string, string][]).reduce(
+    message.extraArgs = (
+      globalThis.Object.entries(object.extraArgs ?? {}) as [string, string][]
+    ).reduce(
       (acc: { [key: string]: string }, [key, value]: [string, string]) => {
         if (value !== undefined) {
           acc[key] = globalThis.String(value);
         }
         return acc;
       },
-      {},
+      {}
     );
     return message;
   },
@@ -1373,97 +1603,116 @@ function createBaseSDPParamsRequest_ExtraArgsEntry(): SDPParamsRequest_ExtraArgs
   return { key: "", value: "" };
 }
 
-export const SDPParamsRequest_ExtraArgsEntry: MessageFns<SDPParamsRequest_ExtraArgsEntry> = {
-  encode(message: SDPParamsRequest_ExtraArgsEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.key !== "") {
-      writer.uint32(10).string(message.key);
-    }
-    if (message.value !== "") {
-      writer.uint32(18).string(message.value);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): SDPParamsRequest_ExtraArgsEntry {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSDPParamsRequest_ExtraArgsEntry();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.key = reader.string();
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
-          message.value = reader.string();
-          continue;
-        }
+export const SDPParamsRequest_ExtraArgsEntry: MessageFns<SDPParamsRequest_ExtraArgsEntry> =
+  {
+    encode(
+      message: SDPParamsRequest_ExtraArgsEntry,
+      writer: BinaryWriter = new BinaryWriter()
+    ): BinaryWriter {
+      if (message.key !== "") {
+        writer.uint32(10).string(message.key);
       }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
+      if (message.value !== "") {
+        writer.uint32(18).string(message.value);
       }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
+      return writer;
+    },
 
-  fromJSON(object: any): SDPParamsRequest_ExtraArgsEntry {
-    return {
-      key: isSet(object.key) ? globalThis.String(object.key) : "",
-      value: isSet(object.value) ? globalThis.String(object.value) : "",
-    };
-  },
+    decode(
+      input: BinaryReader | Uint8Array,
+      length?: number
+    ): SDPParamsRequest_ExtraArgsEntry {
+      const reader =
+        input instanceof BinaryReader ? input : new BinaryReader(input);
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseSDPParamsRequest_ExtraArgsEntry();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
 
-  toJSON(message: SDPParamsRequest_ExtraArgsEntry): unknown {
-    const obj: any = {};
-    if (message.key !== "") {
-      obj.key = message.key;
-    }
-    if (message.value !== "") {
-      obj.value = message.value;
-    }
-    return obj;
-  },
+            message.key = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
 
-  create<I extends Exact<DeepPartial<SDPParamsRequest_ExtraArgsEntry>, I>>(base?: I): SDPParamsRequest_ExtraArgsEntry {
-    return SDPParamsRequest_ExtraArgsEntry.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<SDPParamsRequest_ExtraArgsEntry>, I>>(
-    object: I,
-  ): SDPParamsRequest_ExtraArgsEntry {
-    const message = createBaseSDPParamsRequest_ExtraArgsEntry();
-    message.key = object.key ?? "";
-    message.value = object.value ?? "";
-    return message;
-  },
-};
+            message.value = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    },
+
+    fromJSON(object: any): SDPParamsRequest_ExtraArgsEntry {
+      return {
+        key: isSet(object.key) ? globalThis.String(object.key) : "",
+        value: isSet(object.value) ? globalThis.String(object.value) : "",
+      };
+    },
+
+    toJSON(message: SDPParamsRequest_ExtraArgsEntry): unknown {
+      const obj: any = {};
+      if (message.key !== "") {
+        obj.key = message.key;
+      }
+      if (message.value !== "") {
+        obj.value = message.value;
+      }
+      return obj;
+    },
+
+    create<I extends Exact<DeepPartial<SDPParamsRequest_ExtraArgsEntry>, I>>(
+      base?: I
+    ): SDPParamsRequest_ExtraArgsEntry {
+      return SDPParamsRequest_ExtraArgsEntry.fromPartial(base ?? ({} as any));
+    },
+    fromPartial<
+      I extends Exact<DeepPartial<SDPParamsRequest_ExtraArgsEntry>, I>,
+    >(object: I): SDPParamsRequest_ExtraArgsEntry {
+      const message = createBaseSDPParamsRequest_ExtraArgsEntry();
+      message.key = object.key ?? "";
+      message.value = object.value ?? "";
+      return message;
+    },
+  };
 
 function createBaseSDPParamsResponse(): SDPParamsResponse {
   return { sdpAnswer: "", extraArgs: {} };
 }
 
 export const SDPParamsResponse: MessageFns<SDPParamsResponse> = {
-  encode(message: SDPParamsResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: SDPParamsResponse,
+    writer: BinaryWriter = new BinaryWriter()
+  ): BinaryWriter {
     if (message.sdpAnswer !== "") {
       writer.uint32(10).string(message.sdpAnswer);
     }
-    globalThis.Object.entries(message.extraArgs).forEach(([key, value]: [string, string]) => {
-      SDPParamsResponse_ExtraArgsEntry.encode({ key: key as any, value }, writer.uint32(18).fork()).join();
-    });
+    globalThis.Object.entries(message.extraArgs).forEach(
+      ([key, value]: [string, string]) => {
+        SDPParamsResponse_ExtraArgsEntry.encode(
+          { key: key as any, value },
+          writer.uint32(18).fork()
+        ).join();
+      }
+    );
     return writer;
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SDPParamsResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseSDPParamsResponse();
     while (reader.pos < end) {
@@ -1482,7 +1731,10 @@ export const SDPParamsResponse: MessageFns<SDPParamsResponse> = {
             break;
           }
 
-          const entry2 = SDPParamsResponse_ExtraArgsEntry.decode(reader, reader.uint32());
+          const entry2 = SDPParamsResponse_ExtraArgsEntry.decode(
+            reader,
+            reader.uint32()
+          );
           if (entry2.value !== undefined) {
             message.extraArgs[entry2.key] = entry2.value;
           }
@@ -1499,15 +1751,19 @@ export const SDPParamsResponse: MessageFns<SDPParamsResponse> = {
 
   fromJSON(object: any): SDPParamsResponse {
     return {
-      sdpAnswer: isSet(object.sdpAnswer) ? globalThis.String(object.sdpAnswer) : "",
+      sdpAnswer: isSet(object.sdpAnswer)
+        ? globalThis.String(object.sdpAnswer)
+        : "",
       extraArgs: isObject(object.extraArgs)
-        ? (globalThis.Object.entries(object.extraArgs) as [string, any][]).reduce(
-          (acc: { [key: string]: string }, [key, value]: [string, any]) => {
-            acc[key] = globalThis.String(value);
-            return acc;
-          },
-          {},
-        )
+        ? (
+            globalThis.Object.entries(object.extraArgs) as [string, any][]
+          ).reduce(
+            (acc: { [key: string]: string }, [key, value]: [string, any]) => {
+              acc[key] = globalThis.String(value);
+              return acc;
+            },
+            {}
+          )
         : {},
     };
   },
@@ -1518,7 +1774,10 @@ export const SDPParamsResponse: MessageFns<SDPParamsResponse> = {
       obj.sdpAnswer = message.sdpAnswer;
     }
     if (message.extraArgs) {
-      const entries = globalThis.Object.entries(message.extraArgs) as [string, string][];
+      const entries = globalThis.Object.entries(message.extraArgs) as [
+        string,
+        string,
+      ][];
       if (entries.length > 0) {
         obj.extraArgs = {};
         entries.forEach(([k, v]) => {
@@ -1529,20 +1788,26 @@ export const SDPParamsResponse: MessageFns<SDPParamsResponse> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<SDPParamsResponse>, I>>(base?: I): SDPParamsResponse {
+  create<I extends Exact<DeepPartial<SDPParamsResponse>, I>>(
+    base?: I
+  ): SDPParamsResponse {
     return SDPParamsResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<SDPParamsResponse>, I>>(object: I): SDPParamsResponse {
+  fromPartial<I extends Exact<DeepPartial<SDPParamsResponse>, I>>(
+    object: I
+  ): SDPParamsResponse {
     const message = createBaseSDPParamsResponse();
     message.sdpAnswer = object.sdpAnswer ?? "";
-    message.extraArgs = (globalThis.Object.entries(object.extraArgs ?? {}) as [string, string][]).reduce(
+    message.extraArgs = (
+      globalThis.Object.entries(object.extraArgs ?? {}) as [string, string][]
+    ).reduce(
       (acc: { [key: string]: string }, [key, value]: [string, string]) => {
         if (value !== undefined) {
           acc[key] = globalThis.String(value);
         }
         return acc;
       },
-      {},
+      {}
     );
     return message;
   },
@@ -1552,93 +1817,115 @@ function createBaseSDPParamsResponse_ExtraArgsEntry(): SDPParamsResponse_ExtraAr
   return { key: "", value: "" };
 }
 
-export const SDPParamsResponse_ExtraArgsEntry: MessageFns<SDPParamsResponse_ExtraArgsEntry> = {
-  encode(message: SDPParamsResponse_ExtraArgsEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.key !== "") {
-      writer.uint32(10).string(message.key);
-    }
-    if (message.value !== "") {
-      writer.uint32(18).string(message.value);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): SDPParamsResponse_ExtraArgsEntry {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSDPParamsResponse_ExtraArgsEntry();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.key = reader.string();
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
-          message.value = reader.string();
-          continue;
-        }
+export const SDPParamsResponse_ExtraArgsEntry: MessageFns<SDPParamsResponse_ExtraArgsEntry> =
+  {
+    encode(
+      message: SDPParamsResponse_ExtraArgsEntry,
+      writer: BinaryWriter = new BinaryWriter()
+    ): BinaryWriter {
+      if (message.key !== "") {
+        writer.uint32(10).string(message.key);
       }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
+      if (message.value !== "") {
+        writer.uint32(18).string(message.value);
       }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
+      return writer;
+    },
 
-  fromJSON(object: any): SDPParamsResponse_ExtraArgsEntry {
-    return {
-      key: isSet(object.key) ? globalThis.String(object.key) : "",
-      value: isSet(object.value) ? globalThis.String(object.value) : "",
-    };
-  },
+    decode(
+      input: BinaryReader | Uint8Array,
+      length?: number
+    ): SDPParamsResponse_ExtraArgsEntry {
+      const reader =
+        input instanceof BinaryReader ? input : new BinaryReader(input);
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseSDPParamsResponse_ExtraArgsEntry();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
 
-  toJSON(message: SDPParamsResponse_ExtraArgsEntry): unknown {
-    const obj: any = {};
-    if (message.key !== "") {
-      obj.key = message.key;
-    }
-    if (message.value !== "") {
-      obj.value = message.value;
-    }
-    return obj;
-  },
+            message.key = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
 
-  create<I extends Exact<DeepPartial<SDPParamsResponse_ExtraArgsEntry>, I>>(
-    base?: I,
-  ): SDPParamsResponse_ExtraArgsEntry {
-    return SDPParamsResponse_ExtraArgsEntry.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<SDPParamsResponse_ExtraArgsEntry>, I>>(
-    object: I,
-  ): SDPParamsResponse_ExtraArgsEntry {
-    const message = createBaseSDPParamsResponse_ExtraArgsEntry();
-    message.key = object.key ?? "";
-    message.value = object.value ?? "";
-    return message;
-  },
-};
+            message.value = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    },
 
-type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
+    fromJSON(object: any): SDPParamsResponse_ExtraArgsEntry {
+      return {
+        key: isSet(object.key) ? globalThis.String(object.key) : "",
+        value: isSet(object.value) ? globalThis.String(object.value) : "",
+      };
+    },
 
-export type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends {} ? { [K in keyof T]?: DeepPartial<T[K]> }
-  : Partial<T>;
+    toJSON(message: SDPParamsResponse_ExtraArgsEntry): unknown {
+      const obj: any = {};
+      if (message.key !== "") {
+        obj.key = message.key;
+      }
+      if (message.value !== "") {
+        obj.value = message.value;
+      }
+      return obj;
+    },
+
+    create<I extends Exact<DeepPartial<SDPParamsResponse_ExtraArgsEntry>, I>>(
+      base?: I
+    ): SDPParamsResponse_ExtraArgsEntry {
+      return SDPParamsResponse_ExtraArgsEntry.fromPartial(base ?? ({} as any));
+    },
+    fromPartial<
+      I extends Exact<DeepPartial<SDPParamsResponse_ExtraArgsEntry>, I>,
+    >(object: I): SDPParamsResponse_ExtraArgsEntry {
+      const message = createBaseSDPParamsResponse_ExtraArgsEntry();
+      message.key = object.key ?? "";
+      message.value = object.value ?? "";
+      return message;
+    },
+  };
+
+type Builtin =
+  | Date
+  | Function
+  | Uint8Array
+  | string
+  | number
+  | boolean
+  | undefined;
+
+export type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends {}
+        ? { [K in keyof T]?: DeepPartial<T[K]> }
+        : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P>>]: never };
+export type Exact<P, I extends P> = P extends Builtin
+  ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
+      [K in Exclude<keyof I, KeysOfUnion<P>>]: never;
+    };
 
 function isObject(value: any): boolean {
   return typeof value === "object" && value !== null;

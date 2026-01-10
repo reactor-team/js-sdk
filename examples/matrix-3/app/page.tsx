@@ -1,6 +1,10 @@
 "use client";
 
-import { ReactorController, ReactorProvider, ReactorView } from "@reactor-team/js-sdk";
+import {
+  ReactorController,
+  ReactorProvider,
+  ReactorView,
+} from "@reactor-team/js-sdk";
 import { ReactorStatus } from "@/components/ReactorStatus";
 import { MatrixController } from "@/components/MatrixController";
 import { ImageUploader } from "@/components/ImageUploader";

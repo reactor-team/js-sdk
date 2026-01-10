@@ -34,10 +34,7 @@ import { ReactorProvider, ReactorView } from "@reactor-team/js-sdk";
 
 function App() {
   return (
-    <ReactorProvider
-      modelName="your-model"
-      jwtToken={token}
-    >
+    <ReactorProvider modelName="your-model" jwtToken={token}>
       <ReactorView className="w-full aspect-video" />
     </ReactorProvider>
   );
@@ -74,11 +71,11 @@ function Controls() {
 
 This repository includes working examples:
 
-| Example | Description | Demo |
-|---------|-------------|------|
-| [longlive](./examples/longlive) | Real-time text-to-video generation | [Live Demo](https://js-sdk-example-longlive.vercel.app/) |
-| [matrix-2](./examples/matrix-2) | Interactive world model with keyboard controls | [Live Demo](https://js-sdk-example-matrix-2.vercel.app/) |
-| [stream-diffusion-v2](./examples/stream-diffusion-v2) | Real-time webcam-to-video transformation | [Live Demo](https://js-sdk-stream-diffusion-v2.vercel.app/) |
+| Example                                               | Description                                    | Demo                                                        |
+| ----------------------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------- |
+| [longlive](./examples/longlive)                       | Real-time text-to-video generation             | [Live Demo](https://js-sdk-example-longlive.vercel.app/)    |
+| [matrix-2](./examples/matrix-2)                       | Interactive world model with keyboard controls | [Live Demo](https://js-sdk-example-matrix-2.vercel.app/)    |
+| [stream-diffusion-v2](./examples/stream-diffusion-v2) | Real-time webcam-to-video transformation       | [Live Demo](https://js-sdk-stream-diffusion-v2.vercel.app/) |
 
 To run an example locally:
 

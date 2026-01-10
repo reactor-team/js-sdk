@@ -9,8 +9,7 @@ import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
 
 export const protobufPackage = "handlers";
 
-export interface InfoRequest {
-}
+export interface InfoRequest {}
 
 export interface InfoResponse {
   service: string;
@@ -24,12 +23,16 @@ function createBaseInfoRequest(): InfoRequest {
 }
 
 export const InfoRequest: MessageFns<InfoRequest> = {
-  encode(_: InfoRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    _: InfoRequest,
+    writer: BinaryWriter = new BinaryWriter()
+  ): BinaryWriter {
     return writer;
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): InfoRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseInfoRequest();
     while (reader.pos < end) {
@@ -67,7 +70,10 @@ function createBaseInfoResponse(): InfoResponse {
 }
 
 export const InfoResponse: MessageFns<InfoResponse> = {
-  encode(message: InfoResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: InfoResponse,
+    writer: BinaryWriter = new BinaryWriter()
+  ): BinaryWriter {
     if (message.service !== "") {
       writer.uint32(10).string(message.service);
     }
@@ -84,7 +90,8 @@ export const InfoResponse: MessageFns<InfoResponse> = {
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): InfoResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseInfoResponse();
     while (reader.pos < end) {
@@ -157,10 +164,14 @@ export const InfoResponse: MessageFns<InfoResponse> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<InfoResponse>, I>>(base?: I): InfoResponse {
+  create<I extends Exact<DeepPartial<InfoResponse>, I>>(
+    base?: I
+  ): InfoResponse {
     return InfoResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<InfoResponse>, I>>(object: I): InfoResponse {
+  fromPartial<I extends Exact<DeepPartial<InfoResponse>, I>>(
+    object: I
+  ): InfoResponse {
     const message = createBaseInfoResponse();
     message.service = object.service ?? "";
     message.pod = object.pod ?? "";
@@ -170,17 +181,31 @@ export const InfoResponse: MessageFns<InfoResponse> = {
   },
 };
 
-type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
+type Builtin =
+  | Date
+  | Function
+  | Uint8Array
+  | string
+  | number
+  | boolean
+  | undefined;
 
-export type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends {} ? { [K in keyof T]?: DeepPartial<T[K]> }
-  : Partial<T>;
+export type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends {}
+        ? { [K in keyof T]?: DeepPartial<T[K]> }
+        : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P>>]: never };
+export type Exact<P, I extends P> = P extends Builtin
+  ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
+      [K in Exclude<keyof I, KeysOfUnion<P>>]: never;
+    };
 
 function isSet(value: any): boolean {
   return value !== null && value !== undefined;

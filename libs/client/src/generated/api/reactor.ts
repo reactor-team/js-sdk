@@ -36,10 +36,13 @@ export const SupervisorService = {
     path: "/api.Supervisor/Health",
     requestStream: false,
     responseStream: false,
-    requestSerialize: (value: Empty): Buffer => Buffer.from(Empty.encode(value).finish()),
+    requestSerialize: (value: Empty): Buffer =>
+      Buffer.from(Empty.encode(value).finish()),
     requestDeserialize: (value: Buffer): Empty => Empty.decode(value),
-    responseSerialize: (value: HealthResponse): Buffer => Buffer.from(HealthResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): HealthResponse => HealthResponse.decode(value),
+    responseSerialize: (value: HealthResponse): Buffer =>
+      Buffer.from(HealthResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): HealthResponse =>
+      HealthResponse.decode(value),
   },
   /**
    * Provides details about the server's version, configuration and other
@@ -49,21 +52,27 @@ export const SupervisorService = {
     path: "/api.Supervisor/Info",
     requestStream: false,
     responseStream: false,
-    requestSerialize: (value: Empty): Buffer => Buffer.from(Empty.encode(value).finish()),
+    requestSerialize: (value: Empty): Buffer =>
+      Buffer.from(Empty.encode(value).finish()),
     requestDeserialize: (value: Buffer): Empty => Empty.decode(value),
-    responseSerialize: (value: InfoResponse): Buffer => Buffer.from(InfoResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): InfoResponse => InfoResponse.decode(value),
+    responseSerialize: (value: InfoResponse): Buffer =>
+      Buffer.from(InfoResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): InfoResponse =>
+      InfoResponse.decode(value),
   },
   /** Request from Coordinator to establish a WebRTC Session with a Client. */
   createSession: {
     path: "/api.Supervisor/CreateSession",
     requestStream: false,
     responseStream: false,
-    requestSerialize: (value: CreateSessionRequest): Buffer => Buffer.from(CreateSessionRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): CreateSessionRequest => CreateSessionRequest.decode(value),
+    requestSerialize: (value: CreateSessionRequest): Buffer =>
+      Buffer.from(CreateSessionRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): CreateSessionRequest =>
+      CreateSessionRequest.decode(value),
     responseSerialize: (value: CreateSessionResponse): Buffer =>
       Buffer.from(CreateSessionResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): CreateSessionResponse => CreateSessionResponse.decode(value),
+    responseDeserialize: (value: Buffer): CreateSessionResponse =>
+      CreateSessionResponse.decode(value),
   },
   /**
    * This is used by the Runtime to signal to Supervisor that they have "accepted"
@@ -75,9 +84,12 @@ export const SupervisorService = {
     path: "/api.Supervisor/AcceptSession",
     requestStream: false,
     responseStream: false,
-    requestSerialize: (value: AcceptSessionRequest): Buffer => Buffer.from(AcceptSessionRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): AcceptSessionRequest => AcceptSessionRequest.decode(value),
-    responseSerialize: (value: Empty): Buffer => Buffer.from(Empty.encode(value).finish()),
+    requestSerialize: (value: AcceptSessionRequest): Buffer =>
+      Buffer.from(AcceptSessionRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): AcceptSessionRequest =>
+      AcceptSessionRequest.decode(value),
+    responseSerialize: (value: Empty): Buffer =>
+      Buffer.from(Empty.encode(value).finish()),
     responseDeserialize: (value: Buffer): Empty => Empty.decode(value),
   },
   /**
@@ -92,11 +104,14 @@ export const SupervisorService = {
     path: "/api.Supervisor/ReconnectSession",
     requestStream: false,
     responseStream: false,
-    requestSerialize: (value: CreateSessionRequest): Buffer => Buffer.from(CreateSessionRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): CreateSessionRequest => CreateSessionRequest.decode(value),
+    requestSerialize: (value: CreateSessionRequest): Buffer =>
+      Buffer.from(CreateSessionRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): CreateSessionRequest =>
+      CreateSessionRequest.decode(value),
     responseSerialize: (value: CreateSessionResponse): Buffer =>
       Buffer.from(CreateSessionResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): CreateSessionResponse => CreateSessionResponse.decode(value),
+    responseDeserialize: (value: Buffer): CreateSessionResponse =>
+      CreateSessionResponse.decode(value),
   },
   /**
    * Communicates to Supervisor that the WebRTC video stream was terminated abruptly
@@ -111,8 +126,10 @@ export const SupervisorService = {
     responseStream: false,
     requestSerialize: (value: string | undefined): Buffer =>
       Buffer.from(StringValue.encode({ value: value ?? "" }).finish()),
-    requestDeserialize: (value: Buffer): string | undefined => StringValue.decode(value).value,
-    responseSerialize: (value: Empty): Buffer => Buffer.from(Empty.encode(value).finish()),
+    requestDeserialize: (value: Buffer): string | undefined =>
+      StringValue.decode(value).value,
+    responseSerialize: (value: Empty): Buffer =>
+      Buffer.from(Empty.encode(value).finish()),
     responseDeserialize: (value: Buffer): Empty => Empty.decode(value),
   },
   /**
@@ -126,8 +143,10 @@ export const SupervisorService = {
     responseStream: false,
     requestSerialize: (value: string | undefined): Buffer =>
       Buffer.from(StringValue.encode({ value: value ?? "" }).finish()),
-    requestDeserialize: (value: Buffer): string | undefined => StringValue.decode(value).value,
-    responseSerialize: (value: Empty): Buffer => Buffer.from(Empty.encode(value).finish()),
+    requestDeserialize: (value: Buffer): string | undefined =>
+      StringValue.decode(value).value,
+    responseSerialize: (value: Empty): Buffer =>
+      Buffer.from(Empty.encode(value).finish()),
     responseDeserialize: (value: Buffer): Empty => Empty.decode(value),
   },
 } as const;
@@ -157,7 +176,10 @@ export interface SupervisorServer extends UntypedServiceImplementation {
    * and sent to Supervisor at a later time, to start a new video stream (with the same
    * or a different CU, as the case may be).
    */
-  reconnectSession: handleUnaryCall<CreateSessionRequest, CreateSessionResponse>;
+  reconnectSession: handleUnaryCall<
+    CreateSessionRequest,
+    CreateSessionResponse
+  >;
   /**
    * Communicates to Supervisor that the WebRTC video stream was terminated abruptly
    * and the existing CU cannot be reached (e.g., it crashed): the Supervisor will
@@ -176,49 +198,64 @@ export interface SupervisorServer extends UntypedServiceImplementation {
 
 export interface SupervisorClient extends Client {
   /** A simple heartbeat request, used to ensure the server is still responsive. */
-  health(request: Empty, callback: (error: ServiceError | null, response: HealthResponse) => void): ClientUnaryCall;
+  health(
+    request: Empty,
+    callback: (error: ServiceError | null, response: HealthResponse) => void
+  ): ClientUnaryCall;
   health(
     request: Empty,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: HealthResponse) => void,
+    callback: (error: ServiceError | null, response: HealthResponse) => void
   ): ClientUnaryCall;
   health(
     request: Empty,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: HealthResponse) => void,
+    callback: (error: ServiceError | null, response: HealthResponse) => void
   ): ClientUnaryCall;
   /**
    * Provides details about the server's version, configuration and other
    * operational status; it may be used to report metrics and alerting.
    */
-  info(request: Empty, callback: (error: ServiceError | null, response: InfoResponse) => void): ClientUnaryCall;
+  info(
+    request: Empty,
+    callback: (error: ServiceError | null, response: InfoResponse) => void
+  ): ClientUnaryCall;
   info(
     request: Empty,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: InfoResponse) => void,
+    callback: (error: ServiceError | null, response: InfoResponse) => void
   ): ClientUnaryCall;
   info(
     request: Empty,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: InfoResponse) => void,
+    callback: (error: ServiceError | null, response: InfoResponse) => void
   ): ClientUnaryCall;
   /** Request from Coordinator to establish a WebRTC Session with a Client. */
   createSession(
     request: CreateSessionRequest,
-    callback: (error: ServiceError | null, response: CreateSessionResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: CreateSessionResponse
+    ) => void
   ): ClientUnaryCall;
   createSession(
     request: CreateSessionRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: CreateSessionResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: CreateSessionResponse
+    ) => void
   ): ClientUnaryCall;
   createSession(
     request: CreateSessionRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: CreateSessionResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: CreateSessionResponse
+    ) => void
   ): ClientUnaryCall;
   /**
    * This is used by the Runtime to signal to Supervisor that they have "accepted"
@@ -228,18 +265,18 @@ export interface SupervisorClient extends Client {
    */
   acceptSession(
     request: AcceptSessionRequest,
-    callback: (error: ServiceError | null, response: Empty) => void,
+    callback: (error: ServiceError | null, response: Empty) => void
   ): ClientUnaryCall;
   acceptSession(
     request: AcceptSessionRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: Empty) => void,
+    callback: (error: ServiceError | null, response: Empty) => void
   ): ClientUnaryCall;
   acceptSession(
     request: AcceptSessionRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: Empty) => void,
+    callback: (error: ServiceError | null, response: Empty) => void
   ): ClientUnaryCall;
   /**
    * Used to reconnect a WebRTC video stream with new SDP Params, when existing ones
@@ -251,18 +288,27 @@ export interface SupervisorClient extends Client {
    */
   reconnectSession(
     request: CreateSessionRequest,
-    callback: (error: ServiceError | null, response: CreateSessionResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: CreateSessionResponse
+    ) => void
   ): ClientUnaryCall;
   reconnectSession(
     request: CreateSessionRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: CreateSessionResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: CreateSessionResponse
+    ) => void
   ): ClientUnaryCall;
   reconnectSession(
     request: CreateSessionRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: CreateSessionResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: CreateSessionResponse
+    ) => void
   ): ClientUnaryCall;
   /**
    * Communicates to Supervisor that the WebRTC video stream was terminated abruptly
@@ -273,18 +319,18 @@ export interface SupervisorClient extends Client {
    */
   disconnectSession(
     request: string | undefined,
-    callback: (error: ServiceError | null, response: Empty) => void,
+    callback: (error: ServiceError | null, response: Empty) => void
   ): ClientUnaryCall;
   disconnectSession(
     request: string | undefined,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: Empty) => void,
+    callback: (error: ServiceError | null, response: Empty) => void
   ): ClientUnaryCall;
   disconnectSession(
     request: string | undefined,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: Empty) => void,
+    callback: (error: ServiceError | null, response: Empty) => void
   ): ClientUnaryCall;
   /**
    * Communicates to the Supervisor that the Session is closed, and should not be
@@ -293,23 +339,30 @@ export interface SupervisorClient extends Client {
    */
   closeSession(
     request: string | undefined,
-    callback: (error: ServiceError | null, response: Empty) => void,
+    callback: (error: ServiceError | null, response: Empty) => void
   ): ClientUnaryCall;
   closeSession(
     request: string | undefined,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: Empty) => void,
+    callback: (error: ServiceError | null, response: Empty) => void
   ): ClientUnaryCall;
   closeSession(
     request: string | undefined,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: Empty) => void,
+    callback: (error: ServiceError | null, response: Empty) => void
   ): ClientUnaryCall;
 }
 
-export const SupervisorClient = makeGenericClientConstructor(SupervisorService, "api.Supervisor") as unknown as {
-  new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): SupervisorClient;
+export const SupervisorClient = makeGenericClientConstructor(
+  SupervisorService,
+  "api.Supervisor"
+) as unknown as {
+  new (
+    address: string,
+    credentials: ChannelCredentials,
+    options?: Partial<ClientOptions>
+  ): SupervisorClient;
   service: typeof SupervisorService;
   serviceName: string;
 };

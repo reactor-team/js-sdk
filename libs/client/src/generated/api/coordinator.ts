@@ -17,7 +17,12 @@ import {
   type ServiceError,
   type UntypedServiceImplementation,
 } from "@grpc/grpc-js";
-import { MintTokenRequest, MintTokenResponse, RefreshTokenRequest, RefreshTokenResponse } from "./handlers/auth";
+import {
+  MintTokenRequest,
+  MintTokenResponse,
+  RefreshTokenRequest,
+  RefreshTokenResponse,
+} from "./handlers/auth";
 import { HealthRequest, HealthResponse } from "./handlers/health";
 import { InfoRequest, InfoResponse } from "./handlers/info";
 
@@ -30,38 +35,53 @@ export const CoordinatorService = {
     path: "/api.Coordinator/Health",
     requestStream: false,
     responseStream: false,
-    requestSerialize: (value: HealthRequest): Buffer => Buffer.from(HealthRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): HealthRequest => HealthRequest.decode(value),
-    responseSerialize: (value: HealthResponse): Buffer => Buffer.from(HealthResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): HealthResponse => HealthResponse.decode(value),
+    requestSerialize: (value: HealthRequest): Buffer =>
+      Buffer.from(HealthRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): HealthRequest =>
+      HealthRequest.decode(value),
+    responseSerialize: (value: HealthResponse): Buffer =>
+      Buffer.from(HealthResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): HealthResponse =>
+      HealthResponse.decode(value),
   },
   info: {
     path: "/api.Coordinator/Info",
     requestStream: false,
     responseStream: false,
-    requestSerialize: (value: InfoRequest): Buffer => Buffer.from(InfoRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): InfoRequest => InfoRequest.decode(value),
-    responseSerialize: (value: InfoResponse): Buffer => Buffer.from(InfoResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): InfoResponse => InfoResponse.decode(value),
+    requestSerialize: (value: InfoRequest): Buffer =>
+      Buffer.from(InfoRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): InfoRequest =>
+      InfoRequest.decode(value),
+    responseSerialize: (value: InfoResponse): Buffer =>
+      Buffer.from(InfoResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): InfoResponse =>
+      InfoResponse.decode(value),
   },
   mintToken: {
     path: "/api.Coordinator/MintToken",
     requestStream: false,
     responseStream: false,
-    requestSerialize: (value: MintTokenRequest): Buffer => Buffer.from(MintTokenRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): MintTokenRequest => MintTokenRequest.decode(value),
-    responseSerialize: (value: MintTokenResponse): Buffer => Buffer.from(MintTokenResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): MintTokenResponse => MintTokenResponse.decode(value),
+    requestSerialize: (value: MintTokenRequest): Buffer =>
+      Buffer.from(MintTokenRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): MintTokenRequest =>
+      MintTokenRequest.decode(value),
+    responseSerialize: (value: MintTokenResponse): Buffer =>
+      Buffer.from(MintTokenResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): MintTokenResponse =>
+      MintTokenResponse.decode(value),
   },
   refreshToken: {
     path: "/api.Coordinator/RefreshToken",
     requestStream: false,
     responseStream: false,
-    requestSerialize: (value: RefreshTokenRequest): Buffer => Buffer.from(RefreshTokenRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): RefreshTokenRequest => RefreshTokenRequest.decode(value),
+    requestSerialize: (value: RefreshTokenRequest): Buffer =>
+      Buffer.from(RefreshTokenRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RefreshTokenRequest =>
+      RefreshTokenRequest.decode(value),
     responseSerialize: (value: RefreshTokenResponse): Buffer =>
       Buffer.from(RefreshTokenResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): RefreshTokenResponse => RefreshTokenResponse.decode(value),
+    responseDeserialize: (value: Buffer): RefreshTokenResponse =>
+      RefreshTokenResponse.decode(value),
   },
 } as const;
 
@@ -75,65 +95,84 @@ export interface CoordinatorServer extends UntypedServiceImplementation {
 export interface CoordinatorClient extends Client {
   health(
     request: HealthRequest,
-    callback: (error: ServiceError | null, response: HealthResponse) => void,
+    callback: (error: ServiceError | null, response: HealthResponse) => void
   ): ClientUnaryCall;
   health(
     request: HealthRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: HealthResponse) => void,
+    callback: (error: ServiceError | null, response: HealthResponse) => void
   ): ClientUnaryCall;
   health(
     request: HealthRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: HealthResponse) => void,
-  ): ClientUnaryCall;
-  info(request: InfoRequest, callback: (error: ServiceError | null, response: InfoResponse) => void): ClientUnaryCall;
-  info(
-    request: InfoRequest,
-    metadata: Metadata,
-    callback: (error: ServiceError | null, response: InfoResponse) => void,
+    callback: (error: ServiceError | null, response: HealthResponse) => void
   ): ClientUnaryCall;
   info(
     request: InfoRequest,
+    callback: (error: ServiceError | null, response: InfoResponse) => void
+  ): ClientUnaryCall;
+  info(
+    request: InfoRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: InfoResponse) => void
+  ): ClientUnaryCall;
+  info(
+    request: InfoRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: InfoResponse) => void,
+    callback: (error: ServiceError | null, response: InfoResponse) => void
   ): ClientUnaryCall;
   mintToken(
     request: MintTokenRequest,
-    callback: (error: ServiceError | null, response: MintTokenResponse) => void,
+    callback: (error: ServiceError | null, response: MintTokenResponse) => void
   ): ClientUnaryCall;
   mintToken(
     request: MintTokenRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: MintTokenResponse) => void,
+    callback: (error: ServiceError | null, response: MintTokenResponse) => void
   ): ClientUnaryCall;
   mintToken(
     request: MintTokenRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: MintTokenResponse) => void,
+    callback: (error: ServiceError | null, response: MintTokenResponse) => void
   ): ClientUnaryCall;
   refreshToken(
     request: RefreshTokenRequest,
-    callback: (error: ServiceError | null, response: RefreshTokenResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: RefreshTokenResponse
+    ) => void
   ): ClientUnaryCall;
   refreshToken(
     request: RefreshTokenRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: RefreshTokenResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: RefreshTokenResponse
+    ) => void
   ): ClientUnaryCall;
   refreshToken(
     request: RefreshTokenRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: RefreshTokenResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: RefreshTokenResponse
+    ) => void
   ): ClientUnaryCall;
 }
 
-export const CoordinatorClient = makeGenericClientConstructor(CoordinatorService, "api.Coordinator") as unknown as {
-  new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): CoordinatorClient;
+export const CoordinatorClient = makeGenericClientConstructor(
+  CoordinatorService,
+  "api.Coordinator"
+) as unknown as {
+  new (
+    address: string,
+    credentials: ChannelCredentials,
+    options?: Partial<ClientOptions>
+  ): CoordinatorClient;
   service: typeof CoordinatorService;
   serviceName: string;
 };

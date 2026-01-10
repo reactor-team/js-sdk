@@ -47,7 +47,9 @@ export function ImageUploader({ className = "" }: ImageUploaderProps) {
   }));
 
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [selectedExampleId, setSelectedExampleId] = useState<string | null>(null);
+  const [selectedExampleId, setSelectedExampleId] = useState<string | null>(
+    null,
+  );
 
   // Handle image file upload and convert to base64
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {

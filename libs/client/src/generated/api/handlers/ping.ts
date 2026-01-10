@@ -9,8 +9,7 @@ import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
 
 export const protobufPackage = "handlers";
 
-export interface PingRequest {
-}
+export interface PingRequest {}
 
 export interface PingResponse {
   message: string;
@@ -21,12 +20,16 @@ function createBasePingRequest(): PingRequest {
 }
 
 export const PingRequest: MessageFns<PingRequest> = {
-  encode(_: PingRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    _: PingRequest,
+    writer: BinaryWriter = new BinaryWriter()
+  ): BinaryWriter {
     return writer;
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): PingRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBasePingRequest();
     while (reader.pos < end) {
@@ -64,7 +67,10 @@ function createBasePingResponse(): PingResponse {
 }
 
 export const PingResponse: MessageFns<PingResponse> = {
-  encode(message: PingResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: PingResponse,
+    writer: BinaryWriter = new BinaryWriter()
+  ): BinaryWriter {
     if (message.message !== "") {
       writer.uint32(10).string(message.message);
     }
@@ -72,7 +78,8 @@ export const PingResponse: MessageFns<PingResponse> = {
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): PingResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBasePingResponse();
     while (reader.pos < end) {
@@ -96,7 +103,9 @@ export const PingResponse: MessageFns<PingResponse> = {
   },
 
   fromJSON(object: any): PingResponse {
-    return { message: isSet(object.message) ? globalThis.String(object.message) : "" };
+    return {
+      message: isSet(object.message) ? globalThis.String(object.message) : "",
+    };
   },
 
   toJSON(message: PingResponse): unknown {
@@ -107,27 +116,45 @@ export const PingResponse: MessageFns<PingResponse> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<PingResponse>, I>>(base?: I): PingResponse {
+  create<I extends Exact<DeepPartial<PingResponse>, I>>(
+    base?: I
+  ): PingResponse {
     return PingResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<PingResponse>, I>>(object: I): PingResponse {
+  fromPartial<I extends Exact<DeepPartial<PingResponse>, I>>(
+    object: I
+  ): PingResponse {
     const message = createBasePingResponse();
     message.message = object.message ?? "";
     return message;
   },
 };
 
-type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
+type Builtin =
+  | Date
+  | Function
+  | Uint8Array
+  | string
+  | number
+  | boolean
+  | undefined;
 
-export type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends {} ? { [K in keyof T]?: DeepPartial<T[K]> }
-  : Partial<T>;
+export type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends {}
+        ? { [K in keyof T]?: DeepPartial<T[K]> }
+        : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P>>]: never };
+export type Exact<P, I extends P> = P extends Builtin
+  ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
+      [K in Exclude<keyof I, KeysOfUnion<P>>]: never;
+    };
 
 function isSet(value: any): boolean {
   return value !== null && value !== undefined;

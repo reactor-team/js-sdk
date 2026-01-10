@@ -34,7 +34,7 @@ export function PromptSelector({ className = "" }: PromptSelectorProps) {
   const [selectedTitle, setSelectedTitle] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
 
-  const handleSelectPrompt = async (prompt: typeof PROMPTS[0]) => {
+  const handleSelectPrompt = async (prompt: (typeof PROMPTS)[0]) => {
     if (status !== "ready") return;
 
     setIsSending(true);
@@ -86,4 +86,3 @@ export function PromptSelector({ className = "" }: PromptSelectorProps) {
     </div>
   );
 }
-

@@ -123,11 +123,12 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
 
   // Track physically pressed keys (or touched buttons)
   const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
-  
+
   // Derived states to avoid sending duplicate messages
   const [currentMouseKey, setCurrentMouseKey] = useState<MouseKey>("noop");
-  const [currentKeyboardAction, setCurrentKeyboardAction] = useState<KeyboardAction>("noop");
-  
+  const [currentKeyboardAction, setCurrentKeyboardAction] =
+    useState<KeyboardAction>("noop");
+
   // Mouse speed state
   const [mouseSpeed, setMouseSpeed] = useState(0.5);
 
@@ -147,7 +148,7 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
   // Derive Mouse Action from pressed keys (IJKL)
   useEffect(() => {
     let newMouseKey: MouseKey = "noop";
-    
+
     const i = pressedKeys.has("i");
     const j = pressedKeys.has("j");
     const k = pressedKeys.has("k");
@@ -241,7 +242,7 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
       if (["w", "a", "s", "d", " ", "e", "i", "j", "k", "l"].includes(key)) {
         // Don't prevent default for everything to avoid blocking browser shortcuts
         // unless it's a game key
-        if(key === " ") e.preventDefault(); 
+        if (key === " ") e.preventDefault();
         updatePressedKeys(key, true);
       }
     };
@@ -303,9 +304,9 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
                 onPress={() => updatePressedKeys("e", true)}
                 onRelease={() => updatePressedKeys("e", false)}
                 disabled={isDisabled}
-                className="!text-yellow-400 !border-yellow-500/30" 
+                className="!text-yellow-400 !border-yellow-500/30"
               />
-               <KeyButton
+              <KeyButton
                 label="W"
                 isActive={pressedKeys.has("w")}
                 isKeyboard={true}
@@ -313,16 +314,16 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
                 onRelease={() => updatePressedKeys("w", false)}
                 disabled={isDisabled}
               />
-               <KeyButton
+              <KeyButton
                 label="Spc"
                 isActive={pressedKeys.has(" ")}
                 isKeyboard={true}
                 onPress={() => updatePressedKeys(" ", true)}
                 onRelease={() => updatePressedKeys(" ", false)}
                 disabled={isDisabled}
-                 className="!text-blue-400 !border-blue-500/30 text-[10px]" 
+                className="!text-blue-400 !border-blue-500/30 text-[10px]"
               />
-              
+
               <KeyButton
                 label="A"
                 isActive={pressedKeys.has("a")}
@@ -349,8 +350,8 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
               />
             </div>
             <div className="flex gap-2 text-[10px] text-gray-500">
-               <span>E: Interact</span>
-               <span>Spc: Jump</span>
+              <span>E: Interact</span>
+              <span>Spc: Jump</span>
             </div>
           </div>
 
@@ -398,20 +399,20 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
 
         {/* Mouse Speed Slider */}
         <div className="px-2">
-           <div className="flex justify-between text-xs text-gray-400 mb-1">
-             <span>Mouse Sensitivity</span>
-             <span>{mouseSpeed.toFixed(1)}</span>
-           </div>
-           <input
-             type="range"
-             min="0"
-             max="1"
-             step="0.1"
-             value={mouseSpeed}
-             onChange={handleSpeedChange}
-             className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-             disabled={isDisabled}
-           />
+          <div className="flex justify-between text-xs text-gray-400 mb-1">
+            <span>Mouse Sensitivity</span>
+            <span>{mouseSpeed.toFixed(1)}</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.1"
+            value={mouseSpeed}
+            onChange={handleSpeedChange}
+            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+            disabled={isDisabled}
+          />
         </div>
 
         <div className="text-center">

@@ -69,4 +69,3 @@ export function CachePurge({ className = "" }: CachePurgeProps) {
     </div>
   );
 }
-

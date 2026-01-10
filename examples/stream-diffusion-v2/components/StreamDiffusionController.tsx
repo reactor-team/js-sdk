@@ -137,7 +137,7 @@ export function StreamDiffusionController({
     const steps = validateDenoisingSteps(denoisingSteps);
     if (!steps) {
       alert(
-        "Invalid denoising steps. Enter 0-5 comma-separated values between 0 and 1000."
+        "Invalid denoising steps. Enter 0-5 comma-separated values between 0 and 1000.",
       );
       return;
     }
@@ -191,7 +191,10 @@ export function StreamDiffusionController({
       )}
 
       {/* Prompt Suggestions */}
-      <PromptSuggestions onPromptSelect={handlePromptSelect} disabled={!isReady} />
+      <PromptSuggestions
+        onPromptSelect={handlePromptSelect}
+        disabled={!isReady}
+      />
 
       {/* Prompt Input */}
       <div>
@@ -233,7 +236,7 @@ export function StreamDiffusionController({
             onClick={() =>
               window.open(
                 "https://docs.reactor.inc/models/stream-diffusion-v2#set-denoising-step-list",
-                "_blank"
+                "_blank",
               )
             }
             className="ml-1 cursor-pointer opacity-60 hover:opacity-100 transition-opacity text-[10px]"
@@ -244,7 +247,7 @@ export function StreamDiffusionController({
               if (e.key === "Enter" || e.key === " ") {
                 window.open(
                   "https://docs.reactor.inc/models/stream-diffusion-v2#set-denoising-step-list",
-                  "_blank"
+                  "_blank",
                 );
               }
             }}

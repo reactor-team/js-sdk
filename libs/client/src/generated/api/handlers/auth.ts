@@ -21,8 +21,7 @@ export interface MintTokenResponse {
 }
 
 /** Request for token refresh (refresh token passed in auth header) */
-export interface RefreshTokenRequest {
-}
+export interface RefreshTokenRequest {}
 
 /** Response containing refreshed JWT token */
 export interface RefreshTokenResponse {
@@ -34,7 +33,10 @@ function createBaseMintTokenRequest(): MintTokenRequest {
 }
 
 export const MintTokenRequest: MessageFns<MintTokenRequest> = {
-  encode(message: MintTokenRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: MintTokenRequest,
+    writer: BinaryWriter = new BinaryWriter()
+  ): BinaryWriter {
     if (message.apiKey !== "") {
       writer.uint32(10).string(message.apiKey);
     }
@@ -42,7 +44,8 @@ export const MintTokenRequest: MessageFns<MintTokenRequest> = {
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): MintTokenRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseMintTokenRequest();
     while (reader.pos < end) {
@@ -66,7 +69,9 @@ export const MintTokenRequest: MessageFns<MintTokenRequest> = {
   },
 
   fromJSON(object: any): MintTokenRequest {
-    return { apiKey: isSet(object.apiKey) ? globalThis.String(object.apiKey) : "" };
+    return {
+      apiKey: isSet(object.apiKey) ? globalThis.String(object.apiKey) : "",
+    };
   },
 
   toJSON(message: MintTokenRequest): unknown {
@@ -77,10 +82,14 @@ export const MintTokenRequest: MessageFns<MintTokenRequest> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<MintTokenRequest>, I>>(base?: I): MintTokenRequest {
+  create<I extends Exact<DeepPartial<MintTokenRequest>, I>>(
+    base?: I
+  ): MintTokenRequest {
     return MintTokenRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<MintTokenRequest>, I>>(object: I): MintTokenRequest {
+  fromPartial<I extends Exact<DeepPartial<MintTokenRequest>, I>>(
+    object: I
+  ): MintTokenRequest {
     const message = createBaseMintTokenRequest();
     message.apiKey = object.apiKey ?? "";
     return message;
@@ -92,7 +101,10 @@ function createBaseMintTokenResponse(): MintTokenResponse {
 }
 
 export const MintTokenResponse: MessageFns<MintTokenResponse> = {
-  encode(message: MintTokenResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: MintTokenResponse,
+    writer: BinaryWriter = new BinaryWriter()
+  ): BinaryWriter {
     if (message.jwtToken !== "") {
       writer.uint32(10).string(message.jwtToken);
     }
@@ -103,7 +115,8 @@ export const MintTokenResponse: MessageFns<MintTokenResponse> = {
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): MintTokenResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseMintTokenResponse();
     while (reader.pos < end) {
@@ -136,8 +149,12 @@ export const MintTokenResponse: MessageFns<MintTokenResponse> = {
 
   fromJSON(object: any): MintTokenResponse {
     return {
-      jwtToken: isSet(object.jwtToken) ? globalThis.String(object.jwtToken) : "",
-      refreshToken: isSet(object.refreshToken) ? globalThis.String(object.refreshToken) : "",
+      jwtToken: isSet(object.jwtToken)
+        ? globalThis.String(object.jwtToken)
+        : "",
+      refreshToken: isSet(object.refreshToken)
+        ? globalThis.String(object.refreshToken)
+        : "",
     };
   },
 
@@ -152,10 +169,14 @@ export const MintTokenResponse: MessageFns<MintTokenResponse> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<MintTokenResponse>, I>>(base?: I): MintTokenResponse {
+  create<I extends Exact<DeepPartial<MintTokenResponse>, I>>(
+    base?: I
+  ): MintTokenResponse {
     return MintTokenResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<MintTokenResponse>, I>>(object: I): MintTokenResponse {
+  fromPartial<I extends Exact<DeepPartial<MintTokenResponse>, I>>(
+    object: I
+  ): MintTokenResponse {
     const message = createBaseMintTokenResponse();
     message.jwtToken = object.jwtToken ?? "";
     message.refreshToken = object.refreshToken ?? "";
@@ -168,12 +189,19 @@ function createBaseRefreshTokenRequest(): RefreshTokenRequest {
 }
 
 export const RefreshTokenRequest: MessageFns<RefreshTokenRequest> = {
-  encode(_: RefreshTokenRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    _: RefreshTokenRequest,
+    writer: BinaryWriter = new BinaryWriter()
+  ): BinaryWriter {
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): RefreshTokenRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number
+  ): RefreshTokenRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseRefreshTokenRequest();
     while (reader.pos < end) {
@@ -197,10 +225,14 @@ export const RefreshTokenRequest: MessageFns<RefreshTokenRequest> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<RefreshTokenRequest>, I>>(base?: I): RefreshTokenRequest {
+  create<I extends Exact<DeepPartial<RefreshTokenRequest>, I>>(
+    base?: I
+  ): RefreshTokenRequest {
     return RefreshTokenRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<RefreshTokenRequest>, I>>(_: I): RefreshTokenRequest {
+  fromPartial<I extends Exact<DeepPartial<RefreshTokenRequest>, I>>(
+    _: I
+  ): RefreshTokenRequest {
     const message = createBaseRefreshTokenRequest();
     return message;
   },
@@ -211,15 +243,22 @@ function createBaseRefreshTokenResponse(): RefreshTokenResponse {
 }
 
 export const RefreshTokenResponse: MessageFns<RefreshTokenResponse> = {
-  encode(message: RefreshTokenResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: RefreshTokenResponse,
+    writer: BinaryWriter = new BinaryWriter()
+  ): BinaryWriter {
     if (message.jwtToken !== "") {
       writer.uint32(10).string(message.jwtToken);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): RefreshTokenResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number
+  ): RefreshTokenResponse {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseRefreshTokenResponse();
     while (reader.pos < end) {
@@ -243,7 +282,11 @@ export const RefreshTokenResponse: MessageFns<RefreshTokenResponse> = {
   },
 
   fromJSON(object: any): RefreshTokenResponse {
-    return { jwtToken: isSet(object.jwtToken) ? globalThis.String(object.jwtToken) : "" };
+    return {
+      jwtToken: isSet(object.jwtToken)
+        ? globalThis.String(object.jwtToken)
+        : "",
+    };
   },
 
   toJSON(message: RefreshTokenResponse): unknown {
@@ -254,27 +297,45 @@ export const RefreshTokenResponse: MessageFns<RefreshTokenResponse> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<RefreshTokenResponse>, I>>(base?: I): RefreshTokenResponse {
+  create<I extends Exact<DeepPartial<RefreshTokenResponse>, I>>(
+    base?: I
+  ): RefreshTokenResponse {
     return RefreshTokenResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<RefreshTokenResponse>, I>>(object: I): RefreshTokenResponse {
+  fromPartial<I extends Exact<DeepPartial<RefreshTokenResponse>, I>>(
+    object: I
+  ): RefreshTokenResponse {
     const message = createBaseRefreshTokenResponse();
     message.jwtToken = object.jwtToken ?? "";
     return message;
   },
 };
 
-type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
+type Builtin =
+  | Date
+  | Function
+  | Uint8Array
+  | string
+  | number
+  | boolean
+  | undefined;
 
-export type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends {} ? { [K in keyof T]?: DeepPartial<T[K]> }
-  : Partial<T>;
+export type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends {}
+        ? { [K in keyof T]?: DeepPartial<T[K]> }
+        : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P>>]: never };
+export type Exact<P, I extends P> = P extends Builtin
+  ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
+      [K in Exclude<keyof I, KeysOfUnion<P>>]: never;
+    };
 
 function isSet(value: any): boolean {
   return value !== null && value !== undefined;

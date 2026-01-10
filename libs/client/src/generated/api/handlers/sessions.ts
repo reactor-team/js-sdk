@@ -29,15 +29,22 @@ function createBaseCreateSessionRequest(): CreateSessionRequest {
 }
 
 export const CreateSessionRequest: MessageFns<CreateSessionRequest> = {
-  encode(message: CreateSessionRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: CreateSessionRequest,
+    writer: BinaryWriter = new BinaryWriter()
+  ): BinaryWriter {
     if (message.model !== undefined) {
       Model.encode(message.model, writer.uint32(10).fork()).join();
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): CreateSessionRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number
+  ): CreateSessionRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseCreateSessionRequest();
     while (reader.pos < end) {
@@ -61,7 +68,9 @@ export const CreateSessionRequest: MessageFns<CreateSessionRequest> = {
   },
 
   fromJSON(object: any): CreateSessionRequest {
-    return { model: isSet(object.model) ? Model.fromJSON(object.model) : undefined };
+    return {
+      model: isSet(object.model) ? Model.fromJSON(object.model) : undefined,
+    };
   },
 
   toJSON(message: CreateSessionRequest): unknown {
@@ -72,12 +81,19 @@ export const CreateSessionRequest: MessageFns<CreateSessionRequest> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CreateSessionRequest>, I>>(base?: I): CreateSessionRequest {
+  create<I extends Exact<DeepPartial<CreateSessionRequest>, I>>(
+    base?: I
+  ): CreateSessionRequest {
     return CreateSessionRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CreateSessionRequest>, I>>(object: I): CreateSessionRequest {
+  fromPartial<I extends Exact<DeepPartial<CreateSessionRequest>, I>>(
+    object: I
+  ): CreateSessionRequest {
     const message = createBaseCreateSessionRequest();
-    message.model = (object.model !== undefined && object.model !== null) ? Model.fromPartial(object.model) : undefined;
+    message.model =
+      object.model !== undefined && object.model !== null
+        ? Model.fromPartial(object.model)
+        : undefined;
     return message;
   },
 };
@@ -87,15 +103,22 @@ function createBaseCreateSessionResponse(): CreateSessionResponse {
 }
 
 export const CreateSessionResponse: MessageFns<CreateSessionResponse> = {
-  encode(message: CreateSessionResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: CreateSessionResponse,
+    writer: BinaryWriter = new BinaryWriter()
+  ): BinaryWriter {
     if (message.sessionId !== "") {
       writer.uint32(10).string(message.sessionId);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): CreateSessionResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number
+  ): CreateSessionResponse {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseCreateSessionResponse();
     while (reader.pos < end) {
@@ -119,7 +142,11 @@ export const CreateSessionResponse: MessageFns<CreateSessionResponse> = {
   },
 
   fromJSON(object: any): CreateSessionResponse {
-    return { sessionId: isSet(object.sessionId) ? globalThis.String(object.sessionId) : "" };
+    return {
+      sessionId: isSet(object.sessionId)
+        ? globalThis.String(object.sessionId)
+        : "",
+    };
   },
 
   toJSON(message: CreateSessionResponse): unknown {
@@ -130,10 +157,14 @@ export const CreateSessionResponse: MessageFns<CreateSessionResponse> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CreateSessionResponse>, I>>(base?: I): CreateSessionResponse {
+  create<I extends Exact<DeepPartial<CreateSessionResponse>, I>>(
+    base?: I
+  ): CreateSessionResponse {
     return CreateSessionResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CreateSessionResponse>, I>>(object: I): CreateSessionResponse {
+  fromPartial<I extends Exact<DeepPartial<CreateSessionResponse>, I>>(
+    object: I
+  ): CreateSessionResponse {
     const message = createBaseCreateSessionResponse();
     message.sessionId = object.sessionId ?? "";
     return message;
@@ -145,7 +176,10 @@ function createBaseSdpMessage(): SdpMessage {
 }
 
 export const SdpMessage: MessageFns<SdpMessage> = {
-  encode(message: SdpMessage, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: SdpMessage,
+    writer: BinaryWriter = new BinaryWriter()
+  ): BinaryWriter {
     if (message.type !== "") {
       writer.uint32(10).string(message.type);
     }
@@ -156,7 +190,8 @@ export const SdpMessage: MessageFns<SdpMessage> = {
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SdpMessage {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseSdpMessage();
     while (reader.pos < end) {
@@ -208,7 +243,9 @@ export const SdpMessage: MessageFns<SdpMessage> = {
   create<I extends Exact<DeepPartial<SdpMessage>, I>>(base?: I): SdpMessage {
     return SdpMessage.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<SdpMessage>, I>>(object: I): SdpMessage {
+  fromPartial<I extends Exact<DeepPartial<SdpMessage>, I>>(
+    object: I
+  ): SdpMessage {
     const message = createBaseSdpMessage();
     message.type = object.type ?? "";
     message.sdp = object.sdp ?? "";
@@ -216,17 +253,31 @@ export const SdpMessage: MessageFns<SdpMessage> = {
   },
 };
 
-type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
+type Builtin =
+  | Date
+  | Function
+  | Uint8Array
+  | string
+  | number
+  | boolean
+  | undefined;
 
-export type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends {} ? { [K in keyof T]?: DeepPartial<T[K]> }
-  : Partial<T>;
+export type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends {}
+        ? { [K in keyof T]?: DeepPartial<T[K]> }
+        : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P>>]: never };
+export type Exact<P, I extends P> = P extends Builtin
+  ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
+      [K in Exclude<keyof I, KeysOfUnion<P>>]: never;
+    };
 
 function isSet(value: any): boolean {
   return value !== null && value !== undefined;
