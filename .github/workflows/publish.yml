@@ -7,6 +7,9 @@ on:
 jobs:
   publish-sdk:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -27,12 +30,15 @@ jobs:
         run: pnpm build
 
       - name: Publish SDK to npm
-        run: pnpm --filter @reactor-team/js-sdk publish --no-git-checks --access public
+        run: pnpm --filter @reactor-team/js-sdk publish --no-git-checks --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-create-app:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -53,6 +59,6 @@ jobs:
         run: pnpm --filter create-reactor-app build
 
       - name: Publish create-app to npm
-        run: pnpm --filter create-reactor-app publish --no-git-checks --access public
+        run: pnpm --filter create-reactor-app publish --no-git-checks --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
