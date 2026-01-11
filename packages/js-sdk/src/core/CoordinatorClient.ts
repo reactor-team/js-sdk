@@ -4,14 +4,11 @@
  */
 
 import {
+  CreateSessionRequest,
+  CreateSessionResponse,
   SDPParamsRequest,
   SDPParamsResponse,
   SessionInfoResponse,
-} from "../generated/api/types/api_types";
-import {
-  StartSessionRequest,
-  StartSessionResponse,
-  TerminateSessionResponse,
 } from "./types";
 
 export interface CoordinatorClientOptions {
@@ -54,7 +51,7 @@ export class CoordinatorClient {
   async createSession(sdp_offer: string): Promise<string> {
     console.debug("[CoordinatorClient] Creating session...");
 
-    const requestBody: StartSessionRequest = {
+    const requestBody: CreateSessionRequest = {
       model: this.model,
       sdp_offer: sdp_offer,
       extra_args: {},
@@ -76,7 +73,7 @@ export class CoordinatorClient {
       );
     }
 
-    const data: StartSessionResponse = await response.json();
+    const data: CreateSessionResponse = await response.json();
     this.currentSessionId = data.session_id;
 
     console.debug(
@@ -142,12 +139,6 @@ export class CoordinatorClient {
     );
 
     if (response.status === 200 || response.status === 204) {
-      const data: TerminateSessionResponse = await response.json();
-      console.debug(
-        "[CoordinatorClient] Session terminated:",
-        data.session_id,
-        data.status
-      );
       this.currentSessionId = undefined;
       return;
     }
@@ -260,9 +251,7 @@ export class CoordinatorClient {
       );
 
       if (response.status === 200) {
-        const answerData: SDPParamsResponse = SDPParamsResponse.fromJSON(
-          await response.json()
-        );
+        const answerData: SDPParamsResponse = await response.json();
         console.debug("[CoordinatorClient] Received SDP answer via polling");
         return answerData.sdp_answer;
       }
