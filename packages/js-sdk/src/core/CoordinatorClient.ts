@@ -66,7 +66,7 @@ export class CoordinatorClient {
       body: JSON.stringify(requestBody),
     });
 
-    if (response.status !== 200) {
+    if (!response.ok) {
       const errorText = await response.text();
       throw new Error(
         `Failed to create session: ${response.status} ${errorText}`
@@ -106,7 +106,7 @@ export class CoordinatorClient {
       }
     );
 
-    if (response.status !== 200) {
+    if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Failed to get session: ${response.status} ${errorText}`);
     }
@@ -138,7 +138,7 @@ export class CoordinatorClient {
       }
     );
 
-    if (response.status === 200 || response.status === 204) {
+    if (response.ok) {
       this.currentSessionId = undefined;
       return;
     }
