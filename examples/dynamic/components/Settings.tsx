@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { fetchInsecureJwtToken } from "@reactor-team/js-sdk";
-import { Tooltip } from "./Tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SettingsProps {
   modelName: string;
@@ -74,31 +74,36 @@ export function Settings({
         />
       </label>
 
-      <Tooltip content="⚠️ DANGEROUS: Never deploy with your API key in client code!">
-        <label className="flex items-center gap-2 text-sm text-gray-300">
-          <span className={isLocal ? "text-gray-600" : "text-orange-400"}>API Key:</span>
-          <div className="relative">
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              disabled={isLocal}
-              className={`bg-gray-900/60 border rounded-md px-3 py-1.5 w-52 placeholder-gray-500 focus:outline-none focus:ring-1 ${
-                isLocal
-                  ? "text-gray-600 cursor-not-allowed opacity-50 border-gray-600"
-                  : tokenError
-                    ? "text-white border-red-500 focus:border-red-500 focus:ring-red-500/50"
-                    : "text-white border-orange-500/50 focus:border-orange-500 focus:ring-orange-500/50"
-              }`}
-              placeholder={isLocal ? "" : "rk_..."}
-            />
-            {isFetchingToken && !isLocal && (
-              <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                <div className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
-              </div>
-            )}
-          </div>
-        </label>
+      <Tooltip>
+        <TooltipTrigger>
+          <label className="flex items-center gap-2 text-sm text-gray-300">
+            <span className={isLocal ? "text-gray-600" : "text-orange-400"}>API Key:</span>
+            <div className="relative">
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                disabled={isLocal}
+                className={`bg-gray-900/60 border rounded-md px-3 py-1.5 w-52 placeholder-gray-500 focus:outline-none focus:ring-1 ${
+                  isLocal
+                    ? "text-gray-600 cursor-not-allowed opacity-50 border-gray-600"
+                    : tokenError
+                      ? "text-white border-red-500 focus:border-red-500 focus:ring-red-500/50"
+                      : "text-white border-orange-500/50 focus:border-orange-500 focus:ring-orange-500/50"
+                }`}
+                placeholder={isLocal ? "" : "rk_..."}
+              />
+              {isFetchingToken && !isLocal && (
+                <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                  <div className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+            </div>
+          </label>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>⚠️ DANGEROUS: Never deploy with your API key in client code!</p>
+        </TooltipContent>
       </Tooltip>
 
       {tokenError && !isLocal && <span className="text-xs text-red-400">{tokenError}</span>}

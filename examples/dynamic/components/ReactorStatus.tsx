@@ -1,7 +1,7 @@
 "use client";
 
 import { useReactor } from "@reactor-team/js-sdk";
-import { Tooltip } from "./Tooltip";
+import { Tooltip, TooltipTrigger, TooltipContent } from "./ui/tooltip";
 
 interface ReactorStatusProps {
   className?: string;
@@ -49,40 +49,56 @@ export function ReactorStatus({ className }: ReactorStatusProps) {
 
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-3 justify-evenly">
-        <Tooltip content="Create a session, start model inference, and connect video">
-          <button
-            className="px-5 py-2.5 rounded-lg bg-green-600 text-white hover:bg-green-500 text-sm font-medium transition-colors"
-            onClick={() => connect()}
-          >
-            Connect
-          </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              className="px-5 py-2.5 rounded-lg bg-green-600 text-white hover:bg-green-500 text-sm font-medium transition-colors"
+              onClick={() => connect()}
+            >
+              Connect
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            Create a session, start model inference, and connect video
+          </TooltipContent>
         </Tooltip>
 
-        <Tooltip content="Reconnect to an already running model session">
-          <button
-            className="px-5 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-500 text-sm font-medium transition-colors"
-            onClick={() => reconnect()}
-          >
-            Reconnect
-          </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              className="px-5 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-500 text-sm font-medium transition-colors"
+              onClick={() => reconnect()}
+            >
+              Reconnect
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Reconnect to an already running model session</TooltipContent>
         </Tooltip>
 
-        <Tooltip content="Cut video stream only — model keeps running. Use Reconnect to resume.">
-          <button
-            className="px-5 py-2.5 rounded-lg bg-orange-600 text-white hover:bg-orange-500 text-sm font-medium transition-colors"
-            onClick={() => disconnect(true)}
-          >
-            Disconnect (Recoverable)
-          </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              className="px-5 py-2.5 rounded-lg bg-orange-600 text-white hover:bg-orange-500 text-sm font-medium transition-colors"
+              onClick={() => disconnect(true)}
+            >
+              Disconnect (Recoverable)
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            Cut video stream only — model keeps running. Use Reconnect to resume.
+          </TooltipContent>
         </Tooltip>
 
-        <Tooltip content="Cut video stream and send stop signal to the model">
-          <button
-            className="px-5 py-2.5 rounded-lg bg-red-700 text-white hover:bg-red-600 text-sm font-medium transition-colors"
-            onClick={() => disconnect(false)}
-          >
-            Disconnect (Non-Recoverable)
-          </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              className="px-5 py-2.5 rounded-lg bg-red-700 text-white hover:bg-red-600 text-sm font-medium transition-colors"
+              onClick={() => disconnect(false)}
+            >
+              Disconnect (Non-Recoverable)
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Cut video stream and send stop signal to the model</TooltipContent>
         </Tooltip>
       </div>
     </div>
