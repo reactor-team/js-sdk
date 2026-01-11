@@ -23,9 +23,7 @@ export function ReactorStatus({ className }: ReactorStatusProps) {
   });
 
   return (
-    <div
-      className={`border border-gray-700/30 bg-gray-900/40 p-3 rounded-lg ${className}`}
-    >
+    <div className={`border border-gray-700/30 bg-gray-900/40 p-3 rounded-lg ${className}`}>
       <div className="flex flex-row justify-between items-center">
         <div className="flex items-center gap-2">
           <div
@@ -37,9 +35,7 @@ export function ReactorStatus({ className }: ReactorStatusProps) {
           >
             <div
               className={`w-1.5 h-1.5 rounded-full ${
-                status === "disconnected"
-                  ? "bg-red-500"
-                  : "bg-emerald-500 animate-pulse"
+                status === "disconnected" ? "bg-red-500" : "bg-emerald-500 animate-pulse"
               }`}
             />
             <span className="font-medium text-xs">

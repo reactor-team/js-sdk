@@ -41,15 +41,13 @@ const EXAMPLE_IMAGES = [
  * - Sends "set_starting_image" message to use the image as the first frame
  */
 export function ImageUploader({ className = "" }: ImageUploaderProps) {
-  const { sendMessage, status } = useReactor((state) => ({
-    sendMessage: state.sendMessage,
+  const { sendCommand, status } = useReactor((state) => ({
+    sendCommand: state.sendCommand,
     status: state.status,
   }));
 
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [selectedExampleId, setSelectedExampleId] = useState<string | null>(
-    null,
-  );
+  const [selectedExampleId, setSelectedExampleId] = useState<string | null>(null);
 
   // Handle image file upload and convert to base64
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,12 +91,9 @@ export function ImageUploader({ className = "" }: ImageUploaderProps) {
     const imageId = `upload_${Date.now()}`;
 
     try {
-      await sendMessage({
-        type: "set_starting_image",
-        data: {
-          base64_image: base64Data,
-          image_id: imageId,
-        },
+      await sendCommand("set_starting_image", {
+        base64_image: base64Data,
+        image_id: imageId,
       });
       console.log("Starting image set successfully");
     } catch (error) {
@@ -113,28 +108,19 @@ export function ImageUploader({ className = "" }: ImageUploaderProps) {
       }`}
     >
       <div className="flex justify-between items-center mb-2">
-        <span className="text-xs font-medium text-gray-400">
-          Starting Image
-        </span>
+        <span className="text-xs font-medium text-gray-400">Starting Image</span>
       </div>
 
       <div className="flex flex-col gap-2">
         <label className="px-4 py-2 sm:py-1.5 rounded-md bg-gray-500/10 text-gray-300 border border-gray-500/20 hover:bg-gray-500/20 active:scale-95 transition-all duration-200 text-xs font-medium cursor-pointer text-center flex-shrink-0 touch-none">
           Upload Image
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageUpload}
-            className="hidden"
-          />
+          <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
         </label>
 
         {/* Example Images */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-gray-400">
-              Or choose an example
-            </span>
+            <span className="text-xs font-medium text-gray-400">Or choose an example</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
             {EXAMPLE_IMAGES.map((example) => (
@@ -155,9 +141,7 @@ export function ImageUploader({ className = "" }: ImageUploaderProps) {
                   />
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1">
-                  <p className="text-[10px] text-white font-medium">
-                    {example.title}
-                  </p>
+                  <p className="text-[10px] text-white font-medium">{example.title}</p>
                 </div>
               </button>
             ))}
