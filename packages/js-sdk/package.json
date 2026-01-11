@@ -1,7 +1,6 @@
 {
   "name": "@reactor-team/js-sdk",
-  "version": "1.0.22",
-  "protobufsVersion": "0.5.5-g79eb6a6",
+  "version": "2.0.0",
   "description": "Reactor JavaScript frontend SDK",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -20,8 +19,6 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "proto": "node scripts/fetch-proto.mjs",
-    "clean": "rm -rf src/generated",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
