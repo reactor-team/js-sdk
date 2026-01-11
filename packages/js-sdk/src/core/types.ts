@@ -3,52 +3,52 @@
  */
 
 import { z } from "zod";
-import { SessionState } from "../generated/api/types/api_types";
+
+export enum SessionState {
+  SESSION_STATE_UNKNOWN = 0,
+  SESSION_STATE_WAITING = 1,
+  SESSION_STATE_ACTIVE = 2,
+  SESSION_STATE_DISCONNECTED = 3,
+  SESSION_STATE_CLOSED = 4,
+  UNRECOGNIZED = -1,
+}
 
 // Schema used for the HTTP POST request to start a session from the CLIENT to the COORDINATOR.
-export const StartSessionRequestSchema = z.object({
+export const CreateSessionRequestSchema = z.object({
   model: z.string(),
   sdp_offer: z.string(),
   extra_args: z.record(z.string(), z.any()), // Dictionary
 });
 
 // Schema used to return the session ID that was created.
-export const StartSessionResponseSchema = z.object({
+export const CreateSessionResponseSchema = z.object({
   session_id: z.uuidv4(),
 });
 
-// Schema used to return the session information from the COORDINATOR to the CLIENT.
-export const GetSessionResponseSchema = z.object({
+// GET /sessions/{session_id}/info
+export const SessionStatusResponseSchema = z.object({
   session_id: z.uuidv4(),
-  model: z.string(),
-  status: SessionState,
-  sdp_answer: z.string(),
-  extra_args: z.record(z.string(), z.any()), // Dictionary
+  state: SessionState,
 });
 
-// Schema used to return the session status from the COORDINATOR to the CLIENT.
-export const GetSessionStatusSchema = z.object({
-  session_id: z.uuidv4(),
-  status: SessionState,
+// Response to GET /session/{session_id} request
+export const SessionInfoResponseSchema = SessionStatusResponseSchema.extend({
+  session_info: CreateSessionRequestSchema.extend({
+    session_id: z.uuidv4(),
+  }),
 });
 
-// Used as return type for the request the client does when it needs to fetch the latest SDP answer for the session.
-// Useful to re-establish connection without needing the full handshake.
-export const GetSessionSDPResponseSchema = z.object({
-  sdp_answer: z.string(),
-});
-
-// Schema used to reconnect to a session that was interrupted but that can be recovered.
-export const ReconnectSessionRequestSchema = z.object({
-  session_id: z.uuidv4(),
+// SDPParamsRequest is the request body for PUT /sessions/{session_id}/sdp_params
+export const SDPParamsRequestSchema = z.object({
   sdp_offer: z.string(),
   extra_args: z.record(z.string(), z.any()), // Dictionary
 });
 
-// Schema used to terminate a session.
-export const TerminateSessionResponseSchema = z.object({
-  session_id: z.uuidv4(),
-  status: SessionState,
+// SDPParamsResponse is the response for GET /sessions/{session_id}/sdp_params
+// and for for PUT /sessions/{session_id}/sdp_params.
+export const SDPParamsResponseSchema = z.object({
+  sdp_answer: z.string(),
+  extra_args: z.record(z.string(), z.any()), // Dictionary
 });
 
 // Internal connection status for individual components
@@ -59,12 +59,11 @@ export type InternalConnectionStatus =
   | "error";
 
 // Inferred types from Zod schemas
-export type StartSessionRequest = z.infer<typeof StartSessionRequestSchema>;
-export type StartSessionResponse = z.infer<typeof StartSessionResponseSchema>;
+export type CreateSessionRequest = z.infer<typeof CreateSessionRequestSchema>;
+export type CreateSessionResponse = z.infer<typeof CreateSessionResponseSchema>;
 
-export type GetSessionStatus = z.infer<typeof GetSessionStatusSchema>;
-export type GetSessionSDPResponse = z.infer<typeof GetSessionSDPResponseSchema>;
+export type SDPParamsResponse = z.infer<typeof SDPParamsResponseSchema>;
+export type SDPParamsRequest = z.infer<typeof SDPParamsRequestSchema>;
 
-export type TerminateSessionResponse = z.infer<
-  typeof TerminateSessionResponseSchema
->;
+export type SessionInfoResponse = z.infer<typeof SessionInfoResponseSchema>;
+export type SessionStatusResponse = z.infer<typeof SessionStatusResponseSchema>;
