@@ -8,13 +8,15 @@ interface ReactorStatusProps {
 }
 
 export function ReactorStatus({ className }: ReactorStatusProps) {
-  const { status, connect, disconnect, reconnect, sessionId } = useReactor((state) => ({
-    status: state.status,
-    connect: state.connect,
-    disconnect: state.disconnect,
-    reconnect: state.reconnect,
-    sessionId: state.sessionId,
-  }));
+  const { status, connect, disconnect, reconnect, sessionId } = useReactor(
+    (state) => ({
+      status: state.status,
+      connect: state.connect,
+      disconnect: state.disconnect,
+      reconnect: state.reconnect,
+      sessionId: state.sessionId,
+    })
+  );
 
   return (
     <div
@@ -43,7 +45,8 @@ export function ReactorStatus({ className }: ReactorStatusProps) {
           <span className="font-medium text-sm">{status}</span>
         </div>
         <div className="text-sm text-gray-500">
-          Session: <span className="text-gray-400 font-mono">{sessionId ?? "None"}</span>
+          Session:{" "}
+          <span className="text-gray-400 font-mono">{sessionId ?? "None"}</span>
         </div>
       </div>
 
@@ -72,7 +75,9 @@ export function ReactorStatus({ className }: ReactorStatusProps) {
               Reconnect
             </button>
           </TooltipTrigger>
-          <TooltipContent>Reconnect to an already running model session</TooltipContent>
+          <TooltipContent>
+            Reconnect to an already running model session
+          </TooltipContent>
         </Tooltip>
 
         <Tooltip>
@@ -85,7 +90,8 @@ export function ReactorStatus({ className }: ReactorStatusProps) {
             </button>
           </TooltipTrigger>
           <TooltipContent>
-            Cut video stream only — model keeps running. Use Reconnect to resume.
+            Cut video stream only — model keeps running. Use Reconnect to
+            resume.
           </TooltipContent>
         </Tooltip>
 
@@ -98,7 +104,9 @@ export function ReactorStatus({ className }: ReactorStatusProps) {
               Disconnect (Non-Recoverable)
             </button>
           </TooltipTrigger>
-          <TooltipContent>Cut video stream and send stop signal to the model</TooltipContent>
+          <TooltipContent>
+            Cut video stream and send stop signal to the model
+          </TooltipContent>
         </Tooltip>
       </div>
     </div>

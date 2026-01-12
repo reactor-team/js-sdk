@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { ReactorProvider, ReactorView, ReactorController } from "@reactor-team/js-sdk";
+import {
+  ReactorProvider,
+  ReactorView,
+  ReactorController,
+} from "@reactor-team/js-sdk";
 import { Header } from "@/components/Header";
 import { Settings } from "@/components/Settings";
 import { ReactorStatus } from "@/components/ReactorStatus";
@@ -24,7 +28,12 @@ export default function Home() {
           onJwtTokenChange={setJwtToken}
         />
 
-        <ReactorProvider modelName={modelName} local={isLocal} jwtToken={jwtToken} autoConnect>
+        <ReactorProvider
+          modelName={modelName}
+          local={isLocal}
+          jwtToken={jwtToken}
+          autoConnect
+        >
           <div className="flex flex-col gap-3">
             <ReactorView className="w-full aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700/50 shadow-xl overflow-hidden" />
             <ReactorStatus />

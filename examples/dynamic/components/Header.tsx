@@ -6,7 +6,9 @@ export function Header() {
         <span className="text-white"> Dynamic UI</span>
       </h1>
       <div className="flex flex-wrap items-center justify-center gap-3">
-        <p className="text-gray-400 text-sm">Generic frontend that works with any Reactor model</p>
+        <p className="text-gray-400 text-sm">
+          Generic frontend that works with any Reactor model
+        </p>
         <a
           href="https://github.com/anthropics/reactor-js-sdk"
           target="_blank"

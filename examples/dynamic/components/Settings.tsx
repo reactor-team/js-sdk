@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { fetchInsecureJwtToken } from "@reactor-team/js-sdk";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface SettingsProps {
   modelName: string;
@@ -48,7 +52,9 @@ export function Settings({
         const token = await fetchInsecureJwtToken(apiKey);
         onJwtTokenChange(token);
       } catch (err) {
-        setTokenError(err instanceof Error ? err.message : "Failed to fetch token");
+        setTokenError(
+          err instanceof Error ? err.message : "Failed to fetch token"
+        );
         onJwtTokenChange(undefined);
       } finally {
         setIsFetchingToken(false);
@@ -61,14 +67,18 @@ export function Settings({
   return (
     <div className="flex flex-wrap items-center gap-4 p-3 bg-gray-800/40 rounded-lg border border-gray-700/50">
       <label className="flex items-center gap-2 text-sm text-gray-300">
-        <span className={isLocal ? "text-gray-600" : "text-gray-500"}>Model:</span>
+        <span className={isLocal ? "text-gray-600" : "text-gray-500"}>
+          Model:
+        </span>
         <input
           type="text"
           value={modelName}
           onChange={(e) => onModelNameChange(e.target.value)}
           disabled={isLocal}
           className={`bg-gray-900/60 border border-gray-600 rounded-md px-3 py-1.5 w-44 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 ${
-            isLocal ? "text-gray-600 cursor-not-allowed opacity-50" : "text-white"
+            isLocal
+              ? "text-gray-600 cursor-not-allowed opacity-50"
+              : "text-white"
           }`}
           placeholder={isLocal ? "" : "e.g. longlive"}
         />
@@ -77,7 +87,9 @@ export function Settings({
       <Tooltip>
         <TooltipTrigger>
           <label className="flex items-center gap-2 text-sm text-gray-300">
-            <span className={isLocal ? "text-gray-600" : "text-orange-400"}>API Key:</span>
+            <span className={isLocal ? "text-gray-600" : "text-orange-400"}>
+              API Key:
+            </span>
             <div className="relative">
               <input
                 type="password"
@@ -106,7 +118,9 @@ export function Settings({
         </TooltipContent>
       </Tooltip>
 
-      {tokenError && !isLocal && <span className="text-xs text-red-400">{tokenError}</span>}
+      {tokenError && !isLocal && (
+        <span className="text-xs text-red-400">{tokenError}</span>
+      )}
 
       <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
         <input
