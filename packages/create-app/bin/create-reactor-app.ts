@@ -5,51 +5,140 @@ import simpleGit from "simple-git";
 import fs from "fs";
 import path from "path";
 import chalk from "chalk";
-import readline from "readline";
 
-const REPO = "https://github.com/reactor-team/js-sdk.git";
+const REPO_OWNER = "reactor-team";
+const REPO_NAME = "js-sdk";
+const REPO_URL = `https://github.com/${REPO_OWNER}/${REPO_NAME}.git`;
 const EXAMPLES_PATH = "examples";
 
-async function getTemplates(): Promise<string[]> {
+function getAuthenticatedRepoUrl(token: string): string {
+  return `https://${token}@github.com/${REPO_OWNER}/${REPO_NAME}.git`;
+}
+
+async function fetchTemplates(token?: string): Promise<string[] | null> {
   try {
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const res = await fetch(
-      `https://api.github.com/repos/reactor-team/js-sdk/contents/${EXAMPLES_PATH}`,
+      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${EXAMPLES_PATH}`,
+      { headers }
     );
+
+    if (!res.ok) {
+      return null;
+    }
+
     const data = (await res.json()) as { name: string; type: string }[];
     return data.filter((item) => item.type === "dir").map((item) => item.name);
   } catch {
-    console.log(
-      chalk.yellow(
-        "⚠️  Could not fetch from GitHub, using fallback templates.",
-      ),
-    );
-    return ["longlive", "matrix-2"];
+    return null;
   }
+}
+
+async function promptForToken(): Promise<string | undefined> {
+  try {
+    const { ghToken } = await inquirer.prompt([
+      {
+        type: "password",
+        name: "ghToken",
+        message: "Enter your GitHub token (leave empty to cancel):",
+        mask: "*",
+      },
+    ]);
+    return ghToken || undefined;
+  } catch (error: unknown) {
+    const err = error as {
+      isTtyError?: boolean;
+      name?: string;
+      message?: string;
+    };
+    if (
+      err.isTtyError ||
+      err.name === "ExitPromptError" ||
+      err.message?.includes("User force closed the prompt") ||
+      err.message?.includes("Prompt was canceled")
+    ) {
+      console.log(chalk.yellow("\n\n❌ Installation cancelled by user."));
+      process.exit(0);
+    }
+    throw error;
+  }
+}
+
+function parseArgs(args: string[]): {
+  projectName?: string;
+  template?: string;
+  token?: string;
+  help: boolean;
+} {
+  const result: {
+    projectName?: string;
+    template?: string;
+    token?: string;
+    help: boolean;
+  } = { help: false };
+  const positionalArgs: string[] = [];
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "--help" || arg === "-h") {
+      result.help = true;
+    } else if (arg === "--token" || arg === "-t") {
+      result.token = args[++i];
+    } else if (arg.startsWith("--token=")) {
+      result.token = arg.split("=")[1];
+    } else if (!arg.startsWith("-")) {
+      positionalArgs.push(arg);
+    }
+  }
+
+  result.projectName = positionalArgs[0];
+  result.template = positionalArgs[1];
+
+  return result;
 }
 
 function showUsage(): void {
   console.log(chalk.cyan("\n⚛️ Create Reactor App\n"));
   console.log(chalk.white("Usage:"));
-  console.log(chalk.white("  create-reactor-app [project-name] [template]\n"));
+  console.log(
+    chalk.white("  create-reactor-app [project-name] [template] [options]\n")
+  );
   console.log(chalk.white("Arguments:"));
   console.log(chalk.white("  project-name  Name of the project to create"));
   console.log(
     chalk.white(
-      "  template      Template to use (longlive, matrix-2, mk64, etc.)\n",
-    ),
+      "  template      Template to use (longlive, matrix-2, mk64, etc.)\n"
+    )
   );
+  console.log(chalk.white("Options:"));
+  console.log(
+    chalk.white("  --token, -t   GitHub token for private repository access")
+  );
+  console.log(chalk.white("  --help, -h    Show this help message\n"));
   console.log(
     chalk.white(
-      "If arguments are not provided, you will be prompted interactively.\n",
-    ),
+      "If arguments are not provided, you will be prompted interactively.\n"
+    )
   );
 }
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
 
+  // Parse command line arguments
+  const {
+    projectName: argProjectName,
+    template: argTemplate,
+    token: argToken,
+    help,
+  } = parseArgs(args);
+
   // Show help if requested
-  if (args.includes("--help") || args.includes("-h")) {
+  if (help) {
     showUsage();
     process.exit(0);
   }
@@ -81,10 +170,46 @@ async function main(): Promise<void> {
 
   console.log(chalk.cyan("\n⚛️ Create Reactor App\n"));
 
-  const templates = await getTemplates();
+  let token = argToken;
 
-  // Parse command line arguments
-  const [argProjectName, argTemplate] = args;
+  // Try to fetch templates, prompt for token if needed
+  let templates = await fetchTemplates(token);
+
+  if (!templates && !token) {
+    console.log(
+      chalk.yellow(
+        "⚠️  Could not fetch templates from GitHub. Repository may be private."
+      )
+    );
+
+    // Temporarily restore stdin for the prompt
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(false);
+      process.stdin.pause();
+    }
+
+    token = await promptForToken();
+
+    // Re-enable raw mode for ESC handling
+    if (process.stdin.isTTY && token) {
+      process.stdin.setRawMode(true);
+      process.stdin.resume();
+    }
+
+    if (token) {
+      console.log(chalk.green("\nRetrying with authentication...\n"));
+      templates = await fetchTemplates(token);
+    }
+  }
+
+  if (!templates) {
+    console.error(
+      chalk.red(
+        "\n❌ Failed to fetch templates from GitHub. Please check your token and try again."
+      )
+    );
+    process.exit(1);
+  }
 
   // Validate template argument if provided
   if (argTemplate && !templates.includes(argTemplate)) {
@@ -145,6 +270,54 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  console.log(chalk.green(`\nCloning template "${template}"...\n`));
+
+  const git = simpleGit();
+
+  // Helper function to clone with optional token
+  async function tryClone(authToken?: string): Promise<boolean> {
+    const repoUrl = authToken ? getAuthenticatedRepoUrl(authToken) : REPO_URL;
+    try {
+      await git.clone(repoUrl, projectName, ["--depth", "1"]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Try to clone, prompt for token if it fails
+  let cloneSuccess = await tryClone(token);
+
+  if (!cloneSuccess && !token) {
+    console.log(
+      chalk.yellow(
+        "\n⚠️  Repository not accessible. It may be private or require authentication."
+      )
+    );
+
+    // Temporarily restore stdin for the prompt
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(false);
+      process.stdin.pause();
+    }
+
+    token = await promptForToken();
+
+    if (token) {
+      console.log(chalk.green("\nRetrying with authentication...\n"));
+      cloneSuccess = await tryClone(token);
+    }
+  }
+
+  if (!cloneSuccess) {
+    console.error(
+      chalk.red(
+        "\n❌ Failed to clone repository. Please check your token and try again."
+      )
+    );
+    process.exit(1);
+  }
+
   // End interactive phase - now we're in installation phase
   isInteractivePhase = false;
 
@@ -153,11 +326,6 @@ async function main(): Promise<void> {
     process.stdin.setRawMode(false);
     process.stdin.pause();
   }
-
-  console.log(chalk.green(`\nCloning template "${template}"...\n`));
-
-  const git = simpleGit();
-  await git.clone(REPO, projectName, ["--depth", "1"]);
 
   const examplesDir = path.join(dest, EXAMPLES_PATH);
   const templateDir = path.join(examplesDir, template);
@@ -180,8 +348,8 @@ async function main(): Promise<void> {
 
   console.log(
     chalk.green(
-      `\n✅ Project "${projectName}" created successfully using "${template}" template!\n`,
-    ),
+      `\n✅ Project "${projectName}" created successfully using "${template}" template!\n`
+    )
   );
   console.log(chalk.cyan("Next steps:"));
   console.log(chalk.white(`	cd ${projectName}`));
@@ -189,13 +357,11 @@ async function main(): Promise<void> {
   console.log(chalk.white(`\nFor development scenarios:`));
   console.log(chalk.cyan(`	• Using an existing model:`));
   console.log(
-    chalk.white(`	  - Edit .env and set your NEXT_PUBLIC_REACTOR_API_KEY`),
+    chalk.white(`	  - Edit .env and set your NEXT_PUBLIC_REACTOR_API_KEY`)
   );
   console.log(chalk.cyan(`\n	• Local development with custom model:`));
   console.log(
-    chalk.white(
-      `	  - Set local={true} in your ReactorProvider in app/page.tsx:`,
-    ),
+    chalk.white(`	  - Set local={true} in your ReactorProvider in app/page.tsx:`)
   );
   console.log(chalk.gray(`	    <ReactorProvider modelName="..." local={true}>`));
   console.log(chalk.white(`\n	pnpm dev\n`));

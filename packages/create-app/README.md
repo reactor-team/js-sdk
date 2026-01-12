@@ -34,18 +34,37 @@ You'll be asked to:
 You can also provide arguments directly:
 
 ```bash
-npx create-reactor-app [project-name] [template]
+npx create-reactor-app [project-name] [template] [options]
 ```
+
+**Options:**
+
+| Option          | Description                                |
+| --------------- | ------------------------------------------ |
+| `--token`, `-t` | GitHub token for private repository access |
+| `--help`, `-h`  | Show help message                          |
 
 **Examples:**
 
-````bash
+```bash
 # Create a project with longlive template
 npx create-reactor-app my-game longlive
 
 # Create a project with matrix template
 npx create-reactor-app my-matrix-app matrix-2
 
+# Create a project with a GitHub token (for private repos)
+npx create-reactor-app my-app longlive --token ghp_xxxxxxxxxxxx
+```
+
+### Private Repository Access
+
+If the repository is private, you'll be prompted to enter a GitHub token when:
+
+- Fetching available templates fails
+- Cloning the repository fails
+
+You can also pass the token directly via the `--token` (or `-t`) argument to skip the prompt.
 
 ### Available Templates
 
@@ -58,7 +77,7 @@ After creating your project:
 ```bash
 cd your-project-name
 pnpm dev
-````
+```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser to see your application running. Make sure to setup your API keys first!
 
@@ -76,6 +95,36 @@ For comprehensive guides, API references, and tutorials, visit the official Reac
 
 - Node.js 16 or later
 - pnpm (recommended) or npm
+
+## Local Development
+
+To test or develop the CLI locally:
+
+```bash
+# Navigate to the create-app package
+cd packages/create-app
+
+# Install dependencies
+pnpm install
+
+# Build the CLI
+pnpm build
+
+# Link it globally
+pnpm link --global
+```
+
+Now you can use `create-reactor-app` anywhere on your system:
+
+```bash
+create-reactor-app my-app
+```
+
+To unlink when you're done:
+
+```bash
+pnpm unlink --global
+```
 
 ## License
 

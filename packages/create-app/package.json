@@ -1,6 +1,6 @@
 {
   "name": "create-reactor-app",
-  "version": "1.0.4",
+  "version": "2.0.0",
   "bin": {
     "create-reactor-app": "dist/bin/create-reactor-app.js"
   },
