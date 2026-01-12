@@ -41,14 +41,14 @@ const EXAMPLE_IMAGES = [
  * - Sends "set_starting_image" message to use the image as the first frame
  */
 export function ImageUploader({ className = "" }: ImageUploaderProps) {
-  const { sendMessage, status } = useReactor((state) => ({
-    sendMessage: state.sendMessage,
+  const { sendCommand, status } = useReactor((state) => ({
+    sendCommand: state.sendCommand,
     status: state.status,
   }));
 
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [selectedExampleId, setSelectedExampleId] = useState<string | null>(
-    null,
+    null
   );
 
   // Handle image file upload and convert to base64
@@ -93,12 +93,9 @@ export function ImageUploader({ className = "" }: ImageUploaderProps) {
     const imageId = `upload_${Date.now()}`;
 
     try {
-      await sendMessage({
-        type: "set_starting_image",
-        data: {
-          base64_image: base64Data,
-          image_id: imageId,
-        },
+      await sendCommand("set_starting_image", {
+        base64_image: base64Data,
+        image_id: imageId,
       });
       console.log("Starting image set successfully");
     } catch (error) {

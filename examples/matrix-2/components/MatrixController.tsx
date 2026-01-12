@@ -118,9 +118,9 @@ function KeyButton({
  * - Provides a reset button to restart the model
  */
 export function MatrixController({ className = "" }: MatrixControllerProps) {
-  const { status, sendMessage } = useReactor((state) => ({
+  const { status, sendCommand } = useReactor((state) => ({
     status: state.status,
-    sendMessage: state.sendMessage,
+    sendCommand: state.sendCommand,
   }));
 
   // Initialize with neutral controls (U = no mouse movement, Q = no keyboard input)
@@ -132,9 +132,9 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
   // Send control update to the model
   const sendControl = useCallback(
     (control: Control) => {
-      void sendMessage({ type: "control", data: control });
+      void sendCommand("control", control);
     },
-    [sendMessage],
+    [sendCommand]
   );
 
   // Handle button press for keyboard controls
@@ -149,7 +149,7 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
         return newControl;
       });
     },
-    [sendControl],
+    [sendControl]
   );
 
   // Handle button release for keyboard controls (return to neutral Q)
@@ -176,7 +176,7 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
         return newControl;
       });
     },
-    [sendControl],
+    [sendControl]
   );
 
   // Handle button release for mouse controls (return to neutral U)
@@ -194,7 +194,7 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
   // Send reset message to restart the model
   const handleReset = async () => {
     try {
-      await sendMessage({ type: "reset" });
+      await sendCommand("reset", {});
       console.log("Reset message sent");
     } catch (error) {
       console.error("Failed to send reset:", error);
@@ -243,7 +243,7 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
       handleKeyboardRelease,
       handleMousePress,
       handleMouseRelease,
-    ],
+    ]
   );
 
   // Set up physical keyboard event listeners when connection is ready
