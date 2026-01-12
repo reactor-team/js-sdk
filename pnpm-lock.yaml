@@ -71,12 +71,24 @@ importers:
 
   examples/longlive:
     dependencies:
+      "@radix-ui/react-tooltip":
+        specifier: ^1.2.8
+        version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.2.8))(@types/react@19.2.8)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       "@reactor-team/js-sdk":
-        specifier: workspace:*
-        version: link:../../packages/js-sdk
+        specifier: ^2.0.0
+        version: 2.0.0(@types/node@20.19.28)(react@19.1.0)(zustand@5.0.9(@types/react@19.2.8)(react@19.1.0))
       "@vercel/analytics":
         specifier: ^1.5.0
         version: 1.6.1(next@15.5.9(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      lucide-react:
+        specifier: ^0.562.0
+        version: 0.562.0(react@19.1.0)
       next:
         specifier: 15.5.9
         version: 15.5.9(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -89,6 +101,9 @@ importers:
       react-dom:
         specifier: 19.1.0
         version: 19.1.0(react@19.1.0)
+      tailwind-merge:
+        specifier: ^3.4.0
+        version: 3.4.0
       zustand:
         specifier: ^5.0.6
         version: 5.0.9(@types/react@19.2.8)(react@19.1.0)
@@ -108,6 +123,9 @@ importers:
       tailwindcss:
         specifier: ^4.1.14
         version: 4.1.18
+      tw-animate-css:
+        specifier: ^1.4.0
+        version: 1.4.0
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

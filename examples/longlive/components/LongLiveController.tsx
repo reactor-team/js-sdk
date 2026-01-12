@@ -35,8 +35,8 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
   const audioChunksRef = useRef<Blob[]>([]);
 
   // Get sendMessage function and connection status from Reactor state
-  const { sendMessage, status } = useReactor((state) => ({
-    sendMessage: state.sendMessage,
+  const { sendCommand, status } = useReactor((state) => ({
+    sendCommand: state.sendCommand,
     status: state.status,
   }));
 
@@ -79,24 +79,21 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
     const timestamp = currentStartFrame === 0 ? 0 : currentStartFrame + 3;
 
     // Send the prompt with the calculated timestamp
-    await sendMessage({
-      type: "schedule_prompt",
-      data: {
-        new_prompt: promptText.trim(),
-        timestamp: timestamp,
-      },
+    await sendCommand("schedule_prompt", {
+      new_prompt: promptText.trim(),
+      timestamp: timestamp,
     });
 
     // On the first prompt, also send a "start" message to begin the generation process
     if (currentStartFrame === 0) {
-      await sendMessage({ type: "start" });
+      await sendCommand("start", {});
     }
   };
 
   const handlePromptSelect = async (
     storyId: string,
     storyPrompt: StoryPrompt,
-    step: number,
+    step: number
   ) => {
     // Set the selected story and step
     setSelectedStoryId(storyId);
@@ -202,7 +199,7 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
   // Send reset message to restart the model and reset UI state
   const handleReset = async () => {
     try {
-      await sendMessage({ type: "reset" });
+      await sendCommand("reset", {});
       resetUIState();
       console.log("Reset message sent");
     } catch (error) {
