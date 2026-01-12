@@ -27,7 +27,14 @@ interface KeyButtonProps {
 }
 
 // Interactive button component for touch and click control
-function KeyButton({ label, isActive, isKeyboard, onPress, onRelease, disabled }: KeyButtonProps) {
+function KeyButton({
+  label,
+  isActive,
+  isKeyboard,
+  onPress,
+  onRelease,
+  disabled,
+}: KeyButtonProps) {
   const [isPressed, setIsPressed] = useState(false);
   const pointerIdRef = useRef<number | null>(null);
 
@@ -65,7 +72,8 @@ function KeyButton({ label, isActive, isKeyboard, onPress, onRelease, disabled }
     "min-w-10 min-h-10 sm:min-w-12 sm:min-h-12 w-full aspect-square rounded-lg font-bold text-xs sm:text-sm transition-all duration-150 select-none cursor-pointer active:scale-95";
 
   // Muted color scheme
-  const keyboardActiveClasses = "bg-slate-600/80 text-white border-2 border-slate-500/50 shadow-lg";
+  const keyboardActiveClasses =
+    "bg-slate-600/80 text-white border-2 border-slate-500/50 shadow-lg";
   const keyboardInactiveClasses =
     "bg-gray-700/40 text-gray-400 border-2 border-gray-600/30 hover:bg-gray-600/50 hover:border-gray-500/40";
 
@@ -77,7 +85,9 @@ function KeyButton({ label, isActive, isKeyboard, onPress, onRelease, disabled }
   const pressedScale = isPressed ? "scale-95" : "";
 
   const activeClasses = isKeyboard ? keyboardActiveClasses : mouseActiveClasses;
-  const inactiveClasses = isKeyboard ? keyboardInactiveClasses : mouseInactiveClasses;
+  const inactiveClasses = isKeyboard
+    ? keyboardInactiveClasses
+    : mouseInactiveClasses;
 
   return (
     <button
@@ -228,7 +238,12 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
         }
       }
     },
-    [handleKeyboardPress, handleKeyboardRelease, handleMousePress, handleMouseRelease]
+    [
+      handleKeyboardPress,
+      handleKeyboardRelease,
+      handleMousePress,
+      handleMouseRelease,
+    ]
   );
 
   // Set up physical keyboard event listeners when connection is ready
@@ -261,7 +276,9 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
       }`}
     >
       <div className="flex items-center justify-between mb-3 sm:mb-4">
-        <span className="text-xs sm:text-sm font-medium text-gray-400">Controls</span>
+        <span className="text-xs sm:text-sm font-medium text-gray-400">
+          Controls
+        </span>
         <button
           onClick={handleReset}
           disabled={isDisabled}
@@ -275,7 +292,9 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
       <div className="flex justify-center gap-4 sm:gap-6 md:gap-8">
         {/* WASD Keyboard Controls - Left side for left thumb */}
         <div className="flex flex-col items-center gap-2 sm:gap-3">
-          <h3 className="text-xs sm:text-sm font-semibold text-slate-400">Player</h3>
+          <h3 className="text-xs sm:text-sm font-semibold text-slate-400">
+            Player
+          </h3>
           <div className="grid grid-cols-3 gap-1.5 sm:gap-1.5">
             <div />
             <KeyButton
@@ -326,7 +345,9 @@ export function MatrixController({ className = "" }: MatrixControllerProps) {
 
         {/* IJKL Mouse Controls - Right side for right thumb */}
         <div className="flex flex-col items-center gap-2 sm:gap-3">
-          <h3 className="text-xs sm:text-sm font-semibold text-emerald-400">Camera</h3>
+          <h3 className="text-xs sm:text-sm font-semibold text-emerald-400">
+            Camera
+          </h3>
           <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
             <div />
             <KeyButton

@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { fetchInsecureJwtToken } from "@reactor-team/js-sdk";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 
 interface ApiKeyInputProps {
   onJwtTokenChange: (token: string | undefined) => void;

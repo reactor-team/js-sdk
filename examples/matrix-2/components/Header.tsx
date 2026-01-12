@@ -6,7 +6,9 @@ export function Header() {
         <span className="text-white"> Matrix-2</span>
       </h1>
       <div className="flex flex-wrap items-center justify-center gap-3">
-        <p className="text-gray-400 text-sm">Real-time Interactive World Model</p>
+        <p className="text-gray-400 text-sm">
+          Real-time Interactive World Model
+        </p>
         <a
           href="https://github.com/reactor-team/js-sdk"
           target="_blank"
