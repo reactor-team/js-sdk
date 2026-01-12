@@ -43,7 +43,10 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
   // Listen for progress messages from the LongLive model
   // These messages contain the current_start_frame which tells us where we are in the generation
   useReactorMessage((message: any) => {
-    if (message?.type === "progress" && message?.data?.current_start_frame !== undefined) {
+    if (
+      message?.type === "progress" &&
+      message?.data?.current_start_frame !== undefined
+    ) {
       setCurrentStartFrame(message.data.current_start_frame);
     }
   });
@@ -87,7 +90,11 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
     }
   };
 
-  const handlePromptSelect = async (storyId: string, storyPrompt: StoryPrompt, step: number) => {
+  const handlePromptSelect = async (
+    storyId: string,
+    storyPrompt: StoryPrompt,
+    step: number
+  ) => {
     // Set the selected story and step
     setSelectedStoryId(storyId);
     setCurrentStep(step);
@@ -220,7 +227,9 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
       {currentPrompt && (
         <div className="bg-gray-800/30 rounded-md p-2 border border-gray-700/30">
           <div className="flex items-top gap-2">
-            <p className="text-xs font-medium text-gray-300 flex-shrink-0">Current:</p>
+            <p className="text-xs font-medium text-gray-300 flex-shrink-0">
+              Current:
+            </p>
             <p className="text-xs text-gray-500">{currentPrompt}</p>
           </div>
         </div>
@@ -237,7 +246,9 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
       {/* Manual Input */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium text-gray-400">Or write your own</span>
+          <span className="text-xs font-medium text-gray-400">
+            Or write your own
+          </span>
           <div className="flex items-center gap-1.5 px-2 py-0.5 bg-gray-800/50 rounded-md">
             <span className="text-xs text-gray-500">Frame:</span>
             <span className="text-xs font-semibold text-gray-300 tabular-nums">
@@ -250,7 +261,11 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
             type="text"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder={isTranscribing ? "Transcribing..." : "Enter your prompt or use voice..."}
+            placeholder={
+              isTranscribing
+                ? "Transcribing..."
+                : "Enter your prompt or use voice..."
+            }
             className="flex-1 px-3 py-2 bg-gray-800/50 border border-gray-700/50 rounded-md text-white text-xs placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
             disabled={status === "disconnected" || isTranscribing}
           />
@@ -265,7 +280,12 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
             } disabled:opacity-50 disabled:cursor-not-allowed`}
             title={isRecording ? "Stop recording" : "Start voice input"}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               {isRecording ? (
                 <rect x="6" y="4" width="12" height="16" rx="2" />
               ) : (
