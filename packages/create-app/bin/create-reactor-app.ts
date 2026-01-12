@@ -8,11 +8,11 @@ import chalk from "chalk";
 
 const REPO_OWNER = "reactor-team";
 const REPO_NAME = "js-sdk";
-const REPO_URL = `https://github.com/${REPO_OWNER}/${REPO_NAME}.git`;
+const REPO_URL = `github.com/${REPO_OWNER}/${REPO_NAME}.git`;
 const EXAMPLES_PATH = "examples";
 
 function getAuthenticatedRepoUrl(token: string): string {
-  return `https://${token}@github.com/${REPO_OWNER}/${REPO_NAME}.git`;
+  return `https://${token}@${REPO_URL}`;
 }
 
 async function fetchTemplates(token?: string): Promise<string[] | null> {
@@ -276,7 +276,9 @@ async function main(): Promise<void> {
 
   // Helper function to clone with optional token
   async function tryClone(authToken?: string): Promise<boolean> {
-    const repoUrl = authToken ? getAuthenticatedRepoUrl(authToken) : REPO_URL;
+    const repoUrl = authToken
+      ? getAuthenticatedRepoUrl(authToken)
+      : `https://${REPO_URL}`;
     try {
       await git.clone(repoUrl, projectName, ["--depth", "1"]);
       return true;
