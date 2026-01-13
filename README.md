@@ -47,7 +47,6 @@ function App() {
 ## Documentation
 
 - [Getting Started](https://docs.reactor.inc)
-- [API Reference](https://docs.reactor.inc/api-reference/overview)
 
 ## License
 
