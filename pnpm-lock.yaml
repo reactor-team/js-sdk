@@ -268,8 +268,8 @@ importers:
   packages/create-app:
     dependencies:
       "@reactor-team/js-sdk":
-        specifier: ^1.0.0
-        version: 1.0.22(@types/node@22.19.5)(react@19.1.0)(zustand@5.0.9(@types/react@19.2.8)(react@19.1.0))
+        specifier: ^2.0.0
+        version: 2.0.0(@types/node@22.19.5)(react@19.1.0)(zustand@5.0.9(@types/react@19.2.8)(react@19.1.0))
       chalk:
         specifier: ^5.3.0
         version: 5.6.2
@@ -1350,15 +1350,6 @@ packages:
     resolution:
       {
         integrity: sha512-NUl/ofgtejarh8TvjTjrVtQ3tO3jZGWoeVO9tsR/GzR0vmtvlIyq7HoMIzCqSC1EXwd0VG2ugl1tlNBot0fqdQ==,
-      }
-    peerDependencies:
-      react: ^17.0.0 || ^18.0.0 || ^19.0.0
-      zustand: ^5.0.6
-
-  "@reactor-team/js-sdk@1.0.22":
-    resolution:
-      {
-        integrity: sha512-EwXesZ0T9BOJQI6pOtg4MbnXTY50RLK4CcpCdsPjnp/nuOI0bWWcARDpKmiU/qsy66ZkEoo9rBKf9p0h3o43Ig==,
       }
     peerDependencies:
       react: ^17.0.0 || ^18.0.0 || ^19.0.0
@@ -3435,11 +3426,11 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  "@reactor-team/js-sdk@1.0.22(@types/node@22.19.5)(react@19.1.0)(zustand@5.0.9(@types/react@19.2.8)(react@19.1.0))":
+  "@reactor-team/js-sdk@2.0.0(@types/node@20.19.28)(react@19.1.0)(zustand@5.0.9(@types/react@19.2.8)(react@19.1.0))":
     dependencies:
       "@bufbuild/protobuf": 2.10.2
       chalk: 5.6.2
-      inquirer: 9.3.8(@types/node@22.19.5)
+      inquirer: 9.3.8(@types/node@20.19.28)
       react: 19.1.0
       simple-git: 3.30.0
       ws: 8.19.0
@@ -3451,11 +3442,11 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  "@reactor-team/js-sdk@2.0.0(@types/node@20.19.28)(react@19.1.0)(zustand@5.0.9(@types/react@19.2.8)(react@19.1.0))":
+  "@reactor-team/js-sdk@2.0.0(@types/node@22.19.5)(react@19.1.0)(zustand@5.0.9(@types/react@19.2.8)(react@19.1.0))":
     dependencies:
       "@bufbuild/protobuf": 2.10.2
       chalk: 5.6.2
-      inquirer: 9.3.8(@types/node@20.19.28)
+      inquirer: 9.3.8(@types/node@22.19.5)
       react: 19.1.0
       simple-git: 3.30.0
       ws: 8.19.0
