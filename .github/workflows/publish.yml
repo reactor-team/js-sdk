@@ -21,7 +21,6 @@ jobs:
         with:
           node-version: 22
           cache: "pnpm"
-          registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: pnpm install
@@ -30,7 +29,9 @@ jobs:
         run: pnpm build
 
       - name: Publish SDK to npm
-        run: npm publish --access public --provenance
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          npm publish --access public --provenance
         working-directory: packages/js-sdk
 
   publish-create-app:
@@ -49,7 +50,6 @@ jobs:
         with:
           node-version: 22
           cache: "pnpm"
-          registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: pnpm install
@@ -58,5 +58,7 @@ jobs:
         run: pnpm --filter create-reactor-app build
 
       - name: Publish create-app to npm
-        run: npm publish --access public --provenance
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          npm publish --access public --provenance
         working-directory: packages/create-app
