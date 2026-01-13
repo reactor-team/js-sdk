@@ -11,24 +11,10 @@ There are two main ways to use the frontend SDK:
 
 ## Building the SDK
 
-Set up the environment variables:
-
-```bash
-cp .env.example .env
-```
-
-Then add your NPM_TOKEN to the .env file.
-
-Build the SDK:
-
 ```bash
 pnpm build
 ```
 
-## Publishing
+## Documentation
 
-To publish the SDK:
-
-```bash
-./publish_package.sh
-```
+- [Getting Started](https://docs.reactor.inc)

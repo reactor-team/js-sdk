@@ -89,7 +89,7 @@ All templates are sourced from the official examples in the [Reactor SDK reposit
 
 For comprehensive guides, API references, and tutorials, visit the official Reactor documentation:
 
-📚 **[Reactor Documentation](https://reactor-technologies.readme.io/docs/overview)**
+📚 **[Reactor Documentation](https://docs.reactor.inc)**
 
 ## Requirements
 
@@ -132,7 +132,7 @@ ISC License - Copyright (c) Reactor Technologies, Inc.
 
 ## Support
 
-- 📖 [Documentation](https://reactor-technologies.readme.io/docs/overview)
+- 📖 [Documentation](https://docs.reactor.inc)
 - 💻 [Examples Repository](https://github.com/reactor-team/js-sdk)
 - 🐛 [Report Issues](https://github.com/reactor-team/js-sdk/issues)
 
