@@ -30,10 +30,8 @@ jobs:
         run: pnpm build
 
       - name: Publish SDK to npm
-        run: npm publish --provenance --access public
+        run: npm publish --access public
         working-directory: packages/js-sdk
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-create-app:
     runs-on: ubuntu-latest
@@ -60,7 +58,5 @@ jobs:
         run: pnpm --filter create-reactor-app build
 
       - name: Publish create-app to npm
-        run: npm publish --provenance --access public
+        run: npm publish --access public
         working-directory: packages/create-app
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
