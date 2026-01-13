@@ -19,8 +19,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: "pnpm"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: pnpm install
@@ -29,7 +30,7 @@ jobs:
         run: pnpm build
 
       - name: Publish SDK to npm
-        run: npm publish --access public
+        run: npm publish --access public --provenance
         working-directory: packages/js-sdk
 
   publish-create-app:
@@ -46,8 +47,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: "pnpm"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: pnpm install
@@ -56,5 +58,5 @@ jobs:
         run: pnpm --filter create-reactor-app build
 
       - name: Publish create-app to npm
-        run: npm publish --access public
+        run: npm publish --access public --provenance
         working-directory: packages/create-app
