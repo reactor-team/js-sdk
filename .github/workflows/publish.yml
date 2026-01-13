@@ -1,64 +1,46 @@
-name: Publish
+name: Publish Package
 
 on:
   release:
     types: [published]
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   publish-sdk:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: "pnpm"
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
 
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Build SDK
-        run: pnpm build
-
-      - name: Publish SDK to npm
-        run: |
-          npm config set registry https://registry.npmjs.org/
-          npm publish --access public --provenance
+      - run: pnpm install
+      - run: pnpm build
+      - run: npm publish --access public
         working-directory: packages/js-sdk
 
   publish-create-app:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: "pnpm"
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
 
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Build create-app
-        run: pnpm --filter create-reactor-app build
-
-      - name: Publish create-app to npm
-        run: |
-          npm config set registry https://registry.npmjs.org/
-          npm publish --access public --provenance
+      - run: pnpm install
+      - run: pnpm --filter create-reactor-app build
+      - run: npm publish --access public
         working-directory: packages/create-app
