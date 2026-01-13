@@ -4,12 +4,13 @@ on:
   release:
     types: [published]
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   publish-sdk:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -21,6 +22,7 @@ jobs:
         with:
           node-version: 22
           cache: "pnpm"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: pnpm install
@@ -29,16 +31,11 @@ jobs:
         run: pnpm build
 
       - name: Publish SDK to npm
-        run: |
-          npm config set registry https://registry.npmjs.org/
-          npm publish --access public --provenance
+        run: npm publish --access public
         working-directory: packages/js-sdk
 
   publish-create-app:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -50,6 +47,7 @@ jobs:
         with:
           node-version: 22
           cache: "pnpm"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: pnpm install
@@ -58,7 +56,5 @@ jobs:
         run: pnpm --filter create-reactor-app build
 
       - name: Publish create-app to npm
-        run: |
-          npm config set registry https://registry.npmjs.org/
-          npm publish --access public --provenance
+        run: npm publish --access public
         working-directory: packages/create-app
