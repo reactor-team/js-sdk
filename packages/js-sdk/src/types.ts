@@ -14,6 +14,12 @@ export interface ReactorError {
   retryAfter?: number; // Suggested retry delay in seconds
 }
 
+export class ConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
 // Enhanced state with metadata
 export interface ReactorState {
   status: ReactorStatus;

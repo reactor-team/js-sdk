@@ -3,6 +3,7 @@
  * It extends CoordinatorClient and overrides methods for local development.
  */
 
+import { ConflictError } from "../types";
 import { CoordinatorClient } from "./CoordinatorClient";
 
 export class LocalCoordinatorClient extends CoordinatorClient {
@@ -60,6 +61,9 @@ export class LocalCoordinatorClient extends CoordinatorClient {
     });
 
     if (!response.ok) {
+      if (response.status === 409) {
+        throw new ConflictError("Connection superseded by newer request");
+      }
       throw new Error("Failed to get SDP answer from local coordinator.");
     }
 
