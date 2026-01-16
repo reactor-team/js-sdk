@@ -16,7 +16,11 @@ export default function Home() {
         <Header />
         <ApiKeyInput onJwtTokenChange={setJwtToken} />
 
-        <ReactorProvider modelName="longlive" jwtToken={jwtToken} autoConnect>
+        <ReactorProvider
+          modelName="longlive"
+          jwtToken={jwtToken}
+          autoConnect={false}
+        >
           <div className="flex flex-col gap-3">
             <ReactorView className="w-full aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700/50 shadow-xl overflow-hidden" />
             <ReactorStatus />
