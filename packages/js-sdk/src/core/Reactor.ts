@@ -146,7 +146,10 @@ export class Reactor {
     this.setStatus("connecting");
 
     if (!this.machineClient) {
-      this.machineClient = new GPUMachineClient();
+      // Get ICE servers from coordinator
+      const iceServers = await this.coordinatorClient.getIceServers();
+
+      this.machineClient = new GPUMachineClient({ iceServers });
       this.setupMachineClientHandlers();
     }
 
@@ -207,8 +210,11 @@ export class Reactor {
             model: this.model,
           });
 
+      // Get ICE servers from coordinator
+      const iceServers = await this.coordinatorClient.getIceServers();
+
       // Create GPUMachineClient and generate SDP offer
-      this.machineClient = new GPUMachineClient();
+      this.machineClient = new GPUMachineClient({ iceServers });
       this.setupMachineClientHandlers();
 
       const sdpOffer = await this.machineClient.createOffer();

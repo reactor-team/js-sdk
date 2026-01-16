@@ -8,16 +8,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface WebRTCConfig {
-  iceServers?: RTCIceServer[];
+  iceServers: RTCIceServer[];
   dataChannelLabel?: string;
 }
 
-const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
-  { urls: "stun:stun.l.google.com:19302" },
-  { urls: "stun:stun1.l.google.com:19302" },
-];
-
 const DEFAULT_DATA_CHANNEL_LABEL = "data";
+
+// Force relay mode for testing TURN servers - set to true to force all traffic through TURN
+const FORCE_RELAY_MODE = false;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Peer Connection Creation
@@ -25,10 +23,12 @@ const DEFAULT_DATA_CHANNEL_LABEL = "data";
 
 /**
  * Creates a new RTCPeerConnection with the specified configuration.
+ * @param config WebRTC configuration with required iceServers
  */
-export function createPeerConnection(config?: WebRTCConfig): RTCPeerConnection {
+export function createPeerConnection(config: WebRTCConfig): RTCPeerConnection {
   return new RTCPeerConnection({
-    iceServers: config?.iceServers ?? DEFAULT_ICE_SERVERS,
+    iceServers: config.iceServers,
+    iceTransportPolicy: FORCE_RELAY_MODE ? "relay" : "all",
   });
 }
 
