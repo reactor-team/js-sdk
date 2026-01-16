@@ -51,6 +51,17 @@ export const SDPParamsResponseSchema = z.object({
   extra_args: z.record(z.string(), z.any()), // Dictionary
 });
 
+// Response from GET /ice_servers endpoint (local HTTP runtime)
+export const IceServersResponseSchema = z.object({
+  ice_servers: z.array(
+    z.object({
+      urls: z.union([z.string(), z.array(z.string())]),
+      username: z.string().optional(),
+      credential: z.string().optional(),
+    })
+  ),
+});
+
 // Internal connection status for individual components
 export type InternalConnectionStatus =
   | "disconnected"
@@ -67,3 +78,5 @@ export type SDPParamsRequest = z.infer<typeof SDPParamsRequestSchema>;
 
 export type SessionInfoResponse = z.infer<typeof SessionInfoResponseSchema>;
 export type SessionStatusResponse = z.infer<typeof SessionStatusResponseSchema>;
+
+export type IceServersResponse = z.infer<typeof IceServersResponseSchema>;

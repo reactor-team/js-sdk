@@ -28,8 +28,8 @@ export class GPUMachineClient {
   private videoTransceiver: RTCRtpTransceiver | undefined;
   private config: webrtc.WebRTCConfig;
 
-  constructor(config?: webrtc.WebRTCConfig) {
-    this.config = config ?? {};
+  constructor(config: webrtc.WebRTCConfig) {
+    this.config = config;
   }
 
   // ─────────────────────────────────────────────────────────────────────────────

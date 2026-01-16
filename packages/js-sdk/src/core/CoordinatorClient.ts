@@ -43,6 +43,12 @@ export class CoordinatorClient {
     };
   }
 
+  async getIceServers(): Promise<RTCIceServer[]> {
+    // Default to Google's public STUN server
+    // TODO(REA-341) Define how the flow is in here for getting the ice servers from the coordinator.
+    return [{ urls: "stun:stun.l.google.com:19302" }];
+  }
+
   /**
    * Creates a new session with the coordinator.
    * Expects a 200 response and stores the session ID.

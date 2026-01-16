@@ -5,6 +5,7 @@
 
 import { ConflictError } from "../types";
 import { CoordinatorClient } from "./CoordinatorClient";
+import { IceServersResponse } from "./types";
 
 export class LocalCoordinatorClient extends CoordinatorClient {
   private localBaseUrl: string;
@@ -18,6 +19,28 @@ export class LocalCoordinatorClient extends CoordinatorClient {
       model: "local",
     });
     this.localBaseUrl = baseUrl;
+  }
+
+  /**
+   * Gets ICE servers from the local HTTP runtime.
+   * @returns The ICE server configuration
+   */
+  async getIceServers(): Promise<RTCIceServer[]> {
+    console.debug("[LocalCoordinatorClient] Fetching ICE servers...");
+    const response = await fetch(`${this.localBaseUrl}/ice_servers`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to get ICE servers from local coordinator.");
+    }
+
+    const data: IceServersResponse = await response.json();
+    console.debug(
+      "[LocalCoordinatorClient] Received ICE servers:",
+      data.ice_servers
+    );
+    return data.ice_servers;
   }
 
   /**
