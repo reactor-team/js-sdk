@@ -1,8 +1,9 @@
-import type {
-  ReactorEvent,
-  ReactorStatus,
-  ReactorState,
-  ReactorError,
+import {
+  type ReactorEvent,
+  type ReactorStatus,
+  type ReactorState,
+  type ReactorError,
+  ConflictError,
 } from "../types";
 import { CoordinatorClient } from "./CoordinatorClient";
 import { LocalCoordinatorClient } from "./LocalCoordinatorClient";
@@ -143,6 +144,11 @@ export class Reactor {
       return;
     }
 
+    if (this.status === "ready") {
+      console.warn("[Reactor] Already connected, no need to reconnect.");
+      return;
+    }
+
     this.setStatus("connecting");
 
     if (!this.machineClient) {
@@ -164,9 +170,13 @@ export class Reactor {
       await this.machineClient.connect(sdpAnswer);
       this.setStatus("ready");
     } catch (error) {
+      let recoverable = false;
+      if (error instanceof ConflictError) {
+        recoverable = true;
+      }
       console.error("[Reactor] Failed to reconnect:", error);
       // disconnect without recovery, as the session "connect" call on the coordinator failed
-      this.disconnect(false);
+      this.disconnect(recoverable);
       this.createError(
         "RECONNECTION_FAILED",
         `Failed to reconnect: ${error}`,
