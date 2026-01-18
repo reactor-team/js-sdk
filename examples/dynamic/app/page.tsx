@@ -33,6 +33,7 @@ export default function Home() {
           local={isLocal}
           jwtToken={jwtToken}
           autoConnect={false}
+          coordinatorUrl={"https://coord.us-west-2.aws.prod.reactor.inc"}
         >
           <div className="flex flex-col gap-3">
             <ReactorView className="w-full aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700/50 shadow-xl overflow-hidden" />
