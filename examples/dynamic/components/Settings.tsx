@@ -56,7 +56,7 @@ export function Settings({
       setIsFetchingToken(true);
       setTokenError(null);
       try {
-        const token = await fetchInsecureJwtToken(apiKey, "https://coord.us-west-2.aws.prod.reactor.inc");
+        const token = await fetchInsecureJwtToken(apiKey);
         onJwtTokenChange(token);
       } catch (err) {
         setTokenError(
