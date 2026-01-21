@@ -3,6 +3,8 @@
  * Uses @roamhq/wrtc for stable Node.js WebRTC support.
  */
 
+import { IceServersResponse } from "../core/types";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration
 // ─────────────────────────────────────────────────────────────────────────────
@@ -113,6 +115,24 @@ export function getLocalDescription(pc: RTCPeerConnection): string | undefined {
 // ─────────────────────────────────────────────────────────────────────────────
 // ICE Handling
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Transforms ICE servers from the coordinator API format to RTCIceServer format.
+ * @param response The parsed IceServersResponse from the coordinator
+ * @returns Array of RTCIceServer objects for WebRTC peer connection configuration
+ */
+export function transformIceServers(response: IceServersResponse): RTCIceServer[] {
+  return response.ice_servers.map((server) => {
+    const rtcServer: RTCIceServer = {
+      urls: server.uris,
+    };
+    if (server.credentials) {
+      rtcServer.username = server.credentials.username;
+      rtcServer.credential = server.credentials.password;
+    }
+    return rtcServer;
+  });
+}
 
 /**
  * Adds an ICE candidate to the peer connection.

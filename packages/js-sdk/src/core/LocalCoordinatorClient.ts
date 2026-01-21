@@ -4,8 +4,9 @@
  */
 
 import { ConflictError } from "../types";
+import { transformIceServers } from "../utils/webrtc";
 import { CoordinatorClient } from "./CoordinatorClient";
-import { IceServersResponse } from "./types";
+import { IceServersResponseSchema } from "./types";
 
 export class LocalCoordinatorClient extends CoordinatorClient {
   private localBaseUrl: string;
@@ -35,12 +36,15 @@ export class LocalCoordinatorClient extends CoordinatorClient {
       throw new Error("Failed to get ICE servers from local coordinator.");
     }
 
-    const data: IceServersResponse = await response.json();
+    const data = await response.json();
+    const parsed = IceServersResponseSchema.parse(data);
+    const iceServers = transformIceServers(parsed);
+
     console.debug(
       "[LocalCoordinatorClient] Received ICE servers:",
-      data.ice_servers
+      iceServers.length
     );
-    return data.ice_servers;
+    return iceServers;
   }
 
   /**

@@ -51,13 +51,17 @@ export const SDPParamsResponseSchema = z.object({
   extra_args: z.record(z.string(), z.any()), // Dictionary
 });
 
-// Response from GET /ice_servers endpoint (local HTTP runtime)
+// Response from GET /ice_servers endpoint (coordinator)
 export const IceServersResponseSchema = z.object({
   ice_servers: z.array(
     z.object({
-      urls: z.union([z.string(), z.array(z.string())]),
-      username: z.string().optional(),
-      credential: z.string().optional(),
+      uris: z.array(z.string()),
+      credentials: z
+        .object({
+          username: z.string(),
+          password: z.string(),
+        })
+        .optional(),
     })
   ),
 });
