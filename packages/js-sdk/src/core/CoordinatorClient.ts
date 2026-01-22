@@ -52,15 +52,16 @@ export class CoordinatorClient {
   async getIceServers(): Promise<RTCIceServer[]> {
     console.debug("[CoordinatorClient] Fetching ICE servers...");
 
-    const response = await fetch(`${this.baseUrl}/ice_servers?model=${this.model}`, {
-      method: "GET",
-      headers: this.getAuthHeaders(),
-    });
+    const response = await fetch(
+      `${this.baseUrl}/ice_servers?model=${this.model}`,
+      {
+        method: "GET",
+        headers: this.getAuthHeaders(),
+      }
+    );
 
     if (!response.ok) {
-      throw new Error(
-        `Failed to fetch ICE servers: ${response.status}`
-      );
+      throw new Error(`Failed to fetch ICE servers: ${response.status}`);
     }
 
     const data = await response.json();

@@ -121,7 +121,9 @@ export function getLocalDescription(pc: RTCPeerConnection): string | undefined {
  * @param response The parsed IceServersResponse from the coordinator
  * @returns Array of RTCIceServer objects for WebRTC peer connection configuration
  */
-export function transformIceServers(response: IceServersResponse): RTCIceServer[] {
+export function transformIceServers(
+  response: IceServersResponse
+): RTCIceServer[] {
   return response.ice_servers.map((server) => {
     const rtcServer: RTCIceServer = {
       urls: server.uris,
