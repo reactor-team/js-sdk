@@ -23,13 +23,20 @@ export function Settings({
   onLocalChange,
   onJwtTokenChange,
 }: SettingsProps) {
+  const [localModelName, setLocalModelName] = useState(modelName);
   const [apiKey, setApiKey] = useState("");
   const [isFetchingToken, setIsFetchingToken] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
 
+  // Sync local model name when prop changes externally
+  useEffect(() => {
+    setLocalModelName(modelName);
+  }, [modelName]);
+
   const handleLocalChange = (checked: boolean) => {
     onLocalChange(checked);
     if (checked) {
+      setLocalModelName("");
       onModelNameChange("");
       setApiKey("");
       onJwtTokenChange(undefined);
@@ -66,14 +73,14 @@ export function Settings({
 
   return (
     <div className="flex flex-wrap items-center gap-4 p-3 bg-gray-800/40 rounded-lg border border-gray-700/50">
-      <label className="flex items-center gap-2 text-sm text-gray-300">
+      <div className="flex items-center gap-2 text-sm text-gray-300">
         <span className={isLocal ? "text-gray-600" : "text-gray-500"}>
           Model:
         </span>
         <input
           type="text"
-          value={modelName}
-          onChange={(e) => onModelNameChange(e.target.value)}
+          value={localModelName}
+          onChange={(e) => setLocalModelName(e.target.value)}
           disabled={isLocal}
           className={`bg-gray-900/60 border border-gray-600 rounded-md px-3 py-1.5 w-44 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 ${
             isLocal
@@ -82,7 +89,18 @@ export function Settings({
           }`}
           placeholder={isLocal ? "" : "e.g. longlive"}
         />
-      </label>
+        <button
+          onClick={() => onModelNameChange(localModelName)}
+          disabled={isLocal || localModelName === modelName}
+          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            isLocal || localModelName === modelName
+              ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+              : "bg-blue-600 text-white hover:bg-blue-500"
+          }`}
+        >
+          Set Model
+        </button>
+      </div>
 
       <Tooltip>
         <TooltipTrigger>
