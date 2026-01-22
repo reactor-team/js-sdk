@@ -6,10 +6,12 @@
 import {
   CreateSessionRequest,
   CreateSessionResponse,
+  IceServersResponseSchema,
   SDPParamsRequest,
   SDPParamsResponse,
   SessionInfoResponse,
 } from "./types";
+import { transformIceServers } from "../utils/webrtc";
 
 export interface CoordinatorClientOptions {
   baseUrl: string;
@@ -43,10 +45,34 @@ export class CoordinatorClient {
     };
   }
 
+  /**
+   * Fetches ICE servers from the coordinator.
+   * @returns Array of RTCIceServer objects for WebRTC peer connection configuration
+   */
   async getIceServers(): Promise<RTCIceServer[]> {
-    // Default to Google's public STUN server
-    // TODO(REA-341) Define how the flow is in here for getting the ice servers from the coordinator.
-    return [{ urls: "stun:stun.l.google.com:19302" }];
+    console.debug("[CoordinatorClient] Fetching ICE servers...");
+
+    const response = await fetch(
+      `${this.baseUrl}/ice_servers?model=${this.model}`,
+      {
+        method: "GET",
+        headers: this.getAuthHeaders(),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ICE servers: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const parsed = IceServersResponseSchema.parse(data);
+    const iceServers = transformIceServers(parsed);
+
+    console.debug(
+      "[CoordinatorClient] Received ICE servers:",
+      iceServers.length
+    );
+    return iceServers;
   }
 
   /**
