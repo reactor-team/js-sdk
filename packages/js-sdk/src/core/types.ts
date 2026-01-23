@@ -5,17 +5,22 @@
 import { z } from "zod";
 
 export enum SessionState {
-  SESSION_STATE_UNKNOWN = 0,
-  SESSION_STATE_WAITING = 1,
-  SESSION_STATE_ACTIVE = 2,
-  SESSION_STATE_DISCONNECTED = 3,
-  SESSION_STATE_CLOSED = 4,
-  UNRECOGNIZED = -1,
+  CREATED,
+  PENDING,
+  SUSPENDED,
+  WAITING,
+  ACTIVE,
+  INACTIVE,
+  CLOSED,
 }
+
+export const ModelSchema = z.object({
+  name: z.string(),
+});
 
 // Schema used for the HTTP POST request to start a session from the CLIENT to the COORDINATOR.
 export const CreateSessionRequestSchema = z.object({
-  model: z.string(),
+  model: ModelSchema,
   sdp_offer: z.string(),
   extra_args: z.record(z.string(), z.any()), // Dictionary
 });
