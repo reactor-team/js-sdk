@@ -84,7 +84,7 @@ export class CoordinatorClient {
     console.debug("[CoordinatorClient] Creating session...");
 
     const requestBody: CreateSessionRequest = {
-      model: this.model,
+      model: { name: this.model },
       sdp_offer: sdp_offer,
       extra_args: {},
     };
