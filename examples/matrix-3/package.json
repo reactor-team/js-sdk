@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@reactor-team/js-sdk": "latest",
-    "@vercel/analytics": "^1.5.0",
+    "@vercel/analytics": "latest",
     "next": "15.5.9",
     "react": "19.1.0",
     "react-dom": "19.1.0"

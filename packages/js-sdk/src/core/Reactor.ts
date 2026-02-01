@@ -259,7 +259,11 @@ export class Reactor {
     if (!this.machineClient) return;
 
     this.machineClient.on("application", (message: any) => {
-      this.emit("newMessage", message);
+      // Unwrap "application" envelope if present - the runtime wraps all
+      // outgoing app messages in {type: "application", data: ...}
+      if (message?.type === "application" && message?.data !== undefined) {
+        this.emit("newMessage", message.data);
+      }
     });
 
     this.machineClient.on("statusChanged", (status: GPUMachineStatus) => {
