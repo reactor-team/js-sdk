@@ -9,16 +9,21 @@ import { LongLiveController } from "@/components/LongLiveController";
 
 export default function Home() {
   const [jwtToken, setJwtToken] = useState<string | undefined>(undefined);
+  const [isLocalMode, setIsLocalMode] = useState(false);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 p-4 sm:p-6">
       <div className="w-full max-w-3xl mx-auto flex flex-col gap-4">
         <Header />
-        <ApiKeyInput onJwtTokenChange={setJwtToken} />
+        <ApiKeyInput 
+          onJwtTokenChange={setJwtToken} 
+          onLocalModeChange={setIsLocalMode}
+        />
 
         <ReactorProvider
           modelName="longlive"
           jwtToken={jwtToken}
+          local={isLocalMode}
           autoConnect={false}
         >
           <div className="flex flex-col gap-3">
