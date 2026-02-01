@@ -10,14 +10,29 @@ import {
 
 interface ApiKeyInputProps {
   onJwtTokenChange: (token: string | undefined) => void;
+  onLocalModeChange: (isLocal: boolean) => void;
 }
 
-export function ApiKeyInput({ onJwtTokenChange }: ApiKeyInputProps) {
+export function ApiKeyInput({ onJwtTokenChange, onLocalModeChange }: ApiKeyInputProps) {
   const [apiKey, setApiKey] = useState("");
   const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLocalMode, setIsLocalMode] = useState(false);
 
   useEffect(() => {
+    // Check if user entered "local" to enable local mode
+    if (apiKey.toLowerCase() === "local") {
+      setIsLocalMode(true);
+      onLocalModeChange(true);
+      onJwtTokenChange(undefined);
+      setError(null);
+      return;
+    }
+
+    // Not local mode
+    setIsLocalMode(false);
+    onLocalModeChange(false);
+
     if (!apiKey) {
       onJwtTokenChange(undefined);
       setError(null);
@@ -39,7 +54,7 @@ export function ApiKeyInput({ onJwtTokenChange }: ApiKeyInputProps) {
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [apiKey, onJwtTokenChange]);
+  }, [apiKey, onJwtTokenChange, onLocalModeChange]);
 
   return (
     <div className="flex flex-wrap items-center gap-4 p-3 bg-gray-800/40 rounded-lg border border-gray-700/50">
@@ -55,7 +70,9 @@ export function ApiKeyInput({ onJwtTokenChange }: ApiKeyInputProps) {
                 className={`bg-gray-900/60 border rounded-md px-3 py-1.5 w-64 placeholder-gray-500 focus:outline-none focus:ring-1 text-white ${
                   error
                     ? "border-red-500 focus:border-red-500 focus:ring-red-500/50"
-                    : "border-orange-500/50 focus:border-orange-500 focus:ring-orange-500/50"
+                    : isLocalMode
+                      ? "border-green-500/50 focus:border-green-500 focus:ring-green-500/50"
+                      : "border-orange-500/50 focus:border-orange-500 focus:ring-orange-500/50"
                 }`}
                 placeholder="rk_..."
               />
@@ -68,9 +85,15 @@ export function ApiKeyInput({ onJwtTokenChange }: ApiKeyInputProps) {
           </label>
         </TooltipTrigger>
         <TooltipContent>
-          <p>⚠️ DANGEROUS: Never deploy with your API key in client code!</p>
+          <p>⚠️ Enter API key or type &quot;local&quot; for local mode</p>
         </TooltipContent>
       </Tooltip>
+      {isLocalMode && (
+        <span className="text-xs text-green-400 flex items-center gap-1">
+          <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+          Local Mode
+        </span>
+      )}
       {error && <span className="text-xs text-red-400">{error}</span>}
     </div>
   );
