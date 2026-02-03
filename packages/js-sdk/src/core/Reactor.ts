@@ -259,10 +259,15 @@ export class Reactor {
     if (!this.machineClient) return;
 
     this.machineClient.on("application", (message: any) => {
-      // Unwrap "application" envelope if present - the runtime wraps all
+      // Unwrap "application" envelope if present - the runtime wraps
       // outgoing app messages in {type: "application", data: ...}
       if (message?.type === "application" && message?.data !== undefined) {
         this.emit("newMessage", message.data);
+      } else {
+        // Emit full message when no envelope wrapper is present.
+        // This is crucial for compatibility with capabilities responses
+        // which are sent as raw { commands: {...} } without envelope.
+        this.emit("newMessage", message);
       }
     });
 
