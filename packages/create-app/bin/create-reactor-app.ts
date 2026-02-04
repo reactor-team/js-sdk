@@ -7,9 +7,9 @@ import path from "path";
 import chalk from "chalk";
 
 const REPO_OWNER = "reactor-team";
-const REPO_NAME = "js-sdk";
+const REPO_NAME = "reactor-experiments";
 const REPO_URL = `github.com/${REPO_OWNER}/${REPO_NAME}.git`;
-const EXAMPLES_PATH = "examples";
+const EXAMPLES_PATH = "";
 
 function getAuthenticatedRepoUrl(token: string): string {
   return `https://${token}@${REPO_URL}`;
@@ -178,7 +178,7 @@ async function main(): Promise<void> {
   if (!templates && !token) {
     console.log(
       chalk.yellow(
-        "⚠️  Could not fetch templates from GitHub. Repository may be private."
+        `⚠️  Could not fetch templates from GitHub (${REPO_URL}). Repository may be private.`
       )
     );
 
