@@ -269,8 +269,8 @@ importers:
   packages/create-app:
     dependencies:
       '@reactor-team/js-sdk':
-        specifier: ^2.0.0
-        version: 2.0.0(@types/node@22.19.5)(react@19.1.0)(zustand@5.0.9(@types/react@19.2.8)(react@19.1.0))
+        specifier: ^2.2.2
+        version: 2.2.2(@types/node@22.19.5)(react@19.1.0)(zustand@5.0.9(@types/react@19.2.8)(react@19.1.0))
       chalk:
         specifier: ^5.3.0
         version: 5.6.2
@@ -1024,14 +1024,14 @@ packages:
       react: ^17.0.0 || ^18.0.0 || ^19.0.0
       zustand: ^5.0.6
 
-  '@reactor-team/js-sdk@2.0.0':
-    resolution: {integrity: sha512-S9gJfu1v0zCkZw4las6jlByRPymOKmTtmDY4gPPhd/6kWgQ03Hj1us37A+mFo0WrkVm27XW9B1GoRyqJa6MoGw==}
+  '@reactor-team/js-sdk@2.2.0':
+    resolution: {integrity: sha512-ha2kmFrxs/0WvydREXeUky059eKM4h2lgSTl1C0/LsNhj6T1Hf9xgFfHkM3F1uNBd6ZuRwywLKBJyFTVBV8SdA==}
     peerDependencies:
       react: ^17.0.0 || ^18.0.0 || ^19.0.0
       zustand: ^5.0.6
 
-  '@reactor-team/js-sdk@2.2.0':
-    resolution: {integrity: sha512-ha2kmFrxs/0WvydREXeUky059eKM4h2lgSTl1C0/LsNhj6T1Hf9xgFfHkM3F1uNBd6ZuRwywLKBJyFTVBV8SdA==}
+  '@reactor-team/js-sdk@2.2.2':
+    resolution: {integrity: sha512-BGCVzD/0+F/laa0xbJa9nMoh10jfpQLoA4b0JYVtODENchG4f0M6RxWJqx3/nNog/3Jwt8nRsKCx9gfzOpG/1w==}
     peerDependencies:
       react: ^17.0.0 || ^18.0.0 || ^19.0.0
       zustand: ^5.0.6
@@ -2508,11 +2508,11 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@reactor-team/js-sdk@2.0.0(@types/node@22.19.5)(react@19.1.0)(zustand@5.0.9(@types/react@19.2.8)(react@19.1.0))':
+  '@reactor-team/js-sdk@2.2.0(@types/node@20.19.28)(react@19.1.0)(zustand@5.0.9(@types/react@19.2.8)(react@19.1.0))':
     dependencies:
       '@bufbuild/protobuf': 2.10.2
       chalk: 5.6.2
-      inquirer: 9.3.8(@types/node@22.19.5)
+      inquirer: 9.3.8(@types/node@20.19.28)
       react: 19.1.0
       simple-git: 3.30.0
       ws: 8.19.0
@@ -2524,11 +2524,11 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@reactor-team/js-sdk@2.2.0(@types/node@20.19.28)(react@19.1.0)(zustand@5.0.9(@types/react@19.2.8)(react@19.1.0))':
+  '@reactor-team/js-sdk@2.2.2(@types/node@22.19.5)(react@19.1.0)(zustand@5.0.9(@types/react@19.2.8)(react@19.1.0))':
     dependencies:
       '@bufbuild/protobuf': 2.10.2
       chalk: 5.6.2
-      inquirer: 9.3.8(@types/node@20.19.28)
+      inquirer: 9.3.8(@types/node@22.19.5)
       react: 19.1.0
       simple-git: 3.30.0
       ws: 8.19.0
