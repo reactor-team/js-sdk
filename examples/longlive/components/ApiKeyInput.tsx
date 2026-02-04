@@ -13,7 +13,10 @@ interface ApiKeyInputProps {
   onLocalModeChange: (isLocal: boolean) => void;
 }
 
-export function ApiKeyInput({ onJwtTokenChange, onLocalModeChange }: ApiKeyInputProps) {
+export function ApiKeyInput({
+  onJwtTokenChange,
+  onLocalModeChange,
+}: ApiKeyInputProps) {
   const [apiKey, setApiKey] = useState("");
   const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);

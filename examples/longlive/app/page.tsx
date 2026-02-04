@@ -15,8 +15,8 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 p-4 sm:p-6">
       <div className="w-full max-w-3xl mx-auto flex flex-col gap-4">
         <Header />
-        <ApiKeyInput 
-          onJwtTokenChange={setJwtToken} 
+        <ApiKeyInput
+          onJwtTokenChange={setJwtToken}
           onLocalModeChange={setIsLocalMode}
         />
 
