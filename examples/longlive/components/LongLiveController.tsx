@@ -57,7 +57,9 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
   // Track paused state
   const [isPaused, setIsPaused] = useState(true);
   // Track scheduled prompts
-  const [scheduledPrompts, setScheduledPrompts] = useState<Record<number, string>>({});
+  const [scheduledPrompts, setScheduledPrompts] = useState<
+    Record<number, string>
+  >({});
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -83,7 +85,7 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
       // Handle event messages
       const event = message.data;
       console.log("LongLive event:", event.event, event);
-      
+
       if (event.event === "error") {
         // Show error to user
         console.error("LongLive error:", event.message);
@@ -293,19 +295,23 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
       {/* Status Bar */}
       <div className="flex items-center gap-2">
         {/* Paused/Running indicator */}
-        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border ${
-          isPaused 
-            ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-400" 
-            : "bg-green-500/10 border-green-500/30 text-green-400"
-        }`}>
-          <div className={`w-1.5 h-1.5 rounded-full ${
-            isPaused ? "bg-yellow-500" : "bg-green-500 animate-pulse"
-          }`} />
+        <div
+          className={`flex items-center gap-1.5 px-2 py-1 rounded-md border ${
+            isPaused
+              ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-400"
+              : "bg-green-500/10 border-green-500/30 text-green-400"
+          }`}
+        >
+          <div
+            className={`w-1.5 h-1.5 rounded-full ${
+              isPaused ? "bg-yellow-500" : "bg-green-500 animate-pulse"
+            }`}
+          />
           <span className="text-xs font-medium">
             {isPaused ? "Paused" : "Running"}
           </span>
         </div>
-        
+
         {/* Frame counter */}
         <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-800/50 rounded-md border border-gray-700/30">
           <span className="text-xs text-gray-500">Frame:</span>
