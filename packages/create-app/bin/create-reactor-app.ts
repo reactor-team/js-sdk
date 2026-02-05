@@ -143,31 +143,6 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  // Handle Ctrl+C and ESC gracefully during interactive phase
-  let isInteractivePhase = true;
-
-  process.on("SIGINT", () => {
-    if (isInteractivePhase) {
-      console.log(chalk.yellow("\n\n❌ Installation cancelled by user."));
-      process.exit(0);
-    }
-  });
-
-  // Set up ESC key handling
-  if (process.stdin.isTTY) {
-    process.stdin.setRawMode(true);
-    process.stdin.resume();
-    process.stdin.setEncoding("utf8");
-
-    process.stdin.on("data", (key) => {
-      if (isInteractivePhase && key === "\u001b") {
-        // ESC key
-        console.log(chalk.yellow("\n\n❌ Installation cancelled by user."));
-        process.exit(0);
-      }
-    });
-  }
-
   console.log(chalk.cyan("\n⚛️ Create Reactor App\n"));
 
   let token = argToken;
@@ -182,19 +157,7 @@ async function main(): Promise<void> {
       )
     );
 
-    // Temporarily restore stdin for the prompt
-    if (process.stdin.isTTY) {
-      process.stdin.setRawMode(false);
-      process.stdin.pause();
-    }
-
     token = await promptForToken();
-
-    // Re-enable raw mode for ESC handling
-    if (process.stdin.isTTY && token) {
-      process.stdin.setRawMode(true);
-      process.stdin.resume();
-    }
 
     if (token) {
       console.log(chalk.green("\nRetrying with authentication...\n"));
@@ -225,7 +188,7 @@ async function main(): Promise<void> {
     prompts.push({
       type: "input",
       name: "projectName",
-      message: "Enter your project name (ESC to cancel):",
+      message: "Enter your project name:",
       validate: (input: string) =>
         input ? true : "Project name cannot be empty.",
     });
@@ -235,18 +198,18 @@ async function main(): Promise<void> {
     prompts.push({
       type: "list",
       name: "template",
-      message: "Select a template (ESC to cancel):",
+      message: "Select a template:",
       choices: templates,
     });
   }
 
   // Get answers from prompts (if any are needed)
-  let answers = {};
+  let answers: any = {};
   if (prompts.length > 0) {
     try {
       answers = await inquirer.prompt(prompts);
     } catch (error: any) {
-      // Handle Ctrl+C or ESC cancellation
+      // Handle Ctrl+C cancellation
       if (
         error.isTtyError ||
         error.name === "ExitPromptError" ||
@@ -297,12 +260,6 @@ async function main(): Promise<void> {
       )
     );
 
-    // Temporarily restore stdin for the prompt
-    if (process.stdin.isTTY) {
-      process.stdin.setRawMode(false);
-      process.stdin.pause();
-    }
-
     token = await promptForToken();
 
     if (token) {
@@ -320,15 +277,6 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // End interactive phase - now we're in installation phase
-  isInteractivePhase = false;
-
-  // Restore normal stdin mode
-  if (process.stdin.isTTY) {
-    process.stdin.setRawMode(false);
-    process.stdin.pause();
-  }
-
   const examplesDir = path.join(dest, EXAMPLES_PATH);
   const templateDir = path.join(examplesDir, template);
 
@@ -337,15 +285,23 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Move files up
-  for (const file of fs.readdirSync(templateDir)) {
+  // Record which files belong to the template before moving
+  const templateFiles = new Set(fs.readdirSync(templateDir));
+
+  // Move template files up to dest
+  for (const file of templateFiles) {
     fs.renameSync(path.join(templateDir, file), path.join(dest, file));
   }
 
-  fs.rmSync(examplesDir, { recursive: true, force: true });
-  fs.rmSync(path.join(dest, ".git"), { recursive: true, force: true });
+  // Clean up: remove all cloned repo files that aren't part of the selected template
+  for (const file of fs.readdirSync(dest)) {
+    if (!templateFiles.has(file)) {
+      fs.rmSync(path.join(dest, file), { recursive: true, force: true });
+    }
+  }
 
   console.log(chalk.yellow("\nInstalling dependencies...\n"));
+
   execSync("pnpm install", { cwd: dest, stdio: "inherit" });
 
   console.log(
