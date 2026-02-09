@@ -1,5 +1,5 @@
 import { StoreApi } from "zustand";
-import type { ReactorStatus, ReactorError } from "../types";
+import type { ReactorStatus, ReactorError, MessageChannel } from "../types";
 import { Reactor, type Options as ReactorOptions } from "./Reactor";
 import { create } from "zustand/react";
 import { createContext } from "react";
@@ -17,7 +17,11 @@ export interface ReactorState {
 }
 
 export interface ReactorActions {
-  sendCommand(command: string, data: any): Promise<void>;
+  sendCommand(
+    command: string,
+    data: any,
+    channel?: MessageChannel
+  ): Promise<void>;
   connect(jwtToken?: string): Promise<void>;
   disconnect(recoverable?: boolean): Promise<void>;
   publishVideoStream(stream: MediaStream): Promise<void>;
@@ -142,10 +146,18 @@ export const createReactorStore = (
           get().internal.reactor.off("newMessage", handler);
         };
       },
-      sendCommand: async (command: string, data: any) => {
-        console.debug("[ReactorStore] Sending command", { command, data });
+      sendCommand: async (
+        command: string,
+        data: any,
+        channel?: MessageChannel
+      ) => {
+        console.debug("[ReactorStore] Sending command", {
+          command,
+          data,
+          channel,
+        });
         try {
-          await get().internal.reactor.sendCommand(command, data);
+          await get().internal.reactor.sendCommand(command, data, channel);
           console.debug("[ReactorStore] Command sent successfully");
         } catch (error) {
           console.error("[ReactorStore] Failed to send command:", error);

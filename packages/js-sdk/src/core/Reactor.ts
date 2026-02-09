@@ -3,6 +3,7 @@ import {
   type ReactorStatus,
   type ReactorState,
   type ReactorError,
+  type MessageChannel,
   ConflictError,
 } from "../types";
 import { CoordinatorClient } from "./CoordinatorClient";
@@ -66,11 +67,18 @@ export class Reactor {
 
   /**
    * Public method to send a message to the machine.
-   * Automatically wraps the message in an application message.
-   * @param message The message to send to the machine.
+   * Wraps the message in the specified channel envelope (defaults to "application").
+   * @param command The command name to send.
+   * @param data The command payload.
+   * @param channel The envelope channel – "application" (default) for model commands,
+   *                "runtime" for platform-level messages (e.g. requestCapabilities).
    * @throws Error if not in ready state
    */
-  async sendCommand(command: string, data: any): Promise<void> {
+  async sendCommand(
+    command: string,
+    data: any,
+    channel: MessageChannel = "application"
+  ): Promise<void> {
     // Synchronous validation - throw immediately
     if (process.env.NODE_ENV !== "development" && this.status !== "ready") {
       const errorMessage = `Cannot send message, status is ${this.status}`;
@@ -79,7 +87,7 @@ export class Reactor {
     }
 
     try {
-      this.machineClient?.sendCommand(command, data);
+      this.machineClient?.sendCommand(command, data, channel);
     } catch (error) {
       // Async operational error - emit event only
       console.error("[Reactor] Failed to send message:", error);
@@ -258,18 +266,14 @@ export class Reactor {
   private setupMachineClientHandlers(): void {
     if (!this.machineClient) return;
 
-    this.machineClient.on("application", (message: any) => {
-      // Unwrap "application" envelope if present - the runtime wraps
-      // outgoing app messages in {type: "application", data: ...}
-      if (message?.type === "application" && message?.data !== undefined) {
-        this.emit("newMessage", message.data);
-      } else {
-        // Emit full message when no envelope wrapper is present.
-        // This is crucial for compatibility with capabilities responses
-        // which are sent as raw { commands: {...} } without envelope.
-        this.emit("newMessage", message);
+    this.machineClient.on(
+      "message",
+      (message: any, channel: MessageChannel) => {
+        // The outer envelope has already been stripped by GPUMachineClient.
+        // Forward the inner payload along with its channel to consumers.
+        this.emit("newMessage", message, channel);
       }
-    });
+    );
 
     this.machineClient.on("statusChanged", (status: GPUMachineStatus) => {
       switch (status) {
