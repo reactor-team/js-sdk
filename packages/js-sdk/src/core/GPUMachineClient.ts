@@ -20,6 +20,12 @@ export type GPUMachineStatus =
   | "connected"
   | "error";
 
+/**
+ * Interval (ms) at which the client sends runtime-channel "ping" messages
+ * to the server so the runtime can detect stale connections quickly.
+ */
+const PING_INTERVAL_MS = 5_000;
+
 export class GPUMachineClient {
   private eventListeners: Map<GPUMachineEvent, Set<EventHandler>> = new Map();
   private peerConnection: RTCPeerConnection | undefined;
@@ -28,6 +34,7 @@ export class GPUMachineClient {
   private publishedTrack: MediaStreamTrack | undefined;
   private videoTransceiver: RTCRtpTransceiver | undefined;
   private config: webrtc.WebRTCConfig;
+  private pingInterval: ReturnType<typeof setInterval> | undefined;
 
   constructor(config: webrtc.WebRTCConfig) {
     this.config = config;
@@ -118,6 +125,8 @@ export class GPUMachineClient {
    * Disconnects from the GPU machine and cleans up resources.
    */
   async disconnect(): Promise<void> {
+    this.stopPing();
+
     if (this.publishedTrack) {
       await this.unpublishTrack();
     }
@@ -272,6 +281,37 @@ export class GPUMachineClient {
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
+  // Ping (Client Liveness)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Starts sending periodic "ping" messages on the runtime channel so the
+   * server can detect stale connections quickly.
+   */
+  private startPing(): void {
+    this.stopPing();
+    this.pingInterval = setInterval(() => {
+      if (this.dataChannel?.readyState === "open") {
+        try {
+          webrtc.sendMessage(this.dataChannel, "ping", {}, "runtime");
+        } catch {
+          // Silently ignore – data channel may be closing
+        }
+      }
+    }, PING_INTERVAL_MS);
+  }
+
+  /**
+   * Stops the periodic ping.
+   */
+  private stopPing(): void {
+    if (this.pingInterval !== undefined) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = undefined;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
   // Private Helpers
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -334,10 +374,12 @@ export class GPUMachineClient {
 
     this.dataChannel.onopen = () => {
       console.debug("[GPUMachineClient] Data channel open");
+      this.startPing();
     };
 
     this.dataChannel.onclose = () => {
       console.debug("[GPUMachineClient] Data channel closed");
+      this.stopPing();
     };
 
     this.dataChannel.onerror = (error) => {
