@@ -53,7 +53,10 @@ export function createDataChannel(
  * Waits for ICE gathering to complete before returning.
  */
 export async function createOffer(pc: RTCPeerConnection): Promise<string> {
-  const offer = await pc.createOffer();
+  const offer = await pc.createOffer({
+    offerToReceiveVideo: true,
+    offerToReceiveAudio: true,
+  });
   await pc.setLocalDescription(offer);
 
   await waitForIceGathering(pc);
