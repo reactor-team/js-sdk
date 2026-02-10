@@ -3,7 +3,7 @@ import {
   type ReactorStatus,
   type ReactorState,
   type ReactorError,
-  type MessageChannel,
+  type MessageScope,
   ConflictError,
 } from "../types";
 import { CoordinatorClient } from "./CoordinatorClient";
@@ -70,14 +70,14 @@ export class Reactor {
    * Wraps the message in the specified channel envelope (defaults to "application").
    * @param command The command name to send.
    * @param data The command payload.
-   * @param channel The envelope channel – "application" (default) for model commands,
-   *                "runtime" for platform-level messages (e.g. requestCapabilities).
+   * @param scope The envelope scope – "application" (default) for model commands,
+   *              "runtime" for platform-level messages (e.g. requestCapabilities).
    * @throws Error if not in ready state
    */
   async sendCommand(
     command: string,
     data: any,
-    channel: MessageChannel = "application"
+    scope: MessageScope = "application"
   ): Promise<void> {
     // Synchronous validation - throw immediately
     if (process.env.NODE_ENV !== "development" && this.status !== "ready") {
@@ -87,7 +87,7 @@ export class Reactor {
     }
 
     try {
-      this.machineClient?.sendCommand(command, data, channel);
+      this.machineClient?.sendCommand(command, data, scope);
     } catch (error) {
       // Async operational error - emit event only
       console.error("[Reactor] Failed to send message:", error);
@@ -268,10 +268,10 @@ export class Reactor {
 
     this.machineClient.on(
       "message",
-      (message: any, channel: MessageChannel) => {
+      (message: any, scope: MessageScope) => {
         // The outer envelope has already been stripped by GPUMachineClient.
-        // Forward the inner payload along with its channel to consumers.
-        this.emit("newMessage", message, channel);
+        // Forward the inner payload along with its scope to consumers.
+        this.emit("newMessage", message, scope);
       }
     );
 

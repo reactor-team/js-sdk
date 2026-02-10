@@ -4,7 +4,7 @@
  */
 
 import * as webrtc from "../utils/webrtc";
-import type { MessageChannel } from "../types";
+import type { MessageScope } from "../types";
 
 type EventHandler = (...args: any[]) => void;
 
@@ -165,19 +165,19 @@ export class GPUMachineClient {
    * Sends a command to the GPU machine via the data channel.
    * @param command The command to send
    * @param data The data to send with the command. These are the parameters for the command, matching the scheme in the capabilities dictionary.
-   * @param channel The message channel envelope – "application" (default) for model commands, "runtime" for platform-level messages.
+   * @param scope The message scope – "application" (default) for model commands, "runtime" for platform-level messages.
    */
   sendCommand(
     command: string,
     data: any,
-    channel: MessageChannel = "application"
+    scope: MessageScope = "application"
   ): void {
     if (!this.dataChannel) {
       throw new Error("[GPUMachineClient] Data channel not available");
     }
 
     try {
-      webrtc.sendMessage(this.dataChannel, command, data, channel);
+      webrtc.sendMessage(this.dataChannel, command, data, scope);
     } catch (error) {
       console.warn("[GPUMachineClient] Failed to send message:", error);
     }
@@ -349,23 +349,23 @@ export class GPUMachineClient {
       console.debug("[GPUMachineClient] Received message:", rawData);
 
       try {
-        // Parse the outer envelope { type: "application"|"runtime", data: ... }
+        // Parse the outer envelope { scope: "application"|"runtime", data: ... }
         if (
-          rawData?.type === "application" &&
+          rawData?.scope === "application" &&
           rawData?.data !== undefined
         ) {
-          this.emit("message", rawData.data, "application" as MessageChannel);
+          this.emit("message", rawData.data, "application" as MessageScope);
         } else if (
-          rawData?.type === "runtime" &&
+          rawData?.scope === "runtime" &&
           rawData?.data !== undefined
         ) {
-          this.emit("message", rawData.data, "runtime" as MessageChannel);
+          this.emit("message", rawData.data, "runtime" as MessageScope);
         } else {
           // Legacy / unknown format – treat as application
           console.warn(
             "[GPUMachineClient] Received message without envelope, treating as application"
           );
-          this.emit("message", rawData, "application" as MessageChannel);
+          this.emit("message", rawData, "application" as MessageScope);
         }
       } catch (error) {
         console.error(

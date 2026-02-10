@@ -1,7 +1,7 @@
 "use client";
 
 import { useReactor, useReactorMessage } from "./hooks";
-import type { MessageChannel } from "../types";
+import type { MessageScope } from "../types";
 import React, { useState, useCallback } from "react";
 
 export interface ReactorControllerProps {
@@ -81,11 +81,11 @@ export function ReactorController({
     return () => clearInterval(interval);
   }, [status, commands, requestCapabilities]);
 
-  useReactorMessage((message, channel) => {
-    // Capabilities arrive on the "runtime" channel as
+  useReactorMessage((message, scope) => {
+    // Capabilities arrive on the "runtime" scope as
     // { type: "modelCapabilities", data: { commands: {...} } }
     if (
-      channel === "runtime" &&
+      scope === "runtime" &&
       message &&
       typeof message === "object" &&
       message.type === "modelCapabilities" &&
