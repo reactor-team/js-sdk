@@ -1,5 +1,6 @@
 import { useReactorStore } from "./ReactorProvider";
 import type { ReactorStore } from "../core/store";
+import type { MessageScope } from "../types";
 import { useShallow } from "zustand/shallow";
 import { useEffect, useRef } from "react";
 
@@ -16,9 +17,15 @@ export function useReactor<T>(selector: (state: ReactorStore) => T): T {
 /**
  * Hook for handling message subscriptions with proper React lifecycle management.
  *
- * @param handler - The message handler function
+ * The handler receives the message payload and the scope it arrived on:
+ *   - "application" for model-defined messages (via get_ctx().send())
+ *   - "runtime" for platform-level messages (e.g., capabilities response)
+ *
+ * @param handler - The message handler function (message, scope)
  */
-export function useReactorMessage(handler: (message: any) => void): void {
+export function useReactorMessage(
+  handler: (message: any, scope: MessageScope) => void
+): void {
   const reactor = useReactor((state) => state.internal.reactor);
   const handlerRef = useRef(handler);
 
@@ -31,9 +38,12 @@ export function useReactorMessage(handler: (message: any) => void): void {
     console.debug("[useReactorMessage] Setting up message subscription");
 
     // Create a stable handler that calls the current ref
-    const stableHandler = (message: any) => {
-      console.debug("[useReactorMessage] Message received", { message });
-      handlerRef.current(message);
+    const stableHandler = (message: any, scope: MessageScope) => {
+      console.debug("[useReactorMessage] Message received", {
+        message,
+        scope,
+      });
+      handlerRef.current(message, scope);
     };
 
     // Register the handler and get the cleanup function

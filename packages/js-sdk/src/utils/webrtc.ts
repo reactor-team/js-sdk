@@ -4,6 +4,7 @@
  */
 
 import { IceServersResponse } from "../core/types";
+import type { MessageScope } from "../types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration
@@ -226,18 +227,28 @@ export function removeAllTracks(pc: RTCPeerConnection): void {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Sends a message through a data channel.
+ * Sends a message through a data channel wrapped in the two-level envelope.
+ *
+ * Wire format:
+ *   { scope: "application"|"runtime", data: { type: <command>, data: <payload> } }
+ *
+ * @param channel     The RTCDataChannel to send on.
+ * @param command     Inner command/message type (e.g. "set_prompt", "requestCapabilities").
+ * @param data        Payload for the command.
+ * @param scope       Outer envelope scope – defaults to "application".
  */
 export function sendMessage(
   channel: RTCDataChannel,
   command: string,
-  data: any
+  data: any,
+  scope: MessageScope = "application"
 ): void {
   if (channel.readyState !== "open") {
     throw new Error(`Data channel not open: ${channel.readyState}`);
   }
   const jsonData = typeof data === "string" ? JSON.parse(data) : data;
-  const payload = { type: command, data: jsonData };
+  const inner = { type: command, data: jsonData };
+  const payload = { scope, data: inner };
   channel.send(JSON.stringify(payload));
 }
 

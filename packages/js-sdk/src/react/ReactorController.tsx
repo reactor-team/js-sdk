@@ -1,6 +1,7 @@
 "use client";
 
 import { useReactor, useReactorMessage } from "./hooks";
+import type { MessageScope } from "../types";
 import React, { useState, useCallback } from "react";
 
 export interface ReactorControllerProps {
@@ -52,10 +53,10 @@ export function ReactorController({
     }
   }, [status]);
 
-  // Function to request capabilities
+  // Function to request capabilities (sent on the "runtime" channel)
   const requestCapabilities = useCallback(() => {
     if (status === "ready") {
-      sendCommand("requestCapabilities", {});
+      sendCommand("requestCapabilities", {}, "runtime");
     }
   }, [status, sendCommand]);
 
@@ -80,10 +81,18 @@ export function ReactorController({
     return () => clearInterval(interval);
   }, [status, commands, requestCapabilities]);
 
-  useReactorMessage((message) => {
-    // Check if message contains commands schema
-    if (message && typeof message === "object" && "commands" in message) {
-      const commandsMessage = message as CommandsMessage;
+  useReactorMessage((message, scope) => {
+    // Capabilities arrive on the "runtime" scope as
+    // { type: "modelCapabilities", data: { commands: {...} } }
+    if (
+      scope === "runtime" &&
+      message &&
+      typeof message === "object" &&
+      message.type === "modelCapabilities" &&
+      message.data &&
+      "commands" in message.data
+    ) {
+      const commandsMessage = message.data as CommandsMessage;
       setCommands(commandsMessage.commands);
 
       // Initialize form values for each command

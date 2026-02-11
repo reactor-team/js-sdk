@@ -4,6 +4,13 @@ export type ReactorStatus =
   | "waiting" // Connected to coordinator, waiting for GPU assignment
   | "ready"; // Connected to GPU machine, can send/receive messages
 
+/**
+ * The message scope identifies the envelope layer a data channel message belongs to.
+ * - "application": model-defined commands (client->runtime) and model-emitted payloads (runtime->client).
+ * - "runtime": platform-level control messages (e.g., capabilities exchange).
+ */
+export type MessageScope = "application" | "runtime";
+
 // Error information
 export interface ReactorError {
   code: string;
