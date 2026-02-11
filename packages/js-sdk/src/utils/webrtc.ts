@@ -57,17 +57,11 @@ export async function createOffer(pc: RTCPeerConnection): Promise<string> {
   let hasVideo = false;
 
   for (const t of pc.getTransceivers()) {
-    if (t.receiver?.track?.kind === "audio") {
+    if (t.receiver?.track?.kind === "audio" || t.sender?.track?.kind === "audio") {
       hasAudio = true;
     }
-    if (t.receiver?.track?.kind === "video") {
+    if (t.receiver?.track?.kind === "video" || t.sender?.track?.kind === "video") {
       hasVideo = true;
-    }
-
-    // Fallback: check mid / direction if track not yet set
-    if (t.direction) {
-      if (t.sender?.track?.kind === "audio") hasAudio = true;
-      if (t.sender?.track?.kind === "video") hasVideo = true;
     }
   }
 
