@@ -17,11 +17,7 @@ export interface ReactorState {
 }
 
 export interface ReactorActions {
-  sendCommand(
-    command: string,
-    data: any,
-    scope?: MessageScope
-  ): Promise<void>;
+  sendCommand(command: string, data: any, scope?: MessageScope): Promise<void>;
   connect(jwtToken?: string): Promise<void>;
   disconnect(recoverable?: boolean): Promise<void>;
   publishVideoStream(stream: MediaStream): Promise<void>;
@@ -146,11 +142,7 @@ export const createReactorStore = (
           get().internal.reactor.off("newMessage", handler);
         };
       },
-      sendCommand: async (
-        command: string,
-        data: any,
-        scope?: MessageScope
-      ) => {
+      sendCommand: async (command: string, data: any, scope?: MessageScope) => {
         console.debug("[ReactorStore] Sending command", {
           command,
           data,

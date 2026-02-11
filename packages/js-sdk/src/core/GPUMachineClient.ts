@@ -350,10 +350,7 @@ export class GPUMachineClient {
 
       try {
         // Parse the outer envelope { scope: "application"|"runtime", data: ... }
-        if (
-          rawData?.scope === "application" &&
-          rawData?.data !== undefined
-        ) {
+        if (rawData?.scope === "application" && rawData?.data !== undefined) {
           this.emit("message", rawData.data, "application" as MessageScope);
         } else if (
           rawData?.scope === "runtime" &&
