@@ -53,10 +53,38 @@ export function createDataChannel(
  * Waits for ICE gathering to complete before returning.
  */
 export async function createOffer(pc: RTCPeerConnection): Promise<string> {
-  const offer = await pc.createOffer({
-    offerToReceiveVideo: true,
-    offerToReceiveAudio: true,
-  });
+  let hasAudio = false;
+  let hasVideo = false;
+
+  for (const t of pc.getTransceivers()) {
+    if (t.receiver?.track?.kind === "audio") {
+      hasAudio = true;
+    }
+    if (t.receiver?.track?.kind === "video") {
+      hasVideo = true;
+    }
+
+    // Fallback: check mid / direction if track not yet set
+    if (t.direction) {
+      if (t.sender?.track?.kind === "audio") hasAudio = true;
+      if (t.sender?.track?.kind === "video") hasVideo = true;
+    }
+  }
+
+  if (!hasAudio) {
+    pc.addTransceiver("audio", {
+      direction: "recvonly",
+    });
+  }
+
+  if (!hasVideo) {
+    pc.addTransceiver("video", {
+      direction: "recvonly",
+    });
+  }
+
+  const offer = await pc.createOffer();
+
   await pc.setLocalDescription(offer);
 
   await waitForIceGathering(pc);
