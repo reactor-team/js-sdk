@@ -10,10 +10,20 @@ import {
   type ReactorInitializationProps,
 } from "../core/store";
 import { useStore } from "zustand";
+import type { ConnectOptions } from "../types";
+
+/**
+ * Options for the React provider's connect behavior.
+ * Extends the core ConnectOptions with autoConnect for the React lifecycle.
+ */
+export interface ReactorConnectOptions extends ConnectOptions {
+  /** Whether to automatically connect when the provider mounts. Default: true. */
+  autoConnect?: boolean;
+}
 
 // Provider props
 interface ReactorProviderProps extends ReactorInitializationProps {
-  autoConnect?: boolean;
+  connectOptions?: ReactorConnectOptions;
   jwtToken?: string;
   children: ReactNode;
 }
@@ -21,7 +31,7 @@ interface ReactorProviderProps extends ReactorInitializationProps {
 // tsx component
 export function ReactorProvider({
   children,
-  autoConnect = true,
+  connectOptions,
   jwtToken,
   ...props
 }: ReactorProviderProps) {
@@ -44,10 +54,14 @@ export function ReactorProvider({
     console.debug("[ReactorProvider] Reactor store created successfully");
   }
 
+  // Destructure connectOptions with defaults
+  const { autoConnect = true, ...pollingOptions } = connectOptions ?? {};
+
   // Fan out props to individual variables so that the
   // useEffect hook can be optimized by only re-running when the
   // props that actually change.
   const { coordinatorUrl, modelName, local } = props;
+  const maxAttempts = pollingOptions.maxAttempts;
 
   // Handle page unload (refresh, close, navigate away) with non-recoverable disconnect
   useEffect(() => {
@@ -83,7 +97,7 @@ export function ReactorProvider({
         );
         current
           .getState()
-          .connect(jwtToken)
+          .connect(jwtToken, pollingOptions)
           .then(() => {
             console.debug(
               "[ReactorProvider] Autoconnect successful in first render"
@@ -144,7 +158,7 @@ export function ReactorProvider({
       console.debug("[ReactorProvider] Starting autoconnect...");
       current
         .getState()
-        .connect(jwtToken)
+        .connect(jwtToken, pollingOptions)
         .then(() => {
           console.debug("[ReactorProvider] Autoconnect successful");
         })
@@ -167,7 +181,7 @@ export function ReactorProvider({
           console.error("[ReactorProvider] Failed to disconnect:", error);
         });
     };
-  }, [coordinatorUrl, modelName, autoConnect, local, jwtToken]);
+  }, [coordinatorUrl, modelName, autoConnect, local, jwtToken, maxAttempts]);
 
   return (
     <ReactorContext.Provider value={storeRef.current}>

@@ -1,5 +1,10 @@
 import { StoreApi } from "zustand";
-import type { ReactorStatus, ReactorError, MessageScope } from "../types";
+import type {
+  ReactorStatus,
+  ReactorError,
+  MessageScope,
+  ConnectOptions,
+} from "../types";
 import { Reactor, type Options as ReactorOptions } from "./Reactor";
 import { create } from "zustand/react";
 import { createContext } from "react";
@@ -18,11 +23,11 @@ export interface ReactorState {
 
 export interface ReactorActions {
   sendCommand(command: string, data: any, scope?: MessageScope): Promise<void>;
-  connect(jwtToken?: string): Promise<void>;
+  connect(jwtToken?: string, options?: ConnectOptions): Promise<void>;
   disconnect(recoverable?: boolean): Promise<void>;
   publishVideoStream(stream: MediaStream): Promise<void>;
   unpublishVideoStream(): Promise<void>;
-  reconnect(): Promise<void>;
+  reconnect(options?: ConnectOptions): Promise<void>;
 }
 
 // Internal state not exposed to components
@@ -156,7 +161,7 @@ export const createReactorStore = (
           throw error;
         }
       },
-      connect: async (jwtToken?: string) => {
+      connect: async (jwtToken?: string, options?: ConnectOptions) => {
         if (jwtToken === undefined) {
           // If no JWT Token, it might have been passed in the constructor props. So read from it.
           jwtToken = get().jwtToken;
@@ -165,7 +170,7 @@ export const createReactorStore = (
         console.debug("[ReactorStore] Connect called.");
 
         try {
-          await get().internal.reactor.connect(jwtToken);
+          await get().internal.reactor.connect(jwtToken, options);
           console.debug("[ReactorStore] Connect completed successfully");
         } catch (error) {
           console.error("[ReactorStore] Connect failed:", error);
@@ -213,10 +218,10 @@ export const createReactorStore = (
           throw error;
         }
       },
-      reconnect: async () => {
+      reconnect: async (options?: ConnectOptions) => {
         console.debug("[ReactorStore] Reconnecting");
         try {
-          await get().internal.reactor.reconnect();
+          await get().internal.reactor.reconnect(options);
           console.debug("[ReactorStore] Reconnect completed successfully");
         } catch (error) {
           console.error("[ReactorStore] Failed to reconnect:", error);

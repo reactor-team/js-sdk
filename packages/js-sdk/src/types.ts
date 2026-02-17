@@ -33,6 +33,14 @@ export interface ReactorState {
   lastError?: ReactorError; // Most recent error
 }
 
+/**
+ * Options for configuring the connect polling behavior.
+ */
+export interface ConnectOptions {
+  /** Maximum number of SDP polling attempts before giving up. Default: unlimited. */
+  maxAttempts?: number;
+}
+
 export type ReactorEvent =
   | "statusChanged" //updates on the reactor status
   | "sessionIdChanged" //updates on the session ID.

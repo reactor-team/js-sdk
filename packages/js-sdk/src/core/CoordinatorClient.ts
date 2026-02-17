@@ -21,7 +21,7 @@ export interface CoordinatorClientOptions {
 
 // Polling configuration
 const INITIAL_BACKOFF_MS = 500;
-const MAX_BACKOFF_MS = 30000;
+const MAX_BACKOFF_MS = 15000;
 const BACKOFF_MULTIPLIER = 2;
 
 export class CoordinatorClient {
@@ -251,12 +251,16 @@ export class CoordinatorClient {
   }
 
   /**
-   * Polls for the SDP answer with geometric backoff.
+   * Polls for the SDP answer with exponential backoff.
    * Used for async reconnection when the answer is not immediately available.
    * @param sessionId - The session ID to poll for
+   * @param maxAttempts - Optional maximum number of polling attempts before giving up
    * @returns The SDP answer from the server
    */
-  private async pollSdpAnswer(sessionId: string): Promise<string> {
+  private async pollSdpAnswer(
+    sessionId: string,
+    maxAttempts?: number
+  ): Promise<string> {
     console.debug(
       "[CoordinatorClient] Polling for SDP answer for session:",
       sessionId
@@ -266,9 +270,15 @@ export class CoordinatorClient {
     let attempt = 0;
 
     while (true) {
+      if (maxAttempts !== undefined && attempt >= maxAttempts) {
+        throw new Error(
+          `SDP polling exceeded maximum attempts (${maxAttempts}) for session ${sessionId}`
+        );
+      }
+
       attempt++;
       console.debug(
-        `[CoordinatorClient] SDP poll attempt ${attempt} for session ${sessionId}`
+        `[CoordinatorClient] SDP poll attempt ${attempt}${maxAttempts !== undefined ? `/${maxAttempts}` : ""} for session ${sessionId}`
       );
 
       const response = await fetch(
@@ -295,7 +305,7 @@ export class CoordinatorClient {
 
         await this.sleep(backoffMs);
 
-        // Geometric backoff
+        // Exponential backoff capped at MAX_BACKOFF_MS (15s)
         backoffMs = Math.min(backoffMs * BACKOFF_MULTIPLIER, MAX_BACKOFF_MS);
         continue;
       }
@@ -314,9 +324,14 @@ export class CoordinatorClient {
    * falls back to polling. If no sdpOffer is provided, goes directly to polling.
    * @param sessionId - The session ID to connect to
    * @param sdpOffer - Optional SDP offer from the local WebRTC peer connection
+   * @param maxAttempts - Optional maximum number of polling attempts before giving up
    * @returns The SDP answer from the server
    */
-  async connect(sessionId: string, sdpOffer?: string): Promise<string> {
+  async connect(
+    sessionId: string,
+    sdpOffer?: string,
+    maxAttempts?: number
+  ): Promise<string> {
     console.debug("[CoordinatorClient] Connecting to session:", sessionId);
 
     if (sdpOffer) {
@@ -330,7 +345,7 @@ export class CoordinatorClient {
     }
 
     // No SDP offer = async reconnection, poll until server has the answer
-    return this.pollSdpAnswer(sessionId);
+    return this.pollSdpAnswer(sessionId, maxAttempts);
   }
 
   /**
