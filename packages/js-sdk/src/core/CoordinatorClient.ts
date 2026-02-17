@@ -23,6 +23,7 @@ export interface CoordinatorClientOptions {
 const INITIAL_BACKOFF_MS = 500;
 const MAX_BACKOFF_MS = 15000;
 const BACKOFF_MULTIPLIER = 2;
+const DEFAULT_MAX_ATTEMPTS = 6;
 
 export class CoordinatorClient {
   private baseUrl: string;
@@ -259,7 +260,7 @@ export class CoordinatorClient {
    */
   private async pollSdpAnswer(
     sessionId: string,
-    maxAttempts?: number
+    maxAttempts: number = DEFAULT_MAX_ATTEMPTS
   ): Promise<string> {
     console.debug(
       "[CoordinatorClient] Polling for SDP answer for session:",
@@ -270,7 +271,7 @@ export class CoordinatorClient {
     let attempt = 0;
 
     while (true) {
-      if (maxAttempts !== undefined && attempt >= maxAttempts) {
+      if (attempt >= maxAttempts) {
         throw new Error(
           `SDP polling exceeded maximum attempts (${maxAttempts}) for session ${sessionId}`
         );
@@ -278,7 +279,7 @@ export class CoordinatorClient {
 
       attempt++;
       console.debug(
-        `[CoordinatorClient] SDP poll attempt ${attempt}${maxAttempts !== undefined ? `/${maxAttempts}` : ""} for session ${sessionId}`
+        `[CoordinatorClient] SDP poll attempt ${attempt}/${maxAttempts} for session ${sessionId}`
       );
 
       const response = await fetch(

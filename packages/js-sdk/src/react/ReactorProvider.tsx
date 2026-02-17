@@ -17,7 +17,7 @@ import type { ConnectOptions } from "../types";
  * Extends the core ConnectOptions with autoConnect for the React lifecycle.
  */
 export interface ReactorConnectOptions extends ConnectOptions {
-  /** Whether to automatically connect when the provider mounts. Default: true. */
+  /** Whether to automatically connect when the provider mounts. Default: false. */
   autoConnect?: boolean;
 }
 
@@ -55,7 +55,7 @@ export function ReactorProvider({
   }
 
   // Destructure connectOptions with defaults
-  const { autoConnect = true, ...pollingOptions } = connectOptions ?? {};
+  const { autoConnect = false, ...pollingOptions } = connectOptions ?? {};
 
   // Fan out props to individual variables so that the
   // useEffect hook can be optimized by only re-running when the

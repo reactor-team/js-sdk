@@ -37,7 +37,7 @@ export interface ReactorState {
  * Options for configuring the connect polling behavior.
  */
 export interface ConnectOptions {
-  /** Maximum number of SDP polling attempts before giving up. Default: unlimited. */
+  /** Maximum number of SDP polling attempts before giving up. Default: 6. */
   maxAttempts?: number;
 }
 
