@@ -1,0 +1,80 @@
+name: Claude Doc Reviewer
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  doc-review:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v41
+        with:
+          files: |
+            **/*.js
+            **/*.ts
+            **/*.tsx
+            src/**
+            lib/**
+      
+      - name: Review docs with Claude
+        if: steps.changed-files.outputs.any_changed == 'true'
+        uses: anthropics/anthropic-quickstarts@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            You are reviewing a pull request for the JS SDK for breaking changes that affect documentation.
+            
+            CONTEXT:
+            - Repository: ${{ github.repository }}
+            - PR #${{ github.event.pull_request.number }}
+            - Files changed: ${{ steps.changed-files.outputs.all_changed_files }}
+            
+            TASK:
+            1. Analyze the JavaScript/TypeScript code changes in this PR
+            2. Check if changes affect documentation in:
+               - /docs/ folder (if exists in js-sdk)
+               - /docs-mintlify/ folder (Mintlify docs submodule)
+            3. Identify any breaking changes that would require doc updates
+            4. List specific documentation files that need updates
+            
+            FOCUS ON:
+            - SDK method changes (new/removed/modified methods)
+            - Parameter changes (new required params, removed params, type changes)
+            - Breaking changes in behavior
+            - New features that need documentation
+            - Deprecated functionality
+            - TypeScript type changes
+            
+            FORMAT your response as:
+            ## 📚 Documentation Review for JS SDK
+            
+            ### ⚠️ Breaking Changes Detected
+            [List any breaking changes with specific impact]
+            
+            ### 📝 Documentation Updates Needed
+            **Mintlify Docs** (docs-mintlify/):
+            - [List specific .mdx files with what needs updating]
+            
+            **Local Docs** (docs/):
+            - [List specific files if any exist]
+            
+            ### ✅ Safe Changes / No Documentation Impact
+            [If no changes needed, explain why]
+          
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          post-comment: true

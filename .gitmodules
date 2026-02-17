@@ -1,0 +1,3 @@
+[submodule "docs-mintlify"]
+	path = docs-mintlify
+	url = https://github.com/reactor-team/docs.git

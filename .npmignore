@@ -1,0 +1,4 @@
+# Exclude from npm package
+.github/
+docs-mintlify/
+.gitmodules
