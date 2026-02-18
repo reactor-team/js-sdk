@@ -1,0 +1,10 @@
+name: Claude Public Docs Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+
+jobs:
+  claude-public-docs-check:
+    uses: reactor-team/reactor/.github/workflows/claude-public-docs-check.yml@main
+    secrets: inherit
