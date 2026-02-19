@@ -59,7 +59,7 @@ export function Settings({
       setIsFetchingToken(true);
       setTokenError(null);
       try {
-        const token = await fetchInsecureJwtToken(apiKey);
+        const token = await fetchInsecureJwtToken(apiKey, coordinatorUrl);
         onJwtTokenChange(token);
       } catch (err) {
         setTokenError(
@@ -72,7 +72,7 @@ export function Settings({
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [apiKey, isLocal, onJwtTokenChange]);
+  }, [apiKey, isLocal, coordinatorUrl, onJwtTokenChange]);
 
   return (
     <div className="flex flex-col gap-3 p-3 bg-gray-800/40 rounded-lg border border-gray-700/50">
