@@ -5,6 +5,6 @@ export interface Endpoint {
 
 export const ENDPOINTS: Endpoint[] = [
   { label: "Production", url: "https://api.reactor.inc" },
-  { label: "Dev", url: "https://api.rea.live"},
+  { label: "Dev", url: "https://api.rea.live" },
   { label: "Local", url: "http://localhost:30080" },
 ];
