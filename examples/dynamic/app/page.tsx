@@ -9,10 +9,12 @@ import {
 import { Header } from "@/components/Header";
 import { Settings } from "@/components/Settings";
 import { ReactorStatus } from "@/components/ReactorStatus";
+import { ENDPOINTS } from "@/lib/endpoints";
 
 export default function Home() {
   const [modelName, setModelName] = useState("longlive");
   const [isLocal, setIsLocal] = useState(true);
+  const [coordinatorUrl, setCoordinatorUrl] = useState(ENDPOINTS[0].url);
   const [jwtToken, setJwtToken] = useState<string | undefined>(undefined);
 
   return (
@@ -26,13 +28,16 @@ export default function Home() {
           isLocal={isLocal}
           onLocalChange={setIsLocal}
           onJwtTokenChange={setJwtToken}
+          coordinatorUrl={coordinatorUrl}
+          onCoordinatorUrlChange={setCoordinatorUrl}
         />
 
         <ReactorProvider
           modelName={modelName}
+          coordinatorUrl={isLocal ? undefined : coordinatorUrl}
           local={isLocal}
           jwtToken={jwtToken}
-          autoConnect={false}
+          connectOptions={{ autoConnect: false }}
         >
           <div className="flex flex-col gap-3">
             <ReactorView className="w-full aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700/50 shadow-xl overflow-hidden" />
