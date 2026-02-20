@@ -38,11 +38,11 @@ function App() {
 
 ## Examples
 
-| Example                                       | Description                                                                 |
-| --------------------------------------------- | --------------------------------------------------------------------------- |
-| [livecore](./examples/livecore)               | Minimal demo for real-time video generation with the Livecore model         |
-| [film-director](./examples/film-director)     | Timeline-based editor for directing Livecore video generation frame by frame |
-| [dynamic](./examples/dynamic)                 | Local-only dynamic UI that auto-generates controls from a model's JSON schema |
+| Example                                   | Description                                                                   |
+| ----------------------------------------- | ----------------------------------------------------------------------------- |
+| [livecore](./examples/livecore)           | Minimal demo for real-time video generation with the Livecore model           |
+| [film-director](./examples/film-director) | Timeline-based editor for directing Livecore video generation frame by frame  |
+| [dynamic](./examples/dynamic)             | Local-only dynamic UI that auto-generates controls from a model's JSON schema |
 
 ## Documentation
 

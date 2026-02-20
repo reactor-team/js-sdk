@@ -12,10 +12,10 @@ interface ApiKeyInputProps {
   className?: string;
 }
 
-export function ApiKeyInput({ 
-  onJwtTokenChange, 
+export function ApiKeyInput({
+  onJwtTokenChange,
   onLocalModeChange,
-  className 
+  className,
 }: ApiKeyInputProps) {
   const [apiKey, setApiKey] = useState("");
   const [isFetching, setIsFetching] = useState(false);
@@ -65,7 +65,10 @@ export function ApiKeyInput({
 
   return (
     <div className={cn("flex items-center gap-3", className)}>
-      <Label htmlFor="api-key" className="text-muted-foreground text-sm whitespace-nowrap">
+      <Label
+        htmlFor="api-key"
+        className="text-muted-foreground text-sm whitespace-nowrap"
+      >
         API Key
       </Label>
       <div className="relative max-w-xs">
@@ -78,7 +81,7 @@ export function ApiKeyInput({
           className={cn(
             "pr-16 w-48",
             isLocalMode && "border-green-500/50 focus:border-green-500",
-            error && "border-destructive"
+            error && "border-destructive",
           )}
         />
         {/* Status indicators inside the input */}

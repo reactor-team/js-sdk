@@ -72,7 +72,10 @@ export default function Home() {
             <div className="relative bg-black rounded-lg overflow-hidden border border-border flex-1 min-h-0">
               {/* Video view */}
               <div className="absolute inset-0">
-                <ReactorView className="w-full h-full object-contain" videoObjectFit="cover" />
+                <ReactorView
+                  className="w-full h-full object-contain"
+                  videoObjectFit="cover"
+                />
               </div>
 
               {/* Top-left: Reset button */}

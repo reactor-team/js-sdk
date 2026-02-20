@@ -73,7 +73,12 @@ export function ConnectionPanel({
   }, [apiKey, handleJwtChange, handleLocalChange]);
 
   return (
-    <div className={cn("flex flex-col sm:flex-row items-stretch sm:items-center gap-2 px-3 py-2 bg-card rounded-lg border border-border", className)}>
+    <div
+      className={cn(
+        "flex flex-col sm:flex-row items-stretch sm:items-center gap-2 px-3 py-2 bg-card rounded-lg border border-border",
+        className
+      )}
+    >
       {/* API Key Input */}
       <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
         <label className="text-xs font-medium text-foreground whitespace-nowrap uppercase">
@@ -98,10 +103,15 @@ export function ConnectionPanel({
               <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             )}
             {isLocalMode && !isFetching && (
-              <span className="text-[10px] text-green-500 font-medium uppercase">Local</span>
+              <span className="text-[10px] text-green-500 font-medium uppercase">
+                Local
+              </span>
             )}
             {error && !isFetching && (
-              <span className="w-2 h-2 bg-destructive rounded-full" title={error} />
+              <span
+                className="w-2 h-2 bg-destructive rounded-full"
+                title={error}
+              />
             )}
           </div>
         </div>
@@ -127,9 +137,9 @@ export function ConnectionPanel({
 
         {/* Connect/Disconnect button */}
         {status === "disconnected" ? (
-          <Button 
-            size="sm" 
-            variant="default" 
+          <Button
+            size="sm"
+            variant="default"
             onClick={() => connect()}
             disabled={!apiKey && !isLocalMode}
             className="min-w-[90px]"
@@ -137,10 +147,10 @@ export function ConnectionPanel({
             Connect
           </Button>
         ) : (
-          <Button 
-            size="sm" 
-            variant="secondary" 
-            onClick={() => disconnect()} 
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => disconnect()}
             className="min-w-[90px]"
           >
             {isConnecting ? "Cancel" : "Disconnect"}

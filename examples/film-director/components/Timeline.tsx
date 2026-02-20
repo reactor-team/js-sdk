@@ -67,7 +67,7 @@ function TimelineComponent({
       // Clamp to valid range
       return Math.max(0, Math.min(maxFrames - 1, frame));
     },
-    [maxFrames]
+    [maxFrames],
   );
 
   // Handle mouse move for hover tooltip
@@ -82,7 +82,7 @@ function TimelineComponent({
         setTooltipX(rect.left + (frame / maxFrames) * rect.width);
       }
     },
-    [getFrameFromMouseEvent, maxFrames]
+    [getFrameFromMouseEvent, maxFrames],
   );
 
   // Handle mouse leave
@@ -117,7 +117,7 @@ function TimelineComponent({
 
       setEditorOpen(true);
     },
-    [disabled, getFrameFromMouseEvent, scheduledPrompts]
+    [disabled, getFrameFromMouseEvent, scheduledPrompts],
   );
 
   // Handle clicking on an existing marker
@@ -130,7 +130,7 @@ function TimelineComponent({
       setIsEditMode(true);
       setEditorOpen(true);
     },
-    [disabled, scheduledPrompts]
+    [disabled, scheduledPrompts],
   );
 
   // Handle saving a prompt
@@ -142,7 +142,7 @@ function TimelineComponent({
         onAddPrompt(frame, prompt);
       }
     },
-    [isEditMode, onAddPrompt, onEditPrompt]
+    [isEditMode, onAddPrompt, onEditPrompt],
   );
 
   // Sorted prompt frames for rendering
@@ -161,12 +161,15 @@ function TimelineComponent({
       <div
         className={cn(
           "px-6 flex-1 min-h-[64px] bg-card/50 border-b border-border",
-          disabled && "opacity-50"
+          disabled && "opacity-50",
         )}
       >
         <div
           ref={trackRef}
-          className={cn("relative h-full", disabled ? "cursor-not-allowed" : "cursor-crosshair")}
+          className={cn(
+            "relative h-full",
+            disabled ? "cursor-not-allowed" : "cursor-crosshair",
+          )}
           onClick={handleTrackClick}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
@@ -185,7 +188,7 @@ function TimelineComponent({
                   "absolute top-2 bottom-2 rounded-sm transition-colors overflow-hidden",
                   isActive
                     ? "bg-primary/30 border border-primary/50"
-                    : "bg-blue-500/20 border border-blue-500/30"
+                    : "bg-blue-500/20 border border-blue-500/30",
                 )}
                 style={{
                   left: `${startPercent}%`,
@@ -244,7 +247,9 @@ function TimelineComponent({
           <div className="bg-popover border border-border rounded-md px-2 py-1 shadow-lg">
             <div className="text-xs font-mono text-foreground">
               <span className="font-medium">Frame {hoverFrame}</span>
-              <span className="text-muted-foreground ml-2">({(hoverFrame / FPS).toFixed(1)}s)</span>
+              <span className="text-muted-foreground ml-2">
+                ({(hoverFrame / FPS).toFixed(1)}s)
+              </span>
             </div>
           </div>
         </div>
@@ -256,7 +261,10 @@ function TimelineComponent({
         frame={editingFrame}
         initialPrompt={editingPrompt}
         isEditing={isEditMode}
-        previousPrompts={sortedPromptFrames.map((f) => ({ frame: f, prompt: scheduledPrompts[f] }))}
+        previousPrompts={sortedPromptFrames.map((f) => ({
+          frame: f,
+          prompt: scheduledPrompts[f],
+        }))}
         onSave={handleSave}
         onDelete={onDeletePrompt}
         onClose={() => setEditorOpen(false)}

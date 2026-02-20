@@ -86,7 +86,9 @@ export function ApiKeyInput({
         {isLocalMode && (
           <div className="flex items-center gap-2 px-3 py-1 bg-green-500/20 rounded">
             <div className="w-2 h-2 bg-green-500 rounded-full" />
-            <span className="text-xs font-mono text-green-400 uppercase">Local Mode</span>
+            <span className="text-xs font-mono text-green-400 uppercase">
+              Local Mode
+            </span>
           </div>
         )}
 
@@ -98,7 +100,9 @@ export function ApiKeyInput({
       {isLocalMode && (
         <p className="mt-2 text-xs text-[#bdbdbd] font-mono">
           Local mode connects to localhost:8080. Run:{" "}
-          <code className="bg-white/10 px-1 rounded">reactor run --runtime http --port 8080</code>
+          <code className="bg-white/10 px-1 rounded">
+            reactor run --runtime http --port 8080
+          </code>
         </p>
       )}
     </div>

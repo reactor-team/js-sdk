@@ -27,7 +27,7 @@ export function ConnectionStatus({ className }: ConnectionStatusProps) {
             status === "disconnected" && "bg-muted-foreground",
             status === "connecting" && "bg-yellow-500 animate-pulse",
             status === "waiting" && "bg-yellow-500 animate-pulse",
-            status === "ready" && "bg-green-500"
+            status === "ready" && "bg-green-500",
           )}
         />
         <span className="text-sm text-foreground/80 capitalize">{status}</span>

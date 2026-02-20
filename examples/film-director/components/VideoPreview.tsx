@@ -10,10 +10,10 @@ interface VideoPreviewProps {
   className?: string;
 }
 
-export function VideoPreview({ 
-  currentFrame, 
+export function VideoPreview({
+  currentFrame,
   isPaused,
-  className 
+  className,
 }: VideoPreviewProps) {
   // Calculate timecode
   const seconds = Math.floor(currentFrame / FPS);
@@ -21,10 +21,12 @@ export function VideoPreview({
   const timecode = `${seconds.toString().padStart(2, "0")}:${frames.toString().padStart(2, "0")}`;
 
   return (
-    <div className={cn("relative bg-black rounded-lg overflow-hidden", className)}>
+    <div
+      className={cn("relative bg-black rounded-lg overflow-hidden", className)}
+    >
       {/* Video view */}
       <ReactorView className="w-full h-full object-contain" />
-      
+
       {/* Overlay - timecode and status */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
         <div className="flex items-center justify-between">
@@ -33,11 +35,9 @@ export function VideoPreview({
             <span className="font-mono text-white text-lg tabular-nums">
               {timecode}
             </span>
-            <span className="text-white/60 text-sm">
-              Frame {currentFrame}
-            </span>
+            <span className="text-white/60 text-sm">Frame {currentFrame}</span>
           </div>
-          
+
           {/* Status indicator */}
           <div className="flex items-center gap-2">
             {isPaused ? (

@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     if (!prompt || typeof prompt !== "string") {
       return NextResponse.json(
         { error: "Prompt is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -16,18 +16,25 @@ export async function POST(request: NextRequest) {
     if (!apiKey) {
       return NextResponse.json(
         { error: "OpenAI API key not configured" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     // Build the user message with context from previous prompts
     let userMessage = `Enhance this prompt: "${prompt}"`;
-    
-    if (previousPrompts && Array.isArray(previousPrompts) && previousPrompts.length > 0) {
+
+    if (
+      previousPrompts &&
+      Array.isArray(previousPrompts) &&
+      previousPrompts.length > 0
+    ) {
       const contextList = previousPrompts
-        .map((p: { frame: number; prompt: string }, i: number) => `Scene ${i + 1} (frame ${p.frame}): ${p.prompt}`)
+        .map(
+          (p: { frame: number; prompt: string }, i: number) =>
+            `Scene ${i + 1} (frame ${p.frame}): ${p.prompt}`,
+        )
         .join("\n");
-      
+
       userMessage = `Previous scenes in the video:\n${contextList}\n\nNow enhance this new prompt for the next scene: "${prompt}"`;
     }
 
@@ -59,7 +66,7 @@ export async function POST(request: NextRequest) {
       console.error("[enhance-prompt] OpenAI API error:", error);
       return NextResponse.json(
         { error: "Failed to enhance prompt" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -69,7 +76,7 @@ export async function POST(request: NextRequest) {
     if (!enhancedPrompt) {
       return NextResponse.json(
         { error: "No response from OpenAI" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -78,7 +85,7 @@ export async function POST(request: NextRequest) {
     console.error("[enhance-prompt] Error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

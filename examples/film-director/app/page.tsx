@@ -25,7 +25,8 @@ export default function Page() {
       setIsFullscreen(!!document.fullscreenElement);
     };
     document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
   const toggleFullscreen = useCallback(async () => {
@@ -53,7 +54,9 @@ export default function Page() {
         {/* Header */}
         <header className="flex items-center justify-between px-4 py-2 border-b border-border bg-card">
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold text-foreground">Film Director</h1>
+            <h1 className="text-lg font-semibold text-foreground">
+              Film Director
+            </h1>
             <span className="text-xs text-muted-foreground px-2 py-0.5 bg-muted rounded hidden sm:inline-block">
               LiveCore Demo
             </span>
@@ -99,8 +102,12 @@ export default function Page() {
         </header>
 
         {/* Main content */}
-        <main className={`${isFullscreen ? "h-[calc(100vh-49px)] flex flex-col" : "p-4 md:p-6"}`}>
-          <div className={`${isFullscreen ? "flex-1 flex flex-col min-h-0" : "max-w-6xl mx-auto space-y-4"}`}>
+        <main
+          className={`${isFullscreen ? "h-[calc(100vh-49px)] flex flex-col" : "p-4 md:p-6"}`}
+        >
+          <div
+            className={`${isFullscreen ? "flex-1 flex flex-col min-h-0" : "max-w-6xl mx-auto space-y-4"}`}
+          >
             {/* Connection panel - above the content */}
             {!isFullscreen && (
               <ConnectionPanel
@@ -110,14 +117,16 @@ export default function Page() {
             )}
 
             {/* Film Director */}
-            <div className={`${
-              isFullscreen 
-                ? "flex-1 min-h-0" 
-                : "bg-card rounded-lg border border-border overflow-hidden"
-            }`}>
-              <FilmDirector 
-                maxFrames={MAX_FRAMES} 
-                className={isFullscreen ? "h-full" : "h-[70vh] min-h-[500px]"} 
+            <div
+              className={`${
+                isFullscreen
+                  ? "flex-1 min-h-0"
+                  : "bg-card rounded-lg border border-border overflow-hidden"
+              }`}
+            >
+              <FilmDirector
+                maxFrames={MAX_FRAMES}
+                className={isFullscreen ? "h-full" : "h-[70vh] min-h-[500px]"}
               />
             </div>
           </div>

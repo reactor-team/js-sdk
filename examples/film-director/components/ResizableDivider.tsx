@@ -8,7 +8,10 @@ interface ResizableDividerProps {
   className?: string;
 }
 
-export function ResizableDivider({ onResize, className }: ResizableDividerProps) {
+export function ResizableDivider({
+  onResize,
+  className,
+}: ResizableDividerProps) {
   const [isDragging, setIsDragging] = useState(false);
   const lastY = useRef(0);
 
@@ -46,15 +49,15 @@ export function ResizableDivider({ onResize, className }: ResizableDividerProps)
         "h-2 cursor-row-resize flex items-center justify-center group",
         "hover:bg-primary/10 transition-colors",
         isDragging && "bg-primary/20",
-        className
+        className,
       )}
       onMouseDown={handleMouseDown}
     >
-      <div 
+      <div
         className={cn(
           "w-12 h-1 rounded-full bg-muted-foreground/30 group-hover:bg-primary/50 transition-colors",
-          isDragging && "bg-primary"
-        )} 
+          isDragging && "bg-primary",
+        )}
       />
     </div>
   );

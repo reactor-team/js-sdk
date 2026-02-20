@@ -180,29 +180,52 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
 
   return (
     <div
-      className={cn("w-full p-3 bg-card rounded-lg border border-border space-y-2.5", className)}
+      className={cn(
+        "w-full p-3 bg-card rounded-lg border border-border space-y-2.5",
+        className
+      )}
     >
       {/* Header with Frame Counter and Reset */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-xs font-medium text-foreground uppercase">Prompts</span>
-          <div className={cn(
-            "flex items-center gap-1.5 px-2 py-1 rounded",
-            currentFrame >= 220 ? "bg-destructive/10" : "bg-muted"
-          )}>
+          <span className="text-xs font-medium text-foreground uppercase">
+            Prompts
+          </span>
+          <div
+            className={cn(
+              "flex items-center gap-1.5 px-2 py-1 rounded",
+              currentFrame >= 220 ? "bg-destructive/10" : "bg-muted"
+            )}
+          >
             <span className="text-xs text-muted-foreground">Frame:</span>
-            <span className={cn(
-              "text-xs font-mono tabular-nums",
-              currentFrame >= 220 ? "text-destructive" : "text-green-500"
-            )}>{currentFrame}</span>
+            <span
+              className={cn(
+                "text-xs font-mono tabular-nums",
+                currentFrame >= 220 ? "text-destructive" : "text-green-500"
+              )}
+            >
+              {currentFrame}
+            </span>
             <span className="text-xs text-muted-foreground">/</span>
-            <span className="text-xs text-muted-foreground tabular-nums">240</span>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              240
+            </span>
           </div>
           {/* Reset warning */}
           {currentFrame >= 200 && (
             <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-500/10 text-orange-500 rounded">
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              <svg
+                className="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
               </svg>
               <span className="text-xs uppercase">Resets soon</span>
             </div>
@@ -251,8 +274,12 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
       {currentPrompt && (
         <div className="bg-muted rounded px-2 py-1.5 border border-border">
           <div className="flex gap-2">
-            <span className="text-[11px] text-muted-foreground flex-shrink-0">Current:</span>
-            <span className="text-[11px] text-foreground/70 line-clamp-1">{currentPrompt}</span>
+            <span className="text-[11px] text-muted-foreground flex-shrink-0">
+              Current:
+            </span>
+            <span className="text-[11px] text-foreground/70 line-clamp-1">
+              {currentPrompt}
+            </span>
           </div>
         </div>
       )}
@@ -287,7 +314,11 @@ export function LongLiveController({ className }: LongLiveControllerProps) {
 
       {/* Frame limit notice */}
       <p className="text-[11px] text-muted-foreground leading-tight">
-        Auto-resets after <span className="font-mono font-medium text-foreground/70">240 frames</span>. Use Reset to start a new session.
+        Auto-resets after{" "}
+        <span className="font-mono font-medium text-foreground/70">
+          240 frames
+        </span>
+        . Use Reset to start a new session.
       </p>
     </div>
   );

@@ -73,7 +73,12 @@ export function ConnectionPanel({
   }, [apiKey, handleJwtChange, handleLocalChange]);
 
   return (
-    <div className={cn("flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 bg-card rounded-lg border border-border", className)}>
+    <div
+      className={cn(
+        "flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 bg-card rounded-lg border border-border",
+        className,
+      )}
+    >
       {/* API Key Input */}
       <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
         <label className="text-sm font-medium text-foreground whitespace-nowrap">
@@ -89,7 +94,7 @@ export function ConnectionPanel({
             className={cn(
               "h-9 text-sm pr-8",
               isLocalMode && "border-green-500/50",
-              error && "border-destructive"
+              error && "border-destructive",
             )}
           />
           {/* Status indicators */}
@@ -98,10 +103,15 @@ export function ConnectionPanel({
               <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             )}
             {isLocalMode && !isFetching && (
-              <span className="text-[10px] text-green-500 font-medium uppercase">Local</span>
+              <span className="text-[10px] text-green-500 font-medium uppercase">
+                Local
+              </span>
             )}
             {error && !isFetching && (
-              <span className="w-2 h-2 bg-destructive rounded-full" title={error} />
+              <span
+                className="w-2 h-2 bg-destructive rounded-full"
+                title={error}
+              />
             )}
           </div>
         </div>
@@ -117,7 +127,7 @@ export function ConnectionPanel({
               status === "disconnected" && "bg-muted-foreground",
               status === "connecting" && "bg-yellow-500 animate-pulse",
               status === "waiting" && "bg-yellow-500 animate-pulse",
-              status === "ready" && "bg-green-500"
+              status === "ready" && "bg-green-500",
             )}
           />
           <span className="text-xs text-muted-foreground capitalize hidden sm:inline">
@@ -127,9 +137,9 @@ export function ConnectionPanel({
 
         {/* Connect/Disconnect button */}
         {status === "disconnected" ? (
-          <Button 
-            size="default" 
-            variant="default" 
+          <Button
+            size="default"
+            variant="default"
             onClick={() => connect()}
             disabled={!apiKey && !isLocalMode}
             className="min-w-[100px]"
@@ -137,10 +147,10 @@ export function ConnectionPanel({
             Connect
           </Button>
         ) : (
-          <Button 
-            size="default" 
-            variant="secondary" 
-            onClick={() => disconnect()} 
+          <Button
+            size="default"
+            variant="secondary"
+            onClick={() => disconnect()}
             className="min-w-[100px]"
           >
             {isConnecting ? "Cancel" : "Disconnect"}

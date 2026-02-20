@@ -9,7 +9,12 @@ interface HeaderControlsProps {
 
 export function HeaderControls({ className }: HeaderControlsProps) {
   return (
-    <header className={cn("flex items-center justify-between px-4 py-2 border-b border-border bg-card", className)}>
+    <header
+      className={cn(
+        "flex items-center justify-between px-4 py-2 border-b border-border bg-card",
+        className
+      )}
+    >
       {/* Left: Title */}
       <div className="flex items-center gap-3">
         <h1 className="text-lg font-semibold text-foreground">LiveCore</h1>

@@ -62,30 +62,32 @@ export function PromptEditor({
 
   const handleEnhance = useCallback(async () => {
     if (!prompt.trim()) return;
-    
+
     setIsEnhancing(true);
     setEnhanceError(null);
-    
+
     try {
       const response = await fetch("/api/enhance-prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: prompt.trim(),
-          previousPrompts: previousPrompts.filter(p => p.frame < frame),
+          previousPrompts: previousPrompts.filter((p) => p.frame < frame),
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || "Failed to enhance prompt");
       }
-      
+
       setEnhancedPrompt(data.enhancedPrompt);
     } catch (error) {
       console.error("[PromptEditor] Enhancement error:", error);
-      setEnhanceError(error instanceof Error ? error.message : "Failed to enhance prompt");
+      setEnhanceError(
+        error instanceof Error ? error.message : "Failed to enhance prompt",
+      );
     } finally {
       setIsEnhancing(false);
     }
@@ -98,12 +100,15 @@ export function PromptEditor({
     }
   }, [frame, onDelete, onClose]);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && e.metaKey) {
-      e.preventDefault();
-      handleSave();
-    }
-  }, [handleSave]);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" && e.metaKey) {
+        e.preventDefault();
+        handleSave();
+      }
+    },
+    [handleSave],
+  );
 
   return (
     <AlertDialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -113,10 +118,9 @@ export function PromptEditor({
             {isEditing ? "Edit Prompt" : "Add Prompt"}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {isEditing 
+            {isEditing
               ? `Editing prompt at frame ${frame}`
-              : `Add a new prompt starting at frame ${frame}`
-            }
+              : `Add a new prompt starting at frame ${frame}`}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -135,7 +139,7 @@ export function PromptEditor({
               className="mt-2 min-h-[80px] resize-none"
               autoFocus
             />
-            
+
             {/* Enhance button */}
             <div className="mt-2 flex items-center gap-2">
               <Button
@@ -161,10 +165,15 @@ export function PromptEditor({
 
           {/* Enhanced prompt field - always visible */}
           <div>
-            <Label htmlFor="enhanced-prompt" className="text-sm font-medium flex items-center gap-1.5">
+            <Label
+              htmlFor="enhanced-prompt"
+              className="text-sm font-medium flex items-center gap-1.5"
+            >
               <Sparkles className="h-3.5 w-3.5 text-primary" />
               Enhanced Prompt
-              <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+              <span className="text-xs text-muted-foreground font-normal">
+                (optional)
+              </span>
             </Label>
             <Textarea
               id="enhanced-prompt"
@@ -175,15 +184,13 @@ export function PromptEditor({
               className="mt-2 min-h-[80px] resize-none"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              {enhancedPrompt.trim() 
+              {enhancedPrompt.trim()
                 ? "This enhanced version will be used when you save."
                 : "If empty, the original prompt above will be used."}
             </p>
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            Press ⌘+Enter to save
-          </p>
+          <p className="text-xs text-muted-foreground">Press ⌘+Enter to save</p>
         </div>
 
         <AlertDialogFooter className="flex-row justify-between sm:justify-between">

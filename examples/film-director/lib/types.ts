@@ -38,6 +38,10 @@ export interface PromptMarker {
   prompt: string;
 }
 
-export type ConnectionStatus = "disconnected" | "connecting" | "waiting" | "connected";
+export type ConnectionStatus =
+  | "disconnected"
+  | "connecting"
+  | "waiting"
+  | "connected";
 
 export type PlaybackState = "stopped" | "playing" | "paused";
