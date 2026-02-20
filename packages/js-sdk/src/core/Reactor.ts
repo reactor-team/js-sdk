@@ -4,6 +4,7 @@ import {
   type ReactorState,
   type ReactorError,
   type MessageScope,
+  type ConnectOptions,
   ConflictError,
 } from "../types";
 import { CoordinatorClient } from "./CoordinatorClient";
@@ -145,8 +146,9 @@ export class Reactor {
 
   /**
    * Public method for reconnecting to an existing session, that may have been interrupted but can be recovered.
+   * @param options Optional connect options (e.g. maxAttempts for SDP polling)
    */
-  async reconnect(): Promise<void> {
+  async reconnect(options?: ConnectOptions): Promise<void> {
     if (!this.sessionId || !this.coordinatorClient) {
       console.warn("[Reactor] No active session to reconnect to.");
       return;
@@ -174,7 +176,8 @@ export class Reactor {
     try {
       const sdpAnswer = await this.coordinatorClient.connect(
         this.sessionId,
-        sdpOffer
+        sdpOffer,
+        options?.maxAttempts
       );
 
       // Connect to GPU machine with the answer
@@ -201,8 +204,10 @@ export class Reactor {
    * Connects to the coordinator and waits for a GPU to be assigned.
    * Once a GPU is assigned, the Reactor will connect to the gpu machine via WebRTC.
    * If no authentication is provided and not in local mode, an error is thrown.
+   * @param jwtToken Optional JWT token for authentication
+   * @param options Optional connect options (e.g. maxAttempts for SDP polling)
    */
-  async connect(jwtToken?: string): Promise<void> {
+  async connect(jwtToken?: string, options?: ConnectOptions): Promise<void> {
     console.debug("[Reactor] Connecting, status:", this.status);
 
     if (jwtToken == undefined && !this.local) {
@@ -224,7 +229,7 @@ export class Reactor {
         ? new LocalCoordinatorClient(this.coordinatorUrl)
         : new CoordinatorClient({
             baseUrl: this.coordinatorUrl,
-            jwtToken: jwtToken!, // Safe: validated on line 186-188
+            jwtToken: jwtToken!, // Safe: validated above
             model: this.model,
           });
 
@@ -243,7 +248,11 @@ export class Reactor {
 
       // Connect to coordinator and get SDP Answer.
       // We don't pass the sdp offer here because we passed it already when creating the session.
-      const sdpAnswer = await this.coordinatorClient.connect(sessionId);
+      const sdpAnswer = await this.coordinatorClient.connect(
+        sessionId,
+        undefined,
+        options?.maxAttempts
+      );
 
       // Connect to GPU machine with the answer
       await this.machineClient.connect(sdpAnswer);
@@ -255,7 +264,16 @@ export class Reactor {
         "coordinator",
         true
       );
-      this.setStatus("disconnected");
+      // Non-recoverable disconnect: terminates the server-side session (DELETE)
+      // and cleans up all local state (machine client, session ID, etc.)
+      try {
+        await this.disconnect(false);
+      } catch (disconnectError) {
+        console.error(
+          "[Reactor] Failed to clean up after connection failure:",
+          disconnectError
+        );
+      }
       throw error;
     }
   }

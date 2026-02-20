@@ -1,6 +1,6 @@
 {
   "name": "@reactor-team/js-sdk",
-  "version": "2.3.1",
+  "version": "2.3.2",
   "description": "Reactor JavaScript frontend SDK",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
