@@ -1,10 +1,14 @@
 "use client";
 
 import { useReactor } from "./hooks";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import React from "react";
 
 export interface ReactorViewProps {
+  /** The name of the video track to render. Defaults to "video-0". */
+  track?: string;
+  /** Optional: the name of an audio track to play alongside the video (e.g. "audio-0"). */
+  audioTrack?: string;
   width?: number;
   height?: number;
   className?: string;
@@ -12,57 +16,70 @@ export interface ReactorViewProps {
   videoObjectFit?: NonNullable<
     React.VideoHTMLAttributes<HTMLVideoElement>["style"]
   >["objectFit"];
+  /** Controls whether inbound audio plays. Default true (muted) to satisfy browser autoplay policies. */
+  muted?: boolean;
 }
 
 export function ReactorView({
+  track = "video-0",
+  audioTrack,
   width,
   height,
   className,
   style,
   videoObjectFit = "contain",
+  muted = true,
 }: ReactorViewProps) {
-  const { videoTrack, status } = useReactor((state) => ({
-    videoTrack: state.videoTrack,
+  const { videoMediaTrack, audioMediaTrack, status } = useReactor((state) => ({
+    videoMediaTrack: state.receivedTracks[track] ?? null,
+    audioMediaTrack: audioTrack
+      ? (state.receivedTracks[audioTrack] ?? null)
+      : null,
     status: state.status,
   }));
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  const mediaStream = useMemo(() => {
+    const tracks: MediaStreamTrack[] = [];
+    if (videoMediaTrack) tracks.push(videoMediaTrack);
+    if (audioMediaTrack) tracks.push(audioMediaTrack);
+    if (tracks.length === 0) return null;
+    return new MediaStream(tracks);
+  }, [videoMediaTrack, audioMediaTrack]);
+
   useEffect(() => {
-    console.debug("[ReactorView] Video track effect triggered", {
+    console.debug("[ReactorView] Media track effect triggered", {
+      track,
       hasVideoElement: !!videoRef.current,
-      hasVideoTrack: !!videoTrack,
-      videoTrackKind: videoTrack?.kind,
+      hasVideoTrack: !!videoMediaTrack,
+      hasAudioTrack: !!audioMediaTrack,
     });
 
-    if (videoRef.current && videoTrack) {
-      console.debug("[ReactorView] Attaching video track to element");
+    if (videoRef.current && mediaStream) {
+      console.debug("[ReactorView] Attaching media stream to element");
       try {
-        // Create a MediaStream from the track and attach to video element
-        const stream = new MediaStream([videoTrack]);
-        videoRef.current.srcObject = stream;
+        videoRef.current.srcObject = mediaStream;
         videoRef.current.play().catch((e) => {
           console.warn("[ReactorView] Auto-play failed:", e);
         });
-        console.debug("[ReactorView] Video track attached successfully");
+        console.debug("[ReactorView] Media stream attached successfully");
       } catch (error) {
-        console.error("[ReactorView] Failed to attach video track:", error);
+        console.error("[ReactorView] Failed to attach media stream:", error);
       }
 
-      // Cleanup: remove srcObject when track changes or component unmounts
       return () => {
-        console.debug("[ReactorView] Detaching video track from element");
+        console.debug("[ReactorView] Detaching media stream from element");
         if (videoRef.current) {
           videoRef.current.srcObject = null;
-          console.debug("[ReactorView] Video track detached successfully");
         }
       };
     } else {
-      console.debug("[ReactorView] No video track or element to attach");
+      console.debug("[ReactorView] No tracks or element to attach");
     }
-  }, [videoTrack]);
+  }, [mediaStream]);
 
-  const showPlaceholder = !videoTrack;
+  const showPlaceholder = !videoMediaTrack;
 
   return (
     <div
@@ -83,7 +100,7 @@ export function ReactorView({
           objectFit: videoObjectFit,
           display: showPlaceholder ? "none" : "block",
         }}
-        muted
+        muted={muted}
         playsInline
       />
       {showPlaceholder && (
