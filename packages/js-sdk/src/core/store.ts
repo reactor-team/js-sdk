@@ -138,13 +138,11 @@ export const createReactorStore = (
       onMessage: (handler: (message: any) => void) => {
         console.debug("[ReactorStore] Registering message handler");
 
-        // Simply register the handler
-        get().internal.reactor.on("newMessage", handler);
+        get().internal.reactor.on("message", handler);
 
-        // Return a cleanup function that can be called to unregister
         return () => {
           console.debug("[ReactorStore] Cleaning up message handler");
-          get().internal.reactor.off("newMessage", handler);
+          get().internal.reactor.off("message", handler);
         };
       },
       sendCommand: async (command: string, data: any, scope?: MessageScope) => {
