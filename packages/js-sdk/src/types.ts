@@ -41,6 +41,12 @@ export interface ConnectOptions {
   maxAttempts?: number;
 }
 
+export interface ConnectionStats {
+  /** ICE candidate-pair round-trip time in milliseconds */
+  rtt?: number;
+  timestamp: number;
+}
+
 export type ReactorEvent =
   | "statusChanged" //updates on the reactor status
   | "sessionIdChanged" //updates on the session ID.
@@ -48,4 +54,5 @@ export type ReactorEvent =
   | "runtimeMessage" //internal platform-level control messages (e.g. capabilities)
   | "streamChanged" //video stream has changed (LiveKit)
   | "error" //error events with ReactorError details
-  | "sessionExpirationChanged"; //session expiration has changed
+  | "sessionExpirationChanged" //session expiration has changed
+  | "statsUpdate"; //WebRTC stats update (RTT, etc.)
