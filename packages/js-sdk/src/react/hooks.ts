@@ -21,9 +21,7 @@ export function useReactor<T>(selector: (state: ReactorStore) => T): T {
  *
  * @param handler - Callback invoked with each application message payload.
  */
-export function useReactorMessage(
-  handler: (message: any) => void
-): void {
+export function useReactorMessage(handler: (message: any) => void): void {
   const reactor = useReactor((state) => state.internal.reactor);
   const handlerRef = useRef(handler);
 
