@@ -285,9 +285,11 @@ export class Reactor {
     if (!this.machineClient) return;
 
     this.machineClient.on("message", (message: any, scope: MessageScope) => {
-      // The outer envelope has already been stripped by GPUMachineClient.
-      // Forward the inner payload along with its scope to consumers.
-      this.emit("newMessage", message, scope);
+      if (scope === "application") {
+        this.emit("message", message);
+      } else if (scope === "runtime") {
+        this.emit("runtimeMessage", message);
+      }
     });
 
     this.machineClient.on("statusChanged", (status: GPUMachineStatus) => {
