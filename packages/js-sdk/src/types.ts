@@ -44,7 +44,8 @@ export interface ConnectOptions {
 export type ReactorEvent =
   | "statusChanged" //updates on the reactor status
   | "sessionIdChanged" //updates on the session ID.
-  | "newMessage" //new messages from the machine (coordinator handled internally)
+  | "message" //application-scoped messages from the model
+  | "runtimeMessage" //internal platform-level control messages (e.g. capabilities)
   | "streamChanged" //video stream has changed (LiveKit)
   | "error" //error events with ReactorError details
   | "sessionExpirationChanged"; //session expiration has changed
