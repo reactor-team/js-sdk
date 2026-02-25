@@ -330,19 +330,8 @@ export class GPUMachineClient {
       if (!this.peerConnection) return;
       try {
         const report = await this.peerConnection.getStats();
-        report.forEach((stat) => {
-          if (
-            stat.type === "candidate-pair" &&
-            stat.state === "succeeded" &&
-            stat.currentRoundTripTime !== undefined
-          ) {
-            this.stats = {
-              rtt: stat.currentRoundTripTime * 1000,
-              timestamp: Date.now(),
-            };
-            this.emit("statsUpdate", this.stats);
-          }
-        });
+        this.stats = webrtc.extractConnectionStats(report);
+        this.emit("statsUpdate", this.stats);
       } catch {
         // Silently ignore – connection may be closing
       }

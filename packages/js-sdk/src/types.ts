@@ -44,6 +44,16 @@ export interface ConnectOptions {
 export interface ConnectionStats {
   /** ICE candidate-pair round-trip time in milliseconds */
   rtt?: number;
+  /** ICE candidate type: "host", "srflx", "prflx", or "relay" (TURN) */
+  candidateType?: string;
+  /** Estimated available outgoing bitrate in bits/second */
+  availableOutgoingBitrate?: number;
+  /** Received video frames per second */
+  framesPerSecond?: number;
+  /** Ratio of packets lost (0-1) */
+  packetLossRatio?: number;
+  /** Network jitter in seconds (from inbound-rtp) */
+  jitter?: number;
   timestamp: number;
 }
 
