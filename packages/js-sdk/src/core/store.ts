@@ -13,7 +13,13 @@ export type ReactorStoreApi = ReturnType<typeof createReactorStore>;
 
 export interface ReactorState {
   status: ReactorStatus;
-  receivedTracks: Record<string, MediaStreamTrack>;
+  /**
+   * Media tracks received from the model, keyed by track name.
+   *
+   * Each entry maps a declared **receive** track name (e.g. `"main_video"`,
+   * `"main_audio"`) to the live `MediaStreamTrack` delivered by the model.
+   */
+  tracks: Record<string, MediaStreamTrack>;
   lastError?: ReactorError;
   sessionId?: string;
   sessionExpiration?: number;
@@ -51,7 +57,7 @@ export type ReactorStore = ReactorState &
 // In the second case, you pass the auth information directly into the function in the Reactor core.
 export const defaultInitState: ReactorState = {
   status: "disconnected",
-  receivedTracks: {},
+  tracks: {},
   lastError: undefined,
   sessionExpiration: undefined,
   jwtToken: undefined,
@@ -112,7 +118,7 @@ export const createReactorStore = (
         kind: track.kind,
         id: track.id,
       });
-      set({ receivedTracks: { ...get().receivedTracks, [name]: track } });
+      set({ tracks: { ...get().tracks, [name]: track } });
     });
 
     reactor.on("error", (error: ReactorError) => {

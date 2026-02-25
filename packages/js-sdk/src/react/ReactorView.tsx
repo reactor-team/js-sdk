@@ -5,9 +5,15 @@ import { useEffect, useMemo, useRef } from "react";
 import React from "react";
 
 export interface ReactorViewProps {
-  /** The name of the video track to render. Defaults to "video-0". */
-  track?: string;
-  /** Optional: the name of an audio track to play alongside the video (e.g. "audio-0"). */
+  /**
+   * The name of the **receive** track to render.
+   * Must match a track name declared in the `receive` array (model → client).
+   */
+  track: string;
+  /**
+   * Optional name of a **receive** audio track to play alongside the video
+   * (e.g. `"main_audio"`).  The audio is mixed into the same `<video>` element.
+   */
   audioTrack?: string;
   width?: number;
   height?: number;
@@ -21,7 +27,7 @@ export interface ReactorViewProps {
 }
 
 export function ReactorView({
-  track = "video-0",
+  track,
   audioTrack,
   width,
   height,
@@ -31,10 +37,8 @@ export function ReactorView({
   muted = true,
 }: ReactorViewProps) {
   const { videoMediaTrack, audioMediaTrack, status } = useReactor((state) => ({
-    videoMediaTrack: state.receivedTracks[track] ?? null,
-    audioMediaTrack: audioTrack
-      ? (state.receivedTracks[audioTrack] ?? null)
-      : null,
+    videoMediaTrack: state.tracks[track] ?? null,
+    audioMediaTrack: audioTrack ? (state.tracks[audioTrack] ?? null) : null,
     status: state.status,
   }));
 

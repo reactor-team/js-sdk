@@ -5,8 +5,11 @@ import { useEffect, useRef, useState } from "react";
 import React from "react";
 
 export interface WebcamStreamProps {
-  /** The name of the send track to publish the webcam to. Defaults to "webcam". */
-  track?: string;
+  /**
+   * The name of the **send** track to publish the webcam to.
+   * Must match a track name declared in the `send` array (client → model).
+   */
+  track: string;
   className?: string;
   style?: React.CSSProperties;
   videoConstraints?: MediaTrackConstraints;
@@ -17,7 +20,7 @@ export interface WebcamStreamProps {
 }
 
 export function WebcamStream({
-  track = "webcam",
+  track,
   className,
   style,
   videoConstraints = {

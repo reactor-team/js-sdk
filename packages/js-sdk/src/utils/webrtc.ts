@@ -112,7 +112,10 @@ export async function createOffer(
 
   if (trackNames && trackNames.length > 0 && offer.sdp) {
     const munged = rewriteMids(offer.sdp, trackNames);
-    const mungedOffer = new RTCSessionDescription({ type: "offer", sdp: munged });
+    const mungedOffer = new RTCSessionDescription({
+      type: "offer",
+      sdp: munged,
+    });
     await pc.setLocalDescription(mungedOffer);
   } else {
     await pc.setLocalDescription(offer);
