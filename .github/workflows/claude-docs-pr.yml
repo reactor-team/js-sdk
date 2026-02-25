@@ -38,6 +38,7 @@ jobs:
           DOCS_REPO_PAT: ${{ secrets.DOCS_REPO_PAT }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: claude-opus-4-6
           track_progress: true
           prompt: |
             REPO: ${{ github.repository }}
@@ -47,7 +48,7 @@ jobs:
             PR AUTHOR: ${{ github.event.pull_request.user.login }}
             PR URL: ${{ github.server_url }}/${{ github.repository }}/pull/${{ github.event.pull_request.number }}
 
-            You are a documentation engineer. A PR has just been merged in this SDK repository. Your job is to determine if the public documentation needs updating, and if so, create a PR to the docs repo with the necessary changes.
+            You are an expert documentation engineer. A PR has just been merged in this SDK repository. Your job is to determine if the public documentation needs updating, and if so, create a PR to the docs repo with the necessary changes.
 
             ## Context
 
