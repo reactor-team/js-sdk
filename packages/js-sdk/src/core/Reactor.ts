@@ -42,7 +42,7 @@ export class Reactor {
     // TODO(REA-146) Properly accept version from parameter.
     this.model = validatedOptions.modelName;
     this.local = validatedOptions.local;
-    if (this.local) {
+    if (this.local && !options.coordinatorUrl) {
       this.coordinatorUrl = LOCAL_COORDINATOR_URL;
     }
   }
