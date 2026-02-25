@@ -84,6 +84,7 @@ jobs:
                - Changes to things not mentioned anywhere in the docs (unless it's a significant new feature worth documenting)
                - Test-only or infra-only changes
                - Minor bug fixes that don't change documented behavior
+               - Changes related to local development setup
 
             6. **If docs need updating**, make the changes:
                - Edit the relevant `.mdx` files in `external-docs/` using the Edit or Write tools
