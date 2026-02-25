@@ -1,0 +1,125 @@
+name: Claude Docs PR
+
+on:
+  pull_request:
+    types: [closed]
+  workflow_call:
+
+jobs:
+  claude-docs-pr:
+    # Only run on merged PRs; skip [skip-claude] or [skip-docs-check] in title
+    if: |
+      github.event.pull_request.merged == true &&
+      !contains(github.event.pull_request.title, '[skip-claude]') &&
+      !contains(github.event.pull_request.title, '[skip-docs-check]')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout public docs repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/docs
+          path: external-docs
+          token: ${{ secrets.DOCS_REPO_PAT }}
+
+      - name: Create docs PR if needed
+        id: claude-docs-pr
+        uses: anthropics/claude-code-action@v1
+        env:
+          DOCS_REPO_PAT: ${{ secrets.DOCS_REPO_PAT }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: claude-opus-4-6
+          track_progress: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            REPO_NAME: ${{ github.event.repository.name }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+            PR TITLE: ${{ github.event.pull_request.title }}
+            PR AUTHOR: ${{ github.event.pull_request.user.login }}
+            PR URL: ${{ github.server_url }}/${{ github.repository }}/pull/${{ github.event.pull_request.number }}
+
+            You are an expert documentation engineer. A PR has just been merged in this SDK repository. Your job is to determine if the public documentation needs updating, and if so, create a PR to the docs repo with the necessary changes.
+
+            ## Context
+
+            The public docs repo is checked out at `external-docs/`. It is a Mintlify site covering:
+            - `external-docs/api-reference/` — JS SDK types, React hooks, React components, Reactor class, events, Python SDK decorators and types
+            - `external-docs/javascript-guide.mdx` — JS SDK usage guide
+            - `external-docs/python-guide.mdx` — Python SDK usage guide
+            - `external-docs/quickstart.mdx` — Getting started guide
+            - `external-docs/authentication.mdx` — Auth flow documentation
+            - `external-docs/models/` — Per-model documentation
+            - `external-docs/runtime/` — Runtime concepts, guides, and quickstart
+            - `external-docs/llms.txt` — LLM-readable summary of the full API surface
+
+            ## Instructions
+
+            1. Review the merged PR to understand what changed:
+               - Run: `gh pr view ${{ github.event.pull_request.number }}`
+               - Run: `gh pr diff ${{ github.event.pull_request.number }}`
+
+            2. Read `external-docs/llms.txt` to understand the full API surface.
+
+            3. Read the relevant `.mdx` files in `external-docs/` that may be affected by the changes.
+
+            4. Determine if the PR changes affect documented behavior. Look for:
+               - **Renamed or removed exports**: A function, class, hook, or type referenced by name in the docs no longer exists or was renamed
+               - **Changed signatures**: A method's parameters, return type, or behavior changed in a way that contradicts what the docs describe
+               - **Removed features**: Something the docs say is supported is no longer supported
+               - **Changed defaults or behavior**: The docs describe a default or behavior that this PR changes
+               - **New required parameters**: Something the docs show as optional or absent is now required
+               - **New features or APIs**: The PR adds a new user-facing feature, hook, component, decorator, or API that should be documented
+
+            5. **DO NOT create a PR for**:
+               - Internal refactors with no impact on the public API surface
+               - Changes to things not mentioned anywhere in the docs (unless it's a significant new feature worth documenting)
+               - Test-only or infra-only changes
+               - Minor bug fixes that don't change documented behavior
+               - Changes related to local development setup
+
+            6. **If docs need updating**, make the changes:
+               - Edit the relevant `.mdx` files in `external-docs/` using the Edit or Write tools
+               - Update `external-docs/llms.txt` if the changes affect the API surface described there
+               - Ensure your edits are accurate, concise, and match the existing documentation style
+
+            7. **After making edits**, create a PR to the docs repo by running these commands one at a time:
+               ```
+               cd external-docs && git checkout -b docs/auto-update-${{ github.event.repository.name }}-pr-${{ github.event.pull_request.number }}
+               cd external-docs && git add -A
+               cd external-docs && git commit -m "docs: update for ${{ github.event.repository.name }}#${{ github.event.pull_request.number }}"
+               cd external-docs && git push -u origin docs/auto-update-${{ github.event.repository.name }}-pr-${{ github.event.pull_request.number }}
+               ```
+
+               Then create the PR:
+               ```
+               cd external-docs && GH_TOKEN=$DOCS_REPO_PAT gh pr create \
+                 --title "docs: update for ${{ github.event.repository.name }}#${{ github.event.pull_request.number }}" \
+                 --body "## Auto-generated docs update
+
+               Triggered by the merge of ${{ github.server_url }}/${{ github.repository }}/pull/${{ github.event.pull_request.number }}
+
+               **Original PR:** ${{ github.event.pull_request.title }} (by @${{ github.event.pull_request.user.login }})
+
+               ### Changes
+               <summarize what you updated and why>
+
+               ---
+               *This PR was auto-generated by Claude.*"
+               ```
+
+               Replace `<summarize what you updated and why>` with an actual summary of the doc changes you made.
+
+            8. **If no docs updates are needed, do nothing.** Do not create an empty PR or a PR with no meaningful changes.
+
+          claude_args: |
+            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(cd external-docs:*)"
