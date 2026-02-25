@@ -5,6 +5,7 @@ import {
   type ReactorError,
   type MessageScope,
   type ConnectOptions,
+  type ConnectionStats,
   ConflictError,
 } from "../types";
 import { CoordinatorClient } from "./CoordinatorClient";
@@ -318,6 +319,10 @@ export class Reactor {
         this.emit("streamChanged", track, stream);
       }
     );
+
+    this.machineClient.on("statsUpdate", (stats: ConnectionStats) => {
+      this.emit("statsUpdate", stats);
+    });
   }
 
   /**
@@ -414,6 +419,10 @@ export class Reactor {
    */
   getLastError(): ReactorError | undefined {
     return this.lastError;
+  }
+
+  getStats(): ConnectionStats | undefined {
+    return this.machineClient?.getStats();
   }
 
   /**

@@ -1,7 +1,8 @@
 import { useReactorStore } from "./ReactorProvider";
 import type { ReactorStore } from "../core/store";
+import type { ConnectionStats } from "../types";
 import { useShallow } from "zustand/shallow";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Generic hook for accessing selected parts of the Reactor store.
@@ -73,4 +74,28 @@ export function useReactorInternalMessage(
       reactor.off("runtimeMessage", stableHandler);
     };
   }, [reactor]);
+}
+
+/**
+ * Hook that returns the current connection stats (RTT, etc.).
+ * Updates every ~2s while connected. Returns undefined when disconnected.
+ */
+export function useStats(): ConnectionStats | undefined {
+  const reactor = useReactor((state) => state.internal.reactor);
+  const [stats, setStats] = useState<ConnectionStats | undefined>(undefined);
+
+  useEffect(() => {
+    const handler = (newStats: ConnectionStats) => {
+      setStats(newStats);
+    };
+
+    reactor.on("statsUpdate", handler);
+
+    return () => {
+      reactor.off("statsUpdate", handler);
+      setStats(undefined);
+    };
+  }, [reactor]);
+
+  return stats;
 }
