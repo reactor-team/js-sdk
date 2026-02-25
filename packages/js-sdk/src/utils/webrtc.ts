@@ -4,7 +4,7 @@
  */
 
 import { IceServersResponse } from "../core/types";
-import type { MessageScope } from "../types";
+import type { MessageScope, ConnectionStats } from "../types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration
@@ -289,4 +289,70 @@ export function isClosed(pc: RTCPeerConnection): boolean {
  */
 export function closePeerConnection(pc: RTCPeerConnection): void {
   pc.close();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stats Extraction
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Extracts ConnectionStats from an RTCStatsReport.
+ * Reads candidate-pair, local-candidate, and inbound-rtp (video) reports.
+ */
+export function extractConnectionStats(
+  report: RTCStatsReport
+): ConnectionStats {
+  let rtt: number | undefined;
+  let availableOutgoingBitrate: number | undefined;
+  let localCandidateId: string | undefined;
+  let framesPerSecond: number | undefined;
+  let jitter: number | undefined;
+  let packetLossRatio: number | undefined;
+
+  report.forEach((stat) => {
+    if (stat.type === "candidate-pair" && stat.state === "succeeded") {
+      if (stat.currentRoundTripTime !== undefined) {
+        rtt = stat.currentRoundTripTime * 1000;
+      }
+      if (stat.availableOutgoingBitrate !== undefined) {
+        availableOutgoingBitrate = stat.availableOutgoingBitrate;
+      }
+      localCandidateId = stat.localCandidateId;
+    }
+
+    if (stat.type === "inbound-rtp" && stat.kind === "video") {
+      if (stat.framesPerSecond !== undefined) {
+        framesPerSecond = stat.framesPerSecond;
+      }
+      if (stat.jitter !== undefined) {
+        jitter = stat.jitter;
+      }
+      if (
+        stat.packetsReceived !== undefined &&
+        stat.packetsLost !== undefined &&
+        stat.packetsReceived + stat.packetsLost > 0
+      ) {
+        packetLossRatio =
+          stat.packetsLost / (stat.packetsReceived + stat.packetsLost);
+      }
+    }
+  });
+
+  let candidateType: string | undefined;
+  if (localCandidateId) {
+    const localCandidate = report.get(localCandidateId);
+    if (localCandidate?.candidateType) {
+      candidateType = localCandidate.candidateType;
+    }
+  }
+
+  return {
+    rtt,
+    candidateType,
+    availableOutgoingBitrate,
+    framesPerSecond,
+    packetLossRatio,
+    jitter,
+    timestamp: Date.now(),
+  };
 }

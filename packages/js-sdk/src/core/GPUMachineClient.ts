@@ -4,7 +4,7 @@
  */
 
 import * as webrtc from "../utils/webrtc";
-import type { MessageScope } from "../types";
+import type { MessageScope, ConnectionStats } from "../types";
 
 type EventHandler = (...args: any[]) => void;
 
@@ -12,7 +12,8 @@ export type GPUMachineEvent =
   | "statusChanged"
   | "trackReceived"
   | "trackRemoved"
-  | "message";
+  | "message"
+  | "statsUpdate";
 
 export type GPUMachineStatus =
   | "disconnected"
@@ -25,6 +26,7 @@ export type GPUMachineStatus =
  * to the server so the runtime can detect stale connections quickly.
  */
 const PING_INTERVAL_MS = 5_000;
+const STATS_INTERVAL_MS = 2_000;
 
 export class GPUMachineClient {
   private eventListeners: Map<GPUMachineEvent, Set<EventHandler>> = new Map();
@@ -35,6 +37,8 @@ export class GPUMachineClient {
   private videoTransceiver: RTCRtpTransceiver | undefined;
   private config: webrtc.WebRTCConfig;
   private pingInterval: ReturnType<typeof setInterval> | undefined;
+  private statsInterval: ReturnType<typeof setInterval> | undefined;
+  private stats: ConnectionStats | undefined;
 
   constructor(config: webrtc.WebRTCConfig) {
     this.config = config;
@@ -126,6 +130,7 @@ export class GPUMachineClient {
    */
   async disconnect(): Promise<void> {
     this.stopPing();
+    this.stopStatsPolling();
 
     if (this.publishedTrack) {
       await this.unpublishTrack();
@@ -312,6 +317,36 @@ export class GPUMachineClient {
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
+  // Stats Polling (RTT)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  getStats(): ConnectionStats | undefined {
+    return this.stats;
+  }
+
+  private startStatsPolling(): void {
+    this.stopStatsPolling();
+    this.statsInterval = setInterval(async () => {
+      if (!this.peerConnection) return;
+      try {
+        const report = await this.peerConnection.getStats();
+        this.stats = webrtc.extractConnectionStats(report);
+        this.emit("statsUpdate", this.stats);
+      } catch {
+        // Silently ignore – connection may be closing
+      }
+    }, STATS_INTERVAL_MS);
+  }
+
+  private stopStatsPolling(): void {
+    if (this.statsInterval !== undefined) {
+      clearInterval(this.statsInterval);
+      this.statsInterval = undefined;
+    }
+    this.stats = undefined;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
   // Private Helpers
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -333,6 +368,7 @@ export class GPUMachineClient {
         switch (state) {
           case "connected":
             this.setStatus("connected");
+            this.startStatsPolling();
             break;
           case "disconnected":
           case "closed":
