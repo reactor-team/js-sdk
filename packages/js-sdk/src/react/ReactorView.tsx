@@ -8,8 +8,9 @@ export interface ReactorViewProps {
   /**
    * The name of the **receive** track to render.
    * Must match a track name declared in the `receive` array (model → client).
+   * Defaults to `"main_video"`.
    */
-  track: string;
+  track?: string;
   /**
    * Optional name of a **receive** audio track to play alongside the video
    * (e.g. `"main_audio"`).  The audio is mixed into the same `<video>` element.
@@ -27,7 +28,7 @@ export interface ReactorViewProps {
 }
 
 export function ReactorView({
-  track,
+  track = "main_video",
   audioTrack,
   width,
   height,

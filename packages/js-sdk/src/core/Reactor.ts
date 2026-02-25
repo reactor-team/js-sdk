@@ -30,8 +30,13 @@ const OptionsSchema = z.object({
    * Tracks the client **RECEIVES** from the model (model → client).
    * Each entry produces a `recvonly` transceiver.
    * Names must be unique across both `receive` and `send`.
+   *
+   * When omitted, defaults to a single video track named `"main_video"`.
+   * Pass an explicit empty array to opt out of the default.
    */
-  receive: z.array(TrackConfigSchema).default([]),
+  receive: z
+    .array(TrackConfigSchema)
+    .default([{ name: "main_video", kind: "video" }]),
   /**
    * Tracks the client **SENDS** to the model (client → model).
    * Each entry produces a `sendonly` transceiver.

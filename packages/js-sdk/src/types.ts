@@ -59,6 +59,9 @@ export interface AudioTrackOptions {
  * @param name    - The track name.  Must match the model's declared track attribute name.
  * @param options - Reserved for future constraints (e.g. `maxFramerate`).
  *
+ * When no `receive` array is provided to the Reactor constructor, a single
+ * `video("main_video")` track is used by default.
+ *
  * @example
  * ```ts
  * receive: [video("main_video")]          // receive video from the model
