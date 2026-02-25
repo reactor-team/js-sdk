@@ -28,14 +28,14 @@ const OptionsSchema = z.object({
   local: z.boolean().default(false),
   /**
    * Tracks the client **RECEIVES** from the model (model → client).
-   * Each entry produces a `recvonly` transceiver (or `sendrecv` if the
-   * same name also appears in `send`).
+   * Each entry produces a `recvonly` transceiver.
+   * Names must be unique across both `receive` and `send`.
    */
   receive: z.array(TrackConfigSchema).default([]),
   /**
    * Tracks the client **SENDS** to the model (client → model).
-   * Each entry produces a `sendonly` transceiver (or `sendrecv` if the
-   * same name also appears in `receive`).
+   * Each entry produces a `sendonly` transceiver.
+   * Names must be unique across both `receive` and `send`.
    */
   send: z.array(TrackConfigSchema).default([]),
 });
