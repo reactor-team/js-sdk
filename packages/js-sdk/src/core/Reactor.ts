@@ -5,7 +5,7 @@ import {
   type ReactorError,
   type MessageScope,
   type ConnectOptions,
-  type TracksConfig,
+  type TrackConfig,
   type ConnectionStats,
   ConflictError,
 } from "../types";
@@ -22,21 +22,22 @@ const TrackConfigSchema = z.object({
   kind: z.enum(["audio", "video"]),
 });
 
-const TracksConfigSchema = z.object({
-  send: z.array(TrackConfigSchema).default([]),
-  receive: z.array(TrackConfigSchema).default([]),
-});
-
-const DEFAULT_TRACKS: TracksConfig = {
-  send: [],
-  receive: [{ name: "video-0", kind: "video" }],
-};
-
 const OptionsSchema = z.object({
   coordinatorUrl: z.string().default(PROD_COORDINATOR_URL),
   modelName: z.string(),
   local: z.boolean().default(false),
-  tracks: TracksConfigSchema.default(DEFAULT_TRACKS),
+  /**
+   * Tracks the client **RECEIVES** from the model (model → client).
+   * Each entry produces a `recvonly` transceiver (or `sendrecv` if the
+   * same name also appears in `send`).
+   */
+  receive: z.array(TrackConfigSchema).default([]),
+  /**
+   * Tracks the client **SENDS** to the model (client → model).
+   * Each entry produces a `sendonly` transceiver (or `sendrecv` if the
+   * same name also appears in `receive`).
+   */
+  send: z.array(TrackConfigSchema).default([]),
 });
 export type Options = z.input<typeof OptionsSchema>;
 
@@ -51,7 +52,10 @@ export class Reactor {
   private model: string;
   private sessionExpiration?: number;
   private local: boolean;
-  private tracks: TracksConfig;
+  /** Tracks the client RECEIVES from the model (model → client). */
+  private receive: TrackConfig[];
+  /** Tracks the client SENDS to the model (client → model). */
+  private send: TrackConfig[];
   private sessionId?: string;
 
   constructor(options: Options) {
@@ -61,7 +65,8 @@ export class Reactor {
     // TODO(REA-146) Properly accept version from parameter.
     this.model = validatedOptions.modelName;
     this.local = validatedOptions.local;
-    this.tracks = validatedOptions.tracks;
+    this.receive = validatedOptions.receive;
+    this.send = validatedOptions.send;
     if (this.local) {
       this.coordinatorUrl = LOCAL_COORDINATOR_URL;
     }
@@ -190,8 +195,10 @@ export class Reactor {
       this.setupMachineClientHandlers();
     }
 
-    // We always calculate a new offer for reconnection.
-    const sdpOffer = await this.machineClient.createOffer(this.tracks);
+    const sdpOffer = await this.machineClient.createOffer({
+      send: this.send,
+      receive: this.receive,
+    });
 
     // Send offer to coordinator and get answer.
     try {
@@ -259,7 +266,10 @@ export class Reactor {
       this.machineClient = new GPUMachineClient({ iceServers });
       this.setupMachineClientHandlers();
 
-      const sdpOffer = await this.machineClient.createOffer(this.tracks);
+      const sdpOffer = await this.machineClient.createOffer({
+        send: this.send,
+        receive: this.receive,
+      });
 
       // Create session passing SDP offer. We will get the answer polling the sdp_offer endpoint.
       const sessionId = await this.coordinatorClient.createSession(sdpOffer);

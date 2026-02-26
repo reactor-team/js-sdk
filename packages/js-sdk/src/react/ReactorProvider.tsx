@@ -57,7 +57,7 @@ export function ReactorProvider({
   // Destructure connectOptions with defaults
   const { autoConnect = false, ...pollingOptions } = connectOptions ?? {};
 
-  const { coordinatorUrl, modelName, local, tracks } = props;
+  const { coordinatorUrl, modelName, local, receive, send } = props;
   const maxAttempts = pollingOptions.maxAttempts;
 
   // Handle page unload (refresh, close, navigate away) with non-recoverable disconnect
@@ -134,7 +134,8 @@ export function ReactorProvider({
         coordinatorUrl,
         modelName,
         local,
-        tracks,
+        receive,
+        send,
         jwtToken,
       } satisfies ReactorInitializationProps)
     );
@@ -184,7 +185,8 @@ export function ReactorProvider({
     modelName,
     autoConnect,
     local,
-    tracks,
+    receive,
+    send,
     jwtToken,
     maxAttempts,
   ]);

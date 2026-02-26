@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
+
 export type ReactorStatus =
   | "disconnected" // Not connected to anything
   | "connecting" // Establishing connection to coordinator
@@ -13,6 +15,13 @@ export type MessageScope = "application" | "runtime";
 
 /**
  * Describes a single named media track for SDP negotiation.
+ *
+ * Track names must exactly match the class attribute names defined on the
+ * model's Python code.  The name is encoded as the SDP MID so both sides
+ * can route media by name rather than by positional index.
+ *
+ * Use the {@link video} and {@link audio} helper functions to create
+ * instances instead of constructing this interface directly.
  */
 export interface TrackConfig {
   name: string;
@@ -20,16 +29,69 @@ export interface TrackConfig {
 }
 
 /**
- * Declares the media tracks for a Reactor session.
- *
- * - `send`: tracks the client publishes towards the model.
- * - `receive`: tracks the client receives from the model.
- *
- * Tracks appear in the SDP offer in declaration order.
+ * Optional configuration for a video track (reserved for future use).
  */
-export interface TracksConfig {
-  send: TrackConfig[];
-  receive: TrackConfig[];
+export interface VideoTrackOptions {
+  /** Maximum framerate constraint for the video track. */
+  maxFramerate?: number;
+}
+
+/**
+ * Optional configuration for an audio track (reserved for future use).
+ */
+export interface AudioTrackOptions {
+  /** Sample rate constraint for the audio track. */
+  sampleRate?: number;
+}
+
+/**
+ * Creates a **video** {@link TrackConfig}.
+ *
+ * A track declared in the **`receive`** array means the client will
+ * **RECEIVE** video frames **from the model** (model → client).
+ *
+ * A track declared in the **`send`** array means the client will
+ * **SEND** video frames **to the model** (client → model).
+ *
+ * If the same name appears in both `receive` and `send`, a single
+ * bidirectional (`sendrecv`) WebRTC transceiver is negotiated.
+ *
+ * @param name    - The track name.  Must match the model's declared track attribute name.
+ * @param options - Reserved for future constraints (e.g. `maxFramerate`).
+ *
+ * @example
+ * ```ts
+ * receive: [video("main_video")]          // receive video from the model
+ * send:    [video("webcam")]              // send webcam video to the model
+ * ```
+ */
+export function video(name: string, _options?: VideoTrackOptions): TrackConfig {
+  return { name, kind: "video" };
+}
+
+/**
+ * Creates an **audio** {@link TrackConfig}.
+ *
+ * A track declared in the **`receive`** array means the client will
+ * **RECEIVE** audio samples **from the model** (model → client).
+ *
+ * A track declared in the **`send`** array means the client will
+ * **SEND** audio samples **to the model** (client → model).
+ *
+ * If the same name appears in both `receive` and `send`, a single
+ * bidirectional (`sendrecv`) WebRTC transceiver is negotiated.
+ *
+ * @param name    - The track name.  Must match the model's declared track attribute name.
+ * @param options - Reserved for future constraints (e.g. `sampleRate`).
+ *
+ * @example
+ * ```ts
+ * receive: [audio("main_audio")]          // receive audio from the model
+ * send:    [audio("mic")]                 // send microphone audio to the model
+ * ```
+ */
+export function audio(name: string, _options?: AudioTrackOptions): TrackConfig {
+  return { name, kind: "audio" };
 }
 
 export interface ReactorError {
@@ -81,7 +143,7 @@ export type ReactorEvent =
   | "sessionIdChanged" //updates on the session ID.
   | "message" //application-scoped messages from the model
   | "runtimeMessage" //internal platform-level control messages (e.g. capabilities)
-  | "trackReceived"  // (name: string, track: MediaStreamTrack, stream: MediaStream)
+  | "trackReceived" // (name: string, track: MediaStreamTrack, stream: MediaStream)
   | "error" //error events with ReactorError details
   | "sessionExpirationChanged" //session expiration has changed
   | "statsUpdate"; //WebRTC stats update (RTT, etc.)

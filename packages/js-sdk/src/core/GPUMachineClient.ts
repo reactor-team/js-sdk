@@ -1,12 +1,13 @@
 /**
  * Handles the direct WebRTC connection to a GPU machine instance.
  *
- * Transceivers are created from the declared {@link TracksConfig} and
- * keyed by track name so that publish/unpublish/receive all route by name.
+ * Transceivers are created from the declared `receive` and `send` track
+ * arrays and keyed by track name so that publish/unpublish/receive all
+ * route by name.
  */
 
 import * as webrtc from "../utils/webrtc";
-import type { MessageScope, TracksConfig, ConnectionStats } from "../types";
+import type { MessageScope, TrackConfig, ConnectionStats } from "../types";
 
 type EventHandler = (...args: any[]) => void;
 
@@ -80,15 +81,18 @@ export class GPUMachineClient {
   /**
    * Creates an SDP offer based on the declared tracks.
    *
-   * Transceivers are added in a deterministic order:
-   * 1. Tracks that appear in both `receive` and `send` → `sendrecv`
-   * 2. Receive-only tracks → `recvonly`
-   * 3. Send-only tracks → `sendonly`
+   * **RECEIVE** = client receives from the model (model → client) → `recvonly`
+   * **SEND**    = client sends to the model (client → model)     → `sendonly`
+   *
+   * A track name in both arrays negotiates a single `sendrecv` transceiver.
    *
    * The data channel is always created first (before transceivers).
    * Must be called before connect().
    */
-  async createOffer(tracks: TracksConfig): Promise<string> {
+  async createOffer(tracks: {
+    send: TrackConfig[];
+    receive: TrackConfig[];
+  }): Promise<string> {
     // Create peer connection if not exists
     if (!this.peerConnection) {
       this.peerConnection = webrtc.createPeerConnection(this.config);
@@ -120,15 +124,21 @@ export class GPUMachineClient {
 
     const trackNames = entries.map((e) => e.name);
     const offer = await webrtc.createOffer(this.peerConnection, trackNames);
-    console.debug("[GPUMachineClient] Created SDP offer with MIDs:", trackNames);
+    console.debug(
+      "[GPUMachineClient] Created SDP offer with MIDs:",
+      trackNames
+    );
     return offer;
   }
 
   /**
-   * Builds an ordered list of transceiver entries from the tracks config.
-   * Merges send+receive entries that share a name into sendrecv.
+   * Builds an ordered list of transceiver entries from the receive/send arrays.
+   * Merges send+receive entries that share a name into a single sendrecv entry.
    */
-  private buildTransceiverEntries(tracks: TracksConfig): TransceiverEntry[] {
+  private buildTransceiverEntries(tracks: {
+    send: TrackConfig[];
+    receive: TrackConfig[];
+  }): TransceiverEntry[] {
     const map = new Map<string, TransceiverEntry>();
 
     for (const t of tracks.receive) {
