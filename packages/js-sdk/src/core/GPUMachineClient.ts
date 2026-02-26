@@ -1,10 +1,12 @@
 /**
- * The GPUMachineClient is responsible for handling the direct connection to the machine instance
- * after the coordinator has assigned a machine.
+ * Handles the direct WebRTC connection to a GPU machine instance.
+ *
+ * Transceivers are created from the declared {@link TracksConfig} and
+ * keyed by track name so that publish/unpublish/receive all route by name.
  */
 
 import * as webrtc from "../utils/webrtc";
-import type { MessageScope, ConnectionStats } from "../types";
+import type { MessageScope, TracksConfig, ConnectionStats } from "../types";
 
 type EventHandler = (...args: any[]) => void;
 
@@ -26,6 +28,13 @@ export type GPUMachineStatus =
  * to the server so the runtime can detect stale connections quickly.
  */
 const PING_INTERVAL_MS = 5_000;
+
+interface TransceiverEntry {
+  name: string;
+  kind: "audio" | "video";
+  direction: RTCRtpTransceiverDirection;
+  transceiver?: RTCRtpTransceiver;
+}
 const STATS_INTERVAL_MS = 2_000;
 
 export class GPUMachineClient {
@@ -33,10 +42,13 @@ export class GPUMachineClient {
   private peerConnection: RTCPeerConnection | undefined;
   private dataChannel: RTCDataChannel | undefined;
   private status: GPUMachineStatus = "disconnected";
-  private publishedTrack: MediaStreamTrack | undefined;
-  private videoTransceiver: RTCRtpTransceiver | undefined;
   private config: webrtc.WebRTCConfig;
   private pingInterval: ReturnType<typeof setInterval> | undefined;
+
+  private transceiverMap: Map<string, TransceiverEntry> = new Map();
+  private publishedTracks: Map<string, MediaStreamTrack> = new Map();
+  private receiveTrackNames: string[] = [];
+  private receiveTrackIndex: number = 0;
   private statsInterval: ReturnType<typeof setInterval> | undefined;
   private stats: ConnectionStats | undefined;
 
@@ -68,10 +80,17 @@ export class GPUMachineClient {
   // ─────────────────────────────────────────────────────────────────────────────
 
   /**
-   * Creates an SDP offer for initiating a connection.
+   * Creates an SDP offer based on the declared tracks.
+   *
+   * Transceivers are added in a deterministic order:
+   * 1. Tracks that appear in both `receive` and `send` → `sendrecv`
+   * 2. Receive-only tracks → `recvonly`
+   * 3. Send-only tracks → `sendonly`
+   *
+   * The data channel is always created first (before transceivers).
    * Must be called before connect().
    */
-  async createOffer(): Promise<string> {
+  async createOffer(tracks: TracksConfig): Promise<string> {
     // Create peer connection if not exists
     if (!this.peerConnection) {
       this.peerConnection = webrtc.createPeerConnection(this.config);
@@ -85,14 +104,54 @@ export class GPUMachineClient {
     );
     this.setupDataChannelHandlers();
 
-    // Add sendrecv video transceiver for bidirectional video
-    this.videoTransceiver = this.peerConnection.addTransceiver("video", {
-      direction: "sendrecv",
-    });
+    this.transceiverMap.clear();
+    this.receiveTrackNames = [];
+    this.receiveTrackIndex = 0;
+
+    const entries = this.buildTransceiverEntries(tracks);
+
+    for (const entry of entries) {
+      const transceiver = this.peerConnection.addTransceiver(entry.kind, {
+        direction: entry.direction,
+      });
+      entry.transceiver = transceiver;
+      this.transceiverMap.set(entry.name, entry);
+
+      if (entry.direction === "recvonly" || entry.direction === "sendrecv") {
+        this.receiveTrackNames.push(entry.name);
+      }
+
+      console.debug(
+        `[GPUMachineClient] Transceiver added: "${entry.name}" (${entry.kind}, ${entry.direction})`
+      );
+    }
 
     const offer = await webrtc.createOffer(this.peerConnection);
     console.debug("[GPUMachineClient] Created SDP offer");
     return offer;
+  }
+
+  /**
+   * Builds an ordered list of transceiver entries from the tracks config.
+   * Merges send+receive entries that share a name into sendrecv.
+   */
+  private buildTransceiverEntries(tracks: TracksConfig): TransceiverEntry[] {
+    const map = new Map<string, TransceiverEntry>();
+
+    for (const t of tracks.receive) {
+      map.set(t.name, { name: t.name, kind: t.kind, direction: "recvonly" });
+    }
+
+    for (const t of tracks.send) {
+      const existing = map.get(t.name);
+      if (existing) {
+        existing.direction = "sendrecv";
+      } else {
+        map.set(t.name, { name: t.name, kind: t.kind, direction: "sendonly" });
+      }
+    }
+
+    return Array.from(map.values());
   }
 
   /**
@@ -132,8 +191,8 @@ export class GPUMachineClient {
     this.stopPing();
     this.stopStatsPolling();
 
-    if (this.publishedTrack) {
-      await this.unpublishTrack();
+    for (const name of Array.from(this.publishedTracks.keys())) {
+      await this.unpublishTrack(name);
     }
 
     if (this.dataChannel) {
@@ -146,7 +205,9 @@ export class GPUMachineClient {
       this.peerConnection = undefined;
     }
 
-    this.videoTransceiver = undefined;
+    this.transceiverMap.clear();
+    this.receiveTrackNames = [];
+    this.receiveTrackIndex = 0;
     this.setStatus("disconnected");
     console.debug("[GPUMachineClient] Disconnected");
   }
@@ -178,7 +239,7 @@ export class GPUMachineClient {
   /**
    * Sends a command to the GPU machine via the data channel.
    * @param command The command to send
-   * @param data The data to send with the command. These are the parameters for the command, matching the scheme in the capabilities dictionary.
+   * @param data The data to send with the command. These are the parameters for the command, matching the schema in the capabilities dictionary.
    * @param scope The message scope – "application" (default) for model commands, "runtime" for platform-level messages.
    */
   sendCommand(
@@ -202,68 +263,83 @@ export class GPUMachineClient {
   // ─────────────────────────────────────────────────────────────────────────────
 
   /**
-   * Publishes a track to the GPU machine.
-   * Only one track can be published at a time.
-   * Uses the existing transceiver's sender to replace the track.
-   * @param track The MediaStreamTrack to publish
+   * Publishes a MediaStreamTrack to the named send track.
+   *
+   * @param name The declared track name (must exist in transceiverMap with a sendable direction).
+   * @param track The MediaStreamTrack to publish.
    */
-  async publishTrack(track: MediaStreamTrack): Promise<void> {
+  async publishTrack(name: string, track: MediaStreamTrack): Promise<void> {
     if (!this.peerConnection) {
       throw new Error(
-        "[GPUMachineClient] Cannot publish track - not initialized"
+        `[GPUMachineClient] Cannot publish track "${name}" - not initialized`
       );
     }
 
     if (this.status !== "connected") {
       throw new Error(
-        "[GPUMachineClient] Cannot publish track - not connected"
+        `[GPUMachineClient] Cannot publish track "${name}" - not connected`
       );
     }
 
-    if (!this.videoTransceiver) {
+    const entry = this.transceiverMap.get(name);
+    if (!entry || !entry.transceiver) {
       throw new Error(
-        "[GPUMachineClient] Cannot publish track - no video transceiver"
+        `[GPUMachineClient] Cannot publish track "${name}" - no transceiver (was it declared in tracks.send?)`
+      );
+    }
+
+    if (entry.direction === "recvonly") {
+      throw new Error(
+        `[GPUMachineClient] Cannot publish track "${name}" - transceiver is recvonly`
       );
     }
 
     try {
-      // Use replaceTrack on the existing transceiver's sender
-      // This doesn't require renegotiation
-      await this.videoTransceiver.sender.replaceTrack(track);
-      this.publishedTrack = track;
+      // Use replaceTrack on the existing transceiver's sender.
+      // This doesn't require renegotiation.
+      await entry.transceiver.sender.replaceTrack(track);
+      this.publishedTracks.set(name, track);
       console.debug(
-        "[GPUMachineClient] Track published successfully:",
-        track.kind
+        `[GPUMachineClient] Track "${name}" published successfully`
       );
     } catch (error) {
-      console.error("[GPUMachineClient] Failed to publish track:", error);
+      console.error(
+        `[GPUMachineClient] Failed to publish track "${name}":`,
+        error
+      );
       throw error;
     }
   }
 
   /**
-   * Unpublishes the currently published track.
+   * Unpublishes the track with the given name.
    */
-  async unpublishTrack(): Promise<void> {
-    if (!this.videoTransceiver || !this.publishedTrack) return;
+  async unpublishTrack(name: string): Promise<void> {
+    const entry = this.transceiverMap.get(name);
+    if (!entry?.transceiver || !this.publishedTracks.has(name)) return;
 
     try {
       // Replace with null to stop sending without renegotiation
-      await this.videoTransceiver.sender.replaceTrack(null);
-      console.debug("[GPUMachineClient] Track unpublished successfully");
+      await entry.transceiver.sender.replaceTrack(null);
+      console.debug(
+        `[GPUMachineClient] Track "${name}" unpublished successfully`
+      );
     } catch (error) {
-      console.error("[GPUMachineClient] Failed to unpublish track:", error);
+      console.error(
+        `[GPUMachineClient] Failed to unpublish track "${name}":`,
+        error
+      );
       throw error;
     } finally {
-      this.publishedTrack = undefined;
+      this.publishedTracks.delete(name);
     }
   }
 
   /**
-   * Returns the currently published track.
+   * Returns the currently published track for the given name.
    */
-  getPublishedTrack(): MediaStreamTrack | undefined {
-    return this.publishedTrack;
+  getPublishedTrack(name: string): MediaStreamTrack | undefined {
+    return this.publishedTracks.get(name);
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -300,7 +376,7 @@ export class GPUMachineClient {
         try {
           webrtc.sendMessage(this.dataChannel, "ping", {}, "runtime");
         } catch {
-          // Silently ignore – data channel may be closing
+          // Silently ignore -- data channel may be closing
         }
       }
     }, PING_INTERVAL_MS);
@@ -382,9 +458,17 @@ export class GPUMachineClient {
     };
 
     this.peerConnection.ontrack = (event) => {
-      console.debug("[GPUMachineClient] Track received:", event.track.kind);
+      const trackName =
+        this.receiveTrackIndex < this.receiveTrackNames.length
+          ? this.receiveTrackNames[this.receiveTrackIndex]
+          : `unknown-${this.receiveTrackIndex}`;
+      this.receiveTrackIndex++;
+
+      console.debug(
+        `[GPUMachineClient] Track received: "${trackName}" (${event.track.kind})`
+      );
       const stream = event.streams[0] ?? new MediaStream([event.track]);
-      this.emit("trackReceived", event.track, stream);
+      this.emit("trackReceived", trackName, event.track, stream);
     };
 
     this.peerConnection.onicecandidate = (event) => {

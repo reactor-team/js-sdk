@@ -11,14 +11,34 @@ export type ReactorStatus =
  */
 export type MessageScope = "application" | "runtime";
 
-// Error information
+/**
+ * Describes a single named media track for SDP negotiation.
+ */
+export interface TrackConfig {
+  name: string;
+  kind: "audio" | "video";
+}
+
+/**
+ * Declares the media tracks for a Reactor session.
+ *
+ * - `send`: tracks the client publishes towards the model.
+ * - `receive`: tracks the client receives from the model.
+ *
+ * Tracks appear in the SDP offer in declaration order.
+ */
+export interface TracksConfig {
+  send: TrackConfig[];
+  receive: TrackConfig[];
+}
+
 export interface ReactorError {
   code: string;
   message: string;
   timestamp: number;
   recoverable: boolean;
   component: "coordinator" | "gpu" | "livekit";
-  retryAfter?: number; // Suggested retry delay in seconds
+  retryAfter?: number;
 }
 
 export class ConflictError extends Error {
@@ -27,10 +47,9 @@ export class ConflictError extends Error {
   }
 }
 
-// Enhanced state with metadata
 export interface ReactorState {
   status: ReactorStatus;
-  lastError?: ReactorError; // Most recent error
+  lastError?: ReactorError;
 }
 
 /**
@@ -62,7 +81,7 @@ export type ReactorEvent =
   | "sessionIdChanged" //updates on the session ID.
   | "message" //application-scoped messages from the model
   | "runtimeMessage" //internal platform-level control messages (e.g. capabilities)
-  | "streamChanged" //video stream has changed (LiveKit)
+  | "trackReceived"  // (name: string, track: MediaStreamTrack, stream: MediaStream)
   | "error" //error events with ReactorError details
   | "sessionExpirationChanged" //session expiration has changed
   | "statsUpdate"; //WebRTC stats update (RTT, etc.)
