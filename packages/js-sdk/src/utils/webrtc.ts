@@ -50,12 +50,73 @@ export function createDataChannel(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Rewrites the `a=mid:` values in an SDP string so that each media
+ * transceiver uses the corresponding track name as its MID.
+ *
+ * The data-channel `m=application` section is left untouched.
+ * The `a=group:BUNDLE` line is updated to reflect the new MIDs.
+ */
+export function rewriteMids(sdp: string, trackNames: string[]): string {
+  const lines = sdp.split("\r\n");
+  let mediaIdx = 0;
+  const replacements = new Map<string, string>();
+  let inApplication = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith("m=")) {
+      inApplication = lines[i].startsWith("m=application");
+    }
+    if (!inApplication && lines[i].startsWith("a=mid:")) {
+      const oldMid = lines[i].substring("a=mid:".length);
+      if (mediaIdx < trackNames.length) {
+        const newMid = trackNames[mediaIdx];
+        replacements.set(oldMid, newMid);
+        lines[i] = `a=mid:${newMid}`;
+        mediaIdx++;
+      }
+    }
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith("a=group:BUNDLE ")) {
+      const parts = lines[i].split(" ");
+      for (let j = 1; j < parts.length; j++) {
+        const replacement = replacements.get(parts[j]);
+        if (replacement !== undefined) {
+          parts[j] = replacement;
+        }
+      }
+      lines[i] = parts.join(" ");
+      break;
+    }
+  }
+
+  return lines.join("\r\n");
+}
+
+/**
  * Creates an SDP offer on the peer connection.
+ *
+ * When `trackNames` is provided, the media MIDs in the SDP are
+ * rewritten to use those names before `setLocalDescription` is called.
+ * This allows the remote side to identify transceivers by name rather
+ * than by positional index.
+ *
  * Waits for ICE gathering to complete before returning.
  */
-export async function createOffer(pc: RTCPeerConnection): Promise<string> {
+export async function createOffer(
+  pc: RTCPeerConnection,
+  trackNames?: string[]
+): Promise<string> {
   const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
+
+  if (trackNames && trackNames.length > 0 && offer.sdp) {
+    const munged = rewriteMids(offer.sdp, trackNames);
+    const mungedOffer = new RTCSessionDescription({ type: "offer", sdp: munged });
+    await pc.setLocalDescription(mungedOffer);
+  } else {
+    await pc.setLocalDescription(offer);
+  }
 
   await waitForIceGathering(pc);
 

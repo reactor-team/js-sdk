@@ -47,8 +47,6 @@ export class GPUMachineClient {
 
   private transceiverMap: Map<string, TransceiverEntry> = new Map();
   private publishedTracks: Map<string, MediaStreamTrack> = new Map();
-  private receiveTrackNames: string[] = [];
-  private receiveTrackIndex: number = 0;
   private statsInterval: ReturnType<typeof setInterval> | undefined;
   private stats: ConnectionStats | undefined;
 
@@ -105,8 +103,6 @@ export class GPUMachineClient {
     this.setupDataChannelHandlers();
 
     this.transceiverMap.clear();
-    this.receiveTrackNames = [];
-    this.receiveTrackIndex = 0;
 
     const entries = this.buildTransceiverEntries(tracks);
 
@@ -117,17 +113,14 @@ export class GPUMachineClient {
       entry.transceiver = transceiver;
       this.transceiverMap.set(entry.name, entry);
 
-      if (entry.direction === "recvonly" || entry.direction === "sendrecv") {
-        this.receiveTrackNames.push(entry.name);
-      }
-
       console.debug(
         `[GPUMachineClient] Transceiver added: "${entry.name}" (${entry.kind}, ${entry.direction})`
       );
     }
 
-    const offer = await webrtc.createOffer(this.peerConnection);
-    console.debug("[GPUMachineClient] Created SDP offer");
+    const trackNames = entries.map((e) => e.name);
+    const offer = await webrtc.createOffer(this.peerConnection, trackNames);
+    console.debug("[GPUMachineClient] Created SDP offer with MIDs:", trackNames);
     return offer;
   }
 
@@ -206,8 +199,6 @@ export class GPUMachineClient {
     }
 
     this.transceiverMap.clear();
-    this.receiveTrackNames = [];
-    this.receiveTrackIndex = 0;
     this.setStatus("disconnected");
     console.debug("[GPUMachineClient] Disconnected");
   }
@@ -458,14 +449,11 @@ export class GPUMachineClient {
     };
 
     this.peerConnection.ontrack = (event) => {
-      const trackName =
-        this.receiveTrackIndex < this.receiveTrackNames.length
-          ? this.receiveTrackNames[this.receiveTrackIndex]
-          : `unknown-${this.receiveTrackIndex}`;
-      this.receiveTrackIndex++;
+      const mid = event.transceiver.mid;
+      const trackName = mid ?? `unknown-${event.track.id}`;
 
       console.debug(
-        `[GPUMachineClient] Track received: "${trackName}" (${event.track.kind})`
+        `[GPUMachineClient] Track received: "${trackName}" (${event.track.kind}, mid=${mid})`
       );
       const stream = event.streams[0] ?? new MediaStream([event.track]);
       this.emit("trackReceived", trackName, event.track, stream);
