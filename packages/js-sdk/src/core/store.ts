@@ -98,7 +98,11 @@ export const createReactorStore = (
         oldStatus: get().status,
         newStatus,
       });
-      set({ status: newStatus });
+      if (newStatus === "disconnected") {
+        set({ status: newStatus, tracks: {} });
+      } else {
+        set({ status: newStatus });
+      }
     });
 
     reactor.on(

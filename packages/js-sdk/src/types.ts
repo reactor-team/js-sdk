@@ -53,11 +53,14 @@ export interface AudioTrackOptions {
  * A track declared in the **`send`** array means the client will
  * **SEND** video frames **to the model** (client → model).
  *
- * If the same name appears in both `receive` and `send`, a single
- * bidirectional (`sendrecv`) WebRTC transceiver is negotiated.
+ * Track names must be unique across both arrays — the same name cannot
+ * appear in `receive` and `send`.
  *
  * @param name    - The track name.  Must match the model's declared track attribute name.
  * @param options - Reserved for future constraints (e.g. `maxFramerate`).
+ *
+ * When no `receive` array is provided to the Reactor constructor, a single
+ * `video("main_video")` track is used by default.
  *
  * @example
  * ```ts
@@ -78,8 +81,8 @@ export function video(name: string, _options?: VideoTrackOptions): TrackConfig {
  * A track declared in the **`send`** array means the client will
  * **SEND** audio samples **to the model** (client → model).
  *
- * If the same name appears in both `receive` and `send`, a single
- * bidirectional (`sendrecv`) WebRTC transceiver is negotiated.
+ * Track names must be unique across both arrays — the same name cannot
+ * appear in `receive` and `send`.
  *
  * @param name    - The track name.  Must match the model's declared track attribute name.
  * @param options - Reserved for future constraints (e.g. `sampleRate`).

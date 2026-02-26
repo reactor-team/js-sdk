@@ -84,7 +84,8 @@ export class GPUMachineClient {
    * **RECEIVE** = client receives from the model (model → client) → `recvonly`
    * **SEND**    = client sends to the model (client → model)     → `sendonly`
    *
-   * A track name in both arrays negotiates a single `sendrecv` transceiver.
+   * Track names must be unique across both arrays. A name that appears in
+   * both `receive` and `send` will throw — use distinct names instead.
    *
    * The data channel is always created first (before transceivers).
    * Must be called before connect().
@@ -133,7 +134,10 @@ export class GPUMachineClient {
 
   /**
    * Builds an ordered list of transceiver entries from the receive/send arrays.
-   * Merges send+receive entries that share a name into a single sendrecv entry.
+   *
+   * Each track produces exactly one transceiver — `recvonly` for receive,
+   * `sendonly` for send.  Bidirectional (`sendrecv`) transceivers are not
+   * supported; the same track name in both arrays is an error.
    */
   private buildTransceiverEntries(tracks: {
     send: TrackConfig[];
@@ -142,16 +146,23 @@ export class GPUMachineClient {
     const map = new Map<string, TransceiverEntry>();
 
     for (const t of tracks.receive) {
+      if (map.has(t.name)) {
+        throw new Error(
+          `Duplicate receive track name "${t.name}". Track names must be unique.`
+        );
+      }
       map.set(t.name, { name: t.name, kind: t.kind, direction: "recvonly" });
     }
 
     for (const t of tracks.send) {
-      const existing = map.get(t.name);
-      if (existing) {
-        existing.direction = "sendrecv";
-      } else {
-        map.set(t.name, { name: t.name, kind: t.kind, direction: "sendonly" });
+      if (map.has(t.name)) {
+        throw new Error(
+          `Track name "${t.name}" appears in both receive and send. ` +
+            `Bidirectional tracks are not supported — use distinct names ` +
+            `for the inbound and outbound directions (e.g. "${t.name}_in" and "${t.name}_out").`
+        );
       }
+      map.set(t.name, { name: t.name, kind: t.kind, direction: "sendonly" });
     }
 
     return Array.from(map.values());
