@@ -38,8 +38,6 @@ jobs:
           DOCS_REPO_PAT: ${{ secrets.DOCS_REPO_PAT }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          model: claude-opus-4-6
-          track_progress: true
           prompt: |
             REPO: ${{ github.repository }}
             REPO_NAME: ${{ github.event.repository.name }}
@@ -122,4 +120,4 @@ jobs:
             8. **If no docs updates are needed, do nothing.** Do not create an empty PR or a PR with no meaningful changes.
 
           claude_args: |
-            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(cd external-docs:*)"
+            --model claude-opus-4-6 --allowedTools "Read,Glob,Grep,Edit,Write,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(cd external-docs:*)"
