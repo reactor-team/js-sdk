@@ -1,7 +1,6 @@
 "use client";
 
-import { useReactor, useReactorMessage } from "./hooks";
-import type { MessageScope } from "../types";
+import { useReactor, useReactorInternalMessage } from "./hooks";
 import React, { useState, useCallback } from "react";
 
 export interface ReactorControllerProps {
@@ -81,11 +80,8 @@ export function ReactorController({
     return () => clearInterval(interval);
   }, [status, commands, requestCapabilities]);
 
-  useReactorMessage((message, scope) => {
-    // Capabilities arrive on the "runtime" scope as
-    // { type: "modelCapabilities", data: { commands: {...} } }
+  useReactorInternalMessage((message) => {
     if (
-      scope === "runtime" &&
       message &&
       typeof message === "object" &&
       message.type === "modelCapabilities" &&

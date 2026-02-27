@@ -1,8 +1,8 @@
 import { useReactorStore } from "./ReactorProvider";
 import type { ReactorStore } from "../core/store";
-import type { MessageScope } from "../types";
+import type { ConnectionStats } from "../types";
 import { useShallow } from "zustand/shallow";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Generic hook for accessing selected parts of the Reactor store.
@@ -15,46 +15,87 @@ export function useReactor<T>(selector: (state: ReactorStore) => T): T {
 }
 
 /**
- * Hook for handling message subscriptions with proper React lifecycle management.
+ * Hook for receiving model application messages.
  *
- * The handler receives the message payload and the scope it arrived on:
- *   - "application" for model-defined messages (via get_ctx().send())
- *   - "runtime" for platform-level messages (e.g., capabilities response)
+ * Only fires for messages sent by the model via `get_ctx().send()`.
+ * Internal platform-level messages (e.g. capabilities) are NOT delivered here.
  *
- * @param handler - The message handler function (message, scope)
+ * @param handler - Callback invoked with each application message payload.
  */
-export function useReactorMessage(
-  handler: (message: any, scope: MessageScope) => void
-): void {
+export function useReactorMessage(handler: (message: any) => void): void {
   const reactor = useReactor((state) => state.internal.reactor);
   const handlerRef = useRef(handler);
 
-  // Update the ref when handler changes
   useEffect(() => {
     handlerRef.current = handler;
   }, [handler]);
 
   useEffect(() => {
-    console.debug("[useReactorMessage] Setting up message subscription");
-
-    // Create a stable handler that calls the current ref
-    const stableHandler = (message: any, scope: MessageScope) => {
-      console.debug("[useReactorMessage] Message received", {
-        message,
-        scope,
-      });
-      handlerRef.current(message, scope);
+    const stableHandler = (message: any) => {
+      handlerRef.current(message);
     };
 
-    // Register the handler and get the cleanup function
-    reactor.on("newMessage", stableHandler);
+    reactor.on("message", stableHandler);
 
-    console.debug("[useReactorMessage] Message handler registered");
-
-    // Return the cleanup function
     return () => {
-      console.debug("[useReactorMessage] Cleaning up message subscription");
-      reactor.off("newMessage", stableHandler);
+      reactor.off("message", stableHandler);
     };
   }, [reactor]);
+}
+
+/**
+ * Hook for receiving internal platform-level (runtime) messages.
+ *
+ * This is intended for advanced use cases that need access to the runtime
+ * control layer, such as capabilities negotiation. Model application messages
+ * sent via `get_ctx().send()` are NOT delivered through this hook — use
+ * {@link useReactorMessage} for those.
+ *
+ * @param handler - Callback invoked with each runtime message payload.
+ */
+export function useReactorInternalMessage(
+  handler: (message: any) => void
+): void {
+  const reactor = useReactor((state) => state.internal.reactor);
+  const handlerRef = useRef(handler);
+
+  useEffect(() => {
+    handlerRef.current = handler;
+  }, [handler]);
+
+  useEffect(() => {
+    const stableHandler = (message: any) => {
+      handlerRef.current(message);
+    };
+
+    reactor.on("runtimeMessage", stableHandler);
+
+    return () => {
+      reactor.off("runtimeMessage", stableHandler);
+    };
+  }, [reactor]);
+}
+
+/**
+ * Hook that returns the current connection stats (RTT, etc.).
+ * Updates every ~2s while connected. Returns undefined when disconnected.
+ */
+export function useStats(): ConnectionStats | undefined {
+  const reactor = useReactor((state) => state.internal.reactor);
+  const [stats, setStats] = useState<ConnectionStats | undefined>(undefined);
+
+  useEffect(() => {
+    const handler = (newStats: ConnectionStats) => {
+      setStats(newStats);
+    };
+
+    reactor.on("statsUpdate", handler);
+
+    return () => {
+      reactor.off("statsUpdate", handler);
+      setStats(undefined);
+    };
+  }, [reactor]);
+
+  return stats;
 }

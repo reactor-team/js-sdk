@@ -57,10 +57,7 @@ export function ReactorProvider({
   // Destructure connectOptions with defaults
   const { autoConnect = false, ...pollingOptions } = connectOptions ?? {};
 
-  // Fan out props to individual variables so that the
-  // useEffect hook can be optimized by only re-running when the
-  // props that actually change.
-  const { coordinatorUrl, modelName, local } = props;
+  const { coordinatorUrl, modelName, local, receive, send } = props;
   const maxAttempts = pollingOptions.maxAttempts;
 
   // Handle page unload (refresh, close, navigate away) with non-recoverable disconnect
@@ -137,6 +134,8 @@ export function ReactorProvider({
         coordinatorUrl,
         modelName,
         local,
+        receive,
+        send,
         jwtToken,
       } satisfies ReactorInitializationProps)
     );
@@ -181,7 +180,16 @@ export function ReactorProvider({
           console.error("[ReactorProvider] Failed to disconnect:", error);
         });
     };
-  }, [coordinatorUrl, modelName, autoConnect, local, jwtToken, maxAttempts]);
+  }, [
+    coordinatorUrl,
+    modelName,
+    autoConnect,
+    local,
+    receive,
+    send,
+    jwtToken,
+    maxAttempts,
+  ]);
 
   return (
     <ReactorContext.Provider value={storeRef.current}>

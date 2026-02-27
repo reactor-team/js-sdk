@@ -13,11 +13,16 @@ export type ReactorStoreApi = ReturnType<typeof createReactorStore>;
 
 export interface ReactorState {
   status: ReactorStatus;
-  videoTrack: MediaStreamTrack | null;
+  /**
+   * Media tracks received from the model, keyed by track name.
+   *
+   * Each entry maps a declared **receive** track name (e.g. `"main_video"`,
+   * `"main_audio"`) to the live `MediaStreamTrack` delivered by the model.
+   */
+  tracks: Record<string, MediaStreamTrack>;
   lastError?: ReactorError;
   sessionId?: string;
   sessionExpiration?: number;
-  insecureApiKey?: string;
   jwtToken?: string;
 }
 
@@ -25,8 +30,8 @@ export interface ReactorActions {
   sendCommand(command: string, data: any, scope?: MessageScope): Promise<void>;
   connect(jwtToken?: string, options?: ConnectOptions): Promise<void>;
   disconnect(recoverable?: boolean): Promise<void>;
-  publishVideoStream(stream: MediaStream): Promise<void>;
-  unpublishVideoStream(): Promise<void>;
+  publish(name: string, track: MediaStreamTrack): Promise<void>;
+  unpublish(name: string): Promise<void>;
   reconnect(options?: ConnectOptions): Promise<void>;
 }
 
@@ -46,15 +51,15 @@ export type ReactorStore = ReactorState &
 
 // We introduce two methods to perform authentication:
 //  - putting the auth information inside of the ReactorProvider props, and then calling connect() without arguments.
-//  - not putting the anything in the props, and then calling connect() passing as arguments the auth information.
-// When in the first case, the auth information is saved in the STATE. Then, when you call connect() without arguments, the actual auth information is fetched
-// from that STATE. In the second case, you pass the auth information directly into the function in the Reactor core.
+//  - not putting anything in the props, and then calling connect() passing as arguments the auth information.
+// When in the first case, the auth information is saved in the STATE. Then, when you call connect() without arguments,
+// the actual auth information is fetched from that STATE.
+// In the second case, you pass the auth information directly into the function in the Reactor core.
 export const defaultInitState: ReactorState = {
   status: "disconnected",
-  videoTrack: null,
+  tracks: {},
   lastError: undefined,
   sessionExpiration: undefined,
-  insecureApiKey: undefined,
   jwtToken: undefined,
   sessionId: undefined,
 };
@@ -93,7 +98,11 @@ export const createReactorStore = (
         oldStatus: get().status,
         newStatus,
       });
-      set({ status: newStatus });
+      if (newStatus === "disconnected") {
+        set({ status: newStatus, tracks: {} });
+      } else {
+        set({ status: newStatus });
+      }
     });
 
     reactor.on(
@@ -107,13 +116,13 @@ export const createReactorStore = (
       }
     );
 
-    reactor.on("streamChanged", (videoTrack: MediaStreamTrack | null) => {
-      console.debug("[ReactorStore] Stream changed", {
-        hasVideoTrack: !!videoTrack,
-        videoTrackKind: videoTrack?.kind,
-        videoTrackId: videoTrack?.id,
+    reactor.on("trackReceived", (name: string, track: MediaStreamTrack) => {
+      console.debug("[ReactorStore] Track received", {
+        name,
+        kind: track.kind,
+        id: track.id,
       });
-      set({ videoTrack: videoTrack });
+      set({ tracks: { ...get().tracks, [name]: track } });
     });
 
     reactor.on("error", (error: ReactorError) => {
@@ -138,13 +147,11 @@ export const createReactorStore = (
       onMessage: (handler: (message: any) => void) => {
         console.debug("[ReactorStore] Registering message handler");
 
-        // Simply register the handler
-        get().internal.reactor.on("newMessage", handler);
+        get().internal.reactor.on("message", handler);
 
-        // Return a cleanup function that can be called to unregister
         return () => {
           console.debug("[ReactorStore] Cleaning up message handler");
-          get().internal.reactor.off("newMessage", handler);
+          get().internal.reactor.off("message", handler);
         };
       },
       sendCommand: async (command: string, data: any, scope?: MessageScope) => {
@@ -190,29 +197,33 @@ export const createReactorStore = (
           throw error;
         }
       },
-      publishVideoStream: async (stream: MediaStream) => {
-        console.debug("[ReactorStore] Publishing video stream");
+      publish: async (name: string, track: MediaStreamTrack) => {
+        console.debug(`[ReactorStore] Publishing track "${name}"`);
 
         try {
-          await get().internal.reactor.publishTrack(stream.getVideoTracks()[0]);
-          console.debug("[ReactorStore] Video stream published successfully");
+          await get().internal.reactor.publishTrack(name, track);
+          console.debug(
+            `[ReactorStore] Track "${name}" published successfully`
+          );
         } catch (error) {
           console.error(
-            "[ReactorStore] Failed to publish video stream:",
+            `[ReactorStore] Failed to publish track "${name}":`,
             error
           );
           throw error;
         }
       },
-      unpublishVideoStream: async () => {
-        console.debug("[ReactorStore] Unpublishing video stream");
+      unpublish: async (name: string) => {
+        console.debug(`[ReactorStore] Unpublishing track "${name}"`);
 
         try {
-          await get().internal.reactor.unpublishTrack();
-          console.debug("[ReactorStore] Video stream unpublished successfully");
+          await get().internal.reactor.unpublishTrack(name);
+          console.debug(
+            `[ReactorStore] Track "${name}" unpublished successfully`
+          );
         } catch (error) {
           console.error(
-            "[ReactorStore] Failed to unpublish video stream:",
+            `[ReactorStore] Failed to unpublish track "${name}":`,
             error
           );
           throw error;

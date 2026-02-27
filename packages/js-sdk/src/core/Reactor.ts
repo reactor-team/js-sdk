@@ -5,6 +5,8 @@ import {
   type ReactorError,
   type MessageScope,
   type ConnectOptions,
+  type TrackConfig,
+  type ConnectionStats,
   ConflictError,
 } from "../types";
 import { CoordinatorClient } from "./CoordinatorClient";
@@ -15,10 +17,32 @@ import { z } from "zod";
 const LOCAL_COORDINATOR_URL = "http://localhost:8080";
 export const PROD_COORDINATOR_URL = "https://api.reactor.inc";
 
+const TrackConfigSchema = z.object({
+  name: z.string(),
+  kind: z.enum(["audio", "video"]),
+});
+
 const OptionsSchema = z.object({
   coordinatorUrl: z.string().default(PROD_COORDINATOR_URL),
   modelName: z.string(),
   local: z.boolean().default(false),
+  /**
+   * Tracks the client **RECEIVES** from the model (model → client).
+   * Each entry produces a `recvonly` transceiver.
+   * Names must be unique across both `receive` and `send`.
+   *
+   * When omitted, defaults to a single video track named `"main_video"`.
+   * Pass an explicit empty array to opt out of the default.
+   */
+  receive: z
+    .array(TrackConfigSchema)
+    .default([{ name: "main_video", kind: "video" }]),
+  /**
+   * Tracks the client **SENDS** to the model (client → model).
+   * Each entry produces a `sendonly` transceiver.
+   * Names must be unique across both `receive` and `send`.
+   */
+  send: z.array(TrackConfigSchema).default([]),
 });
 export type Options = z.input<typeof OptionsSchema>;
 
@@ -33,6 +57,10 @@ export class Reactor {
   private model: string;
   private sessionExpiration?: number;
   private local: boolean;
+  /** Tracks the client RECEIVES from the model (model → client). */
+  private receive: TrackConfig[];
+  /** Tracks the client SENDS to the model (client → model). */
+  private send: TrackConfig[];
   private sessionId?: string;
 
   constructor(options: Options) {
@@ -42,6 +70,8 @@ export class Reactor {
     // TODO(REA-146) Properly accept version from parameter.
     this.model = validatedOptions.modelName;
     this.local = validatedOptions.local;
+    this.receive = validatedOptions.receive;
+    this.send = validatedOptions.send;
     if (this.local && !options.coordinatorUrl) {
       this.coordinatorUrl = LOCAL_COORDINATOR_URL;
     }
@@ -67,13 +97,11 @@ export class Reactor {
   }
 
   /**
-   * Public method to send a message to the machine.
-   * Wraps the message in the specified channel envelope (defaults to "application").
-   * @param command The command name to send.
+   * Sends a command to the model via the data channel.
+   *
+   * @param command The command name.
    * @param data The command payload.
-   * @param scope The envelope scope – "application" (default) for model commands,
-   *              "runtime" for platform-level messages (e.g. requestCapabilities).
-   * @throws Error if not in ready state
+   * @param scope "application" (default) for model commands, "runtime" for platform messages.
    */
   async sendCommand(
     command: string,
@@ -103,24 +131,26 @@ export class Reactor {
   }
 
   /**
-   * Public method to publish a track to the machine.
-   * @param track The track to send to the machine.
+   * Publishes a MediaStreamTrack to a named send track.
+   *
+   * @param name The declared send track name (e.g. "webcam").
+   * @param track The MediaStreamTrack to publish.
    */
-  async publishTrack(track: MediaStreamTrack): Promise<void> {
-    // Synchronous validation - throw immediately
+  async publishTrack(name: string, track: MediaStreamTrack): Promise<void> {
     if (process.env.NODE_ENV !== "development" && this.status !== "ready") {
-      const errorMessage = `Cannot publish track, status is ${this.status}`;
-      console.warn("[Reactor]", errorMessage);
+      console.warn(
+        `[Reactor] Cannot publish track "${name}", status is ${this.status}`
+      );
       return;
     }
 
     try {
-      await this.machineClient?.publishTrack(track);
+      await this.machineClient?.publishTrack(name, track);
     } catch (error) {
-      console.error("[Reactor] Failed to publish track:", error);
+      console.error(`[Reactor] Failed to publish track "${name}":`, error);
       this.createError(
         "TRACK_PUBLISH_FAILED",
-        `Failed to publish track: ${error}`,
+        `Failed to publish track "${name}": ${error}`,
         "gpu",
         true
       );
@@ -128,16 +158,18 @@ export class Reactor {
   }
 
   /**
-   * Public method to unpublish the currently published track.
+   * Unpublishes the track with the given name.
+   *
+   * @param name The declared send track name to unpublish.
    */
-  async unpublishTrack(): Promise<void> {
+  async unpublishTrack(name: string): Promise<void> {
     try {
-      await this.machineClient?.unpublishTrack();
+      await this.machineClient?.unpublishTrack(name);
     } catch (error) {
-      console.error("[Reactor] Failed to unpublish track:", error);
+      console.error(`[Reactor] Failed to unpublish track "${name}":`, error);
       this.createError(
         "TRACK_UNPUBLISH_FAILED",
-        `Failed to unpublish track: ${error}`,
+        `Failed to unpublish track "${name}": ${error}`,
         "gpu",
         true
       );
@@ -164,13 +196,14 @@ export class Reactor {
     if (!this.machineClient) {
       // Get ICE servers from coordinator
       const iceServers = await this.coordinatorClient.getIceServers();
-
       this.machineClient = new GPUMachineClient({ iceServers });
       this.setupMachineClientHandlers();
     }
 
-    // We always calculate a new offer for reconnection.
-    const sdpOffer = await this.machineClient.createOffer();
+    const sdpOffer = await this.machineClient.createOffer({
+      send: this.send,
+      receive: this.receive,
+    });
 
     // Send offer to coordinator and get answer.
     try {
@@ -179,7 +212,6 @@ export class Reactor {
         sdpOffer,
         options?.maxAttempts
       );
-
       // Connect to GPU machine with the answer
       await this.machineClient.connect(sdpAnswer);
       this.setStatus("ready");
@@ -189,7 +221,7 @@ export class Reactor {
         recoverable = true;
       }
       console.error("[Reactor] Failed to reconnect:", error);
-      // disconnect without recovery, as the session "connect" call on the coordinator failed
+      // Disconnect without recovery, as the session "connect" call on the coordinator failed
       this.disconnect(recoverable);
       this.createError(
         "RECONNECTION_FAILED",
@@ -214,7 +246,6 @@ export class Reactor {
       throw new Error("No authentication provided and not in local mode");
     }
 
-    // Synchronous validation - throw immediately
     if (this.status !== "disconnected") {
       throw new Error("Already connected or connecting");
     }
@@ -240,9 +271,12 @@ export class Reactor {
       this.machineClient = new GPUMachineClient({ iceServers });
       this.setupMachineClientHandlers();
 
-      const sdpOffer = await this.machineClient.createOffer();
+      const sdpOffer = await this.machineClient.createOffer({
+        send: this.send,
+        receive: this.receive,
+      });
 
-      // Create session passing sdp offer. We will get the answer polling the sdp_offer endpoint.
+      // Create session passing SDP offer. We will get the answer polling the sdp_offer endpoint.
       const sessionId = await this.coordinatorClient.createSession(sdpOffer);
       this.setSessionId(sessionId);
 
@@ -285,9 +319,11 @@ export class Reactor {
     if (!this.machineClient) return;
 
     this.machineClient.on("message", (message: any, scope: MessageScope) => {
-      // The outer envelope has already been stripped by GPUMachineClient.
-      // Forward the inner payload along with its scope to consumers.
-      this.emit("newMessage", message, scope);
+      if (scope === "application") {
+        this.emit("message", message);
+      } else if (scope === "runtime") {
+        this.emit("runtimeMessage", message);
+      }
     });
 
     this.machineClient.on("statusChanged", (status: GPUMachineStatus) => {
@@ -312,10 +348,14 @@ export class Reactor {
 
     this.machineClient.on(
       "trackReceived",
-      (track: MediaStreamTrack, stream: MediaStream) => {
-        this.emit("streamChanged", track, stream);
+      (name: string, track: MediaStreamTrack, stream: MediaStream) => {
+        this.emit("trackReceived", name, track, stream);
       }
     );
+
+    this.machineClient.on("statsUpdate", (stats: ConnectionStats) => {
+      this.emit("statsUpdate", stats);
+    });
   }
 
   /**
@@ -412,6 +452,10 @@ export class Reactor {
    */
   getLastError(): ReactorError | undefined {
     return this.lastError;
+  }
+
+  getStats(): ConnectionStats | undefined {
+    return this.machineClient?.getStats();
   }
 
   /**

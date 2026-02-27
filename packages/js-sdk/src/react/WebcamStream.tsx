@@ -4,7 +4,12 @@ import { useReactor } from "./hooks";
 import { useEffect, useRef, useState } from "react";
 import React from "react";
 
-interface Props {
+export interface WebcamStreamProps {
+  /**
+   * The name of the **send** track to publish the webcam to.
+   * Must match a track name declared in the `send` array (client → model).
+   */
+  track: string;
   className?: string;
   style?: React.CSSProperties;
   videoConstraints?: MediaTrackConstraints;
@@ -15,6 +20,7 @@ interface Props {
 }
 
 export function WebcamStream({
+  track,
   className,
   style,
   videoConstraints = {
@@ -23,18 +29,17 @@ export function WebcamStream({
   },
   showWebcam = true,
   videoObjectFit = "contain",
-}: Props) {
+}: WebcamStreamProps) {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
 
-  const { status, publishVideoStream, unpublishVideoStream, reactor } =
-    useReactor((state) => ({
-      status: state.status,
-      publishVideoStream: state.publishVideoStream,
-      unpublishVideoStream: state.unpublishVideoStream,
-      reactor: state.internal.reactor,
-    }));
+  const { status, publish, unpublish, reactor } = useReactor((state) => ({
+    status: state.status,
+    publish: state.publish,
+    unpublish: state.unpublish,
+    reactor: state.internal.reactor,
+  }));
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -71,7 +76,7 @@ export function WebcamStream({
 
     // Unpublish if currently publishing
     try {
-      await unpublishVideoStream();
+      await unpublish(track);
       console.debug("[WebcamPublisher] Unpublished before stopping");
     } catch (err) {
       console.error("[WebcamPublisher] Error unpublishing before stop:", err);
@@ -80,9 +85,9 @@ export function WebcamStream({
     setIsPublishing(false);
 
     // Stop all tracks
-    stream?.getTracks().forEach((track) => {
-      track.stop();
-      console.debug("[WebcamPublisher] Stopped track:", track.kind);
+    stream?.getTracks().forEach((t) => {
+      t.stop();
+      console.debug("[WebcamPublisher] Stopped track:", t.kind);
     });
     setStream(null);
 
@@ -120,17 +125,20 @@ export function WebcamStream({
       console.debug(
         "[WebcamPublisher] Reactor ready, auto-publishing webcam stream"
       );
-      publishVideoStream(stream)
-        .then(() => {
-          console.debug("[WebcamPublisher] Auto-publish successful");
-          setIsPublishing(true);
-        })
-        .catch((err) => {
-          console.error("[WebcamPublisher] Auto-publish failed:", err);
-        });
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        publish(track, videoTrack)
+          .then(() => {
+            console.debug("[WebcamPublisher] Auto-publish successful");
+            setIsPublishing(true);
+          })
+          .catch((err) => {
+            console.error("[WebcamPublisher] Auto-publish failed:", err);
+          });
+      }
     } else if (status !== "ready" && isPublishing) {
       console.debug("[WebcamPublisher] Reactor not ready, auto-unpublishing");
-      unpublishVideoStream()
+      unpublish(track)
         .then(() => {
           console.debug("[WebcamPublisher] Auto-unpublish successful");
           setIsPublishing(false);
@@ -139,17 +147,17 @@ export function WebcamStream({
           console.error("[WebcamPublisher] Auto-unpublish failed:", err);
         });
     }
-  }, [status, stream, isPublishing, publishVideoStream, unpublishVideoStream]);
+  }, [status, stream, isPublishing, publish, unpublish, track]);
 
   // Listen for error events from Reactor
   useEffect(() => {
     const handleError = (error: any) => {
       console.debug("[WebcamPublisher] Received error event:", error);
 
-      // Handle video publish failures by resetting state
-      if (error.code === "VIDEO_PUBLISH_FAILED") {
+      // Handle track publish failures by resetting state
+      if (error.code === "TRACK_PUBLISH_FAILED") {
         console.debug(
-          "[WebcamPublisher] Video publish failed, resetting isPublishing state"
+          "[WebcamPublisher] Track publish failed, resetting isPublishing state"
         );
         setIsPublishing(false);
       }
