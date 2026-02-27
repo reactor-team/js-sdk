@@ -50,6 +50,8 @@ export class GPUMachineClient {
   private publishedTracks: Map<string, MediaStreamTrack> = new Map();
   private statsInterval: ReturnType<typeof setInterval> | undefined;
   private stats: ConnectionStats | undefined;
+  private peerConnected = false;
+  private dataChannelOpen = false;
 
   constructor(config: webrtc.WebRTCConfig) {
     this.config = config;
@@ -220,6 +222,8 @@ export class GPUMachineClient {
     }
 
     this.transceiverMap.clear();
+    this.peerConnected = false;
+    this.dataChannelOpen = false;
     this.setStatus("disconnected");
     console.debug("[GPUMachineClient] Disconnected");
   }
@@ -438,6 +442,13 @@ export class GPUMachineClient {
   // Private Helpers
   // ─────────────────────────────────────────────────────────────────────────────
 
+  private checkFullyConnected(): void {
+    if (this.peerConnected && this.dataChannelOpen) {
+      this.setStatus("connected");
+      this.startStatsPolling();
+    }
+  }
+
   private setStatus(newStatus: GPUMachineStatus): void {
     if (this.status !== newStatus) {
       this.status = newStatus;
@@ -455,14 +466,16 @@ export class GPUMachineClient {
       if (state) {
         switch (state) {
           case "connected":
-            this.setStatus("connected");
-            this.startStatsPolling();
+            this.peerConnected = true;
+            this.checkFullyConnected();
             break;
           case "disconnected":
           case "closed":
+            this.peerConnected = false;
             this.setStatus("disconnected");
             break;
           case "failed":
+            this.peerConnected = false;
             this.setStatus("error");
             break;
         }
@@ -503,11 +516,14 @@ export class GPUMachineClient {
 
     this.dataChannel.onopen = () => {
       console.debug("[GPUMachineClient] Data channel open");
+      this.dataChannelOpen = true;
       this.startPing();
+      this.checkFullyConnected();
     };
 
     this.dataChannel.onclose = () => {
       console.debug("[GPUMachineClient] Data channel closed");
+      this.dataChannelOpen = false;
       this.stopPing();
     };
 
