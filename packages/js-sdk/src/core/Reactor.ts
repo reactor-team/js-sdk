@@ -369,7 +369,11 @@ export class Reactor {
     }
 
     if (this.coordinatorClient && !recoverable) {
-      await this.coordinatorClient.terminateSession();
+      try {
+        await this.coordinatorClient.terminateSession();
+      } catch (error) {
+        console.error("[Reactor] Error terminating session:", error);
+      }
       this.coordinatorClient = undefined;
     }
 
