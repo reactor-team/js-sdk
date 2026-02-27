@@ -72,7 +72,7 @@ export class Reactor {
     this.local = validatedOptions.local;
     this.receive = validatedOptions.receive;
     this.send = validatedOptions.send;
-    if (this.local && !options.coordinatorUrl) {
+    if (this.local && options.coordinatorUrl === undefined) {
       this.coordinatorUrl = LOCAL_COORDINATOR_URL;
     }
   }
