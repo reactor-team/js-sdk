@@ -112,6 +112,12 @@ export class ConflictError extends Error {
   }
 }
 
+export class AbortError extends Error {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
 export interface ReactorState {
   status: ReactorStatus;
   lastError?: ReactorError;
