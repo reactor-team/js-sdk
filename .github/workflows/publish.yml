@@ -44,3 +44,74 @@ jobs:
       - run: pnpm --filter create-reactor-app build
       - run: npm publish --access public
         working-directory: packages/create-app
+
+  notify-slack:
+    runs-on: ubuntu-latest
+    needs: [publish-sdk, publish-create-app]
+    if: success()
+    steps:
+      - name: Send Slack notification
+        env:
+          SLACK_WEBHOOK_SDK: ${{ secrets.SLACK_WEBHOOK_SDK }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_SDK" ]; then
+            echo "SLACK_WEBHOOK_SDK not set, skipping notification"
+            exit 0
+          fi
+
+          VERSION="${{ github.event.release.tag_name }}"
+          RELEASE_URL="${{ github.event.release.html_url }}"
+          AUTHOR="${{ github.event.release.author.login }}"
+          SEMVER="${VERSION#v}"
+          NPM_URL="https://www.npmjs.com/package/@reactor-team/js-sdk/v/${SEMVER}"
+
+          PAYLOAD=$(jq -n \
+            --arg version "$VERSION" \
+            --arg changelog "${{ github.event.release.body }}" \
+            --arg author "$AUTHOR" \
+            --arg release_url "$RELEASE_URL" \
+            --arg npm_url "$NPM_URL" \
+            --arg run_url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            '{
+              blocks: [
+                {
+                  type: "header",
+                  text: { type: "plain_text", text: "📦 @reactor-team/js-sdk — Published to npm", emoji: true }
+                },
+                {
+                  type: "section",
+                  fields: [
+                    { type: "mrkdwn", text: ("*Version*\n`" + $version + "`") },
+                    { type: "mrkdwn", text: ("*Packages*\n`@reactor-team/js-sdk`\n`create-reactor-app`") }
+                  ]
+                },
+                {
+                  type: "section",
+                  text: { type: "mrkdwn", text: ("*Changelog*\n```" + $changelog + "```") }
+                },
+                {
+                  type: "actions",
+                  elements: [
+                    { type: "button", text: { type: "plain_text", text: "npm", emoji: true }, url: $npm_url },
+                    { type: "button", text: { type: "plain_text", text: "GitHub Release", emoji: true }, url: $release_url },
+                    { type: "button", text: { type: "plain_text", text: "Actions Run", emoji: true }, url: $run_url }
+                  ]
+                },
+                {
+                  type: "context",
+                  elements: [
+                    { type: "mrkdwn", text: ("Released by *" + $author + "* • <" + $run_url + "|Workflow Run>") }
+                  ]
+                }
+              ]
+            }')
+
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST -H "Content-Type: application/json" \
+            -d "$PAYLOAD" "$SLACK_WEBHOOK_SDK" || echo "000")
+
+          if [ "$HTTP_STATUS" -eq 200 ]; then
+            echo "✅ Slack notification sent"
+          else
+            echo "⚠️ Slack notification failed (HTTP $HTTP_STATUS)"
+          fi
