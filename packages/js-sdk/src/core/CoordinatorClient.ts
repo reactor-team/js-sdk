@@ -151,11 +151,12 @@ export class CoordinatorClient {
 
   /**
    * Terminates the current session by sending a DELETE request to the coordinator.
-   * @throws Error if no active session exists or if the request fails (except for 404)
+   * No-op if no session has been created yet.
+   * @throws Error if the request fails (except for 404, which clears local state)
    */
   async terminateSession(): Promise<void> {
     if (!this.currentSessionId) {
-      throw new Error("No active session. Call createSession() first.");
+      return;
     }
 
     console.debug(
