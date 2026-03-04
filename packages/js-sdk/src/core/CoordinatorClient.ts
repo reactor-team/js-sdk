@@ -11,6 +11,7 @@ import {
   SDPParamsResponse,
   SessionInfoResponse,
 } from "./types";
+import { AbortError } from "../types";
 import { transformIceServers } from "../utils/webrtc";
 
 export interface CoordinatorClientOptions {
@@ -30,11 +31,30 @@ export class CoordinatorClient {
   private jwtToken: string;
   private model: string;
   private currentSessionId?: string;
+  private abortController: AbortController;
 
   constructor(options: CoordinatorClientOptions) {
     this.baseUrl = options.baseUrl;
     this.jwtToken = options.jwtToken;
     this.model = options.model;
+    this.abortController = new AbortController();
+  }
+
+  /**
+   * Aborts any in-flight HTTP requests and polling loops.
+   * A fresh AbortController is created so the client remains reusable.
+   */
+  abort(): void {
+    this.abortController.abort();
+    this.abortController = new AbortController();
+  }
+
+  /**
+   * The current abort signal, passed to every fetch() and sleep() call.
+   * Protected so subclasses can forward it to their own fetch calls.
+   */
+  protected get signal(): AbortSignal {
+    return this.abortController.signal;
   }
 
   /**
@@ -58,6 +78,7 @@ export class CoordinatorClient {
       {
         method: "GET",
         headers: this.getAuthHeaders(),
+        signal: this.signal,
       }
     );
 
@@ -97,6 +118,7 @@ export class CoordinatorClient {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(requestBody),
+      signal: this.signal,
     });
 
     if (!response.ok) {
@@ -136,6 +158,7 @@ export class CoordinatorClient {
       {
         method: "GET",
         headers: this.getAuthHeaders(),
+        signal: this.signal,
       }
     );
 
@@ -169,6 +192,7 @@ export class CoordinatorClient {
       {
         method: "DELETE",
         headers: this.getAuthHeaders(),
+        signal: this.signal,
       }
     );
 
@@ -230,6 +254,7 @@ export class CoordinatorClient {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(requestBody),
+        signal: this.signal,
       }
     );
 
@@ -272,6 +297,10 @@ export class CoordinatorClient {
     let attempt = 0;
 
     while (true) {
+      if (this.signal.aborted) {
+        throw new AbortError("SDP polling aborted");
+      }
+
       if (attempt >= maxAttempts) {
         throw new Error(
           `SDP polling exceeded maximum attempts (${maxAttempts}) for session ${sessionId}`
@@ -291,6 +320,7 @@ export class CoordinatorClient {
             ...this.getAuthHeaders(),
             "Content-Type": "application/json",
           },
+          signal: this.signal,
         }
       );
 
@@ -351,9 +381,25 @@ export class CoordinatorClient {
   }
 
   /**
-   * Utility function to sleep for a given number of milliseconds
+   * Abort-aware sleep. Resolves after `ms` milliseconds unless the
+   * abort signal fires first, in which case it rejects with AbortError.
    */
   private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    return new Promise((resolve, reject) => {
+      const { signal } = this;
+      if (signal.aborted) {
+        reject(new AbortError("Sleep aborted"));
+        return;
+      }
+      const timer = setTimeout(() => {
+        signal.removeEventListener("abort", onAbort);
+        resolve();
+      }, ms);
+      const onAbort = () => {
+        clearTimeout(timer);
+        reject(new AbortError("Sleep aborted"));
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+    });
   }
 }

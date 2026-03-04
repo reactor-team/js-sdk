@@ -30,6 +30,7 @@ export class LocalCoordinatorClient extends CoordinatorClient {
     console.debug("[LocalCoordinatorClient] Fetching ICE servers...");
     const response = await fetch(`${this.localBaseUrl}/ice_servers`, {
       method: "GET",
+      signal: this.signal,
     });
 
     if (!response.ok) {
@@ -56,6 +57,7 @@ export class LocalCoordinatorClient extends CoordinatorClient {
     this.sdpOffer = sdpOffer;
     const response = await fetch(`${this.localBaseUrl}/start_session`, {
       method: "POST",
+      signal: this.signal,
     });
 
     if (!response.ok) {
@@ -85,6 +87,7 @@ export class LocalCoordinatorClient extends CoordinatorClient {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(sdpBody),
+      signal: this.signal,
     });
 
     if (!response.ok) {
@@ -103,6 +106,7 @@ export class LocalCoordinatorClient extends CoordinatorClient {
     console.debug("[LocalCoordinatorClient] Stopping local session...");
     await fetch(`${this.localBaseUrl}/stop_session`, {
       method: "POST",
+      signal: this.signal,
     });
   }
 }
