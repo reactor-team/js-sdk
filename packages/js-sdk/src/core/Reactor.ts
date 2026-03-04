@@ -314,11 +314,18 @@ export class Reactor {
 
   /**
    * Sets up event handlers for the machine client.
+   *
+   * Each handler captures the client reference at registration time and
+   * ignores events if this.machineClient has since changed (e.g. after
+   * disconnect + reconnect), preventing stale WebRTC teardown events from
+   * interfering with a new connection.
    */
   private setupMachineClientHandlers(): void {
     if (!this.machineClient) return;
+    const client = this.machineClient;
 
-    this.machineClient.on("message", (message: any, scope: MessageScope) => {
+    client.on("message", (message: any, scope: MessageScope) => {
+      if (this.machineClient !== client) return;
       if (scope === "application") {
         this.emit("message", message);
       } else if (scope === "runtime") {
@@ -326,7 +333,8 @@ export class Reactor {
       }
     });
 
-    this.machineClient.on("statusChanged", (status: GPUMachineStatus) => {
+    client.on("statusChanged", (status: GPUMachineStatus) => {
+      if (this.machineClient !== client) return;
       switch (status) {
         case "connected":
           this.setStatus("ready");
@@ -346,14 +354,16 @@ export class Reactor {
       }
     });
 
-    this.machineClient.on(
+    client.on(
       "trackReceived",
       (name: string, track: MediaStreamTrack, stream: MediaStream) => {
+        if (this.machineClient !== client) return;
         this.emit("trackReceived", name, track, stream);
       }
     );
 
-    this.machineClient.on("statsUpdate", (stats: ConnectionStats) => {
+    client.on("statsUpdate", (stats: ConnectionStats) => {
+      if (this.machineClient !== client) return;
       this.emit("statsUpdate", stats);
     });
   }
