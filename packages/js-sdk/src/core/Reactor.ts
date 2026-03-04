@@ -213,9 +213,10 @@ export class Reactor {
         sdpOffer,
         options?.maxAttempts
       );
-      // Connect to GPU machine with the answer
+      // Connect to GPU machine with the answer.
+      // Status transitions to "ready" via the statusChanged handler once
+      // the peer connection and data channel are fully open.
       await this.machineClient.connect(sdpAnswer);
-      this.setStatus("ready");
     } catch (error) {
       // disconnect() already aborted the polling and cleaned up state — nothing to do.
       if (isAbortError(error)) return;
