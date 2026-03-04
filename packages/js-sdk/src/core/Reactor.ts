@@ -7,6 +7,7 @@ import {
   type ConnectOptions,
   type TrackConfig,
   type ConnectionStats,
+  isAbortError,
   ConflictError,
 } from "../types";
 import { CoordinatorClient } from "./CoordinatorClient";
@@ -216,6 +217,9 @@ export class Reactor {
       await this.machineClient.connect(sdpAnswer);
       this.setStatus("ready");
     } catch (error) {
+      // disconnect() already aborted the polling and cleaned up state — nothing to do.
+      if (isAbortError(error)) return;
+
       let recoverable = false;
       if (error instanceof ConflictError) {
         recoverable = true;
@@ -291,6 +295,9 @@ export class Reactor {
       // Connect to GPU machine with the answer
       await this.machineClient.connect(sdpAnswer);
     } catch (error) {
+      // disconnect() already aborted the polling and cleaned up state — nothing to do.
+      if (isAbortError(error)) return;
+
       console.error("[Reactor] Connection failed:", error);
       this.createError(
         "CONNECTION_FAILED",
@@ -377,6 +384,11 @@ export class Reactor {
       console.warn("[Reactor] Already disconnected");
       return;
     }
+
+    // Abort any in-flight coordinator requests (SDP polling, pending fetches)
+    // before tearing down. abort() resets the controller so terminateSession()
+    // below can still make its own HTTP call.
+    this.coordinatorClient?.abort();
 
     if (this.coordinatorClient && !recoverable) {
       try {
