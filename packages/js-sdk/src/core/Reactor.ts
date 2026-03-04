@@ -7,7 +7,7 @@ import {
   type ConnectOptions,
   type TrackConfig,
   type ConnectionStats,
-  AbortError,
+  isAbortError,
   ConflictError,
 } from "../types";
 import { CoordinatorClient } from "./CoordinatorClient";
@@ -218,7 +218,7 @@ export class Reactor {
       this.setStatus("ready");
     } catch (error) {
       // disconnect() already aborted the polling and cleaned up state — nothing to do.
-      if (error instanceof AbortError) return;
+      if (isAbortError(error)) return;
 
       let recoverable = false;
       if (error instanceof ConflictError) {
@@ -296,7 +296,7 @@ export class Reactor {
       await this.machineClient.connect(sdpAnswer);
     } catch (error) {
       // disconnect() already aborted the polling and cleaned up state — nothing to do.
-      if (error instanceof AbortError) return;
+      if (isAbortError(error)) return;
 
       console.error("[Reactor] Connection failed:", error);
       this.createError(
