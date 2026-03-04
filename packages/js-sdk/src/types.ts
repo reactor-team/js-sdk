@@ -112,6 +112,20 @@ export class ConflictError extends Error {
   }
 }
 
+export class AbortError extends Error {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+/** Matches both our custom AbortError and the native DOMException thrown by fetch(). */
+export function isAbortError(error: unknown): boolean {
+  return (
+    error instanceof AbortError ||
+    (error instanceof Error && error.name === "AbortError")
+  );
+}
+
 export interface ReactorState {
   status: ReactorStatus;
   lastError?: ReactorError;

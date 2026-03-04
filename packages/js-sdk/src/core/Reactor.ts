@@ -7,6 +7,7 @@ import {
   type ConnectOptions,
   type TrackConfig,
   type ConnectionStats,
+  isAbortError,
   ConflictError,
 } from "../types";
 import { CoordinatorClient } from "./CoordinatorClient";
@@ -217,6 +218,9 @@ export class Reactor {
       // the peer connection and data channel are fully open.
       await this.machineClient.connect(sdpAnswer);
     } catch (error) {
+      // disconnect() already aborted the polling and cleaned up state — nothing to do.
+      if (isAbortError(error)) return;
+
       let recoverable = false;
       if (error instanceof ConflictError) {
         recoverable = true;
@@ -292,6 +296,9 @@ export class Reactor {
       // Connect to GPU machine with the answer
       await this.machineClient.connect(sdpAnswer);
     } catch (error) {
+      // disconnect() already aborted the polling and cleaned up state — nothing to do.
+      if (isAbortError(error)) return;
+
       console.error("[Reactor] Connection failed:", error);
       this.createError(
         "CONNECTION_FAILED",
@@ -315,11 +322,18 @@ export class Reactor {
 
   /**
    * Sets up event handlers for the machine client.
+   *
+   * Each handler captures the client reference at registration time and
+   * ignores events if this.machineClient has since changed (e.g. after
+   * disconnect + reconnect), preventing stale WebRTC teardown events from
+   * interfering with a new connection.
    */
   private setupMachineClientHandlers(): void {
     if (!this.machineClient) return;
+    const client = this.machineClient;
 
-    this.machineClient.on("message", (message: any, scope: MessageScope) => {
+    client.on("message", (message: any, scope: MessageScope) => {
+      if (this.machineClient !== client) return;
       if (scope === "application") {
         this.emit("message", message);
       } else if (scope === "runtime") {
@@ -327,7 +341,8 @@ export class Reactor {
       }
     });
 
-    this.machineClient.on("statusChanged", (status: GPUMachineStatus) => {
+    client.on("statusChanged", (status: GPUMachineStatus) => {
+      if (this.machineClient !== client) return;
       switch (status) {
         case "connected":
           this.setStatus("ready");
@@ -347,14 +362,16 @@ export class Reactor {
       }
     });
 
-    this.machineClient.on(
+    client.on(
       "trackReceived",
       (name: string, track: MediaStreamTrack, stream: MediaStream) => {
+        if (this.machineClient !== client) return;
         this.emit("trackReceived", name, track, stream);
       }
     );
 
-    this.machineClient.on("statsUpdate", (stats: ConnectionStats) => {
+    client.on("statsUpdate", (stats: ConnectionStats) => {
+      if (this.machineClient !== client) return;
       this.emit("statsUpdate", stats);
     });
   }
@@ -368,6 +385,11 @@ export class Reactor {
       console.warn("[Reactor] Already disconnected");
       return;
     }
+
+    // Abort any in-flight coordinator requests (SDP polling, pending fetches)
+    // before tearing down. abort() resets the controller so terminateSession()
+    // below can still make its own HTTP call.
+    this.coordinatorClient?.abort();
 
     if (this.coordinatorClient && !recoverable) {
       try {
