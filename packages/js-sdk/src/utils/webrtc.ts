@@ -20,6 +20,14 @@ const DEFAULT_DATA_CHANNEL_LABEL = "data";
 // Force relay mode for testing TURN servers - set to true to force all traffic through TURN
 const FORCE_RELAY_MODE = false;
 
+/**
+ * Safe cross-browser default for the maximum data channel message size (bytes).
+ * Most browsers negotiate 256 KiB via SCTP; we use a slightly lower value to
+ * leave room for framing overhead. Callers can override by passing a different
+ * limit to {@link sendMessage}.
+ */
+const DEFAULT_MAX_MESSAGE_BYTES = 256 * 1024; // 256 KiB
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Peer Connection Creation
 // ─────────────────────────────────────────────────────────────────────────────
@@ -296,16 +304,20 @@ export function removeAllTracks(pc: RTCPeerConnection): void {
  * Wire format:
  *   { scope: "application"|"runtime", data: { type: <command>, data: <payload> } }
  *
- * @param channel     The RTCDataChannel to send on.
- * @param command     Inner command/message type (e.g. "set_prompt", "requestCapabilities").
- * @param data        Payload for the command.
- * @param scope       Outer envelope scope – defaults to "application".
+ * @param channel      The RTCDataChannel to send on.
+ * @param command      Inner command/message type (e.g. "set_prompt", "requestCapabilities").
+ * @param data         Payload for the command.
+ * @param scope        Outer envelope scope – defaults to "application".
+ * @param maxBytes     Max allowed serialized message size in bytes.
+ *                     Defaults to {@link DEFAULT_MAX_MESSAGE_BYTES} (256 KiB).
+ *                     Pass the negotiated SCTP limit when available.
  */
 export function sendMessage(
   channel: RTCDataChannel,
   command: string,
   data: any,
-  scope: MessageScope = "application"
+  scope: MessageScope = "application",
+  maxBytes: number = DEFAULT_MAX_MESSAGE_BYTES
 ): void {
   if (channel.readyState !== "open") {
     throw new Error(`Data channel not open: ${channel.readyState}`);
@@ -313,7 +325,17 @@ export function sendMessage(
   const jsonData = typeof data === "string" ? JSON.parse(data) : data;
   const inner = { type: command, data: jsonData };
   const payload = { scope, data: inner };
-  channel.send(JSON.stringify(payload));
+  const serialized = JSON.stringify(payload);
+
+  const byteLength = new TextEncoder().encode(serialized).byteLength;
+  if (byteLength > maxBytes) {
+    throw new Error(
+      `Data channel message too large: ${byteLength} bytes exceeds ` +
+        `limit of ${maxBytes} bytes (command: "${command}")`
+    );
+  }
+
+  channel.send(serialized);
 }
 
 /**
