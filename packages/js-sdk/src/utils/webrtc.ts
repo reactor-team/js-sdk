@@ -97,26 +97,40 @@ export function rewriteMids(sdp: string, trackNames: string[]): string {
 /**
  * Creates an SDP offer on the peer connection.
  *
- * When `trackNames` is provided, the media MIDs in the SDP are
- * rewritten to use those names before `setLocalDescription` is called.
- * This allows the remote side to identify transceivers by name rather
- * than by positional index.
+ * When `trackNames` is provided the media MIDs in the SDP are rewritten
+ * to use those names so the remote side identifies transceivers by name.
  *
- * Waits for ICE gathering to complete before returning.
+ * **Strategy** – try to apply the rewrite *before* `setLocalDescription`
+ * (Chrome accepts this; it means the browser's internal MIDs match the
+ * server's, so RTP MID header extensions agree).  If the browser rejects
+ * the modification (Firefox throws `InvalidModificationError`), fall
+ * back to setting the original offer and rewriting only the outgoing SDP
+ * string.  In the fallback case the caller **must** translate MIDs on
+ * the answer via {@link restoreAnswerMids} before `setRemoteDescription`.
+ *
+ * @returns An object with the SDP string and a flag indicating whether
+ *          MID munging was applied natively (`needsAnswerRestore = false`)
+ *          or only on the wire (`needsAnswerRestore = true`).
  */
 export async function createOffer(
   pc: RTCPeerConnection,
   trackNames?: string[]
-): Promise<string> {
+): Promise<{ sdp: string; needsAnswerRestore: boolean }> {
   const offer = await pc.createOffer();
+
+  let needsAnswerRestore = false;
 
   if (trackNames && trackNames.length > 0 && offer.sdp) {
     const munged = rewriteMids(offer.sdp, trackNames);
-    const mungedOffer = new RTCSessionDescription({
-      type: "offer",
-      sdp: munged,
-    });
-    await pc.setLocalDescription(mungedOffer);
+    try {
+      await pc.setLocalDescription(
+        new RTCSessionDescription({ type: "offer", sdp: munged })
+      );
+    } catch {
+      // Firefox: "Changing the mid of m-sections is not allowed"
+      await pc.setLocalDescription(offer);
+      needsAnswerRestore = true;
+    }
   } else {
     await pc.setLocalDescription(offer);
   }
@@ -128,7 +142,13 @@ export async function createOffer(
     throw new Error("Failed to create local description");
   }
 
-  return localDescription.sdp;
+  let sdp = localDescription.sdp;
+
+  if (needsAnswerRestore && trackNames && trackNames.length > 0) {
+    sdp = rewriteMids(sdp, trackNames);
+  }
+
+  return { sdp, needsAnswerRestore };
 }
 
 /**
@@ -152,6 +172,75 @@ export async function createAnswer(
   }
 
   return localDescription.sdp;
+}
+
+export interface MidMapping {
+  localToRemote: Map<string, string>;
+  remoteToLocal: Map<string, string>;
+}
+
+/**
+ * Builds bidirectional maps between browser-assigned numeric MIDs and
+ * the human-readable track names used by the server.
+ *
+ * Must be called after `setLocalDescription` so that each transceiver
+ * has a non-null `mid`.
+ *
+ * @param transceivers Ordered list of `{ name, transceiver }` pairs
+ *                     matching the declared track entries.
+ */
+export function buildMidMapping(
+  transceivers: { name: string; transceiver?: RTCRtpTransceiver }[]
+): MidMapping {
+  const localToRemote = new Map<string, string>();
+  const remoteToLocal = new Map<string, string>();
+  for (const entry of transceivers) {
+    const mid = entry.transceiver?.mid;
+    if (mid) {
+      localToRemote.set(mid, entry.name);
+      remoteToLocal.set(entry.name, mid);
+    }
+  }
+  return { localToRemote, remoteToLocal };
+}
+
+/**
+ * Translates named MIDs in an SDP answer back to the browser-assigned
+ * numeric MIDs.  This is the inverse of the {@link rewriteMids}
+ * transformation applied to the outgoing offer.
+ *
+ * @param sdp            The SDP answer from the remote peer.
+ * @param remoteToLocal  Map from server-side MID names to the browser's
+ *                       original numeric MID values.
+ */
+export function restoreAnswerMids(
+  sdp: string,
+  remoteToLocal: Map<string, string>
+): string {
+  const lines = sdp.split("\r\n");
+
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith("a=mid:")) {
+      const remoteMid = lines[i].substring("a=mid:".length);
+      const localMid = remoteToLocal.get(remoteMid);
+      if (localMid !== undefined) {
+        lines[i] = `a=mid:${localMid}`;
+      }
+    }
+
+    if (lines[i].startsWith("a=group:BUNDLE ")) {
+      const parts = lines[i].split(" ");
+      for (let j = 1; j < parts.length; j++) {
+        const localMid = remoteToLocal.get(parts[j]);
+        if (localMid !== undefined) {
+          parts[j] = localMid;
+        }
+      }
+      lines[i] = parts.join(" ");
+    }
+  }
+
+  return lines.join("\r\n");
 }
 
 /**
