@@ -212,7 +212,10 @@ export class GPUMachineClient {
     try {
       let answer = sdpAnswer;
       if (this.midMapping) {
-        answer = webrtc.restoreAnswerMids(answer, this.midMapping.remoteToLocal);
+        answer = webrtc.restoreAnswerMids(
+          answer,
+          this.midMapping.remoteToLocal
+        );
       }
       await webrtc.setRemoteDescription(this.peerConnection, answer);
       console.debug("[GPUMachineClient] Remote description set");
