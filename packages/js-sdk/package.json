@@ -19,6 +19,10 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run __tests__/unit",
+    "test:integration": "vitest run __tests__/integration",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -35,13 +39,15 @@
   },
   "packageManager": "pnpm@10.12.1",
   "devDependencies": {
+    "@roamhq/wrtc": "^0.8.0",
     "@types/inquirer": "^9.0.9",
     "@types/node": "^20",
     "@types/react": "^18.2.8",
     "@types/ws": "^8.18.1",
     "prettier": "^3.6.2",
     "tsup": "^8.5.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3.0.0"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.0.0",

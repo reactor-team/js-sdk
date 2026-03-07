@@ -33,3 +33,12 @@ jobs:
 
       - name: Check formatting
         run: pnpm format:check
+
+      - name: Run unit tests
+        run: pnpm test:unit
+
+      - name: Run integration tests
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          REACTOR_API_KEY: ${{ secrets.REACTOR_API_KEY }}
+        run: pnpm test:integration
