@@ -31,14 +31,14 @@ describe("LocalCoordinatorClient", () => {
       expect(servers).toEqual([{ urls: ["stun:stun.l.google.com:19302"] }]);
       expect(mockFetch).toHaveBeenCalledWith(
         "http://localhost:8080/ice_servers",
-        expect.objectContaining({ method: "GET" }),
+        expect.objectContaining({ method: "GET" })
       );
     });
 
     it("throws on failure", async () => {
       mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
       await expect(client.getIceServers()).rejects.toThrow(
-        "Failed to get ICE servers",
+        "Failed to get ICE servers"
       );
     });
   });
@@ -54,14 +54,14 @@ describe("LocalCoordinatorClient", () => {
       expect(id).toBe("local");
       expect(mockFetch).toHaveBeenCalledWith(
         "http://localhost:8080/start_session",
-        expect.objectContaining({ method: "POST" }),
+        expect.objectContaining({ method: "POST" })
       );
     });
 
     it("throws on failure", async () => {
       mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
       await expect(client.createSession("v=0")).rejects.toThrow(
-        "Failed to send local start session",
+        "Failed to send local start session"
       );
     });
   });
@@ -76,8 +76,7 @@ describe("LocalCoordinatorClient", () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () =>
-          Promise.resolve({ sdp: "answer-sdp", type: "answer" }),
+        json: () => Promise.resolve({ sdp: "answer-sdp", type: "answer" }),
       });
 
       const answer = await client.connect("local", "");
@@ -90,7 +89,7 @@ describe("LocalCoordinatorClient", () => {
 
       mockFetch.mockResolvedValueOnce({ ok: false, status: 409 });
       await expect(client.connect("local", "offer")).rejects.toThrow(
-        ConflictError,
+        ConflictError
       );
     });
 
@@ -100,7 +99,7 @@ describe("LocalCoordinatorClient", () => {
 
       mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
       await expect(client.connect("local", "offer")).rejects.toThrow(
-        "Failed to get SDP answer",
+        "Failed to get SDP answer"
       );
     });
   });
@@ -113,7 +112,7 @@ describe("LocalCoordinatorClient", () => {
       await client.terminateSession();
       expect(mockFetch).toHaveBeenCalledWith(
         "http://localhost:8080/stop_session",
-        expect.objectContaining({ method: "POST" }),
+        expect.objectContaining({ method: "POST" })
       );
     });
   });

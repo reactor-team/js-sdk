@@ -37,21 +37,25 @@ describe("CoordinatorClient", () => {
 
       const servers = await client.getIceServers();
       expect(servers).toEqual([
-        { urls: ["stun:stun.example.com:3478"], username: "u", credential: "p" },
+        {
+          urls: ["stun:stun.example.com:3478"],
+          username: "u",
+          credential: "p",
+        },
       ]);
       expect(mockFetch).toHaveBeenCalledWith(
         "https://api.test.com/ice_servers?model=echo",
         expect.objectContaining({
           method: "GET",
           headers: { Authorization: "Bearer test-jwt" },
-        }),
+        })
       );
     });
 
     it("throws on non-OK response", async () => {
       mockFetch.mockResolvedValueOnce({ ok: false, status: 401 });
       await expect(client.getIceServers()).rejects.toThrow(
-        "Failed to fetch ICE servers: 401",
+        "Failed to fetch ICE servers: 401"
       );
     });
   });
@@ -81,7 +85,7 @@ describe("CoordinatorClient", () => {
         text: () => Promise.resolve("Internal Server Error"),
       });
       await expect(client.createSession("v=0")).rejects.toThrow(
-        "Failed to create session: 500",
+        "Failed to create session: 500"
       );
     });
   });
@@ -90,9 +94,7 @@ describe("CoordinatorClient", () => {
 
   describe("getSession()", () => {
     it("throws when no session has been created", async () => {
-      await expect(client.getSession()).rejects.toThrow(
-        "No active session",
-      );
+      await expect(client.getSession()).rejects.toThrow("No active session");
     });
 
     it("returns session info after creation", async () => {
@@ -169,7 +171,7 @@ describe("CoordinatorClient", () => {
         text: () => Promise.resolve("oops"),
       });
       await expect(client.terminateSession()).rejects.toThrow(
-        "Failed to terminate session: 500",
+        "Failed to terminate session: 500"
       );
     });
   });
@@ -223,9 +225,9 @@ describe("CoordinatorClient", () => {
     it("throws after exhausting max attempts", async () => {
       mockFetch.mockResolvedValue({ status: 202, ok: true });
 
-      await expect(
-        client.connect("session-123", undefined, 2),
-      ).rejects.toThrow("exceeded maximum attempts");
+      await expect(client.connect("session-123", undefined, 2)).rejects.toThrow(
+        "exceeded maximum attempts"
+      );
     });
 
     it("throws on unexpected HTTP error during polling", async () => {
@@ -235,9 +237,9 @@ describe("CoordinatorClient", () => {
         text: () => Promise.resolve("server error"),
       });
 
-      await expect(
-        client.connect("session-123", undefined, 3),
-      ).rejects.toThrow("Failed to poll SDP answer: 500");
+      await expect(client.connect("session-123", undefined, 3)).rejects.toThrow(
+        "Failed to poll SDP answer: 500"
+      );
     });
   });
 

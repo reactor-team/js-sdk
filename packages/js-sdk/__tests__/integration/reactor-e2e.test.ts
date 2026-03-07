@@ -14,7 +14,7 @@ const MODEL = "echo";
 function waitForStatus(
   reactor: Reactor,
   target: ReactorStatus,
-  timeoutMs: number,
+  timeoutMs: number
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     if (reactor.getStatus() === target) {
@@ -24,8 +24,8 @@ function waitForStatus(
     const timeout = setTimeout(() => {
       reject(
         new Error(
-          `Timed out waiting for "${target}", current: "${reactor.getStatus()}"`,
-        ),
+          `Timed out waiting for "${target}", current: "${reactor.getStatus()}"`
+        )
       );
     }, timeoutMs);
 
@@ -116,11 +116,11 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
     await waitForStatus(reactor, "ready", 60_000);
 
     await expect(
-      reactor.sendCommand("set_effect", { effect: "grayscale" }),
+      reactor.sendCommand("set_effect", { effect: "grayscale" })
     ).resolves.toBeUndefined();
 
     await expect(
-      reactor.sendCommand("set_intensity", { intensity: 0.5 }),
+      reactor.sendCommand("set_intensity", { intensity: 0.5 })
     ).resolves.toBeUndefined();
   }, 90_000);
 
@@ -185,7 +185,7 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
       }
       const timeout = setTimeout(
         () => reject(new Error("No stats received within 10 s")),
-        10_000,
+        10_000
       );
       reactor.on("statsUpdate", (s: any) => {
         clearTimeout(timeout);
@@ -204,7 +204,11 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
     reactor = new Reactor({
       modelName: MODEL,
       coordinatorUrl: COORDINATOR_URL,
-      receive: [video("main_video"), video("video_edges"), video("video_sepia")],
+      receive: [
+        video("main_video"),
+        video("video_edges"),
+        video("video_sepia"),
+      ],
     });
 
     await reactor.connect(jwt);

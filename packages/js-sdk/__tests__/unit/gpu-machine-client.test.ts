@@ -67,21 +67,18 @@ describe("GPUMachineClient", () => {
 
   beforeEach(() => {
     mockPC = createMockPeerConnection();
-    vi.stubGlobal(
-      "RTCPeerConnection",
-      vi.fn().mockReturnValue(mockPC),
-    );
+    vi.stubGlobal("RTCPeerConnection", vi.fn().mockReturnValue(mockPC));
     vi.stubGlobal(
       "RTCSessionDescription",
-      vi.fn().mockImplementation((d: any) => d),
+      vi.fn().mockImplementation((d: any) => d)
     );
     vi.stubGlobal(
       "RTCIceCandidate",
-      vi.fn().mockImplementation((c: any) => c),
+      vi.fn().mockImplementation((c: any) => c)
     );
     vi.stubGlobal(
       "MediaStream",
-      vi.fn().mockImplementation(() => ({ getTracks: () => [] })),
+      vi.fn().mockImplementation(() => ({ getTracks: () => [] }))
     );
   });
 
@@ -129,7 +126,7 @@ describe("GPUMachineClient", () => {
     it("throws when data channel is not available", () => {
       const client = new GPUMachineClient({ iceServers: [] });
       expect(() => client.sendCommand("test", {})).toThrow(
-        "Data channel not available",
+        "Data channel not available"
       );
     });
   });
@@ -140,7 +137,7 @@ describe("GPUMachineClient", () => {
     it("throws when peer connection is not initialized", async () => {
       const client = new GPUMachineClient({ iceServers: [] });
       await expect(
-        client.publishTrack("webcam", {} as MediaStreamTrack),
+        client.publishTrack("webcam", {} as MediaStreamTrack)
       ).rejects.toThrow("not initialized");
     });
   });
@@ -180,7 +177,7 @@ describe("GPUMachineClient", () => {
             { name: "dup", kind: "video" },
             { name: "dup", kind: "video" },
           ],
-        }),
+        })
       ).rejects.toThrow("Duplicate receive track name");
     });
 
@@ -190,7 +187,7 @@ describe("GPUMachineClient", () => {
         client.createOffer({
           send: [{ name: "track", kind: "video" }],
           receive: [{ name: "track", kind: "video" }],
-        }),
+        })
       ).rejects.toThrow("appears in both receive and send");
     });
   });
@@ -201,7 +198,7 @@ describe("GPUMachineClient", () => {
     it("throws when called before createOffer()", async () => {
       const client = new GPUMachineClient({ iceServers: [] });
       await expect(client.connect("answer")).rejects.toThrow(
-        "call createOffer() first",
+        "call createOffer() first"
       );
     });
   });

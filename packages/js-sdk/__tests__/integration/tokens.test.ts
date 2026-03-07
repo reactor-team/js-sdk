@@ -17,7 +17,7 @@ describe.skipIf(!API_KEY)("fetchInsecureJwtToken — integration", () => {
 
   it("rejects an invalid API key", async () => {
     await expect(
-      fetchInsecureJwtToken("rk_invalid_key_12345", COORDINATOR_URL),
+      fetchInsecureJwtToken("rk_invalid_key_12345", COORDINATOR_URL)
     ).rejects.toThrow();
   }, 15_000);
 });

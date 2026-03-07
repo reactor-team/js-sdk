@@ -193,7 +193,7 @@ describe("sendMessage()", () => {
   it("throws when the data channel is not open", () => {
     const channel = { readyState: "closed" } as unknown as RTCDataChannel;
     expect(() => sendMessage(channel, "cmd", {})).toThrow(
-      "Data channel not open",
+      "Data channel not open"
     );
   });
 });
@@ -285,13 +285,13 @@ describe("extractConnectionStats()", () => {
 describe("isConnected()", () => {
   it("returns true when connectionState is connected", () => {
     expect(
-      isConnected({ connectionState: "connected" } as RTCPeerConnection),
+      isConnected({ connectionState: "connected" } as RTCPeerConnection)
     ).toBe(true);
   });
 
   it("returns false otherwise", () => {
     expect(isConnected({ connectionState: "new" } as RTCPeerConnection)).toBe(
-      false,
+      false
     );
   });
 });
@@ -299,19 +299,19 @@ describe("isConnected()", () => {
 describe("isClosed()", () => {
   it("returns true when closed", () => {
     expect(isClosed({ connectionState: "closed" } as RTCPeerConnection)).toBe(
-      true,
+      true
     );
   });
 
   it("returns true when failed", () => {
     expect(isClosed({ connectionState: "failed" } as RTCPeerConnection)).toBe(
-      true,
+      true
     );
   });
 
   it("returns false when connected", () => {
     expect(
-      isClosed({ connectionState: "connected" } as RTCPeerConnection),
+      isClosed({ connectionState: "connected" } as RTCPeerConnection)
     ).toBe(false);
   });
 });

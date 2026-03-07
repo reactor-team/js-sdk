@@ -132,7 +132,7 @@ describe("Reactor", () => {
     it("throws when no JWT is provided and not in local mode", async () => {
       const r = new Reactor({ modelName: "echo" });
       await expect(r.connect()).rejects.toThrow(
-        "No authentication provided and not in local mode",
+        "No authentication provided and not in local mode"
       );
     });
 
@@ -143,7 +143,7 @@ describe("Reactor", () => {
       await r.connect("jwt-token");
 
       await expect(r.connect("jwt-token")).rejects.toThrow(
-        "Already connected or connecting",
+        "Already connected or connecting"
       );
 
       await r.disconnect();
@@ -192,7 +192,7 @@ describe("Reactor", () => {
 
       expect(warnSpy).toHaveBeenCalledWith(
         "[Reactor]",
-        expect.stringContaining("Cannot send message"),
+        expect.stringContaining("Cannot send message")
       );
     });
   });
@@ -207,7 +207,7 @@ describe("Reactor", () => {
       await r.publishTrack("webcam", {} as MediaStreamTrack);
 
       expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Cannot publish track"),
+        expect.stringContaining("Cannot publish track")
       );
     });
   });
@@ -222,7 +222,7 @@ describe("Reactor", () => {
       await r.reconnect();
 
       expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("No active session"),
+        expect.stringContaining("No active session")
       );
     });
   });

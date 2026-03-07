@@ -22,7 +22,7 @@ describe("CreateSessionRequestSchema", () => {
 
   it("rejects missing model", () => {
     expect(() =>
-      CreateSessionRequestSchema.parse({ sdp_offer: "v=0", extra_args: {} }),
+      CreateSessionRequestSchema.parse({ sdp_offer: "v=0", extra_args: {} })
     ).toThrow();
   });
 
@@ -31,7 +31,7 @@ describe("CreateSessionRequestSchema", () => {
       CreateSessionRequestSchema.parse({
         model: { name: "echo" },
         extra_args: {},
-      }),
+      })
     ).toThrow();
   });
 
@@ -40,7 +40,7 @@ describe("CreateSessionRequestSchema", () => {
       CreateSessionRequestSchema.parse({
         model: { name: "echo" },
         sdp_offer: "v=0",
-      }),
+      })
     ).toThrow();
   });
 });
@@ -55,7 +55,7 @@ describe("CreateSessionResponseSchema", () => {
 
   it("rejects a non-UUID session_id", () => {
     expect(() =>
-      CreateSessionResponseSchema.parse({ session_id: "not-a-uuid" }),
+      CreateSessionResponseSchema.parse({ session_id: "not-a-uuid" })
     ).toThrow();
   });
 });
@@ -104,7 +104,7 @@ describe("IceServersResponseSchema", () => {
 
   it("validates an empty server list", () => {
     expect(() =>
-      IceServersResponseSchema.parse({ ice_servers: [] }),
+      IceServersResponseSchema.parse({ ice_servers: [] })
     ).not.toThrow();
   });
 
