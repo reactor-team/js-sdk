@@ -53,6 +53,14 @@ export class GPUMachineClient {
   private peerConnected = false;
   private dataChannelOpen = false;
 
+  /**
+   * Browser-assigned MID ↔ track-name translation tables.
+   * Populated after {@link createOffer} so that:
+   *  - the outgoing offer carries track names as MIDs (server expectation)
+   *  - the incoming answer can be translated back to browser MIDs
+   */
+  private midMapping?: webrtc.MidMapping;
+
   constructor(config: webrtc.WebRTCConfig) {
     this.config = config;
   }
@@ -126,12 +134,23 @@ export class GPUMachineClient {
     }
 
     const trackNames = entries.map((e) => e.name);
-    const offer = await webrtc.createOffer(this.peerConnection, trackNames);
-    console.debug(
-      "[GPUMachineClient] Created SDP offer with MIDs:",
+    const { sdp, needsAnswerRestore } = await webrtc.createOffer(
+      this.peerConnection,
       trackNames
     );
-    return offer;
+
+    if (needsAnswerRestore) {
+      this.midMapping = webrtc.buildMidMapping(entries);
+    } else {
+      this.midMapping = undefined;
+    }
+
+    console.debug(
+      "[GPUMachineClient] Created SDP offer with MIDs:",
+      trackNames,
+      needsAnswerRestore ? "(needs answer restore)" : "(native munging)"
+    );
+    return sdp;
   }
 
   /**
@@ -191,7 +210,14 @@ export class GPUMachineClient {
     this.setStatus("connecting");
 
     try {
-      await webrtc.setRemoteDescription(this.peerConnection, sdpAnswer);
+      let answer = sdpAnswer;
+      if (this.midMapping) {
+        answer = webrtc.restoreAnswerMids(
+          answer,
+          this.midMapping.remoteToLocal
+        );
+      }
+      await webrtc.setRemoteDescription(this.peerConnection, answer);
       console.debug("[GPUMachineClient] Remote description set");
     } catch (error) {
       console.error("[GPUMachineClient] Failed to connect:", error);
@@ -222,6 +248,7 @@ export class GPUMachineClient {
     }
 
     this.transceiverMap.clear();
+    this.midMapping = undefined;
     this.peerConnected = false;
     this.dataChannelOpen = false;
     this.setStatus("disconnected");
@@ -497,11 +524,19 @@ export class GPUMachineClient {
     };
 
     this.peerConnection.ontrack = (event) => {
-      const mid = event.transceiver.mid;
-      const trackName = mid ?? `unknown-${event.track.id}`;
+      // Resolve track name via transceiver object identity (reliable
+      // across browsers regardless of MID rewriting).
+      let trackName: string | undefined;
+      for (const [name, entry] of this.transceiverMap) {
+        if (entry.transceiver === event.transceiver) {
+          trackName = name;
+          break;
+        }
+      }
+      trackName ??= event.transceiver.mid ?? `unknown-${event.track.id}`;
 
       console.debug(
-        `[GPUMachineClient] Track received: "${trackName}" (${event.track.kind}, mid=${mid})`
+        `[GPUMachineClient] Track received: "${trackName}" (${event.track.kind}, mid=${event.transceiver.mid})`
       );
       const stream = event.streams[0] ?? new MediaStream([event.track]);
       this.emit("trackReceived", trackName, event.track, stream);
