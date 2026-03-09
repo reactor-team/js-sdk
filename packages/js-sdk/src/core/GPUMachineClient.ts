@@ -280,6 +280,14 @@ export class GPUMachineClient {
   // ─────────────────────────────────────────────────────────────────────────────
 
   /**
+   * Returns the negotiated SCTP max message size (bytes) if available,
+   * otherwise `undefined` so `sendMessage` falls back to its built-in default.
+   */
+  private get maxMessageBytes(): number | undefined {
+    return this.peerConnection?.sctp?.maxMessageSize ?? undefined;
+  }
+
+  /**
    * Sends a command to the GPU machine via the data channel.
    * @param command The command to send
    * @param data The data to send with the command. These are the parameters for the command, matching the schema in the capabilities dictionary.
@@ -295,7 +303,13 @@ export class GPUMachineClient {
     }
 
     try {
-      webrtc.sendMessage(this.dataChannel, command, data, scope);
+      webrtc.sendMessage(
+        this.dataChannel,
+        command,
+        data,
+        scope,
+        this.maxMessageBytes
+      );
     } catch (error) {
       console.warn("[GPUMachineClient] Failed to send message:", error);
     }
