@@ -1,5 +1,8 @@
 # Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
 
+env:
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+
 steps:
   - group: ":hammer: Build & Lint"
     steps:
@@ -13,6 +16,7 @@ steps:
         plugins:
           - docker#v5.12.0:
               image: "node:20"
+              propagate-environment: true
 
       - label: ":prettier: Format Check"
         commands:
@@ -22,6 +26,7 @@ steps:
         plugins:
           - docker#v5.12.0:
               image: "node:20"
+              propagate-environment: true
 
   - group: ":test_tube: Tests"
     steps:
@@ -34,6 +39,7 @@ steps:
         plugins:
           - docker#v5.12.0:
               image: "node:20"
+              propagate-environment: true
 
       - label: ":globe_with_meridians: Integration Tests"
         key: integration-tests
@@ -44,6 +50,7 @@ steps:
         plugins:
           - docker#v5.12.0:
               image: "node:20"
+              propagate-environment: true
         env:
           REACTOR_API_KEY: "${REACTOR_API_KEY}"
 
