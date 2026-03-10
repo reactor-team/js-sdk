@@ -7,7 +7,12 @@ vi.mock("../../src/core/CoordinatorClient", () => ({
   CoordinatorClient: vi.fn().mockImplementation(() => ({
     getIceServers: vi.fn().mockResolvedValue([]),
     createSession: vi.fn().mockResolvedValue("test-session-id"),
-    connect: vi.fn().mockResolvedValue("mock-sdp-answer"),
+    connect: vi
+      .fn()
+      .mockResolvedValue({
+        sdpAnswer: "mock-sdp-answer",
+        sdpPollingAttempts: 1,
+      }),
     terminateSession: vi.fn().mockResolvedValue(undefined),
     abort: vi.fn(),
   })),
@@ -17,7 +22,12 @@ vi.mock("../../src/core/LocalCoordinatorClient", () => ({
   LocalCoordinatorClient: vi.fn().mockImplementation(() => ({
     getIceServers: vi.fn().mockResolvedValue([]),
     createSession: vi.fn().mockResolvedValue("local"),
-    connect: vi.fn().mockResolvedValue("mock-sdp-answer"),
+    connect: vi
+      .fn()
+      .mockResolvedValue({
+        sdpAnswer: "mock-sdp-answer",
+        sdpPollingAttempts: 0,
+      }),
     terminateSession: vi.fn().mockResolvedValue(undefined),
     abort: vi.fn(),
   })),
@@ -34,6 +44,8 @@ vi.mock("../../src/core/GPUMachineClient", () => ({
     on: vi.fn(),
     off: vi.fn(),
     getStats: vi.fn().mockReturnValue(undefined),
+    getConnectionTimings: vi.fn().mockReturnValue(undefined),
+    resetConnectionTimings: vi.fn(),
   })),
 }));
 
