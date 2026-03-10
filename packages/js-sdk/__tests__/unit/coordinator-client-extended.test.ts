@@ -137,8 +137,9 @@ describe("CoordinatorClient (extended)", () => {
         // Advance through second backoff (1000ms) — triggers third poll (200)
         await vi.advanceTimersByTimeAsync(1000);
 
-        const answer = await promise;
-        expect(answer).toBe("final-answer");
+        const result = await promise;
+        expect(result.sdpAnswer).toBe("final-answer");
+        expect(result.sdpPollingAttempts).toBe(3);
         expect(mockFetch).toHaveBeenCalledTimes(4);
       } finally {
         vi.useRealTimers();

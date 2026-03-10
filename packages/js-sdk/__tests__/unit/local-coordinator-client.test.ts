@@ -79,8 +79,9 @@ describe("LocalCoordinatorClient", () => {
         json: () => Promise.resolve({ sdp: "answer-sdp", type: "answer" }),
       });
 
-      const answer = await client.connect("local", "");
-      expect(answer).toBe("answer-sdp");
+      const result = await client.connect("local", "");
+      expect(result.sdpAnswer).toBe("answer-sdp");
+      expect(result.sdpPollingAttempts).toBe(0);
     });
 
     it("throws ConflictError on 409", async () => {
