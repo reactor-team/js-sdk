@@ -139,6 +139,26 @@ export interface ConnectOptions {
   maxAttempts?: number;
 }
 
+/**
+ * One-shot timing breakdown of the connect() handshake, recorded once per
+ * connection and included in every subsequent {@link ConnectionStats} update.
+ * All durations are in milliseconds (from `performance.now()`).
+ */
+export interface ConnectionTimings {
+  /** POST /sessions round-trip time */
+  sessionCreationMs: number;
+  /** Total time spent polling for the SDP answer */
+  sdpPollingMs: number;
+  /** Number of SDP poll requests made (1 = answered on first try) */
+  sdpPollingAttempts: number;
+  /** setRemoteDescription → RTCPeerConnection connectionState "connected" */
+  iceNegotiationMs: number;
+  /** setRemoteDescription → RTCDataChannel "open" */
+  dataChannelMs: number;
+  /** End-to-end: connect() invocation → status "ready" */
+  totalMs: number;
+}
+
 export interface ConnectionStats {
   /** ICE candidate-pair round-trip time in milliseconds */
   rtt?: number;
@@ -152,6 +172,8 @@ export interface ConnectionStats {
   packetLossRatio?: number;
   /** Network jitter in seconds (from inbound-rtp) */
   jitter?: number;
+  /** Timing breakdown of the initial connection handshake (set once, persisted until disconnect) */
+  connectionTimings?: ConnectionTimings;
   timestamp: number;
 }
 

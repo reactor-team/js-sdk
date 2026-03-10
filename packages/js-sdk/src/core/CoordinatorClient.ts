@@ -287,7 +287,7 @@ export class CoordinatorClient {
   private async pollSdpAnswer(
     sessionId: string,
     maxAttempts: number = DEFAULT_MAX_ATTEMPTS
-  ): Promise<string> {
+  ): Promise<{ sdpAnswer: string; attempts: number }> {
     console.debug(
       "[CoordinatorClient] Polling for SDP answer for session:",
       sessionId
@@ -327,7 +327,7 @@ export class CoordinatorClient {
       if (response.status === 200) {
         const answerData: SDPParamsResponse = await response.json();
         console.debug("[CoordinatorClient] Received SDP answer via polling");
-        return answerData.sdp_answer;
+        return { sdpAnswer: answerData.sdp_answer, attempts: attempt };
       }
 
       if (response.status === 202) {
@@ -357,13 +357,13 @@ export class CoordinatorClient {
    * @param sessionId - The session ID to connect to
    * @param sdpOffer - Optional SDP offer from the local WebRTC peer connection
    * @param maxAttempts - Optional maximum number of polling attempts before giving up
-   * @returns The SDP answer from the server
+   * @returns The SDP answer and the number of polling attempts made (0 if answered immediately via PUT)
    */
   async connect(
     sessionId: string,
     sdpOffer?: string,
     maxAttempts?: number
-  ): Promise<string> {
+  ): Promise<{ sdpAnswer: string; sdpPollingAttempts: number }> {
     console.debug("[CoordinatorClient] Connecting to session:", sessionId);
 
     if (sdpOffer) {
@@ -371,13 +371,14 @@ export class CoordinatorClient {
       // Try to send it and get an immediate answer
       const answer = await this.sendSdpOffer(sessionId, sdpOffer);
       if (answer !== null) {
-        return answer;
+        return { sdpAnswer: answer, sdpPollingAttempts: 0 };
       }
       // Server accepted but answer not ready yet (202), fall back to polling
     }
 
     // No SDP offer = async reconnection, poll until server has the answer
-    return this.pollSdpAnswer(sessionId, maxAttempts);
+    const result = await this.pollSdpAnswer(sessionId, maxAttempts);
+    return { sdpAnswer: result.sdpAnswer, sdpPollingAttempts: result.attempts };
   }
 
   /**
