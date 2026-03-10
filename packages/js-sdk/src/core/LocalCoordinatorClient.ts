@@ -70,11 +70,15 @@ export class LocalCoordinatorClient extends CoordinatorClient {
 
   /**
    * Connects to the local session by posting SDP params to /sdp_params.
+   * Local connections are always immediate (no polling).
    * @param sessionId - The session ID (ignored for local)
    * @param sdpMessage - The SDP offer from the local WebRTC peer connection
-   * @returns The SDP answer from the server
+   * @returns The SDP answer and polling attempts (always 0 for local)
    */
-  async connect(sessionId: string, sdpMessage: string): Promise<string> {
+  async connect(
+    sessionId: string,
+    sdpMessage?: string
+  ): Promise<{ sdpAnswer: string; sdpPollingAttempts: number }> {
     this.sdpOffer = sdpMessage || this.sdpOffer;
     console.debug("[LocalCoordinatorClient] Connecting to local session...");
     const sdpBody = {
@@ -99,7 +103,7 @@ export class LocalCoordinatorClient extends CoordinatorClient {
 
     const sdpAnswer: { sdp: string; type: "answer" } = await response.json();
     console.debug("[LocalCoordinatorClient] Received SDP answer");
-    return sdpAnswer.sdp;
+    return { sdpAnswer: sdpAnswer.sdp, sdpPollingAttempts: 0 };
   }
 
   async terminateSession(): Promise<void> {

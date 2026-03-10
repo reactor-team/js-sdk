@@ -7,6 +7,7 @@ import {
   type ConnectOptions,
   type TrackConfig,
   type ConnectionStats,
+  type ConnectionTimings,
   isAbortError,
   ConflictError,
 } from "../types";
@@ -63,6 +64,8 @@ export class Reactor {
   /** Tracks the client SENDS to the model (client → model). */
   private send: TrackConfig[];
   private sessionId?: string;
+  private connectStartTime?: number;
+  private connectionTimings?: ConnectionTimings;
 
   constructor(options: Options) {
     const validatedOptions = OptionsSchema.parse(options);
@@ -208,7 +211,7 @@ export class Reactor {
 
     // Send offer to coordinator and get answer.
     try {
-      const sdpAnswer = await this.coordinatorClient.connect(
+      const { sdpAnswer } = await this.coordinatorClient.connect(
         this.sessionId,
         sdpOffer,
         options?.maxAttempts
@@ -256,6 +259,8 @@ export class Reactor {
     }
     this.setStatus("connecting");
 
+    this.connectStartTime = performance.now();
+
     try {
       console.debug(
         "[Reactor] Connecting to coordinator with authenticated URL"
@@ -282,16 +287,30 @@ export class Reactor {
       });
 
       // Create session passing SDP offer. We will get the answer polling the sdp_offer endpoint.
+      const tSession = performance.now();
       const sessionId = await this.coordinatorClient.createSession(sdpOffer);
+      const sessionCreationMs = performance.now() - tSession;
       this.setSessionId(sessionId);
 
       // Connect to coordinator and get SDP Answer.
       // We don't pass the sdp offer here because we passed it already when creating the session.
-      const sdpAnswer = await this.coordinatorClient.connect(
-        sessionId,
-        undefined,
-        options?.maxAttempts
-      );
+      const tSdp = performance.now();
+      const { sdpAnswer, sdpPollingAttempts } =
+        await this.coordinatorClient.connect(
+          sessionId,
+          undefined,
+          options?.maxAttempts
+        );
+      const sdpPollingMs = performance.now() - tSdp;
+
+      this.connectionTimings = {
+        sessionCreationMs,
+        sdpPollingMs,
+        sdpPollingAttempts,
+        iceNegotiationMs: 0,
+        dataChannelMs: 0,
+        totalMs: 0,
+      };
 
       // Connect to GPU machine with the answer
       await this.machineClient.connect(sdpAnswer);
@@ -345,6 +364,7 @@ export class Reactor {
       if (this.machineClient !== client) return;
       switch (status) {
         case "connected":
+          this.finalizeConnectionTimings(client);
           this.setStatus("ready");
           break;
         case "disconnected":
@@ -372,7 +392,10 @@ export class Reactor {
 
     client.on("statsUpdate", (stats: ConnectionStats) => {
       if (this.machineClient !== client) return;
-      this.emit("statsUpdate", stats);
+      this.emit("statsUpdate", {
+        ...stats,
+        connectionTimings: this.connectionTimings,
+      });
     });
   }
 
@@ -414,6 +437,7 @@ export class Reactor {
     }
 
     this.setStatus("disconnected");
+    this.resetConnectionTimings();
     if (!recoverable) {
       this.setSessionExpiration(undefined);
       this.setSessionId(undefined);
@@ -482,7 +506,27 @@ export class Reactor {
   }
 
   getStats(): ConnectionStats | undefined {
-    return this.machineClient?.getStats();
+    const stats = this.machineClient?.getStats();
+    if (!stats) return undefined;
+    return { ...stats, connectionTimings: this.connectionTimings };
+  }
+
+  private resetConnectionTimings(): void {
+    this.connectStartTime = undefined;
+    this.connectionTimings = undefined;
+  }
+
+  private finalizeConnectionTimings(client: GPUMachineClient): void {
+    if (!this.connectionTimings || this.connectStartTime == null) return;
+
+    const webrtcTimings = client.getConnectionTimings();
+    this.connectionTimings.iceNegotiationMs =
+      webrtcTimings?.iceNegotiationMs ?? 0;
+    this.connectionTimings.dataChannelMs = webrtcTimings?.dataChannelMs ?? 0;
+    this.connectionTimings.totalMs = performance.now() - this.connectStartTime;
+    this.connectStartTime = undefined;
+
+    console.debug("[Reactor] Connection timings:", this.connectionTimings);
   }
 
   /**
