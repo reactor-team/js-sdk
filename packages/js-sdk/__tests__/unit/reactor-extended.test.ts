@@ -53,9 +53,8 @@ vi.mock("../../src/core/GPUMachineClient", () => ({
   },
 }));
 
-const { LocalCoordinatorClient } = await import(
-  "../../src/core/LocalCoordinatorClient"
-);
+const { LocalCoordinatorClient } =
+  await import("../../src/core/LocalCoordinatorClient");
 
 async function connectAndReady(r: Reactor, jwt = "jwt") {
   await r.connect(jwt);
@@ -321,9 +320,7 @@ describe("Reactor (extended)", () => {
 
       await r.reconnect();
       expect(mockMachineClient.createOffer).toHaveBeenCalled();
-      expect(mockMachineClient.connect).toHaveBeenCalledWith(
-        "mock-sdp-answer"
-      );
+      expect(mockMachineClient.connect).toHaveBeenCalledWith("mock-sdp-answer");
       await r.disconnect();
     });
 
@@ -331,9 +328,7 @@ describe("Reactor (extended)", () => {
       const r = new Reactor({ modelName: "echo" });
       await connectAndReady(r);
 
-      const warnSpy = vi
-        .spyOn(console, "warn")
-        .mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
       await r.reconnect();
       expect(warnSpy).toHaveBeenCalledWith(
@@ -350,9 +345,8 @@ describe("Reactor (extended)", () => {
       const r = new Reactor({ modelName: "echo" });
       await r.connect("jwt");
 
-      const { CoordinatorClient } = await import(
-        "../../src/core/CoordinatorClient"
-      );
+      const { CoordinatorClient } =
+        await import("../../src/core/CoordinatorClient");
       const coordInstance = (CoordinatorClient as any).mock.results.at(
         -1
       )!.value;
@@ -365,9 +359,8 @@ describe("Reactor (extended)", () => {
       const r = new Reactor({ modelName: "echo" });
       await r.connect("jwt");
 
-      const { CoordinatorClient } = await import(
-        "../../src/core/CoordinatorClient"
-      );
+      const { CoordinatorClient } =
+        await import("../../src/core/CoordinatorClient");
       const coordInstance = (CoordinatorClient as any).mock.results.at(
         -1
       )!.value;
@@ -397,9 +390,7 @@ describe("Reactor (extended)", () => {
       const r = new Reactor({ modelName: "echo" });
       await r.connect("jwt");
 
-      mockMachineClient.disconnect.mockRejectedValue(
-        new Error("peer closed")
-      );
+      mockMachineClient.disconnect.mockRejectedValue(new Error("peer closed"));
       vi.spyOn(console, "error").mockImplementation(() => {});
 
       await r.disconnect(false);

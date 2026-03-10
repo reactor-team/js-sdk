@@ -103,9 +103,9 @@ describe("CoordinatorClient (extended)", () => {
         text: () => Promise.resolve("server error"),
       });
 
-      await expect(
-        client.connect("session-123", "offer-sdp")
-      ).rejects.toThrow("Failed to send SDP offer: 500");
+      await expect(client.connect("session-123", "offer-sdp")).rejects.toThrow(
+        "Failed to send SDP offer: 500"
+      );
     });
   });
 

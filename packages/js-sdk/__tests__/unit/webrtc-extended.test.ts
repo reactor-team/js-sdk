@@ -200,7 +200,9 @@ describe("createAnswer()", () => {
     const answerSdp = "v=0\r\na=answer\r\n";
     const mockPC = {
       setRemoteDescription: vi.fn(),
-      createAnswer: vi.fn().mockResolvedValue({ type: "answer", sdp: answerSdp }),
+      createAnswer: vi
+        .fn()
+        .mockResolvedValue({ type: "answer", sdp: answerSdp }),
       setLocalDescription: vi.fn(),
       get localDescription() {
         return { sdp: answerSdp };
@@ -258,7 +260,9 @@ describe("getLocalDescription()", () => {
 describe("addIceCandidate()", () => {
   it("calls addIceCandidate on pc with RTCIceCandidate", async () => {
     const mockPC = { addIceCandidate: vi.fn() };
-    const candidateInit = { candidate: "candidate:1 1 udp 2130706431 192.168.1.1 12345 typ host" };
+    const candidateInit = {
+      candidate: "candidate:1 1 udp 2130706431 192.168.1.1 12345 typ host",
+    };
 
     await addIceCandidate(mockPC as any, candidateInit);
 
@@ -330,7 +334,10 @@ describe("addTrack()", () => {
 
     const sender = addTrack(pc, track);
 
-    expect(pc.addTrack).toHaveBeenCalledWith(track, expect.any(MockMediaStream));
+    expect(pc.addTrack).toHaveBeenCalledWith(
+      track,
+      expect.any(MockMediaStream)
+    );
     expect(sender).toBe(mockSender);
   });
 
@@ -368,7 +375,9 @@ describe("findSenderForTrack()", () => {
     const track = new MockMediaStreamTrack() as any;
     const matchingSender = { track };
     const otherSender = { track: new MockMediaStreamTrack("audio", "track-2") };
-    const pc = { getSenders: vi.fn().mockReturnValue([otherSender, matchingSender]) } as any;
+    const pc = {
+      getSenders: vi.fn().mockReturnValue([otherSender, matchingSender]),
+    } as any;
 
     expect(findSenderForTrack(pc, track)).toBe(matchingSender);
   });
