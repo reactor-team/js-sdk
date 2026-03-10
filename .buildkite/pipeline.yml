@@ -1,45 +1,42 @@
 # Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
 
-env:
-  COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+definitions:
+  - &node_docker
+    plugins:
+      - docker#v5.12.0:
+          image: "node:20"
+          propagate-environment: true
+          environment:
+            - "COREPACK_ENABLE_DOWNLOAD_PROMPT=0"
 
 steps:
   - group: ":hammer: Build & Lint"
     steps:
-      - label: ":package: Build"
+      - <<: *node_docker
+        label: ":package: Build"
         key: build
         commands:
           - corepack enable
           - pnpm install --frozen-lockfile
           - pnpm build
           - pnpm --filter create-reactor-app build
-        plugins:
-          - docker#v5.12.0:
-              image: "node:20"
-              propagate-environment: true
 
-      - label: ":prettier: Format Check"
+      - <<: *node_docker
+        label: ":prettier: Format Check"
         commands:
           - corepack enable
           - pnpm install --frozen-lockfile
           - pnpm format:check
-        plugins:
-          - docker#v5.12.0:
-              image: "node:20"
-              propagate-environment: true
 
   - group: ":test_tube: Tests"
     steps:
-      - label: ":white_check_mark: Unit Tests"
+      - <<: *node_docker
+        label: ":white_check_mark: Unit Tests"
         key: unit-tests
         commands:
           - corepack enable
           - pnpm install --frozen-lockfile
           - pnpm test:unit
-        plugins:
-          - docker#v5.12.0:
-              image: "node:20"
-              propagate-environment: true
 
       - label: ":globe_with_meridians: Integration Tests"
         key: integration-tests
@@ -51,5 +48,8 @@ steps:
           - docker#v5.12.0:
               image: "node:20"
               propagate-environment: true
-        env:
-          REACTOR_API_KEY: "${REACTOR_API_KEY}"
+              environment:
+                - "COREPACK_ENABLE_DOWNLOAD_PROMPT=0"
+                - "REACTOR_API_KEY"
+        secrets:
+          - REACTOR_API_KEY
