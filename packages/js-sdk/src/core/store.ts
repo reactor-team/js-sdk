@@ -83,7 +83,7 @@ export const createReactorStore = (
   publicState: ReactorState = defaultInitState
 ): StoreApi<ReactorStore> => {
   console.debug("[ReactorStore] Creating store", {
-    coordinatorUrl: initProps.coordinatorUrl,
+    apiUrl: initProps.apiUrl,
     jwtToken: initProps.jwtToken,
     initialState: publicState,
   });

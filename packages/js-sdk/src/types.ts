@@ -102,7 +102,7 @@ export interface ReactorError {
   message: string;
   timestamp: number;
   recoverable: boolean;
-  component: "coordinator" | "gpu" | "livekit";
+  component: "api" | "gpu";
   retryAfter?: number;
 }
 

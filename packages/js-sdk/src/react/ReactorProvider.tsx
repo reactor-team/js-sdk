@@ -57,7 +57,7 @@ export function ReactorProvider({
   // Destructure connectOptions with defaults
   const { autoConnect = false, ...pollingOptions } = connectOptions ?? {};
 
-  const { coordinatorUrl, modelName, local, receive, send } = props;
+  const { apiUrl, modelName, local, receive, send } = props;
   const maxAttempts = pollingOptions.maxAttempts;
 
   // Handle page unload (refresh, close, navigate away) with non-recoverable disconnect
@@ -131,7 +131,7 @@ export function ReactorProvider({
     console.debug("[ReactorProvider] Updating reactor store");
     storeRef.current = createReactorStore(
       initReactorStore({
-        coordinatorUrl,
+        apiUrl,
         modelName,
         local,
         receive,
@@ -181,7 +181,7 @@ export function ReactorProvider({
         });
     };
   }, [
-    coordinatorUrl,
+    apiUrl,
     modelName,
     autoConnect,
     local,
