@@ -187,8 +187,9 @@ describe("CoordinatorClient", () => {
           Promise.resolve({ sdp_answer: "answer-sdp", extra_args: {} }),
       });
 
-      const answer = await client.connect("session-123", "offer-sdp");
-      expect(answer).toBe("answer-sdp");
+      const result = await client.connect("session-123", "offer-sdp");
+      expect(result.sdpAnswer).toBe("answer-sdp");
+      expect(result.sdpPollingAttempts).toBe(0);
     });
 
     it("polls when PUT returns 202, then succeeds", async () => {
@@ -204,8 +205,9 @@ describe("CoordinatorClient", () => {
           Promise.resolve({ sdp_answer: "polled-answer", extra_args: {} }),
       });
 
-      const answer = await client.connect("session-123", "offer-sdp", 3);
-      expect(answer).toBe("polled-answer");
+      const result = await client.connect("session-123", "offer-sdp", 3);
+      expect(result.sdpAnswer).toBe("polled-answer");
+      expect(result.sdpPollingAttempts).toBe(2);
     });
 
     it("goes directly to polling when no SDP offer is given", async () => {
@@ -216,8 +218,9 @@ describe("CoordinatorClient", () => {
           Promise.resolve({ sdp_answer: "direct-answer", extra_args: {} }),
       });
 
-      const answer = await client.connect("session-123", undefined, 2);
-      expect(answer).toBe("direct-answer");
+      const result = await client.connect("session-123", undefined, 2);
+      expect(result.sdpAnswer).toBe("direct-answer");
+      expect(result.sdpPollingAttempts).toBe(1);
       // Should be a GET, not PUT
       expect(mockFetch.mock.calls[0][1].method).toBe("GET");
     });

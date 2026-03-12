@@ -53,6 +53,10 @@ export class GPUMachineClient {
   private peerConnected = false;
   private dataChannelOpen = false;
 
+  private iceStartTime?: number;
+  private iceNegotiationMs?: number;
+  private dataChannelMs?: number;
+
   /**
    * Browser-assigned MID ↔ track-name translation tables.
    * Populated after {@link createOffer} so that:
@@ -208,6 +212,9 @@ export class GPUMachineClient {
     }
 
     this.setStatus("connecting");
+    this.iceStartTime = performance.now();
+    this.iceNegotiationMs = undefined;
+    this.dataChannelMs = undefined;
 
     try {
       let answer = sdpAnswer;
@@ -251,6 +258,7 @@ export class GPUMachineClient {
     this.midMapping = undefined;
     this.peerConnected = false;
     this.dataChannelOpen = false;
+    this.resetConnectionTimings();
     this.setStatus("disconnected");
     console.debug("[GPUMachineClient] Disconnected");
   }
@@ -457,6 +465,28 @@ export class GPUMachineClient {
     return this.stats;
   }
 
+  /**
+   * Returns the ICE/data-channel durations recorded during the last connect(),
+   * or undefined if no connection has completed yet.
+   */
+  getConnectionTimings():
+    | { iceNegotiationMs: number; dataChannelMs: number }
+    | undefined {
+    if (this.iceNegotiationMs == null || this.dataChannelMs == null) {
+      return undefined;
+    }
+    return {
+      iceNegotiationMs: this.iceNegotiationMs,
+      dataChannelMs: this.dataChannelMs,
+    };
+  }
+
+  resetConnectionTimings(): void {
+    this.iceStartTime = undefined;
+    this.iceNegotiationMs = undefined;
+    this.dataChannelMs = undefined;
+  }
+
   private startStatsPolling(): void {
     this.stopStatsPolling();
     this.statsInterval = setInterval(async () => {
@@ -507,6 +537,9 @@ export class GPUMachineClient {
       if (state) {
         switch (state) {
           case "connected":
+            if (this.iceStartTime != null && this.iceNegotiationMs == null) {
+              this.iceNegotiationMs = performance.now() - this.iceStartTime;
+            }
             this.peerConnected = true;
             this.checkFullyConnected();
             break;
@@ -565,6 +598,9 @@ export class GPUMachineClient {
 
     this.dataChannel.onopen = () => {
       console.debug("[GPUMachineClient] Data channel open");
+      if (this.iceStartTime != null && this.dataChannelMs == null) {
+        this.dataChannelMs = performance.now() - this.iceStartTime;
+      }
       this.dataChannelOpen = true;
       this.startPing();
       this.checkFullyConnected();
