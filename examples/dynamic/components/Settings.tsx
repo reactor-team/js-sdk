@@ -15,8 +15,8 @@ interface SettingsProps {
   isLocal: boolean;
   onLocalChange: (value: boolean) => void;
   onJwtTokenChange: (value: string | undefined) => void;
-  coordinatorUrl: string;
-  onCoordinatorUrlChange: (value: string) => void;
+  apiUrl: string;
+  onApiUrlChange: (value: string) => void;
 }
 
 export function Settings({
@@ -25,8 +25,8 @@ export function Settings({
   isLocal,
   onLocalChange,
   onJwtTokenChange,
-  coordinatorUrl,
-  onCoordinatorUrlChange,
+  apiUrl,
+  onApiUrlChange,
 }: SettingsProps) {
   const [localModelName, setLocalModelName] = useState(modelName);
   const [apiKey, setApiKey] = useState("");
@@ -59,7 +59,7 @@ export function Settings({
       setIsFetchingToken(true);
       setTokenError(null);
       try {
-        const token = await fetchInsecureJwtToken(apiKey, coordinatorUrl);
+        const token = await fetchInsecureJwtToken(apiKey, apiUrl);
         onJwtTokenChange(token);
       } catch (err) {
         setTokenError(
@@ -72,7 +72,7 @@ export function Settings({
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [apiKey, isLocal, coordinatorUrl, onJwtTokenChange]);
+  }, [apiKey, isLocal, apiUrl, onJwtTokenChange]);
 
   return (
     <div className="flex flex-col gap-3 p-3 bg-gray-800/40 rounded-lg border border-gray-700/50">
@@ -91,8 +91,8 @@ export function Settings({
           <div className="flex items-center gap-2 text-sm text-gray-300 min-w-0">
             <span className="text-gray-500 shrink-0">Endpoint:</span>
             <select
-              value={coordinatorUrl}
-              onChange={(e) => onCoordinatorUrlChange(e.target.value)}
+              value={apiUrl}
+              onChange={(e) => onApiUrlChange(e.target.value)}
               className="bg-gray-900/60 border border-gray-600 rounded-md px-3 py-1.5 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 cursor-pointer"
             >
               {ENDPOINTS.map((ep) => (
@@ -102,7 +102,7 @@ export function Settings({
               ))}
             </select>
             <span className="text-xs text-gray-500 truncate min-w-0">
-              {coordinatorUrl}
+              {apiUrl}
             </span>
           </div>
         )}
