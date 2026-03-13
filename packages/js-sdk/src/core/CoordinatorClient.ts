@@ -1,30 +1,34 @@
+// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
+
 /**
- * The CoordinatorClient is responsible for handling the connection to the coordinator
- * via HTTP requests and WebRTC signaling.
+ * The CoordinatorClient handles session lifecycle via HTTP requests.
+ *
+ * Transport signaling (ICE servers, SDP exchange) is NOT handled here —
+ * that responsibility belongs to the TransportClient implementations.
  */
 
 import {
-  CreateSessionRequest,
-  CreateSessionResponse,
-  IceServersResponseSchema,
-  SDPParamsRequest,
-  SDPParamsResponse,
-  SessionInfoResponse,
+  type CreateSessionRequest,
+  type CreateSessionResponse,
+  type SessionInfoResponse,
+  type TerminateSessionRequest,
+  CreateSessionResponseSchema,
+  SessionInfoResponseSchema,
+  REACTOR_API_VERSION,
+  REACTOR_SDK_VERSION,
+  REACTOR_SDK_TYPE,
+  REACTOR_WEBRTC_VERSION,
+  API_VERSION_HEADER,
+  API_ACCEPT_VERSION_HEADER,
+  VERSION_ERROR_CODES,
 } from "./types";
 import { AbortError } from "../types";
-import { transformIceServers } from "../utils/webrtc";
 
 export interface CoordinatorClientOptions {
   baseUrl: string;
   jwtToken: string;
   model: string;
 }
-
-// Polling configuration
-const INITIAL_BACKOFF_MS = 500;
-const MAX_BACKOFF_MS = 15000;
-const BACKOFF_MULTIPLIER = 2;
-const DEFAULT_MAX_ATTEMPTS = 6;
 
 export class CoordinatorClient {
   private baseUrl: string;
@@ -41,7 +45,7 @@ export class CoordinatorClient {
   }
 
   /**
-   * Aborts any in-flight HTTP requests and polling loops.
+   * Aborts any in-flight HTTP requests.
    * A fresh AbortController is created so the client remains reusable.
    */
   abort(): void {
@@ -50,7 +54,7 @@ export class CoordinatorClient {
   }
 
   /**
-   * The current abort signal, passed to every fetch() and sleep() call.
+   * The current abort signal, passed to every fetch() call.
    * Protected so subclasses can forward it to their own fetch calls.
    */
   protected get signal(): AbortSignal {
@@ -58,68 +62,71 @@ export class CoordinatorClient {
   }
 
   /**
-   * Returns the authorization header with JWT Bearer token
+   * Returns authorization + versioning headers for all coordinator requests.
    */
-  private getAuthHeaders(): HeadersInit {
+  protected getHeaders(): HeadersInit {
     return {
       Authorization: `Bearer ${this.jwtToken}`,
+      [API_VERSION_HEADER]: String(REACTOR_API_VERSION),
+      [API_ACCEPT_VERSION_HEADER]: String(REACTOR_API_VERSION),
     };
   }
 
   /**
-   * Fetches ICE servers from the coordinator.
-   * @returns Array of RTCIceServer objects for WebRTC peer connection configuration
+   * Checks an HTTP response for version mismatch errors (426, 501).
+   * Logs a clear message and throws with a descriptive error code.
    */
-  async getIceServers(): Promise<RTCIceServer[]> {
-    console.debug("[CoordinatorClient] Fetching ICE servers...");
-
-    const response = await fetch(
-      `${this.baseUrl}/ice_servers?model=${this.model}`,
-      {
-        method: "GET",
-        headers: this.getAuthHeaders(),
-        signal: this.signal,
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch ICE servers: ${response.status}`);
+  protected async checkVersionMismatch(response: Response): Promise<void> {
+    if (response.status === 426) {
+      const msg =
+        `Client API version (${REACTOR_API_VERSION}) is too old. ` +
+        `Server requires a newer version. Please upgrade @reactor-team/js-sdk.`;
+      console.error(`[Reactor]`, msg);
+      throw new Error(`${VERSION_ERROR_CODES[426]}: ${msg}`);
     }
 
-    const data = await response.json();
-    const parsed = IceServersResponseSchema.parse(data);
-    const iceServers = transformIceServers(parsed);
-
-    console.debug(
-      "[CoordinatorClient] Received ICE servers:",
-      iceServers.length
-    );
-    return iceServers;
+    if (response.status === 501) {
+      const msg =
+        `Server does not support API version ${REACTOR_API_VERSION}. ` +
+        `The server may need to be updated.`;
+      console.error(`[Reactor]`, msg);
+      throw new Error(`${VERSION_ERROR_CODES[501]}: ${msg}`);
+    }
   }
 
   /**
    * Creates a new session with the coordinator.
-   * Expects a 200 response and stores the session ID.
-   * @returns The session ID
+   * No SDP is sent — transport signaling is decoupled from session creation.
+   * @returns The full session creation response (session_id, selected_transport, capabilities, etc.)
    */
-  async createSession(sdp_offer: string): Promise<string> {
+  async createSession(
+    extraArgs?: Record<string, any>
+  ): Promise<CreateSessionResponse> {
     console.debug("[CoordinatorClient] Creating session...");
 
     const requestBody: CreateSessionRequest = {
       model: { name: this.model },
-      sdp_offer: sdp_offer,
-      extra_args: {},
+      client_info: {
+        sdk_version: REACTOR_SDK_VERSION,
+        sdk_type: REACTOR_SDK_TYPE,
+      },
+      supported_transports: [
+        { protocol: "webrtc", version: REACTOR_WEBRTC_VERSION },
+      ],
+      ...(extraArgs ? { extra_args: extraArgs } : {}),
     };
 
     const response = await fetch(`${this.baseUrl}/sessions`, {
       method: "POST",
       headers: {
-        ...this.getAuthHeaders(),
+        ...this.getHeaders(),
         "Content-Type": "application/json",
       },
       body: JSON.stringify(requestBody),
       signal: this.signal,
     });
+
+    await this.checkVersionMismatch(response);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -128,56 +135,118 @@ export class CoordinatorClient {
       );
     }
 
-    const data: CreateSessionResponse = await response.json();
-    this.currentSessionId = data.session_id;
+    const data = await response.json();
+    const parsed = CreateSessionResponseSchema.parse(data);
+    this.currentSessionId = parsed.session_id;
 
     console.debug(
-      "[CoordinatorClient] Session created with ID:",
-      this.currentSessionId
+      "[CoordinatorClient] Session created:",
+      this.currentSessionId,
+      "transport:",
+      parsed.selected_transport.protocol
     );
 
-    return data.session_id;
+    return parsed;
   }
 
   /**
-   * Gets the current session information from the coordinator.
-   * @returns The session data (untyped for now)
+   * Gets full session details from the coordinator.
+   * Returns the same shape as the creation response but with updated state.
    */
-  async getSession(): Promise<SessionInfoResponse> {
+  async getSession(): Promise<CreateSessionResponse> {
     if (!this.currentSessionId) {
       throw new Error("No active session. Call createSession() first.");
     }
-
-    console.debug(
-      "[CoordinatorClient] Getting session info for:",
-      this.currentSessionId
-    );
 
     const response = await fetch(
       `${this.baseUrl}/sessions/${this.currentSessionId}`,
       {
         method: "GET",
-        headers: this.getAuthHeaders(),
+        headers: this.getHeaders(),
         signal: this.signal,
       }
     );
+
+    await this.checkVersionMismatch(response);
 
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Failed to get session: ${response.status} ${errorText}`);
     }
 
-    const data: SessionInfoResponse = await response.json();
-
-    return data;
+    const data = await response.json();
+    return CreateSessionResponseSchema.parse(data);
   }
 
   /**
-   * Terminates the current session by sending a DELETE request to the coordinator.
-   * No-op if no session has been created yet.
-   * @throws Error if the request fails (except for 404, which clears local state)
+   * Gets lightweight session status (session_id, cluster, status).
    */
-  async terminateSession(): Promise<void> {
+  async getSessionInfo(): Promise<SessionInfoResponse> {
+    if (!this.currentSessionId) {
+      throw new Error("No active session. Call createSession() first.");
+    }
+
+    const response = await fetch(
+      `${this.baseUrl}/sessions/${this.currentSessionId}/info`,
+      {
+        method: "GET",
+        headers: this.getHeaders(),
+        signal: this.signal,
+      }
+    );
+
+    await this.checkVersionMismatch(response);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to get session info: ${response.status} ${errorText}`
+      );
+    }
+
+    const data = await response.json();
+    return SessionInfoResponseSchema.parse(data);
+  }
+
+  /**
+   * Restarts an inactive session with a different compute unit.
+   * The session ID is preserved but a new transport must be established.
+   */
+  async restartSession(): Promise<void> {
+    if (!this.currentSessionId) {
+      throw new Error("No active session. Call createSession() first.");
+    }
+
+    console.debug(
+      "[CoordinatorClient] Restarting session:",
+      this.currentSessionId
+    );
+
+    const response = await fetch(
+      `${this.baseUrl}/sessions/${this.currentSessionId}`,
+      {
+        method: "PUT",
+        headers: this.getHeaders(),
+        signal: this.signal,
+      }
+    );
+
+    await this.checkVersionMismatch(response);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to restart session: ${response.status} ${errorText}`
+      );
+    }
+  }
+
+  /**
+   * Terminates the current session by sending a DELETE request.
+   * No-op if no session has been created yet.
+   * @param reason Optional termination reason
+   */
+  async terminateSession(reason?: string): Promise<void> {
     if (!this.currentSessionId) {
       return;
     }
@@ -187,11 +256,19 @@ export class CoordinatorClient {
       this.currentSessionId
     );
 
+    const body: TerminateSessionRequest | undefined = reason
+      ? { reason }
+      : undefined;
+
     const response = await fetch(
       `${this.baseUrl}/sessions/${this.currentSessionId}`,
       {
         method: "DELETE",
-        headers: this.getAuthHeaders(),
+        headers: {
+          ...this.getHeaders(),
+          ...(body ? { "Content-Type": "application/json" } : {}),
+        },
+        ...(body ? { body: JSON.stringify(body) } : {}),
         signal: this.signal,
       }
     );
@@ -202,7 +279,6 @@ export class CoordinatorClient {
     }
 
     if (response.status === 404) {
-      // Session doesn't exist on server, clear local state to stay consistent
       console.debug(
         "[CoordinatorClient] Session not found on server, clearing local state:",
         this.currentSessionId
@@ -211,196 +287,13 @@ export class CoordinatorClient {
       return;
     }
 
-    // For other error codes, throw without clearing state (might warrant retry)
     const errorText = await response.text();
     throw new Error(
       `Failed to terminate session: ${response.status} ${errorText}`
     );
   }
 
-  /**
-   * Get the current session ID
-   */
   getSessionId(): string | undefined {
     return this.currentSessionId;
-  }
-
-  /**
-   * Sends an SDP offer to the server for reconnection.
-   * @param sessionId - The session ID to connect to
-   * @param sdpOffer - The SDP offer from the local WebRTC peer connection
-   * @returns The SDP answer if ready (200), or null if pending (202)
-   */
-  private async sendSdpOffer(
-    sessionId: string,
-    sdpOffer: string
-  ): Promise<string | null> {
-    console.debug(
-      "[CoordinatorClient] Sending SDP offer for session:",
-      sessionId
-    );
-
-    const requestBody: SDPParamsRequest = {
-      sdp_offer: sdpOffer,
-      extra_args: {},
-    };
-
-    const response = await fetch(
-      `${this.baseUrl}/sessions/${sessionId}/sdp_params`,
-      {
-        method: "PUT",
-        headers: {
-          ...this.getAuthHeaders(),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-        signal: this.signal,
-      }
-    );
-
-    if (response.status === 200) {
-      const answerData: SDPParamsResponse = await response.json();
-      console.debug("[CoordinatorClient] Received SDP answer immediately");
-      return answerData.sdp_answer;
-    }
-
-    if (response.status === 202) {
-      console.debug(
-        "[CoordinatorClient] SDP offer accepted, answer pending (202)"
-      );
-      return null;
-    }
-
-    const errorText = await response.text();
-    throw new Error(
-      `Failed to send SDP offer: ${response.status} ${errorText}`
-    );
-  }
-
-  /**
-   * Polls for the SDP answer with exponential backoff.
-   * Used for async reconnection when the answer is not immediately available.
-   * @param sessionId - The session ID to poll for
-   * @param maxAttempts - Optional maximum number of polling attempts before giving up
-   * @returns The SDP answer from the server
-   */
-  private async pollSdpAnswer(
-    sessionId: string,
-    maxAttempts: number = DEFAULT_MAX_ATTEMPTS
-  ): Promise<{ sdpAnswer: string; attempts: number }> {
-    console.debug(
-      "[CoordinatorClient] Polling for SDP answer for session:",
-      sessionId
-    );
-
-    let backoffMs = INITIAL_BACKOFF_MS;
-    let attempt = 0;
-
-    while (true) {
-      if (this.signal.aborted) {
-        throw new AbortError("SDP polling aborted");
-      }
-
-      if (attempt >= maxAttempts) {
-        throw new Error(
-          `SDP polling exceeded maximum attempts (${maxAttempts}) for session ${sessionId}`
-        );
-      }
-
-      attempt++;
-      console.debug(
-        `[CoordinatorClient] SDP poll attempt ${attempt}/${maxAttempts} for session ${sessionId}`
-      );
-
-      const response = await fetch(
-        `${this.baseUrl}/sessions/${sessionId}/sdp_params`,
-        {
-          method: "GET",
-          headers: {
-            ...this.getAuthHeaders(),
-            "Content-Type": "application/json",
-          },
-          signal: this.signal,
-        }
-      );
-
-      if (response.status === 200) {
-        const answerData: SDPParamsResponse = await response.json();
-        console.debug("[CoordinatorClient] Received SDP answer via polling");
-        return { sdpAnswer: answerData.sdp_answer, attempts: attempt };
-      }
-
-      if (response.status === 202) {
-        console.warn(
-          `[CoordinatorClient] SDP answer pending (202), retrying in ${backoffMs}ms...`
-        );
-
-        await this.sleep(backoffMs);
-
-        // Exponential backoff capped at MAX_BACKOFF_MS (15s)
-        backoffMs = Math.min(backoffMs * BACKOFF_MULTIPLIER, MAX_BACKOFF_MS);
-        continue;
-      }
-
-      // For other error codes, throw immediately
-      const errorText = await response.text();
-      throw new Error(
-        `Failed to poll SDP answer: ${response.status} ${errorText}`
-      );
-    }
-  }
-
-  /**
-   * Connects to the session by sending an SDP offer and receiving an SDP answer.
-   * If sdpOffer is provided, sends it first. If the answer is pending (202),
-   * falls back to polling. If no sdpOffer is provided, goes directly to polling.
-   * @param sessionId - The session ID to connect to
-   * @param sdpOffer - Optional SDP offer from the local WebRTC peer connection
-   * @param maxAttempts - Optional maximum number of polling attempts before giving up
-   * @returns The SDP answer and the number of polling attempts made (0 if answered immediately via PUT)
-   */
-  async connect(
-    sessionId: string,
-    sdpOffer?: string,
-    maxAttempts?: number
-  ): Promise<{ sdpAnswer: string; sdpPollingAttempts: number }> {
-    console.debug("[CoordinatorClient] Connecting to session:", sessionId);
-
-    if (sdpOffer) {
-      // Reconnection: we have a new SDP offer (recalculated after ICE restart)
-      // Try to send it and get an immediate answer
-      const answer = await this.sendSdpOffer(sessionId, sdpOffer);
-      if (answer !== null) {
-        return { sdpAnswer: answer, sdpPollingAttempts: 0 };
-      }
-      // Server accepted but answer not ready yet (202), fall back to polling
-    }
-
-    // No SDP offer = async reconnection, poll until server has the answer
-    const result = await this.pollSdpAnswer(sessionId, maxAttempts);
-    return { sdpAnswer: result.sdpAnswer, sdpPollingAttempts: result.attempts };
-  }
-
-  /**
-   * Abort-aware sleep. Resolves after `ms` milliseconds unless the
-   * abort signal fires first, in which case it rejects with AbortError.
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const { signal } = this;
-      if (signal.aborted) {
-        reject(new AbortError("Sleep aborted"));
-        return;
-      }
-      const timer = setTimeout(() => {
-        signal.removeEventListener("abort", onAbort);
-        resolve();
-      }, ms);
-      const onAbort = () => {
-        clearTimeout(timer);
-        reject(new AbortError("Sleep aborted"));
-      };
-      signal.addEventListener("abort", onAbort, { once: true });
-    });
   }
 }
