@@ -13,10 +13,7 @@ import {
 } from "../types";
 import { CoordinatorClient } from "./CoordinatorClient";
 import { LocalCoordinatorClient } from "./LocalCoordinatorClient";
-import {
-  type TransportClient,
-  type TransportStatus,
-} from "./TransportClient";
+import { type TransportClient, type TransportStatus } from "./TransportClient";
 import { WebRTCTransportClient } from "./WebRTCTransportClient";
 import {
   type Capabilities,
