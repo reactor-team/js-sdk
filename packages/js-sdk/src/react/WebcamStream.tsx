@@ -6,8 +6,9 @@ import React from "react";
 
 export interface WebcamStreamProps {
   /**
-   * The name of the **send** track to publish the webcam to.
-   * Must match a track name declared in the `send` array (client → model).
+   * The name of the sendonly track to publish the webcam to.
+   * Must match a track name declared in the server capabilities.
+   * Check the model's documentation for available track names.
    */
   track: string;
   className?: string;
