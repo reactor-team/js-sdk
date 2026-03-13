@@ -6,8 +6,7 @@ import { fetchInsecureJwtToken } from "../../src/utils/tokens";
 import { DEFAULT_BASE_URL } from "../../src/core/Reactor";
 
 const API_KEY = process.env.REACTOR_API_KEY;
-const COORDINATOR_URL =
-  process.env.REACTOR_COORDINATOR_URL ?? DEFAULT_BASE_URL;
+const COORDINATOR_URL = process.env.REACTOR_COORDINATOR_URL ?? DEFAULT_BASE_URL;
 const MODEL = "echo";
 
 describe.skipIf(!API_KEY)("CoordinatorClient — integration", () => {
