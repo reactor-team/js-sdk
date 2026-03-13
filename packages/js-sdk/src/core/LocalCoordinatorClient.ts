@@ -9,7 +9,11 @@
  */
 
 import { CoordinatorClient } from "./CoordinatorClient";
-import { API_VERSION_HEADER, API_ACCEPT_VERSION_HEADER, REACTOR_API_VERSION } from "./types";
+import {
+  API_VERSION_HEADER,
+  API_ACCEPT_VERSION_HEADER,
+  REACTOR_API_VERSION,
+} from "./types";
 
 export class LocalCoordinatorClient extends CoordinatorClient {
   constructor(baseUrl: string, model: string) {
