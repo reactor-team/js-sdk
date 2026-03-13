@@ -13,7 +13,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
-    "stripInternal": true
+    "stripInternal": true,
+    "resolveJsonModule": true
   },
-  "include": ["src", "bin"]
+  "include": ["src", "bin", "package.json"]
 }
