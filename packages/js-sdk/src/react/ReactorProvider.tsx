@@ -178,14 +178,7 @@ export function ReactorProvider({
           console.error("[ReactorProvider] Failed to disconnect:", error);
         });
     };
-  }, [
-    apiUrl,
-    modelName,
-    autoConnect,
-    local,
-    jwtToken,
-    maxAttempts,
-  ]);
+  }, [apiUrl, modelName, autoConnect, local, jwtToken, maxAttempts]);
 
   return (
     <ReactorContext.Provider value={storeRef.current}>
