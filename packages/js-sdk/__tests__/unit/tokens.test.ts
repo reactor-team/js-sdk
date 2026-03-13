@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fetchInsecureJwtToken } from "../../src/utils/tokens";
-import { PROD_COORDINATOR_URL } from "../../src/core/Reactor";
+import { DEFAULT_BASE_URL } from "../../src/core/Reactor";
 
 describe("fetchInsecureJwtToken", () => {
   let mockFetch: ReturnType<typeof vi.fn>;
@@ -23,7 +23,7 @@ describe("fetchInsecureJwtToken", () => {
     expect(token).toBe("test-jwt");
   });
 
-  it("uses PROD_COORDINATOR_URL by default", async () => {
+  it("uses DEFAULT_BASE_URL by default", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => ({ jwt: "token" }),
@@ -31,7 +31,7 @@ describe("fetchInsecureJwtToken", () => {
 
     await fetchInsecureJwtToken("rk_test_key");
     expect(mockFetch).toHaveBeenCalledWith(
-      `${PROD_COORDINATOR_URL}/tokens`,
+      `${DEFAULT_BASE_URL}/tokens`,
       expect.any(Object)
     );
   });
