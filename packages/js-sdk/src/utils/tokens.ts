@@ -1,4 +1,4 @@
-import { PROD_COORDINATOR_URL } from "../core/Reactor";
+import { DEFAULT_BASE_URL } from "../core/Reactor";
 
 /**
  * ⚠️ INSECURE: Fetches a JWT token directly from the client.
@@ -8,12 +8,12 @@ import { PROD_COORDINATOR_URL } from "../core/Reactor";
  * In production, call /tokens from your server and pass the JWT to your frontend.
  *
  * @param apiKey - Your Reactor API key (will be exposed in client code!)
- * @param coordinatorUrl - Optional coordinator URL, defaults to production
+ * @param apiUrl - Optional API URL, defaults to production
  * @returns string containing the JWT token
  */
 export async function fetchInsecureJwtToken(
   apiKey: string,
-  coordinatorUrl: string = PROD_COORDINATOR_URL
+  apiUrl: string = DEFAULT_BASE_URL
 ): Promise<string> {
   console.warn(
     "[Reactor] ⚠️ SECURITY WARNING: fetchInsecureJwtToken() exposes your API key in client-side code. " +
@@ -21,7 +21,7 @@ export async function fetchInsecureJwtToken(
       "In production, fetch tokens from your server instead."
   );
 
-  const response = await fetch(`${coordinatorUrl}/tokens`, {
+  const response = await fetch(`${apiUrl}/tokens`, {
     method: "GET",
     headers: {
       "X-API-Key": apiKey,

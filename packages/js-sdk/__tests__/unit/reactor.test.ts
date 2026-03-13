@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { Reactor, PROD_COORDINATOR_URL } from "../../src/core/Reactor";
+import { Reactor, DEFAULT_BASE_URL } from "../../src/core/Reactor";
 
 vi.mock("../../src/core/CoordinatorClient", () => ({
   CoordinatorClient: vi.fn().mockImplementation(() => ({
@@ -61,8 +61,8 @@ describe("Reactor", () => {
       expect(() => new Reactor({ modelName: 123 } as any)).toThrow();
     });
 
-    it("exports PROD_COORDINATOR_URL", () => {
-      expect(PROD_COORDINATOR_URL).toBe("https://api.reactor.inc");
+    it("exports DEFAULT_BASE_URL", () => {
+      expect(DEFAULT_BASE_URL).toBe("https://api.reactor.inc");
     });
   });
 

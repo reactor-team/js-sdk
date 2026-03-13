@@ -17,7 +17,7 @@ import { GPUMachineClient, GPUMachineStatus } from "./GPUMachineClient";
 import { z } from "zod";
 
 const LOCAL_COORDINATOR_URL = "http://localhost:8080";
-export const PROD_COORDINATOR_URL = "https://api.reactor.inc";
+export const DEFAULT_BASE_URL = "https://api.reactor.inc";
 
 const TrackConfigSchema = z.object({
   name: z.string(),
@@ -25,7 +25,7 @@ const TrackConfigSchema = z.object({
 });
 
 const OptionsSchema = z.object({
-  coordinatorUrl: z.string().default(PROD_COORDINATOR_URL),
+  apiUrl: z.string().default(DEFAULT_BASE_URL),
   modelName: z.string(),
   local: z.boolean().default(false),
   /**
@@ -69,14 +69,14 @@ export class Reactor {
 
   constructor(options: Options) {
     const validatedOptions = OptionsSchema.parse(options);
-    this.coordinatorUrl = validatedOptions.coordinatorUrl;
+    this.coordinatorUrl = validatedOptions.apiUrl;
 
     // TODO(REA-146) Properly accept version from parameter.
     this.model = validatedOptions.modelName;
     this.local = validatedOptions.local;
     this.receive = validatedOptions.receive;
     this.send = validatedOptions.send;
-    if (this.local && options.coordinatorUrl === undefined) {
+    if (this.local && options.apiUrl === undefined) {
       this.coordinatorUrl = LOCAL_COORDINATOR_URL;
     }
   }
@@ -234,7 +234,7 @@ export class Reactor {
       this.createError(
         "RECONNECTION_FAILED",
         `Failed to reconnect: ${error}`,
-        "coordinator",
+        "api",
         true
       );
     }
@@ -322,7 +322,7 @@ export class Reactor {
       this.createError(
         "CONNECTION_FAILED",
         `Connection failed: ${error}`,
-        "coordinator",
+        "api",
         true
       );
       // Non-recoverable disconnect: terminates the server-side session (DELETE)
@@ -535,7 +535,7 @@ export class Reactor {
   private createError(
     code: string,
     message: string,
-    component: "coordinator" | "gpu" | "livekit",
+    component: "api" | "gpu",
     recoverable: boolean,
     retryAfter?: number
   ) {

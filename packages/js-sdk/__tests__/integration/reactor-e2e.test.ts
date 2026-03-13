@@ -1,14 +1,13 @@
 // Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
 
 import { describe, it, expect, afterEach } from "vitest";
-import { Reactor, PROD_COORDINATOR_URL } from "../../src/core/Reactor";
+import { Reactor, DEFAULT_BASE_URL } from "../../src/core/Reactor";
 import { video } from "../../src/types";
 import { fetchInsecureJwtToken } from "../../src/utils/tokens";
 import type { ReactorStatus } from "../../src/types";
 
 const API_KEY = process.env.REACTOR_API_KEY;
-const COORDINATOR_URL =
-  process.env.REACTOR_COORDINATOR_URL ?? PROD_COORDINATOR_URL;
+const COORDINATOR_URL = process.env.REACTOR_COORDINATOR_URL ?? DEFAULT_BASE_URL;
 const MODEL = "echo";
 
 function waitForStatus(
@@ -67,7 +66,7 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
     const jwt = await fetchInsecureJwtToken(API_KEY!, COORDINATOR_URL);
     reactor = new Reactor({
       modelName: MODEL,
-      coordinatorUrl: COORDINATOR_URL,
+      apiUrl: COORDINATOR_URL,
       receive: [video("main_video")],
     });
 
@@ -86,7 +85,7 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
     const jwt = await fetchInsecureJwtToken(API_KEY!, COORDINATOR_URL);
     reactor = new Reactor({
       modelName: MODEL,
-      coordinatorUrl: COORDINATOR_URL,
+      apiUrl: COORDINATOR_URL,
       receive: [video("main_video")],
     });
 
@@ -108,7 +107,7 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
     const jwt = await fetchInsecureJwtToken(API_KEY!, COORDINATOR_URL);
     reactor = new Reactor({
       modelName: MODEL,
-      coordinatorUrl: COORDINATOR_URL,
+      apiUrl: COORDINATOR_URL,
       receive: [video("main_video")],
     });
 
@@ -130,7 +129,7 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
     const jwt = await fetchInsecureJwtToken(API_KEY!, COORDINATOR_URL);
     reactor = new Reactor({
       modelName: MODEL,
-      coordinatorUrl: COORDINATOR_URL,
+      apiUrl: COORDINATOR_URL,
       receive: [video("main_video")],
     });
 
@@ -148,7 +147,7 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
     const jwt = await fetchInsecureJwtToken(API_KEY!, COORDINATOR_URL);
     reactor = new Reactor({
       modelName: MODEL,
-      coordinatorUrl: COORDINATOR_URL,
+      apiUrl: COORDINATOR_URL,
       receive: [video("main_video")],
     });
 
@@ -170,7 +169,7 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
     const jwt = await fetchInsecureJwtToken(API_KEY!, COORDINATOR_URL);
     reactor = new Reactor({
       modelName: MODEL,
-      coordinatorUrl: COORDINATOR_URL,
+      apiUrl: COORDINATOR_URL,
       receive: [video("main_video")],
     });
 
@@ -203,7 +202,7 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
     const jwt = await fetchInsecureJwtToken(API_KEY!, COORDINATOR_URL);
     reactor = new Reactor({
       modelName: MODEL,
-      coordinatorUrl: COORDINATOR_URL,
+      apiUrl: COORDINATOR_URL,
       receive: [
         video("main_video"),
         video("video_edges"),
@@ -222,7 +221,7 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
     const jwt = await fetchInsecureJwtToken(API_KEY!, COORDINATOR_URL);
     reactor = new Reactor({
       modelName: MODEL,
-      coordinatorUrl: COORDINATOR_URL,
+      apiUrl: COORDINATOR_URL,
       receive: [video("main_video")],
       send: [video("webcam")],
     });
@@ -240,7 +239,7 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
     const jwt = await fetchInsecureJwtToken(API_KEY!, COORDINATOR_URL);
     const bad = new Reactor({
       modelName: "nonexistent-model-xyz-12345",
-      coordinatorUrl: COORDINATOR_URL,
+      apiUrl: COORDINATOR_URL,
       receive: [video("main_video")],
     });
 
