@@ -1,9 +1,10 @@
+// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
+
 /**
  * Stateless WebRTC utility functions for SDP exchange and peer connection management.
- * Uses @roamhq/wrtc for stable Node.js WebRTC support.
  */
 
-import { IceServersResponse } from "../core/types";
+import type { IceServersResponse } from "../core/types";
 import type { MessageScope, ConnectionStats } from "../types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -17,14 +18,12 @@ export interface WebRTCConfig {
 
 const DEFAULT_DATA_CHANNEL_LABEL = "data";
 
-// Force relay mode for testing TURN servers - set to true to force all traffic through TURN
 const FORCE_RELAY_MODE = false;
 
 /**
  * Safe cross-browser default for the maximum data channel message size (bytes).
  * Most browsers negotiate 256 KiB via SCTP; we use a slightly lower value to
- * leave room for framing overhead. Callers can override by passing a different
- * limit to {@link sendMessage}.
+ * leave room for framing overhead.
  */
 const DEFAULT_MAX_MESSAGE_BYTES = 256 * 1024; // 256 KiB
 
@@ -58,91 +57,13 @@ export function createDataChannel(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Rewrites the `a=mid:` values in an SDP string so that each media
- * transceiver uses the corresponding track name as its MID.
- *
- * The data-channel `m=application` section is left untouched.
- * The `a=group:BUNDLE` line is updated to reflect the new MIDs.
- */
-export function rewriteMids(sdp: string, trackNames: string[]): string {
-  const lines = sdp.split("\r\n");
-  let mediaIdx = 0;
-  const replacements = new Map<string, string>();
-  let inApplication = false;
-
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].startsWith("m=")) {
-      inApplication = lines[i].startsWith("m=application");
-    }
-    if (!inApplication && lines[i].startsWith("a=mid:")) {
-      const oldMid = lines[i].substring("a=mid:".length);
-      if (mediaIdx < trackNames.length) {
-        const newMid = trackNames[mediaIdx];
-        replacements.set(oldMid, newMid);
-        lines[i] = `a=mid:${newMid}`;
-        mediaIdx++;
-      }
-    }
-  }
-
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].startsWith("a=group:BUNDLE ")) {
-      const parts = lines[i].split(" ");
-      for (let j = 1; j < parts.length; j++) {
-        const replacement = replacements.get(parts[j]);
-        if (replacement !== undefined) {
-          parts[j] = replacement;
-        }
-      }
-      lines[i] = parts.join(" ");
-      break;
-    }
-  }
-
-  return lines.join("\r\n");
-}
-
-/**
  * Creates an SDP offer on the peer connection.
- *
- * When `trackNames` is provided the media MIDs in the SDP are rewritten
- * to use those names so the remote side identifies transceivers by name.
- *
- * **Strategy** – try to apply the rewrite *before* `setLocalDescription`
- * (Chrome accepts this; it means the browser's internal MIDs match the
- * server's, so RTP MID header extensions agree).  If the browser rejects
- * the modification (Firefox throws `InvalidModificationError`), fall
- * back to setting the original offer and rewriting only the outgoing SDP
- * string.  In the fallback case the caller **must** translate MIDs on
- * the answer via {@link restoreAnswerMids} before `setRemoteDescription`.
- *
- * @returns An object with the SDP string and a flag indicating whether
- *          MID munging was applied natively (`needsAnswerRestore = false`)
- *          or only on the wire (`needsAnswerRestore = true`).
+ * No MID munging — track identity is conveyed via track_mapping metadata.
+ * @returns The SDP offer string with gathered ICE candidates.
  */
-export async function createOffer(
-  pc: RTCPeerConnection,
-  trackNames?: string[]
-): Promise<{ sdp: string; needsAnswerRestore: boolean }> {
+export async function createOffer(pc: RTCPeerConnection): Promise<string> {
   const offer = await pc.createOffer();
-
-  let needsAnswerRestore = false;
-
-  if (trackNames && trackNames.length > 0 && offer.sdp) {
-    const munged = rewriteMids(offer.sdp, trackNames);
-    try {
-      await pc.setLocalDescription(
-        new RTCSessionDescription({ type: "offer", sdp: munged })
-      );
-    } catch {
-      // Firefox: "Changing the mid of m-sections is not allowed"
-      await pc.setLocalDescription(offer);
-      needsAnswerRestore = true;
-    }
-  } else {
-    await pc.setLocalDescription(offer);
-  }
-
+  await pc.setLocalDescription(offer);
   await waitForIceGathering(pc);
 
   const localDescription = pc.localDescription;
@@ -150,13 +71,7 @@ export async function createOffer(
     throw new Error("Failed to create local description");
   }
 
-  let sdp = localDescription.sdp;
-
-  if (needsAnswerRestore && trackNames && trackNames.length > 0) {
-    sdp = rewriteMids(sdp, trackNames);
-  }
-
-  return { sdp, needsAnswerRestore };
+  return localDescription.sdp;
 }
 
 /**
@@ -180,75 +95,6 @@ export async function createAnswer(
   }
 
   return localDescription.sdp;
-}
-
-export interface MidMapping {
-  localToRemote: Map<string, string>;
-  remoteToLocal: Map<string, string>;
-}
-
-/**
- * Builds bidirectional maps between browser-assigned numeric MIDs and
- * the human-readable track names used by the server.
- *
- * Must be called after `setLocalDescription` so that each transceiver
- * has a non-null `mid`.
- *
- * @param transceivers Ordered list of `{ name, transceiver }` pairs
- *                     matching the declared track entries.
- */
-export function buildMidMapping(
-  transceivers: { name: string; transceiver?: RTCRtpTransceiver }[]
-): MidMapping {
-  const localToRemote = new Map<string, string>();
-  const remoteToLocal = new Map<string, string>();
-  for (const entry of transceivers) {
-    const mid = entry.transceiver?.mid;
-    if (mid) {
-      localToRemote.set(mid, entry.name);
-      remoteToLocal.set(entry.name, mid);
-    }
-  }
-  return { localToRemote, remoteToLocal };
-}
-
-/**
- * Translates named MIDs in an SDP answer back to the browser-assigned
- * numeric MIDs.  This is the inverse of the {@link rewriteMids}
- * transformation applied to the outgoing offer.
- *
- * @param sdp            The SDP answer from the remote peer.
- * @param remoteToLocal  Map from server-side MID names to the browser's
- *                       original numeric MID values.
- */
-export function restoreAnswerMids(
-  sdp: string,
-  remoteToLocal: Map<string, string>
-): string {
-  const lines = sdp.split("\r\n");
-
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].startsWith("a=mid:")) {
-      const remoteMid = lines[i].substring("a=mid:".length);
-      const localMid = remoteToLocal.get(remoteMid);
-      if (localMid !== undefined) {
-        lines[i] = `a=mid:${localMid}`;
-      }
-    }
-
-    if (lines[i].startsWith("a=group:BUNDLE ")) {
-      const parts = lines[i].split(" ");
-      for (let j = 1; j < parts.length; j++) {
-        const localMid = remoteToLocal.get(parts[j]);
-        if (localMid !== undefined) {
-          parts[j] = localMid;
-        }
-      }
-      lines[i] = parts.join(" ");
-    }
-  }
-
-  return lines.join("\r\n");
 }
 
 /**
@@ -279,20 +125,22 @@ export function getLocalDescription(pc: RTCPeerConnection): string | undefined {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Transforms ICE servers from the coordinator API format to RTCIceServer format.
- * @param response The parsed IceServersResponse from the coordinator
- * @returns Array of RTCIceServer objects for WebRTC peer connection configuration
+ * Transforms ICE servers from the API response to RTCIceServer format.
+ * The new API format uses standard WebRTC field names so this is nearly
+ * a direct mapping.
  */
 export function transformIceServers(
   response: IceServersResponse
 ): RTCIceServer[] {
   return response.ice_servers.map((server) => {
     const rtcServer: RTCIceServer = {
-      urls: server.uris,
+      urls: server.urls,
     };
-    if (server.credentials) {
-      rtcServer.username = server.credentials.username;
-      rtcServer.credential = server.credentials.password;
+    if (server.username) {
+      rtcServer.username = server.username;
+    }
+    if (server.credential) {
+      rtcServer.credential = server.credential;
     }
     return rtcServer;
   });
@@ -333,7 +181,6 @@ export function waitForIceGathering(
 
     pc.addEventListener("icegatheringstatechange", onGatheringStateChange);
 
-    // Timeout to prevent hanging forever
     setTimeout(() => {
       pc.removeEventListener("icegatheringstatechange", onGatheringStateChange);
       resolve();
@@ -360,7 +207,10 @@ export function addTrack(
 /**
  * Removes a track from the peer connection by its sender.
  */
-export function removeTrack(pc: RTCPeerConnection, sender: RTCRtpSender): void {
+export function removeTrack(
+  pc: RTCPeerConnection,
+  sender: RTCRtpSender
+): void {
   pc.removeTrack(sender);
 }
 
