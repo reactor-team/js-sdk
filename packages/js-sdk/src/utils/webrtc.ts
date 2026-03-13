@@ -207,10 +207,7 @@ export function addTrack(
 /**
  * Removes a track from the peer connection by its sender.
  */
-export function removeTrack(
-  pc: RTCPeerConnection,
-  sender: RTCRtpSender
-): void {
+export function removeTrack(pc: RTCPeerConnection, sender: RTCRtpSender): void {
   pc.removeTrack(sender);
 }
 

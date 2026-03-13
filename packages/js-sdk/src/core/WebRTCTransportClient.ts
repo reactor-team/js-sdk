@@ -215,10 +215,7 @@ export class WebRTCTransportClient implements TransportClient {
     const parsed = IceServersResponseSchema.parse(data);
     const iceServers = webrtc.transformIceServers(parsed);
 
-    console.debug(
-      "[WebRTCTransport] Received ICE servers:",
-      iceServers.length
-    );
+    console.debug("[WebRTCTransport] Received ICE servers:", iceServers.length);
     return iceServers;
   }
 
@@ -549,9 +546,7 @@ export class WebRTCTransportClient implements TransportClient {
 
     await entry.transceiver.sender.replaceTrack(track);
     this.publishedTracks.set(name, track);
-    console.debug(
-      `[WebRTCTransport] Track "${name}" published successfully`
-    );
+    console.debug(`[WebRTCTransport] Track "${name}" published successfully`);
   }
 
   async unpublishTrack(name: string): Promise<void> {

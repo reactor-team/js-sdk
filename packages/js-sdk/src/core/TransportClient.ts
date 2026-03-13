@@ -9,11 +9,7 @@
  * while the Reactor orchestrator works only through this interface.
  */
 
-import type {
-  TrackCapability,
-  ConnectionStats,
-  MessageScope,
-} from "../types";
+import type { TrackCapability, ConnectionStats, MessageScope } from "../types";
 import type { WebRTCTransportTimings } from "./WebRTCTransportClient";
 
 // ─────────────────────────────────────────────────────────────────────────────
