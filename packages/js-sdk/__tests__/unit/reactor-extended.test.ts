@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { Reactor, PROD_COORDINATOR_URL } from "../../src/core/Reactor";
+import { Reactor, DEFAULT_BASE_URL } from "../../src/core/Reactor";
 import { GPUMachineStatus } from "../../src/core/GPUMachineClient";
 
 let machineClientHandlers: Record<string, (...args: any[]) => void> = {};

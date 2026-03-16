@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useReactor, fetchInsecureJwtToken } from "@reactor-team/js-sdk";
+import { useReactor, fetchInsecureToken } from "@reactor-team/js-sdk";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -59,7 +59,7 @@ export function ConnectionPanel({
       setIsFetching(true);
       setError(null);
       try {
-        const token = await fetchInsecureJwtToken(apiKey);
+        const token = await fetchInsecureToken(apiKey);
         handleJwtChange(token);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to fetch token");

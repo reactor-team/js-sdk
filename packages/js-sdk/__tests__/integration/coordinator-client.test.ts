@@ -2,12 +2,11 @@
 
 import { describe, it, expect, afterEach } from "vitest";
 import { CoordinatorClient } from "../../src/core/CoordinatorClient";
-import { fetchInsecureJwtToken } from "../../src/utils/tokens";
-import { PROD_COORDINATOR_URL } from "../../src/core/Reactor";
+import { fetchInsecureToken } from "../../src/utils/tokens";
+import { DEFAULT_BASE_URL } from "../../src/core/Reactor";
 
 const API_KEY = process.env.REACTOR_API_KEY;
-const COORDINATOR_URL =
-  process.env.REACTOR_COORDINATOR_URL ?? PROD_COORDINATOR_URL;
+const COORDINATOR_URL = process.env.REACTOR_COORDINATOR_URL ?? DEFAULT_BASE_URL;
 const MODEL = "echo";
 
 describe.skipIf(!API_KEY)("CoordinatorClient — integration", () => {
@@ -16,7 +15,7 @@ describe.skipIf(!API_KEY)("CoordinatorClient — integration", () => {
   let cachedJwt: string | undefined;
   async function getJwt(): Promise<string> {
     if (!cachedJwt)
-      cachedJwt = await fetchInsecureJwtToken(API_KEY!, COORDINATOR_URL);
+      cachedJwt = await fetchInsecureToken(API_KEY!, COORDINATOR_URL);
     return cachedJwt;
   }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { fetchInsecureJwtToken } from "@reactor-team/js-sdk";
+import { fetchInsecureToken } from "@reactor-team/js-sdk";
 import {
   Tooltip,
   TooltipContent,
@@ -59,7 +59,7 @@ export function Settings({
       setIsFetchingToken(true);
       setTokenError(null);
       try {
-        const token = await fetchInsecureJwtToken(apiKey, apiUrl);
+        const token = await fetchInsecureToken(apiKey, apiUrl);
         onJwtTokenChange(token);
       } catch (err) {
         setTokenError(

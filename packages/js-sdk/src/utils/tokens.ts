@@ -11,12 +11,12 @@ import { DEFAULT_BASE_URL } from "../core/Reactor";
  * @param apiUrl - Optional API URL, defaults to production
  * @returns string containing the JWT token
  */
-export async function fetchInsecureJwtToken(
+export async function fetchInsecureToken(
   apiKey: string,
   apiUrl: string = DEFAULT_BASE_URL
 ): Promise<string> {
   console.warn(
-    "[Reactor] ⚠️ SECURITY WARNING: fetchInsecureJwtToken() exposes your API key in client-side code. " +
+    "[Reactor] ⚠️ SECURITY WARNING: fetchInsecureToken() exposes your API key in client-side code. " +
       "This should ONLY be used for local development or testing. " +
       "In production, fetch tokens from your server instead."
   );

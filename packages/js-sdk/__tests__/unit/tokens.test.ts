@@ -1,10 +1,10 @@
 // Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fetchInsecureJwtToken } from "../../src/utils/tokens";
-import { PROD_COORDINATOR_URL } from "../../src/core/Reactor";
+import { fetchInsecureToken } from "../../src/utils/tokens";
+import { DEFAULT_BASE_URL } from "../../src/core/Reactor";
 
-describe("fetchInsecureJwtToken", () => {
+describe("fetchInsecureToken", () => {
   let mockFetch: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -19,19 +19,19 @@ describe("fetchInsecureJwtToken", () => {
       json: async () => ({ jwt: "test-jwt" }),
     });
 
-    const token = await fetchInsecureJwtToken("rk_test_key");
+    const token = await fetchInsecureToken("rk_test_key");
     expect(token).toBe("test-jwt");
   });
 
-  it("uses PROD_COORDINATOR_URL by default", async () => {
+  it("uses DEFAULT_BASE_URL by default", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => ({ jwt: "token" }),
     });
 
-    await fetchInsecureJwtToken("rk_test_key");
+    await fetchInsecureToken("rk_test_key");
     expect(mockFetch).toHaveBeenCalledWith(
-      `${PROD_COORDINATOR_URL}/tokens`,
+      `${DEFAULT_BASE_URL}/tokens`,
       expect.any(Object)
     );
   });
@@ -42,7 +42,7 @@ describe("fetchInsecureJwtToken", () => {
       json: async () => ({ jwt: "token" }),
     });
 
-    await fetchInsecureJwtToken("rk_test_key", "https://custom.api.example");
+    await fetchInsecureToken("rk_test_key", "https://custom.api.example");
     expect(mockFetch).toHaveBeenCalledWith(
       "https://custom.api.example/tokens",
       expect.any(Object)
@@ -55,7 +55,7 @@ describe("fetchInsecureJwtToken", () => {
       json: async () => ({ jwt: "token" }),
     });
 
-    await fetchInsecureJwtToken("rk_my_secret_key");
+    await fetchInsecureToken("rk_my_secret_key");
     expect(mockFetch).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
@@ -71,7 +71,7 @@ describe("fetchInsecureJwtToken", () => {
       json: async () => ({ jwt: "token" }),
     });
 
-    await fetchInsecureJwtToken("rk_test_key");
+    await fetchInsecureToken("rk_test_key");
     expect(console.warn).toHaveBeenCalledWith(
       expect.stringContaining("SECURITY WARNING")
     );
@@ -84,7 +84,7 @@ describe("fetchInsecureJwtToken", () => {
       text: async () => "Unauthorized",
     });
 
-    await expect(fetchInsecureJwtToken("rk_bad_key")).rejects.toThrow(
+    await expect(fetchInsecureToken("rk_bad_key")).rejects.toThrow(
       "Failed to create token: 401 Unauthorized"
     );
   });
@@ -96,7 +96,7 @@ describe("fetchInsecureJwtToken", () => {
       text: async () => "Internal Server Error",
     });
 
-    await expect(fetchInsecureJwtToken("rk_test_key")).rejects.toThrow(
+    await expect(fetchInsecureToken("rk_test_key")).rejects.toThrow(
       "Failed to create token: 500 Internal Server Error"
     );
   });
