@@ -93,11 +93,19 @@ export const InitialSessionResponseSchema = z.object({
   cluster: z.string().optional(),
 });
 
-// GET /sessions/{id} — Full response with capabilities (populated after Runtime accepts)
+// Mirrors the proto Command message.
+export const CommandCapabilitySchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  schema: z.record(z.string(), z.any()).optional(),
+});
+
+// GET /sessions/{id} — Full response with capabilities (populated after Runtime accepts).
+// Mirrors the proto TransportCapabilities message.
 export const CapabilitiesSchema = z.object({
   version: z.string(),
   tracks: z.array(TrackCapabilitySchema),
-  commands: z.record(z.string(), z.any()).optional(),
+  commands: z.array(CommandCapabilitySchema).optional(),
   emission_fps: z.number().nullable().optional(),
 });
 
@@ -168,6 +176,7 @@ export const WebRTCSdpAnswerResponseSchema = z.object({
 export type ClientInfo = z.infer<typeof ClientInfoSchema>;
 export type TransportDeclaration = z.infer<typeof TransportDeclarationSchema>;
 export type TrackCapability = z.infer<typeof TrackCapabilitySchema>;
+export type CommandCapability = z.infer<typeof CommandCapabilitySchema>;
 export type TrackMappingEntry = z.infer<typeof TrackMappingEntrySchema>;
 
 export type CreateSessionRequest = z.infer<typeof CreateSessionRequestSchema>;

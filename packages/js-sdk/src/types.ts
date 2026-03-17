@@ -16,6 +16,7 @@ export type MessageScope = "application" | "runtime";
 // Re-export core types that users may need
 export type {
   TrackCapability,
+  CommandCapability,
   Capabilities,
   TransportDeclaration,
   CreateSessionResponse as SessionInfo,
