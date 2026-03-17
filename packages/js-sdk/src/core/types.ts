@@ -84,26 +84,42 @@ export const CreateSessionRequestSchema = z.object({
   extra_args: z.record(z.string(), z.any()).optional(),
 });
 
-// POST /sessions — Response (201)
+// POST /sessions — Response (201): slim initial response before Runtime accepts
+export const InitialSessionResponseSchema = z.object({
+  session_id: z.string(),
+  model: z.object({ name: z.string() }),
+  server_info: z.object({ server_version: z.string() }),
+  status: z.string(),
+  cluster: z.string().optional(),
+});
+
+// GET /sessions/{id} — Full response with capabilities (populated after Runtime accepts)
 export const CapabilitiesSchema = z.object({
   version: z.string(),
   tracks: z.array(TrackCapabilitySchema),
   commands: z.record(z.string(), z.any()).optional(),
-  emission_fps: z.number().optional(),
+  emission_fps: z.number().nullable().optional(),
 });
 
-export const CreateSessionResponseSchema = z.object({
-  session_id: z.string().uuid(),
+export const SessionResponseSchema = z.object({
+  session_id: z.string(),
   server_info: z.object({ server_version: z.string() }),
-  selected_transport: TransportDeclarationSchema,
+  selected_transport: TransportDeclarationSchema.optional(),
   model: z.object({ name: z.string(), version: z.string().optional() }),
   capabilities: CapabilitiesSchema.optional(),
   status: z.string(),
+  cluster: z.string().optional(),
+});
+
+// Full session response: selected_transport and capabilities are guaranteed present
+export const CreateSessionResponseSchema = SessionResponseSchema.extend({
+  selected_transport: TransportDeclarationSchema,
+  capabilities: CapabilitiesSchema,
 });
 
 // GET /sessions/{id}/info — Response (200)
 export const SessionInfoResponseSchema = z.object({
-  session_id: z.string().uuid(),
+  session_id: z.string(),
   cluster: z.string().optional(),
   status: z.string(),
 });
@@ -118,10 +134,14 @@ export const TerminateSessionRequestSchema = z.object({
 // ─────────────────────────────────────────────────────────────────────────────
 
 // GET /sessions/{id}/transport/webrtc/ice_servers — Response (200)
+export const IceServerCredentialsSchema = z.object({
+  username: z.string(),
+  password: z.string(),
+});
+
 export const IceServerSchema = z.object({
-  urls: z.array(z.string()),
-  username: z.string().optional(),
-  credential: z.string().optional(),
+  uris: z.array(z.string()),
+  credentials: IceServerCredentialsSchema.optional(),
 });
 
 export const IceServersResponseSchema = z.object({
@@ -151,6 +171,10 @@ export type TrackCapability = z.infer<typeof TrackCapabilitySchema>;
 export type TrackMappingEntry = z.infer<typeof TrackMappingEntrySchema>;
 
 export type CreateSessionRequest = z.infer<typeof CreateSessionRequestSchema>;
+export type InitialSessionResponse = z.infer<
+  typeof InitialSessionResponseSchema
+>;
+export type SessionResponse = z.infer<typeof SessionResponseSchema>;
 export type CreateSessionResponse = z.infer<typeof CreateSessionResponseSchema>;
 export type Capabilities = z.infer<typeof CapabilitiesSchema>;
 
