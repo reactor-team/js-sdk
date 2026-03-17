@@ -126,21 +126,19 @@ export function getLocalDescription(pc: RTCPeerConnection): string | undefined {
 
 /**
  * Transforms ICE servers from the API response to RTCIceServer format.
- * The new API format uses standard WebRTC field names so this is nearly
- * a direct mapping.
+ * The API uses `uris` and a nested `credentials` object; the browser
+ * RTCIceServer interface expects `urls`, `username`, and `credential`.
  */
 export function transformIceServers(
   response: IceServersResponse
 ): RTCIceServer[] {
   return response.ice_servers.map((server) => {
     const rtcServer: RTCIceServer = {
-      urls: server.urls,
+      urls: server.uris,
     };
-    if (server.username) {
-      rtcServer.username = server.username;
-    }
-    if (server.credential) {
-      rtcServer.credential = server.credential;
+    if (server.credentials) {
+      rtcServer.username = server.credentials.username;
+      rtcServer.credential = server.credentials.password;
     }
     return rtcServer;
   });
