@@ -14,7 +14,7 @@ import { ENDPOINTS } from "@/lib/endpoints";
 export default function Home() {
   const [modelName, setModelName] = useState("longlive");
   const [isLocal, setIsLocal] = useState(true);
-  const [coordinatorUrl, setCoordinatorUrl] = useState(ENDPOINTS[0].url);
+  const [apiUrl, setCoordinatorUrl] = useState(ENDPOINTS[0].url);
   const [jwtToken, setJwtToken] = useState<string | undefined>(undefined);
 
   return (
@@ -28,13 +28,13 @@ export default function Home() {
           isLocal={isLocal}
           onLocalChange={setIsLocal}
           onJwtTokenChange={setJwtToken}
-          coordinatorUrl={coordinatorUrl}
-          onCoordinatorUrlChange={setCoordinatorUrl}
+          apiUrl={apiUrl}
+          onApiUrlChange={setCoordinatorUrl}
         />
 
         <ReactorProvider
           modelName={modelName}
-          coordinatorUrl={isLocal ? undefined : coordinatorUrl}
+          apiUrl={isLocal ? undefined : apiUrl}
           local={isLocal}
           jwtToken={jwtToken}
           connectOptions={{ autoConnect: false }}
