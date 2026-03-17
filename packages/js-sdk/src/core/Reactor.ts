@@ -220,31 +220,43 @@ export class Reactor {
             model: this.model,
           });
 
-      // 1. Create session — no SDP, just model + client info + transports
+      // 1. Create session — slim response with session_id and status
       const tSession = performance.now();
-      const sessionResponse = await this.coordinatorClient.createSession();
+      const initialResponse = await this.coordinatorClient.createSession();
       const sessionCreationMs = performance.now() - tSession;
 
-      this.sessionResponse = sessionResponse;
-      this.setSessionId(sessionResponse.session_id);
-
-      // 2. Store capabilities and tracks
-      if (sessionResponse.capabilities) {
-        this.capabilities = sessionResponse.capabilities;
-        this.tracks = sessionResponse.capabilities.tracks;
-        this.emit("capabilitiesReceived", this.capabilities);
-      } else {
-        this.tracks = [];
-      }
+      this.setSessionId(initialResponse.session_id);
 
       console.debug(
-        "[Reactor] Session created, transport:",
+        "[Reactor] Session created:",
+        initialResponse.session_id,
+        "status:",
+        initialResponse.status
+      );
+
+      // 2. Poll until the Runtime accepts and capabilities are available
+      this.setStatus("waiting");
+
+      const tPoll = performance.now();
+      const sessionResponse =
+        await this.coordinatorClient.pollSessionReady();
+      const sessionPollingMs = performance.now() - tPoll;
+
+      this.sessionResponse = sessionResponse;
+
+      // 3. Store capabilities and tracks
+      this.capabilities = sessionResponse.capabilities;
+      this.tracks = sessionResponse.capabilities.tracks;
+      this.emit("capabilitiesReceived", this.capabilities);
+
+      console.debug(
+        "[Reactor] Session ready, transport:",
         sessionResponse.selected_transport.protocol,
         "tracks:",
         this.tracks.length
       );
 
-      // 3. Instantiate transport based on selected_transport
+      // 4. Instantiate transport based on selected_transport
       const protocol = sessionResponse.selected_transport.protocol;
       if (protocol !== "webrtc") {
         throw new Error(`Unsupported transport protocol: ${protocol}`);
@@ -260,13 +272,13 @@ export class Reactor {
       });
       this.setupTransportHandlers();
 
-      // 4. Connect transport using capabilities tracks
+      // 5. Connect transport using capabilities tracks
       const tTransport = performance.now();
       await this.transportClient.connect(this.tracks);
       const transportConnectingMs = performance.now() - tTransport;
 
       this.connectionTimings = {
-        sessionCreationMs,
+        sessionCreationMs: sessionCreationMs + sessionPollingMs,
         transportConnectingMs,
         totalMs: 0,
       };
