@@ -10,10 +10,14 @@
 import {
   type CreateSessionRequest,
   type CreateSessionResponse,
+  type InitialSessionResponse,
   type SessionInfoResponse,
   type TerminateSessionRequest,
   CreateSessionResponseSchema,
+  InitialSessionResponseSchema,
+  SessionResponseSchema,
   SessionInfoResponseSchema,
+  SessionState,
   REACTOR_API_VERSION,
   REACTOR_SDK_VERSION,
   REACTOR_SDK_TYPE,
@@ -23,6 +27,11 @@ import {
   VERSION_ERROR_CODES,
 } from "./types";
 import { AbortError } from "../types";
+
+const SESSION_POLL_INITIAL_BACKOFF_MS = 500;
+const SESSION_POLL_MAX_BACKOFF_MS = 10_000;
+const SESSION_POLL_BACKOFF_MULTIPLIER = 2;
+const SESSION_POLL_DEFAULT_MAX_ATTEMPTS = 20;
 
 export interface CoordinatorClientOptions {
   baseUrl: string;
@@ -94,14 +103,36 @@ export class CoordinatorClient {
     }
   }
 
+  protected sleep(ms: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const { signal } = this;
+      if (signal.aborted) {
+        reject(new AbortError("Sleep aborted"));
+        return;
+      }
+      const timer = setTimeout(() => {
+        signal.removeEventListener("abort", onAbort);
+        resolve();
+      }, ms);
+      const onAbort = () => {
+        clearTimeout(timer);
+        reject(new AbortError("Sleep aborted"));
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+    });
+  }
+
   /**
    * Creates a new session with the coordinator.
    * No SDP is sent — transport signaling is decoupled from session creation.
-   * @returns The full session creation response (session_id, selected_transport, capabilities, etc.)
+   *
+   * The POST response is a slim acknowledgment (session_id, model name, status).
+   * Capabilities and transport details are populated later once the Runtime
+   * accepts the session — use {@link pollSessionReady} to wait for them.
    */
   async createSession(
     extraArgs?: Record<string, any>
-  ): Promise<CreateSessionResponse> {
+  ): Promise<InitialSessionResponse> {
     console.debug("[CoordinatorClient] Creating session...");
 
     const requestBody: CreateSessionRequest = {
@@ -136,17 +167,105 @@ export class CoordinatorClient {
     }
 
     const data = await response.json();
-    const parsed = CreateSessionResponseSchema.parse(data);
+    const parsed = InitialSessionResponseSchema.parse(data);
     this.currentSessionId = parsed.session_id;
 
     console.debug(
       "[CoordinatorClient] Session created:",
       this.currentSessionId,
-      "transport:",
-      parsed.selected_transport.protocol
+      "status:",
+      parsed.status
     );
 
     return parsed;
+  }
+
+  /**
+   * Polls GET /sessions/{id} until the Runtime has accepted the session
+   * and populated capabilities and selected_transport.
+   */
+  async pollSessionReady(opts?: {
+    maxAttempts?: number;
+  }): Promise<CreateSessionResponse> {
+    if (!this.currentSessionId) {
+      throw new Error("No active session. Call createSession() first.");
+    }
+
+    const maxAttempts =
+      opts?.maxAttempts ?? SESSION_POLL_DEFAULT_MAX_ATTEMPTS;
+    let backoffMs = SESSION_POLL_INITIAL_BACKOFF_MS;
+    let attempt = 0;
+
+    console.debug(
+      "[CoordinatorClient] Polling session until capabilities are available..."
+    );
+
+    while (true) {
+      if (this.signal.aborted) {
+        throw new AbortError("Session polling aborted");
+      }
+
+      if (attempt >= maxAttempts) {
+        throw new Error(
+          `Session polling exceeded maximum attempts (${maxAttempts}). ` +
+            `The model may be unavailable or overloaded.`
+        );
+      }
+
+      attempt++;
+
+      const response = await fetch(
+        `${this.baseUrl}/sessions/${this.currentSessionId}`,
+        {
+          method: "GET",
+          headers: this.getHeaders(),
+          signal: this.signal,
+        }
+      );
+
+      await this.checkVersionMismatch(response);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Failed to poll session: ${response.status} ${errorText}`
+        );
+      }
+
+      const data = await response.json();
+      const partial = SessionResponseSchema.parse(data);
+
+      const terminalStates: string[] = [
+        SessionState.CLOSED,
+        SessionState.INACTIVE,
+      ];
+      if (terminalStates.includes(partial.status)) {
+        throw new Error(
+          `Session entered terminal state "${partial.status}" while waiting for capabilities`
+        );
+      }
+
+      if (partial.capabilities && partial.selected_transport) {
+        const full = CreateSessionResponseSchema.parse(data);
+        console.debug(
+          `[CoordinatorClient] Session ready after ${attempt} poll(s), ` +
+            `transport: ${full.selected_transport.protocol}, ` +
+            `tracks: ${full.capabilities.tracks.length}`
+        );
+        return full;
+      }
+
+      console.debug(
+        `[CoordinatorClient] Session poll ${attempt}/${maxAttempts} — ` +
+          `status: ${partial.status}, waiting ${backoffMs}ms...`
+      );
+
+      await this.sleep(backoffMs);
+      backoffMs = Math.min(
+        backoffMs * SESSION_POLL_BACKOFF_MULTIPLIER,
+        SESSION_POLL_MAX_BACKOFF_MS
+      );
+    }
   }
 
   /**
