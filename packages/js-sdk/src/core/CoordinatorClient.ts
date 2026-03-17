@@ -191,8 +191,7 @@ export class CoordinatorClient {
       throw new Error("No active session. Call createSession() first.");
     }
 
-    const maxAttempts =
-      opts?.maxAttempts ?? SESSION_POLL_DEFAULT_MAX_ATTEMPTS;
+    const maxAttempts = opts?.maxAttempts ?? SESSION_POLL_DEFAULT_MAX_ATTEMPTS;
     let backoffMs = SESSION_POLL_INITIAL_BACKOFF_MS;
     let attempt = 0;
 
