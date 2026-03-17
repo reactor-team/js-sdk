@@ -40,10 +40,10 @@ export interface CoordinatorClientOptions {
 }
 
 export class CoordinatorClient {
-  private baseUrl: string;
+  protected readonly baseUrl: string;
   private jwtToken: string;
-  private model: string;
-  private currentSessionId?: string;
+  protected readonly model: string;
+  protected currentSessionId?: string;
   private abortController: AbortController;
 
   constructor(options: CoordinatorClientOptions) {
