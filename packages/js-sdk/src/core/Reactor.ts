@@ -238,8 +238,7 @@ export class Reactor {
       this.setStatus("waiting");
 
       const tPoll = performance.now();
-      const sessionResponse =
-        await this.coordinatorClient.pollSessionReady();
+      const sessionResponse = await this.coordinatorClient.pollSessionReady();
       const sessionPollingMs = performance.now() - tPoll;
 
       this.sessionResponse = sessionResponse;
