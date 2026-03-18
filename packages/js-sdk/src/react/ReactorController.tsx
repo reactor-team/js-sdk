@@ -112,28 +112,24 @@ export function ReactorController({
       const initialValues: Record<string, Record<string, any>> = {};
       const initialExpanded: Record<string, boolean> = {};
 
-      Object.entries(commandsRecord).forEach(
-        ([commandName, commandSchema]) => {
-          initialValues[commandName] = {};
-          initialExpanded[commandName] = false;
+      Object.entries(commandsRecord).forEach(([commandName, commandSchema]) => {
+        initialValues[commandName] = {};
+        initialExpanded[commandName] = false;
 
-          Object.entries(commandSchema.schema).forEach(
-            ([paramName, paramSchema]) => {
-              if (paramSchema.type === "number") {
-                initialValues[commandName][paramName] =
-                  paramSchema.minimum ?? 0;
-              } else if (paramSchema.type === "string") {
-                initialValues[commandName][paramName] = "";
-              } else if (paramSchema.type === "boolean") {
-                initialValues[commandName][paramName] = false;
-              } else if (paramSchema.type === "integer") {
-                initialValues[commandName][paramName] =
-                  paramSchema.minimum ?? 0;
-              }
+        Object.entries(commandSchema.schema).forEach(
+          ([paramName, paramSchema]) => {
+            if (paramSchema.type === "number") {
+              initialValues[commandName][paramName] = paramSchema.minimum ?? 0;
+            } else if (paramSchema.type === "string") {
+              initialValues[commandName][paramName] = "";
+            } else if (paramSchema.type === "boolean") {
+              initialValues[commandName][paramName] = false;
+            } else if (paramSchema.type === "integer") {
+              initialValues[commandName][paramName] = paramSchema.minimum ?? 0;
             }
-          );
-        }
-      );
+          }
+        );
+      });
       setFormValues(initialValues);
       setExpandedCommands(initialExpanded);
     }
