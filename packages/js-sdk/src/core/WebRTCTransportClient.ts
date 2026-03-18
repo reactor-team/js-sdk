@@ -475,7 +475,7 @@ export class WebRTCTransportClient implements TransportClient {
         );
       }
       return {
-        id: mid,
+        mid,
         name: track.name,
         kind: track.kind,
         direction: track.direction,
