@@ -69,7 +69,7 @@ export const TrackCapabilitySchema = z.object({
 });
 
 export const TrackMappingEntrySchema = TrackCapabilitySchema.extend({
-  id: z.union([z.number(), z.string()]),
+  id: z.string(),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
