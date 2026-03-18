@@ -103,7 +103,7 @@ export const CommandCapabilitySchema = z.object({
 // GET /sessions/{id} — Full response with capabilities (populated after Runtime accepts).
 // Mirrors the proto TransportCapabilities message.
 export const CapabilitiesSchema = z.object({
-  version: z.string(),
+  protocol_version: z.string(),
   tracks: z.array(TrackCapabilitySchema),
   commands: z.array(CommandCapabilitySchema).optional(),
   emission_fps: z.number().nullable().optional(),
