@@ -69,7 +69,7 @@ export const TrackCapabilitySchema = z.object({
 });
 
 export const TrackMappingEntrySchema = TrackCapabilitySchema.extend({
-  id: z.string(),
+  mid: z.string(),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -166,7 +166,6 @@ export const WebRTCSdpOfferRequestSchema = z.object({
 // GET /sessions/{id}/transport/webrtc/sdp_params — Response (200)
 export const WebRTCSdpAnswerResponseSchema = z.object({
   sdp_answer: z.string(),
-  track_mapping: z.array(TrackMappingEntrySchema).optional(),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
