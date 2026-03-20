@@ -88,7 +88,7 @@ export const CreateSessionRequestSchema = z.object({
 export const InitialSessionResponseSchema = z.object({
   session_id: z.string(),
   model: z.object({ name: z.string() }),
-  server_info: z.object({ server_version: z.string() }),
+  server_info: z.object({ server_version: z.string() }).optional(),
   status: z.string(),
   cluster: z.string().optional(),
 });
@@ -111,7 +111,7 @@ export const CapabilitiesSchema = z.object({
 
 export const SessionResponseSchema = z.object({
   session_id: z.string(),
-  server_info: z.object({ server_version: z.string() }),
+  server_info: z.object({ server_version: z.string() }).optional(),
   selected_transport: TransportDeclarationSchema.optional(),
   model: z.object({ name: z.string(), version: z.string().optional() }),
   capabilities: CapabilitiesSchema.optional(),
