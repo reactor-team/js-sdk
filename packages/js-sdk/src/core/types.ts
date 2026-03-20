@@ -89,7 +89,7 @@ export const InitialSessionResponseSchema = z.object({
   session_id: z.string(),
   model: z.object({ name: z.string() }),
   server_info: z.object({ server_version: z.string() }).optional(),
-  status: z.string(),
+  state: z.string(),
   cluster: z.string().optional(),
 });
 
@@ -115,7 +115,7 @@ export const SessionResponseSchema = z.object({
   selected_transport: TransportDeclarationSchema.optional(),
   model: z.object({ name: z.string(), version: z.string().optional() }),
   capabilities: CapabilitiesSchema.optional(),
-  status: z.string(),
+  state: z.string(),
   cluster: z.string().optional(),
 });
 
@@ -129,7 +129,7 @@ export const CreateSessionResponseSchema = SessionResponseSchema.extend({
 export const SessionInfoResponseSchema = z.object({
   session_id: z.string(),
   cluster: z.string().optional(),
-  status: z.string(),
+  state: z.string(),
 });
 
 // DELETE /sessions/{id} — Request
