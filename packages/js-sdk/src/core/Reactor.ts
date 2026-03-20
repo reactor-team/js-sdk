@@ -230,8 +230,8 @@ export class Reactor {
       console.debug(
         "[Reactor] Session created:",
         initialResponse.session_id,
-        "status:",
-        initialResponse.status
+        "state:",
+        initialResponse.state
       );
 
       // 2. Poll until the Runtime accepts and capabilities are available
