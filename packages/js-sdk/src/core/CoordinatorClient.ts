@@ -173,8 +173,8 @@ export class CoordinatorClient {
     console.debug(
       "[CoordinatorClient] Session created:",
       this.currentSessionId,
-      "status:",
-      parsed.status
+      "state:",
+      parsed.state
     );
 
     return parsed;
@@ -238,9 +238,9 @@ export class CoordinatorClient {
         SessionState.CLOSED,
         SessionState.INACTIVE,
       ];
-      if (terminalStates.includes(partial.status)) {
+      if (terminalStates.includes(partial.state)) {
         throw new Error(
-          `Session entered terminal state "${partial.status}" while waiting for capabilities`
+          `Session entered terminal state "${partial.state}" while waiting for capabilities`
         );
       }
 
@@ -256,7 +256,7 @@ export class CoordinatorClient {
 
       console.debug(
         `[CoordinatorClient] Session poll ${attempt}/${maxAttempts} — ` +
-          `status: ${partial.status}, waiting ${backoffMs}ms...`
+          `state: ${partial.state}, waiting ${backoffMs}ms...`
       );
 
       await this.sleep(backoffMs);
