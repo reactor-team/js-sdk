@@ -1,7 +1,8 @@
 // Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { GPUMachineClient } from "../../src/core/GPUMachineClient";
+import { WebRTCTransportClient } from "../../src/core/WebRTCTransportClient";
+import type { TrackCapability } from "../../src/core/types";
 
 function createMockPC() {
   return {
@@ -13,7 +14,7 @@ function createMockPC() {
     }),
     createOffer: vi.fn().mockResolvedValue({
       type: "offer",
-      sdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\na=group:BUNDLE 0\r\nm=video 9 UDP/TLS/RTP/SAVPF 96\r\na=mid:0\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\na=mid:1\r\n",
+      sdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\na=group:BUNDLE 0\r\nm=video 9 UDP/TLS/RTP/SAVPF 96\r\na=mid:0\r\n",
     }),
     setLocalDescription: vi.fn(),
     setRemoteDescription: vi.fn(),
@@ -33,9 +34,10 @@ function createMockPC() {
     getStats: vi.fn().mockResolvedValue(new Map()),
     get localDescription() {
       return {
-        sdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\na=group:BUNDLE 0\r\nm=video 9 UDP/TLS/RTP/SAVPF 96\r\na=mid:0\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\na=mid:1\r\n",
+        sdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\na=group:BUNDLE 0\r\nm=video 9 UDP/TLS/RTP/SAVPF 96\r\na=mid:0\r\n",
       };
     },
+    sctp: { maxMessageSize: 262144 },
     signalingState: "have-local-offer",
     connectionState: "new",
     iceGatheringState: "complete",
@@ -49,8 +51,17 @@ function createMockPC() {
   };
 }
 
-describe("GPUMachineClient (extended)", () => {
+const MOCK_TRACKS: TrackCapability[] = [
+  { name: "main_video", kind: "video", direction: "recvonly" },
+];
+
+const ICE_SERVERS_RESPONSE = {
+  ice_servers: [{ uris: ["stun:stun.example.com:3478"] }],
+};
+
+describe("WebRTCTransportClient (extended)", () => {
   let mockPC: ReturnType<typeof createMockPC>;
+  const mockFetch = vi.fn();
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -71,6 +82,8 @@ describe("GPUMachineClient (extended)", () => {
       }))
     );
     vi.stubGlobal("MediaStreamTrack", vi.fn());
+    vi.stubGlobal("fetch", mockFetch);
+    mockFetch.mockReset();
   });
 
   afterEach(() => {
@@ -79,18 +92,26 @@ describe("GPUMachineClient (extended)", () => {
     vi.unstubAllGlobals();
   });
 
-  async function setupClient(
-    tracks: {
-      send: { name: string; kind: "audio" | "video" }[];
-      receive: { name: string; kind: "audio" | "video" }[];
-    } = {
-      send: [],
-      receive: [{ name: "main_video", kind: "video" }],
-    }
-  ) {
-    const client = new GPUMachineClient({ iceServers: [] });
-    await client.createOffer(tracks);
-    return client;
+  function createClient() {
+    return new WebRTCTransportClient({
+      baseUrl: "https://api.test.com",
+      sessionId: "test-session-id",
+      jwtToken: "test-jwt",
+      maxPollAttempts: 3,
+    });
+  }
+
+  function setupFullConnect() {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(ICE_SERVERS_RESPONSE),
+    });
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 202 });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ sdp_answer: "v=0\r\nanswer" }),
+    });
   }
 
   function getDataChannel() {
@@ -101,67 +122,21 @@ describe("GPUMachineClient (extended)", () => {
     const dc = getDataChannel();
     mockPC.connectionState = "connected";
     mockPC.onconnectionstatechange();
+    dc.readyState = "open";
     dc.onopen();
   }
 
-  // ── connect() ──────────────────────────────────────────────────────────
-
-  describe("connect()", () => {
-    it("throws on invalid signaling state", async () => {
-      const client = await setupClient();
-      mockPC.signalingState = "stable";
-
-      await expect(client.connect("v=0\r\nanswer")).rejects.toThrow(
-        "Invalid signaling state"
-      );
-    });
-
-    it("sets status to connecting", async () => {
-      const client = await setupClient();
-      const handler = vi.fn();
-      client.on("statusChanged", handler);
-
-      await client.connect("v=0\r\nanswer");
-
-      expect(handler).toHaveBeenCalledWith("connecting");
-    });
-
-    it("sets status to error on failure", async () => {
-      const client = await setupClient();
-      mockPC.setRemoteDescription.mockRejectedValueOnce(
-        new Error("SDP parse failed")
-      );
-
-      await expect(client.connect("bad-sdp")).rejects.toThrow(
-        "SDP parse failed"
-      );
-      expect(client.getStatus()).toBe("error");
-    });
-  });
-
-  // ── sendCommand() ──────────────────────────────────────────────────────
-
-  describe("sendCommand()", () => {
-    it("delegates to webrtc.sendMessage", async () => {
-      const client = await setupClient();
-      const dc = getDataChannel();
-      dc.readyState = "open";
-
-      client.sendCommand("set_prompt", { text: "hello" });
-
-      expect(dc.send).toHaveBeenCalledOnce();
-      const payload = JSON.parse(dc.send.mock.calls[0][0]);
-      expect(payload.scope).toBe("application");
-      expect(payload.data.type).toBe("set_prompt");
-      expect(payload.data.data).toEqual({ text: "hello" });
-    });
-  });
+  async function connectClient(client: WebRTCTransportClient) {
+    setupFullConnect();
+    await client.connect(MOCK_TRACKS);
+  }
 
   // ── publishTrack() guards ─────────────────────────────────────────────
 
   describe("publishTrack() guards", () => {
-    it("throws when not connected (status !== connected)", async () => {
-      const client = await setupClient();
+    it("throws when not connected", async () => {
+      const client = createClient();
+      await connectClient(client);
 
       await expect(
         client.publishTrack("main_video", {} as MediaStreamTrack)
@@ -169,10 +144,8 @@ describe("GPUMachineClient (extended)", () => {
     });
 
     it("throws when no transceiver found", async () => {
-      const client = await setupClient({
-        send: [],
-        receive: [{ name: "main_video", kind: "video" }],
-      });
+      const client = createClient();
+      await connectClient(client);
       simulateConnected();
 
       await expect(
@@ -181,10 +154,8 @@ describe("GPUMachineClient (extended)", () => {
     });
 
     it("throws when transceiver is recvonly", async () => {
-      const client = await setupClient({
-        send: [],
-        receive: [{ name: "main_video", kind: "video" }],
-      });
+      const client = createClient();
+      await connectClient(client);
       simulateConnected();
 
       await expect(
@@ -197,22 +168,9 @@ describe("GPUMachineClient (extended)", () => {
 
   describe("unpublishTrack()", () => {
     it("is no-op when track not published", async () => {
-      const client = await setupClient();
+      const client = createClient();
+      await connectClient(client);
       await expect(client.unpublishTrack("unknown")).resolves.toBeUndefined();
-    });
-
-    it("calls replaceTrack(null) on published track", async () => {
-      const client = await setupClient({
-        send: [{ name: "webcam", kind: "video" }],
-        receive: [],
-      });
-      simulateConnected();
-
-      const transceiver = mockPC.addTransceiver.mock.results[0].value;
-      await client.publishTrack("webcam", {} as MediaStreamTrack);
-      await client.unpublishTrack("webcam");
-
-      expect(transceiver.sender.replaceTrack).toHaveBeenLastCalledWith(null);
     });
   });
 
@@ -220,7 +178,8 @@ describe("GPUMachineClient (extended)", () => {
 
   describe("disconnect()", () => {
     it("closes data channel and peer connection", async () => {
-      const client = await setupClient();
+      const client = createClient();
+      await connectClient(client);
       const dc = getDataChannel();
 
       await client.disconnect();
@@ -230,22 +189,44 @@ describe("GPUMachineClient (extended)", () => {
     });
 
     it("sets status to disconnected", async () => {
-      const client = await setupClient();
+      const client = createClient();
+      await connectClient(client);
       await client.disconnect();
       expect(client.getStatus()).toBe("disconnected");
     });
   });
 
+  // ── sendCommand() ──────────────────────────────────────────────────────
+
+  describe("sendCommand()", () => {
+    it("delegates to webrtc.sendMessage after connect", async () => {
+      const client = createClient();
+      await connectClient(client);
+      const dc = getDataChannel();
+      dc.readyState = "open";
+
+      client.sendCommand("set_prompt", { text: "hello" }, "application");
+
+      expect(dc.send).toHaveBeenCalledOnce();
+      const payload = JSON.parse(dc.send.mock.calls[0][0]);
+      expect(payload.scope).toBe("application");
+      expect(payload.data.type).toBe("set_prompt");
+      expect(payload.data.data).toEqual({ text: "hello" });
+    });
+  });
+
   // ── setupPeerConnectionHandlers ───────────────────────────────────────
 
-  describe("setupPeerConnectionHandlers", () => {
-    it("onconnectionstatechange connected triggers checkFullyConnected", async () => {
-      const client = await setupClient();
+  describe("peer connection state changes", () => {
+    it("connected triggers checkFullyConnected", async () => {
+      const client = createClient();
+      await connectClient(client);
       const handler = vi.fn();
       client.on("statusChanged", handler);
 
-      // Open data channel first so checkFullyConnected will transition
-      getDataChannel().onopen();
+      const dc = getDataChannel();
+      dc.readyState = "open";
+      dc.onopen();
 
       mockPC.connectionState = "connected";
       mockPC.onconnectionstatechange();
@@ -253,8 +234,9 @@ describe("GPUMachineClient (extended)", () => {
       expect(handler).toHaveBeenCalledWith("connected");
     });
 
-    it("onconnectionstatechange disconnected sets disconnected", async () => {
-      const client = await setupClient();
+    it("disconnected sets disconnected", async () => {
+      const client = createClient();
+      await connectClient(client);
 
       mockPC.connectionState = "disconnected";
       mockPC.onconnectionstatechange();
@@ -262,8 +244,9 @@ describe("GPUMachineClient (extended)", () => {
       expect(client.getStatus()).toBe("disconnected");
     });
 
-    it("onconnectionstatechange failed sets error", async () => {
-      const client = await setupClient();
+    it("failed sets error", async () => {
+      const client = createClient();
+      await connectClient(client);
 
       mockPC.connectionState = "failed";
       mockPC.onconnectionstatechange();
@@ -274,31 +257,30 @@ describe("GPUMachineClient (extended)", () => {
 
   // ── setupDataChannelHandlers ──────────────────────────────────────────
 
-  describe("setupDataChannelHandlers", () => {
-    it("onopen sets dataChannelOpen and starts ping", async () => {
-      const client = await setupClient();
+  describe("data channel handlers", () => {
+    it("onopen + peer connected triggers connected status", async () => {
+      const client = createClient();
+      await connectClient(client);
       const handler = vi.fn();
       client.on("statusChanged", handler);
 
-      const dc = getDataChannel();
-      dc.onopen();
-
-      // Data channel open alone is insufficient
-      expect(client.getStatus()).not.toBe("connected");
-
-      // Once peer is also connected, status transitions
       mockPC.connectionState = "connected";
       mockPC.onconnectionstatechange();
+
+      const dc = getDataChannel();
+      dc.readyState = "open";
+      dc.onopen();
 
       expect(client.getStatus()).toBe("connected");
     });
 
     it("onclose stops ping", async () => {
-      const client = await setupClient();
+      const client = createClient();
+      await connectClient(client);
       const dc = getDataChannel();
       dc.readyState = "open";
-
       dc.onopen();
+
       vi.advanceTimersByTime(5_000);
       expect(dc.send).toHaveBeenCalled();
 
@@ -310,7 +292,8 @@ describe("GPUMachineClient (extended)", () => {
     });
 
     it("onmessage routes application messages", async () => {
-      const client = await setupClient();
+      const client = createClient();
+      await connectClient(client);
       const handler = vi.fn();
       client.on("message", handler);
 
@@ -328,7 +311,8 @@ describe("GPUMachineClient (extended)", () => {
     });
 
     it("onmessage routes runtime messages", async () => {
-      const client = await setupClient();
+      const client = createClient();
+      await connectClient(client);
       const handler = vi.fn();
       client.on("message", handler);
 
@@ -345,8 +329,9 @@ describe("GPUMachineClient (extended)", () => {
       );
     });
 
-    it("onmessage handles legacy format", async () => {
-      const client = await setupClient();
+    it("onmessage handles legacy format (no envelope)", async () => {
+      const client = createClient();
+      await connectClient(client);
       const handler = vi.fn();
       client.on("message", handler);
 
@@ -364,41 +349,73 @@ describe("GPUMachineClient (extended)", () => {
   // ── checkFullyConnected ───────────────────────────────────────────────
 
   describe("checkFullyConnected", () => {
-    it("only becomes connected when both peer and data channel ready", async () => {
-      const client = await setupClient();
+    it("only transitions when both peer and data channel ready", async () => {
+      const client = createClient();
+      await connectClient(client);
       const handler = vi.fn();
       client.on("statusChanged", handler);
 
-      // Peer connected first — not enough on its own
+      // Peer connected first — not enough
       mockPC.connectionState = "connected";
       mockPC.onconnectionstatechange();
       expect(client.getStatus()).not.toBe("connected");
 
-      // Data channel open second — now both are ready
-      getDataChannel().onopen();
+      // Data channel open second — now both ready
+      const dc = getDataChannel();
+      dc.readyState = "open";
+      dc.onopen();
       expect(client.getStatus()).toBe("connected");
       expect(handler).toHaveBeenCalledWith("connected");
     });
   });
 
-  // ── getRemoteStream ───────────────────────────────────────────────────
+  // ── reconnect() ───────────────────────────────────────────────────────
 
-  describe("getRemoteStream", () => {
-    it("returns MediaStream when receivers have tracks", async () => {
-      const client = await setupClient();
-      const mockTrack = { id: "track-1", kind: "video" };
-      mockPC.getReceivers.mockReturnValue([{ track: mockTrack }]);
+  describe("reconnect()", () => {
+    it("tears down old connection and creates new one with PUT", async () => {
+      const client = createClient();
+      await connectClient(client);
+      simulateConnected();
 
-      const stream = client.getRemoteStream();
-      expect(stream).toBeDefined();
-      expect(MediaStream).toHaveBeenCalledWith([mockTrack]);
+      // Setup mocks for reconnect
+      mockFetch.mockReset();
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(ICE_SERVERS_RESPONSE),
+      });
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 202 });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ sdp_answer: "v=0\r\nnew-answer" }),
+      });
+
+      await client.reconnect(MOCK_TRACKS);
+
+      // SDP offer should use PUT for reconnect
+      expect(mockFetch.mock.calls[1][1].method).toBe("PUT");
+    });
+  });
+
+  // ── version mismatch ──────────────────────────────────────────────────
+
+  describe("version mismatch", () => {
+    it("throws on 426 during ICE server fetch", async () => {
+      const client = createClient();
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 426 });
+
+      await expect(client.connect(MOCK_TRACKS)).rejects.toThrow(
+        "CLIENT_VERSION_TOO_OLD"
+      );
     });
 
-    it("returns undefined when no tracks", async () => {
-      const client = await setupClient();
-      mockPC.getReceivers.mockReturnValue([{ track: null }]);
+    it("throws on 501 during ICE server fetch", async () => {
+      const client = createClient();
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 501 });
 
-      expect(client.getRemoteStream()).toBeUndefined();
+      await expect(client.connect(MOCK_TRACKS)).rejects.toThrow(
+        "SERVER_VERSION_TOO_OLD"
+      );
     });
   });
 });

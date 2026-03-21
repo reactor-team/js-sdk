@@ -1,0 +1,312 @@
+// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
+
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { WebRTCTransportClient } from "../../src/core/WebRTCTransportClient";
+import type { TrackCapability } from "../../src/core/types";
+
+function createMockPeerConnection() {
+  return {
+    addTransceiver: vi.fn().mockReturnValue({
+      sender: { replaceTrack: vi.fn().mockResolvedValue(undefined) },
+      mid: "0",
+      direction: "recvonly",
+    }),
+    createOffer: vi.fn().mockResolvedValue({
+      type: "offer",
+      sdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\na=group:BUNDLE 0\r\nm=video 9 UDP/TLS/RTP/SAVPF 96\r\na=mid:0\r\n",
+    }),
+    setLocalDescription: vi.fn(),
+    setRemoteDescription: vi.fn(),
+    createDataChannel: vi.fn().mockReturnValue({
+      onopen: null,
+      onclose: null,
+      onerror: null,
+      onmessage: null,
+      readyState: "connecting",
+      close: vi.fn(),
+      send: vi.fn(),
+      label: "data",
+    }),
+    close: vi.fn(),
+    getSenders: vi.fn().mockReturnValue([]),
+    getReceivers: vi.fn().mockReturnValue([]),
+    getStats: vi.fn().mockResolvedValue(new Map()),
+    get localDescription() {
+      return {
+        sdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\na=group:BUNDLE 0\r\nm=video 9 UDP/TLS/RTP/SAVPF 96\r\na=mid:0\r\n",
+      };
+    },
+    sctp: { maxMessageSize: 262144 },
+    signalingState: "have-local-offer",
+    connectionState: "new",
+    iceGatheringState: "complete",
+    onconnectionstatechange: null as any,
+    ontrack: null as any,
+    onicecandidate: null as any,
+    onicecandidateerror: null as any,
+    ondatachannel: null as any,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  };
+}
+
+const MOCK_TRACKS: TrackCapability[] = [
+  { name: "main_video", kind: "video", direction: "recvonly" },
+];
+
+const ICE_SERVERS_RESPONSE = {
+  ice_servers: [
+    {
+      uris: ["stun:stun.example.com:3478"],
+      credentials: { username: "u", password: "p" },
+    },
+  ],
+};
+
+describe("WebRTCTransportClient", () => {
+  let mockPC: ReturnType<typeof createMockPeerConnection>;
+  const mockFetch = vi.fn();
+
+  beforeEach(() => {
+    mockPC = createMockPeerConnection();
+    vi.stubGlobal("RTCPeerConnection", vi.fn().mockReturnValue(mockPC));
+    vi.stubGlobal(
+      "RTCSessionDescription",
+      vi.fn().mockImplementation((d: any) => d)
+    );
+    vi.stubGlobal(
+      "RTCIceCandidate",
+      vi.fn().mockImplementation((c: any) => c)
+    );
+    vi.stubGlobal(
+      "MediaStream",
+      vi.fn().mockImplementation((tracks?: any[]) => ({
+        getTracks: () => tracks ?? [],
+      }))
+    );
+    vi.stubGlobal("fetch", mockFetch);
+    mockFetch.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  function createClient(overrides: Record<string, any> = {}) {
+    return new WebRTCTransportClient({
+      baseUrl: "https://api.test.com",
+      sessionId: "test-session-id",
+      jwtToken: "test-jwt",
+      maxPollAttempts: 2,
+      ...overrides,
+    });
+  }
+
+  function mockIceServersFetch() {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(ICE_SERVERS_RESPONSE),
+    });
+  }
+
+  function mockSdpOfferAccepted() {
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 202 });
+  }
+
+  function mockSdpAnswerReady() {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ sdp_answer: "v=0\r\nanswer" }),
+    });
+  }
+
+  function setupFullConnect() {
+    mockIceServersFetch();
+    mockSdpOfferAccepted();
+    mockSdpAnswerReady();
+  }
+
+  // ── Initial state ──────────────────────────────────────────────────────
+
+  describe("initial state", () => {
+    it("starts in disconnected status", () => {
+      const client = createClient();
+      expect(client.getStatus()).toBe("disconnected");
+    });
+
+    it("has no stats", () => {
+      const client = createClient();
+      expect(client.getStats()).toBeUndefined();
+    });
+
+    it("has no transport timings", () => {
+      const client = createClient();
+      expect(client.getTransportTimings()).toBeUndefined();
+    });
+  });
+
+  // ── Event emitter ──────────────────────────────────────────────────────
+
+  describe("event emitter", () => {
+    it("registers and removes listeners", () => {
+      const client = createClient();
+      const handler = vi.fn();
+      client.on("statusChanged", handler);
+      client.off("statusChanged", handler);
+    });
+  });
+
+  // ── sendCommand() ──────────────────────────────────────────────────────
+
+  describe("sendCommand()", () => {
+    it("throws when data channel is not available", () => {
+      const client = createClient();
+      expect(() => client.sendCommand("test", {}, "application")).toThrow(
+        "Data channel not available"
+      );
+    });
+  });
+
+  // ── publishTrack() ─────────────────────────────────────────────────────
+
+  describe("publishTrack()", () => {
+    it("throws when peer connection is not initialized", async () => {
+      const client = createClient();
+      await expect(
+        client.publishTrack("webcam", {} as MediaStreamTrack)
+      ).rejects.toThrow("not initialized");
+    });
+  });
+
+  // ── disconnect() ──────────────────────────────────────────────────────
+
+  describe("disconnect()", () => {
+    it("is safe to call when not connected", async () => {
+      const client = createClient();
+      await expect(client.disconnect()).resolves.toBeUndefined();
+    });
+  });
+
+  // ── connect() ─────────────────────────────────────────────────────────
+
+  describe("connect()", () => {
+    it("fetches ICE servers, creates PC, sends offer, polls answer", async () => {
+      const client = createClient();
+      setupFullConnect();
+
+      await client.connect(MOCK_TRACKS);
+
+      // Verify ICE servers fetch
+      expect(mockFetch.mock.calls[0][0]).toBe(
+        "https://api.test.com/sessions/test-session-id/transport/webrtc/ice_servers"
+      );
+
+      // Verify SDP offer POST
+      expect(mockFetch.mock.calls[1][0]).toBe(
+        "https://api.test.com/sessions/test-session-id/transport/webrtc/sdp_params"
+      );
+      expect(mockFetch.mock.calls[1][1].method).toBe("POST");
+
+      const body = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(body.sdp_offer).toBeDefined();
+      expect(body.track_mapping).toHaveLength(1);
+      expect(body.track_mapping[0].name).toBe("main_video");
+
+      // Verify SDP answer GET
+      expect(mockFetch.mock.calls[2][0]).toBe(
+        "https://api.test.com/sessions/test-session-id/transport/webrtc/sdp_params"
+      );
+      expect(mockFetch.mock.calls[2][1].method).toBe("GET");
+    });
+
+    it("sets status to connecting", async () => {
+      const client = createClient();
+      setupFullConnect();
+
+      const handler = vi.fn();
+      client.on("statusChanged", handler);
+
+      await client.connect(MOCK_TRACKS);
+      expect(handler).toHaveBeenCalledWith("connecting");
+    });
+
+    it("creates transceivers for each track", async () => {
+      const client = createClient();
+      setupFullConnect();
+
+      const tracks: TrackCapability[] = [
+        { name: "main_video", kind: "video", direction: "recvonly" },
+        { name: "webcam", kind: "video", direction: "sendonly" },
+      ];
+
+      await client.connect(tracks);
+      expect(mockPC.addTransceiver).toHaveBeenCalledTimes(2);
+      expect(mockPC.addTransceiver).toHaveBeenCalledWith("video", {
+        direction: "recvonly",
+      });
+      expect(mockPC.addTransceiver).toHaveBeenCalledWith("video", {
+        direction: "sendonly",
+      });
+    });
+
+    it("throws when ICE server fetch fails", async () => {
+      const client = createClient();
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
+
+      await expect(client.connect(MOCK_TRACKS)).rejects.toThrow(
+        "Failed to fetch ICE servers"
+      );
+    });
+
+    it("throws when SDP offer is rejected", async () => {
+      const client = createClient();
+      mockIceServersFetch();
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        text: () => Promise.resolve("server error"),
+      });
+
+      await expect(client.connect(MOCK_TRACKS)).rejects.toThrow(
+        "Failed to send SDP offer"
+      );
+    });
+
+    it("polls SDP answer when 202 is returned", async () => {
+      const client = createClient({ maxPollAttempts: 3 });
+      mockIceServersFetch();
+      mockSdpOfferAccepted();
+      // First poll → 202
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 202 });
+      // Second poll → 200
+      mockSdpAnswerReady();
+
+      await client.connect(MOCK_TRACKS);
+      // ICE + POST + GET(202) + GET(200) = 4
+      expect(mockFetch).toHaveBeenCalledTimes(4);
+    });
+
+    it("throws after exhausting SDP poll attempts", async () => {
+      const client = createClient({ maxPollAttempts: 2 });
+      mockIceServersFetch();
+      mockSdpOfferAccepted();
+      mockFetch.mockResolvedValue({ ok: true, status: 202 });
+
+      await expect(client.connect(MOCK_TRACKS)).rejects.toThrow(
+        "exceeded maximum attempts"
+      );
+    });
+  });
+
+  // ── abort() ───────────────────────────────────────────────────────────
+
+  describe("abort()", () => {
+    it("does not throw", () => {
+      const client = createClient();
+      expect(() => client.abort()).not.toThrow();
+    });
+  });
+});

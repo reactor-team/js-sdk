@@ -1,39 +1,7 @@
 // Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
 
 import { describe, it, expect } from "vitest";
-import {
-  video,
-  audio,
-  ConflictError,
-  AbortError,
-  isAbortError,
-} from "../../src/types";
-
-describe("video()", () => {
-  it("creates a video TrackConfig with the given name", () => {
-    expect(video("main_video")).toEqual({ name: "main_video", kind: "video" });
-  });
-
-  it("ignores reserved options", () => {
-    expect(video("cam", { maxFramerate: 30 })).toEqual({
-      name: "cam",
-      kind: "video",
-    });
-  });
-});
-
-describe("audio()", () => {
-  it("creates an audio TrackConfig with the given name", () => {
-    expect(audio("mic")).toEqual({ name: "mic", kind: "audio" });
-  });
-
-  it("ignores reserved options", () => {
-    expect(audio("mic", { sampleRate: 48000 })).toEqual({
-      name: "mic",
-      kind: "audio",
-    });
-  });
-});
+import { ConflictError, AbortError, isAbortError } from "../../src/types";
 
 describe("ConflictError", () => {
   it("is an instance of Error", () => {

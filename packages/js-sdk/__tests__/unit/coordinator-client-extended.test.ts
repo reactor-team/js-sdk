@@ -3,6 +3,27 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { CoordinatorClient } from "../../src/core/CoordinatorClient";
 
+const MOCK_SESSION_ID = "85ded560-014c-42df-8902-89dfbca8fa00";
+
+const MOCK_INITIAL_RESPONSE = {
+  session_id: MOCK_SESSION_ID,
+  model: { name: "echo" },
+  state: "CREATED",
+};
+
+const MOCK_FULL_SESSION_RESPONSE = {
+  session_id: MOCK_SESSION_ID,
+  model: { name: "echo" },
+  state: "ACTIVE",
+  selected_transport: { protocol: "webrtc", version: "1.0" },
+  capabilities: {
+    protocol_version: "1.0",
+    tracks: [
+      { name: "main_video", kind: "video", direction: "recvonly" },
+    ],
+  },
+};
+
 describe("CoordinatorClient (extended)", () => {
   const mockFetch = vi.fn();
   let client: CoordinatorClient;
@@ -23,20 +44,18 @@ describe("CoordinatorClient (extended)", () => {
     vi.unstubAllGlobals();
   });
 
-  async function createSessionHelper(): Promise<string> {
-    const sid = "550e8400-e29b-41d4-a716-446655440000";
+  async function createSessionHelper() {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve({ session_id: sid }),
+      json: () => Promise.resolve(MOCK_INITIAL_RESPONSE),
     });
-    await client.createSession("v=0");
-    return sid;
+    await client.createSession();
   }
 
-  // ── getSession() error path ────────────────────────────────────────────
+  // ── pollSessionReady() edge cases ──────────────────────────────────────
 
-  describe("getSession() error path", () => {
-    it("throws on non-OK response", async () => {
+  describe("pollSessionReady() edge cases", () => {
+    it("throws on non-OK response during polling", async () => {
       await createSessionHelper();
 
       mockFetch.mockResolvedValueOnce({
@@ -45,36 +64,41 @@ describe("CoordinatorClient (extended)", () => {
         text: () => Promise.resolve("Internal Server Error"),
       });
 
-      await expect(client.getSession()).rejects.toThrow(
-        "Failed to get session: 500"
+      await expect(client.pollSessionReady()).rejects.toThrow(
+        "Failed to poll session: 500"
       );
     });
-  });
 
-  // ── getSessionId() ─────────────────────────────────────────────────────
+    it("checks version mismatch during polling", async () => {
+      await createSessionHelper();
 
-  describe("getSessionId()", () => {
-    it("returns session id after createSession", async () => {
-      const sid = await createSessionHelper();
-      expect(client.getSessionId()).toBe(sid);
-    });
-
-    it("returns undefined initially", () => {
-      expect(client.getSessionId()).toBeUndefined();
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 426 });
+      await expect(client.pollSessionReady()).rejects.toThrow(
+        "CLIENT_VERSION_TOO_OLD"
+      );
     });
   });
 
   // ── sleep / abort interaction ──────────────────────────────────────────
 
   describe("sleep / abort interaction", () => {
-    it("abort() rejects pending connect with AbortError", async () => {
-      mockFetch.mockResolvedValue({ status: 202, ok: true });
+    it("abort() rejects pending pollSessionReady with AbortError", async () => {
+      await createSessionHelper();
 
-      const promise = client.connect("session-123", "offer-sdp", 20);
+      // Return PENDING responses so it keeps polling
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            session_id: MOCK_SESSION_ID,
+            model: { name: "echo" },
+            state: "PENDING",
+          }),
+      });
 
-      // Let the async chain resolve fetches and enter sleep()
+      const promise = client.pollSessionReady({ maxAttempts: 20 });
+
       await new Promise((r) => setTimeout(r, 50));
-
       client.abort();
 
       await expect(promise).rejects.toThrow(/aborted/i);
@@ -85,65 +109,100 @@ describe("CoordinatorClient (extended)", () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ ice_servers: [] }),
+        json: () => Promise.resolve(MOCK_INITIAL_RESPONSE),
       });
 
-      const servers = await client.getIceServers();
-      expect(servers).toEqual([]);
-    });
-  });
-
-  // ── sendSdpOffer error path (through connect) ─────────────────────────
-
-  describe("sendSdpOffer error path", () => {
-    it("throws on unexpected PUT status", async () => {
-      mockFetch.mockResolvedValueOnce({
-        status: 500,
-        ok: false,
-        text: () => Promise.resolve("server error"),
-      });
-
-      await expect(client.connect("session-123", "offer-sdp")).rejects.toThrow(
-        "Failed to send SDP offer: 500"
-      );
+      await expect(client.createSession()).resolves.toBeDefined();
     });
   });
 
   // ── Multi-attempt backoff ──────────────────────────────────────────────
 
   describe("Multi-attempt backoff", () => {
-    it("polls multiple times with backoff before success", async () => {
+    it("polls with exponential backoff before success", async () => {
       vi.useFakeTimers();
       try {
-        // PUT → 202, GET → 202, GET → 202, GET → 200
-        mockFetch
-          .mockResolvedValueOnce({ status: 202, ok: true })
-          .mockResolvedValueOnce({ status: 202, ok: true })
-          .mockResolvedValueOnce({ status: 202, ok: true })
-          .mockResolvedValueOnce({
-            status: 200,
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                sdp_answer: "final-answer",
-                extra_args: {},
-              }),
-          });
+        await createSessionHelper();
 
-        const promise = client.connect("session-123", "offer-sdp", 5);
+        // First poll — PENDING
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              session_id: MOCK_SESSION_ID,
+              model: { name: "echo" },
+              state: "PENDING",
+            }),
+        });
 
-        // Advance through first backoff (500ms) — triggers second poll (202)
+        // Second poll — still PENDING
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              session_id: MOCK_SESSION_ID,
+              model: { name: "echo" },
+              state: "WAITING",
+            }),
+        });
+
+        // Third poll — capabilities ready
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(MOCK_FULL_SESSION_RESPONSE),
+        });
+
+        const promise = client.pollSessionReady({ maxAttempts: 10 });
+
+        // Advance through first backoff (500ms)
         await vi.advanceTimersByTimeAsync(500);
-        // Advance through second backoff (1000ms) — triggers third poll (200)
+        // Advance through second backoff (1000ms)
         await vi.advanceTimersByTimeAsync(1000);
 
         const result = await promise;
-        expect(result.sdpAnswer).toBe("final-answer");
-        expect(result.sdpPollingAttempts).toBe(3);
+        expect(result.session_id).toBe(MOCK_SESSION_ID);
+        expect(result.capabilities.tracks).toHaveLength(1);
+        // createSession (1) + 3 polls = 4 total
         expect(mockFetch).toHaveBeenCalledTimes(4);
       } finally {
         vi.useRealTimers();
       }
+    });
+  });
+
+  // ── getSessionInfo() error path ────────────────────────────────────────
+
+  describe("getSessionInfo() error path", () => {
+    it("throws on non-OK response", async () => {
+      await createSessionHelper();
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        text: () => Promise.resolve("Internal Server Error"),
+      });
+
+      await expect(client.getSessionInfo()).rejects.toThrow(
+        "Failed to get session info: 500"
+      );
+    });
+  });
+
+  // ── restartSession() error path ────────────────────────────────────────
+
+  describe("restartSession() error path", () => {
+    it("throws on non-OK response", async () => {
+      await createSessionHelper();
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        text: () => Promise.resolve("Internal Server Error"),
+      });
+
+      await expect(client.restartSession()).rejects.toThrow(
+        "Failed to restart session: 500"
+      );
     });
   });
 });

@@ -2,65 +2,80 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Reactor, DEFAULT_BASE_URL } from "../../src/core/Reactor";
-import { GPUMachineStatus } from "../../src/core/GPUMachineClient";
 
-let machineClientHandlers: Record<string, (...args: any[]) => void> = {};
-let mockMachineClient: any;
+const MOCK_SESSION_ID = "85ded560-014c-42df-8902-89dfbca8fa00";
+
+const MOCK_INITIAL_RESPONSE = {
+  session_id: MOCK_SESSION_ID,
+  model: { name: "echo" },
+  state: "CREATED",
+};
+
+const MOCK_FULL_SESSION_RESPONSE = {
+  session_id: MOCK_SESSION_ID,
+  model: { name: "echo" },
+  state: "ACTIVE",
+  selected_transport: { protocol: "webrtc", version: "1.0" },
+  capabilities: {
+    protocol_version: "1.0",
+    tracks: [
+      { name: "main_video", kind: "video", direction: "recvonly" as const },
+    ],
+  },
+};
+
+let transportHandlers: Record<string, (...args: any[]) => void> = {};
+let mockTransportClient: any;
 
 vi.mock("../../src/core/CoordinatorClient", () => ({
   CoordinatorClient: vi.fn().mockImplementation(() => ({
-    getIceServers: vi.fn().mockResolvedValue([]),
-    createSession: vi.fn().mockResolvedValue("test-session-id"),
-    connect: vi.fn().mockResolvedValue({
-      sdpAnswer: "mock-sdp-answer",
-      sdpPollingAttempts: 1,
-    }),
+    createSession: vi.fn().mockResolvedValue(MOCK_INITIAL_RESPONSE),
+    pollSessionReady: vi.fn().mockResolvedValue(MOCK_FULL_SESSION_RESPONSE),
+    getSession: vi.fn().mockResolvedValue(MOCK_FULL_SESSION_RESPONSE),
     terminateSession: vi.fn().mockResolvedValue(undefined),
     abort: vi.fn(),
-    getSessionId: vi.fn().mockReturnValue("test-session-id"),
+    getSessionId: vi.fn().mockReturnValue(MOCK_SESSION_ID),
   })),
 }));
 
 vi.mock("../../src/core/LocalCoordinatorClient", () => ({
   LocalCoordinatorClient: vi.fn().mockImplementation(() => ({
-    getIceServers: vi.fn().mockResolvedValue([]),
-    createSession: vi.fn().mockResolvedValue("local"),
-    connect: vi.fn().mockResolvedValue({
-      sdpAnswer: "mock-sdp-answer",
-      sdpPollingAttempts: 0,
-    }),
+    createSession: vi.fn().mockResolvedValue(MOCK_INITIAL_RESPONSE),
+    pollSessionReady: vi.fn().mockResolvedValue(MOCK_FULL_SESSION_RESPONSE),
+    getSession: vi.fn().mockResolvedValue(MOCK_FULL_SESSION_RESPONSE),
     terminateSession: vi.fn().mockResolvedValue(undefined),
     abort: vi.fn(),
   })),
 }));
 
-vi.mock("../../src/core/GPUMachineClient", () => ({
-  GPUMachineClient: vi.fn().mockImplementation(() => {
-    machineClientHandlers = {};
-    mockMachineClient = {
-      createOffer: vi.fn().mockResolvedValue("mock-sdp-offer"),
+vi.mock("../../src/core/WebRTCTransportClient", () => ({
+  WebRTCTransportClient: vi.fn().mockImplementation(() => {
+    transportHandlers = {};
+    mockTransportClient = {
       connect: vi.fn().mockResolvedValue(undefined),
+      reconnect: vi.fn().mockResolvedValue(undefined),
       disconnect: vi.fn().mockResolvedValue(undefined),
       sendCommand: vi.fn(),
       publishTrack: vi.fn().mockResolvedValue(undefined),
       unpublishTrack: vi.fn().mockResolvedValue(undefined),
       on: vi.fn((event: string, handler: any) => {
-        machineClientHandlers[event] = handler;
+        transportHandlers[event] = handler;
       }),
       off: vi.fn(),
       getStats: vi.fn().mockReturnValue(undefined),
-      getConnectionTimings: vi
+      getTransportTimings: vi
         .fn()
-        .mockReturnValue({ iceNegotiationMs: 50, dataChannelMs: 60 }),
-      resetConnectionTimings: vi.fn(),
+        .mockReturnValue({
+          protocol: "webrtc",
+          sdpPollingMs: 100,
+          sdpPollingAttempts: 1,
+          iceNegotiationMs: 50,
+          dataChannelMs: 60,
+        }),
+      abort: vi.fn(),
     };
-    return mockMachineClient;
+    return mockTransportClient;
   }),
-  GPUMachineStatus: {
-    connected: "connected",
-    disconnected: "disconnected",
-    error: "error",
-  },
 }));
 
 const { LocalCoordinatorClient } =
@@ -68,14 +83,14 @@ const { LocalCoordinatorClient } =
 
 async function connectAndReady(r: Reactor, jwt = "jwt") {
   await r.connect(jwt);
-  machineClientHandlers["statusChanged"]("connected");
+  transportHandlers["statusChanged"]("connected");
 }
 
 describe("Reactor (extended)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    machineClientHandlers = {};
-    mockMachineClient = undefined;
+    transportHandlers = {};
+    mockTransportClient = undefined;
   });
 
   // ── Constructor ──────────────────────────────────────────────────────────
@@ -85,18 +100,9 @@ describe("Reactor (extended)", () => {
       const r = new Reactor({ modelName: "echo", local: true });
       await r.connect();
       expect(LocalCoordinatorClient).toHaveBeenCalledWith(
-        "http://localhost:8080"
+        "http://localhost:8080",
+        "echo"
       );
-      await r.disconnect();
-    });
-
-    it("default receive track is main_video", async () => {
-      const r = new Reactor({ modelName: "echo" });
-      await r.connect("jwt");
-      expect(mockMachineClient.createOffer).toHaveBeenCalledWith({
-        send: [],
-        receive: [{ name: "main_video", kind: "video" }],
-      });
       await r.disconnect();
     });
   });
@@ -104,12 +110,12 @@ describe("Reactor (extended)", () => {
   // ── sendCommand (when ready) ─────────────────────────────────────────────
 
   describe("sendCommand (when ready)", () => {
-    it("delegates to machineClient when ready", async () => {
+    it("delegates to transportClient when ready", async () => {
       const r = new Reactor({ modelName: "echo" });
       await connectAndReady(r);
 
       await r.sendCommand("set_effect", { effect: "blur" });
-      expect(mockMachineClient.sendCommand).toHaveBeenCalledWith(
+      expect(mockTransportClient.sendCommand).toHaveBeenCalledWith(
         "set_effect",
         { effect: "blur" },
         "application"
@@ -121,7 +127,7 @@ describe("Reactor (extended)", () => {
       const r = new Reactor({ modelName: "echo" });
       await connectAndReady(r);
 
-      mockMachineClient.sendCommand.mockImplementation(() => {
+      mockTransportClient.sendCommand.mockImplementation(() => {
         throw new Error("channel closed");
       });
 
@@ -141,13 +147,13 @@ describe("Reactor (extended)", () => {
   // ── publishTrack (when ready) ────────────────────────────────────────────
 
   describe("publishTrack (when ready)", () => {
-    it("delegates to machineClient when ready", async () => {
+    it("delegates to transportClient when ready", async () => {
       const r = new Reactor({ modelName: "echo" });
       await connectAndReady(r);
 
       const fakeTrack = {} as MediaStreamTrack;
       await r.publishTrack("webcam", fakeTrack);
-      expect(mockMachineClient.publishTrack).toHaveBeenCalledWith(
+      expect(mockTransportClient.publishTrack).toHaveBeenCalledWith(
         "webcam",
         fakeTrack
       );
@@ -158,7 +164,7 @@ describe("Reactor (extended)", () => {
       const r = new Reactor({ modelName: "echo" });
       await connectAndReady(r);
 
-      mockMachineClient.publishTrack.mockRejectedValue(
+      mockTransportClient.publishTrack.mockRejectedValue(
         new Error("publish error")
       );
 
@@ -178,12 +184,12 @@ describe("Reactor (extended)", () => {
   // ── unpublishTrack ───────────────────────────────────────────────────────
 
   describe("unpublishTrack", () => {
-    it("delegates to machineClient", async () => {
+    it("delegates to transportClient", async () => {
       const r = new Reactor({ modelName: "echo" });
       await connectAndReady(r);
 
       await r.unpublishTrack("webcam");
-      expect(mockMachineClient.unpublishTrack).toHaveBeenCalledWith("webcam");
+      expect(mockTransportClient.unpublishTrack).toHaveBeenCalledWith("webcam");
       await r.disconnect();
     });
 
@@ -191,7 +197,7 @@ describe("Reactor (extended)", () => {
       const r = new Reactor({ modelName: "echo" });
       await connectAndReady(r);
 
-      mockMachineClient.unpublishTrack.mockRejectedValue(
+      mockTransportClient.unpublishTrack.mockRejectedValue(
         new Error("unpublish error")
       );
 
@@ -208,9 +214,9 @@ describe("Reactor (extended)", () => {
     });
   });
 
-  // ── setupMachineClientHandlers ───────────────────────────────────────────
+  // ── setupTransportHandlers ───────────────────────────────────────────────
 
-  describe("setupMachineClientHandlers", () => {
+  describe("setupTransportHandlers", () => {
     it("routes application messages", async () => {
       const r = new Reactor({ modelName: "echo" });
       await r.connect("jwt");
@@ -218,7 +224,7 @@ describe("Reactor (extended)", () => {
       const msgHandler = vi.fn();
       r.on("message", msgHandler);
 
-      machineClientHandlers["message"]({ cmd: "data" }, "application");
+      transportHandlers["message"]({ cmd: "data" }, "application");
       expect(msgHandler).toHaveBeenCalledWith({ cmd: "data" });
       await r.disconnect();
     });
@@ -230,7 +236,7 @@ describe("Reactor (extended)", () => {
       const rtHandler = vi.fn();
       r.on("runtimeMessage", rtHandler);
 
-      machineClientHandlers["message"]({ caps: true }, "runtime");
+      transportHandlers["message"]({ caps: true }, "runtime");
       expect(rtHandler).toHaveBeenCalledWith({ caps: true });
       await r.disconnect();
     });
@@ -239,7 +245,7 @@ describe("Reactor (extended)", () => {
       const r = new Reactor({ modelName: "echo" });
       await r.connect("jwt");
 
-      machineClientHandlers["statusChanged"]("connected");
+      transportHandlers["statusChanged"]("connected");
       expect(r.getStatus()).toBe("ready");
       await r.disconnect();
     });
@@ -248,13 +254,11 @@ describe("Reactor (extended)", () => {
       const r = new Reactor({ modelName: "echo" });
       await r.connect("jwt");
 
-      // The handler calls this.disconnect(true) without await, so flush microtasks
-      machineClientHandlers["statusChanged"]("disconnected");
+      transportHandlers["statusChanged"]("disconnected");
       await new Promise((resolve) => setTimeout(resolve, 0));
 
       expect(r.getStatus()).toBe("disconnected");
-      // Session should be preserved (recoverable)
-      expect(r.getSessionId()).toBe("test-session-id");
+      expect(r.getSessionId()).toBe(MOCK_SESSION_ID);
     });
 
     it("emits GPU_CONNECTION_ERROR on error status", async () => {
@@ -264,7 +268,7 @@ describe("Reactor (extended)", () => {
       const errorHandler = vi.fn();
       r.on("error", errorHandler);
 
-      machineClientHandlers["statusChanged"]("error");
+      transportHandlers["statusChanged"]("error");
       expect(errorHandler).toHaveBeenCalledWith(
         expect.objectContaining({ code: "GPU_CONNECTION_ERROR" })
       );
@@ -277,42 +281,38 @@ describe("Reactor (extended)", () => {
       const trackHandler = vi.fn();
       r.on("trackReceived", trackHandler);
 
-      machineClientHandlers["trackReceived"]("name", "track", "stream");
+      transportHandlers["trackReceived"]("name", "track", "stream");
       expect(trackHandler).toHaveBeenCalledWith("name", "track", "stream");
       await r.disconnect();
     });
 
-    it("forwards statsUpdate events", async () => {
+    it("forwards statsUpdate events with connectionTimings", async () => {
       const r = new Reactor({ modelName: "echo" });
       await r.connect("jwt");
 
       const statsHandler = vi.fn();
       r.on("statsUpdate", statsHandler);
 
-      machineClientHandlers["statsUpdate"]({ rtt: 25 });
+      transportHandlers["statsUpdate"]({ rtt: 25 });
       expect(statsHandler).toHaveBeenCalledWith(
         expect.objectContaining({ rtt: 25 })
       );
       await r.disconnect();
     });
 
-    it("ignores events from stale machineClient", async () => {
+    it("ignores events from stale transportClient", async () => {
       const r = new Reactor({ modelName: "echo" });
       await r.connect("jwt");
 
-      const staleHandlers = { ...machineClientHandlers };
+      const staleHandlers = { ...transportHandlers };
 
-      // Non-recoverable disconnect clears machineClient reference
       await r.disconnect(false);
 
-      // New connect() creates a fresh machineClient — stale closures
-      // captured the old instance, so their `client !== this.machineClient` guard fires
       await r.connect("jwt");
 
       const msgHandler = vi.fn();
       r.on("message", msgHandler);
 
-      // Fire the stale handler — Reactor should ignore it
       staleHandlers["message"]({ old: true }, "application");
       expect(msgHandler).not.toHaveBeenCalled();
       await r.disconnect();
@@ -322,17 +322,20 @@ describe("Reactor (extended)", () => {
   // ── reconnect ────────────────────────────────────────────────────────────
 
   describe("reconnect", () => {
-    it("reconnects with new SDP exchange", async () => {
+    it("reconnects using transport client", async () => {
       const r = new Reactor({ modelName: "echo" });
       await r.connect("jwt");
-      machineClientHandlers["statusChanged"]("connected");
+      transportHandlers["statusChanged"]("connected");
 
       await r.disconnect(true);
-      expect(r.getSessionId()).toBe("test-session-id");
+      expect(r.getSessionId()).toBe(MOCK_SESSION_ID);
 
       await r.reconnect();
-      expect(mockMachineClient.createOffer).toHaveBeenCalled();
-      expect(mockMachineClient.connect).toHaveBeenCalledWith("mock-sdp-answer");
+      expect(mockTransportClient.reconnect).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({ name: "main_video" }),
+        ])
+      );
       await r.disconnect();
     });
 
@@ -386,23 +389,27 @@ describe("Reactor (extended)", () => {
       await r.connect("jwt");
 
       await r.disconnect(true);
-      expect(r.getSessionId()).toBe("test-session-id");
+      expect(r.getSessionId()).toBe(MOCK_SESSION_ID);
     });
 
-    it("clears machineClient on non-recoverable disconnect", async () => {
+    it("clears transportClient on non-recoverable disconnect", async () => {
       const r = new Reactor({ modelName: "echo" });
       await r.connect("jwt");
 
       await r.disconnect(false);
       expect(r.getSessionId()).toBeUndefined();
       expect(r.getStats()).toBeUndefined();
+      expect(r.getCapabilities()).toBeUndefined();
+      expect(r.getSessionInfo()).toBeUndefined();
     });
 
-    it("continues cleanup if machineClient.disconnect throws", async () => {
+    it("continues cleanup if transportClient.disconnect throws", async () => {
       const r = new Reactor({ modelName: "echo" });
       await r.connect("jwt");
 
-      mockMachineClient.disconnect.mockRejectedValue(new Error("peer closed"));
+      mockTransportClient.disconnect.mockRejectedValue(
+        new Error("peer closed")
+      );
       vi.spyOn(console, "error").mockImplementation(() => {});
 
       await r.disconnect(false);
@@ -419,7 +426,6 @@ describe("Reactor (extended)", () => {
       r.on("statusChanged", statusHandler);
 
       await r.connect("jwt");
-      // connect() sets status to "connecting" once
       const connectingCount = statusHandler.mock.calls.filter(
         ([s]: [string]) => s === "connecting"
       ).length;
@@ -437,7 +443,7 @@ describe("Reactor (extended)", () => {
       r.on("sessionIdChanged", sessionHandler);
 
       await r.connect("jwt");
-      expect(sessionHandler).toHaveBeenCalledWith("test-session-id");
+      expect(sessionHandler).toHaveBeenCalledWith(MOCK_SESSION_ID);
       await r.disconnect();
     });
   });
@@ -449,7 +455,7 @@ describe("Reactor (extended)", () => {
       const r = new Reactor({ modelName: "echo" });
       await r.connect("jwt");
 
-      machineClientHandlers["statusChanged"]("error");
+      transportHandlers["statusChanged"]("error");
 
       const err = r.getLastError();
       expect(err).toBeDefined();

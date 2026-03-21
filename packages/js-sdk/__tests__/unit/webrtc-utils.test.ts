@@ -2,9 +2,6 @@
 
 import { describe, it, expect, vi } from "vitest";
 import {
-  rewriteMids,
-  restoreAnswerMids,
-  buildMidMapping,
   transformIceServers,
   sendMessage,
   parseMessage,
@@ -12,105 +9,6 @@ import {
   isConnected,
   isClosed,
 } from "../../src/utils/webrtc";
-
-// ---------------------------------------------------------------------------
-// SDP MID rewriting
-// ---------------------------------------------------------------------------
-
-const SAMPLE_SDP = [
-  "v=0",
-  "o=- 0 0 IN IP4 127.0.0.1",
-  "s=-",
-  "a=group:BUNDLE 0 1 2",
-  "m=application 9 UDP/DTLS/SCTP webrtc-datachannel",
-  "a=mid:0",
-  "m=video 9 UDP/TLS/RTP/SAVPF 96",
-  "a=mid:1",
-  "a=recvonly",
-  "m=video 9 UDP/TLS/RTP/SAVPF 96",
-  "a=mid:2",
-  "a=sendonly",
-].join("\r\n");
-
-describe("rewriteMids()", () => {
-  it("replaces media section MIDs with track names", () => {
-    const result = rewriteMids(SAMPLE_SDP, ["main_video", "webcam"]);
-    expect(result).toContain("a=mid:main_video");
-    expect(result).toContain("a=mid:webcam");
-  });
-
-  it("updates the BUNDLE group line to use new MIDs", () => {
-    const result = rewriteMids(SAMPLE_SDP, ["main_video", "webcam"]);
-    expect(result).toContain("a=group:BUNDLE 0 main_video webcam");
-  });
-
-  it("leaves the data-channel (application) MID unchanged", () => {
-    const result = rewriteMids(SAMPLE_SDP, ["main_video", "webcam"]);
-    expect(result).toMatch(/m=application[^\r\n]*\r\na=mid:0/);
-  });
-
-  it("handles a single track name", () => {
-    const result = rewriteMids(SAMPLE_SDP, ["only_track"]);
-    expect(result).toContain("a=mid:only_track");
-    // Second media MID should remain unchanged
-    expect(result).toContain("a=mid:2");
-  });
-});
-
-describe("restoreAnswerMids()", () => {
-  it("maps server MIDs back to browser MIDs", () => {
-    const answerSdp = [
-      "v=0",
-      "a=group:BUNDLE data main_video webcam",
-      "m=application 9 UDP/DTLS/SCTP webrtc-datachannel",
-      "a=mid:data",
-      "m=video 9 UDP/TLS/RTP/SAVPF 96",
-      "a=mid:main_video",
-      "m=video 9 UDP/TLS/RTP/SAVPF 96",
-      "a=mid:webcam",
-    ].join("\r\n");
-
-    const remoteToLocal = new Map([
-      ["main_video", "1"],
-      ["webcam", "2"],
-    ]);
-
-    const result = restoreAnswerMids(answerSdp, remoteToLocal);
-    expect(result).toContain("a=mid:1");
-    expect(result).toContain("a=mid:2");
-    expect(result).toContain("a=group:BUNDLE data 1 2");
-  });
-
-  it("leaves unmapped MIDs untouched", () => {
-    const sdp = "a=mid:unknown\r\n";
-    const result = restoreAnswerMids(sdp, new Map());
-    expect(result).toContain("a=mid:unknown");
-  });
-});
-
-describe("buildMidMapping()", () => {
-  it("creates bidirectional maps from transceiver entries", () => {
-    const entries = [
-      { name: "main_video", transceiver: { mid: "1" } as any },
-      { name: "webcam", transceiver: { mid: "2" } as any },
-    ];
-    const mapping = buildMidMapping(entries);
-
-    expect(mapping.localToRemote.get("1")).toBe("main_video");
-    expect(mapping.localToRemote.get("2")).toBe("webcam");
-    expect(mapping.remoteToLocal.get("main_video")).toBe("1");
-    expect(mapping.remoteToLocal.get("webcam")).toBe("2");
-  });
-
-  it("skips entries without a mid", () => {
-    const entries = [
-      { name: "a", transceiver: { mid: null } as any },
-      { name: "b", transceiver: undefined },
-    ];
-    const mapping = buildMidMapping(entries);
-    expect(mapping.localToRemote.size).toBe(0);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // ICE server transform
@@ -196,6 +94,17 @@ describe("sendMessage()", () => {
       "Data channel not open"
     );
   });
+
+  it("throws when message exceeds max bytes", () => {
+    const channel = {
+      readyState: "open",
+      send: vi.fn(),
+    } as unknown as RTCDataChannel;
+
+    expect(() => sendMessage(channel, "cmd", { big: "x".repeat(100) }, "application", 10)).toThrow(
+      "too large"
+    );
+  });
 });
 
 describe("parseMessage()", () => {
@@ -275,6 +184,52 @@ describe("extractConnectionStats()", () => {
     expect(stats.candidateType).toBeUndefined();
     expect(stats.framesPerSecond).toBeUndefined();
     expect(stats.timestamp).toBeGreaterThan(0);
+  });
+
+  it("missing currentRoundTripTime returns undefined rtt", () => {
+    const entries = new Map<string, any>([
+      [
+        "cp1",
+        {
+          type: "candidate-pair",
+          state: "succeeded",
+          availableOutgoingBitrate: 500_000,
+          localCandidateId: "lc1",
+        },
+      ],
+      ["lc1", { type: "local-candidate", candidateType: "srflx" }],
+    ]);
+    const report = {
+      forEach: (cb: (v: any, k: string) => void) => entries.forEach(cb),
+      get: (k: string) => entries.get(k),
+    } as unknown as RTCStatsReport;
+
+    const stats = extractConnectionStats(report);
+    expect(stats.rtt).toBeUndefined();
+    expect(stats.availableOutgoingBitrate).toBe(500_000);
+    expect(stats.candidateType).toBe("srflx");
+  });
+
+  it("missing localCandidate returns undefined candidateType", () => {
+    const entries = new Map<string, any>([
+      [
+        "cp1",
+        {
+          type: "candidate-pair",
+          state: "succeeded",
+          currentRoundTripTime: 0.05,
+          localCandidateId: "lc-missing",
+        },
+      ],
+    ]);
+    const report = {
+      forEach: (cb: (v: any, k: string) => void) => entries.forEach(cb),
+      get: () => undefined,
+    } as unknown as RTCStatsReport;
+
+    const stats = extractConnectionStats(report);
+    expect(stats.rtt).toBe(50);
+    expect(stats.candidateType).toBeUndefined();
   });
 });
 

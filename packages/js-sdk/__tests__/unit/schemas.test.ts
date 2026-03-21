@@ -3,10 +3,15 @@
 import { describe, it, expect } from "vitest";
 import {
   CreateSessionRequestSchema,
+  InitialSessionResponseSchema,
   CreateSessionResponseSchema,
-  SDPParamsRequestSchema,
-  SDPParamsResponseSchema,
+  SessionResponseSchema,
+  CapabilitiesSchema,
+  TrackCapabilitySchema,
+  CommandCapabilitySchema,
   IceServersResponseSchema,
+  WebRTCSdpOfferRequestSchema,
+  WebRTCSdpAnswerResponseSchema,
   SessionState,
 } from "../../src/core/types";
 
@@ -14,7 +19,17 @@ describe("CreateSessionRequestSchema", () => {
   it("validates a correct request", () => {
     const data = {
       model: { name: "echo" },
-      sdp_offer: "v=0\r\n...",
+      client_info: { sdk_version: "3.0.0", sdk_type: "js" },
+      supported_transports: [{ protocol: "webrtc", version: "1.0" }],
+    };
+    expect(() => CreateSessionRequestSchema.parse(data)).not.toThrow();
+  });
+
+  it("validates with optional extra_args", () => {
+    const data = {
+      model: { name: "echo" },
+      client_info: { sdk_version: "3.0.0", sdk_type: "js" },
+      supported_transports: [{ protocol: "webrtc", version: "1.0" }],
       extra_args: { key: "value" },
     };
     expect(() => CreateSessionRequestSchema.parse(data)).not.toThrow();
@@ -22,61 +37,258 @@ describe("CreateSessionRequestSchema", () => {
 
   it("rejects missing model", () => {
     expect(() =>
-      CreateSessionRequestSchema.parse({ sdp_offer: "v=0", extra_args: {} })
-    ).toThrow();
-  });
-
-  it("rejects missing sdp_offer", () => {
-    expect(() =>
       CreateSessionRequestSchema.parse({
-        model: { name: "echo" },
-        extra_args: {},
+        client_info: { sdk_version: "3.0.0", sdk_type: "js" },
+        supported_transports: [{ protocol: "webrtc", version: "1.0" }],
       })
     ).toThrow();
   });
 
-  it("rejects missing extra_args", () => {
+  it("rejects missing client_info", () => {
     expect(() =>
       CreateSessionRequestSchema.parse({
         model: { name: "echo" },
-        sdp_offer: "v=0",
+        supported_transports: [{ protocol: "webrtc", version: "1.0" }],
+      })
+    ).toThrow();
+  });
+
+  it("rejects missing supported_transports", () => {
+    expect(() =>
+      CreateSessionRequestSchema.parse({
+        model: { name: "echo" },
+        client_info: { sdk_version: "3.0.0", sdk_type: "js" },
       })
     ).toThrow();
   });
 });
 
-describe("CreateSessionResponseSchema", () => {
-  it("validates a UUID session_id", () => {
-    const result = CreateSessionResponseSchema.parse({
-      session_id: "550e8400-e29b-41d4-a716-446655440000",
-    });
-    expect(result.session_id).toBe("550e8400-e29b-41d4-a716-446655440000");
+describe("InitialSessionResponseSchema", () => {
+  it("validates a slim session creation response", () => {
+    const data = {
+      session_id: "85ded560-014c-42df-8902-89dfbca8fa00",
+      model: { name: "echo" },
+      state: "CREATED",
+    };
+    const result = InitialSessionResponseSchema.parse(data);
+    expect(result.session_id).toBe("85ded560-014c-42df-8902-89dfbca8fa00");
+    expect(result.state).toBe("CREATED");
   });
 
-  it("rejects a non-UUID session_id", () => {
+  it("accepts optional server_info and cluster", () => {
+    const data = {
+      session_id: "test-id",
+      model: { name: "echo" },
+      server_info: { server_version: "1.5.0" },
+      state: "CREATED",
+      cluster: "sup.us-west-2.aws.prod.reactor.inc",
+    };
+    const result = InitialSessionResponseSchema.parse(data);
+    expect(result.server_info?.server_version).toBe("1.5.0");
+    expect(result.cluster).toBe("sup.us-west-2.aws.prod.reactor.inc");
+  });
+
+  it("accepts non-UUID session IDs", () => {
+    const data = {
+      session_id: "local",
+      model: { name: "echo" },
+      state: "CREATED",
+    };
+    expect(() => InitialSessionResponseSchema.parse(data)).not.toThrow();
+  });
+});
+
+describe("CreateSessionResponseSchema (full)", () => {
+  it("validates a full response with capabilities and transport", () => {
+    const data = {
+      session_id: "85ded560-014c-42df-8902-89dfbca8fa00",
+      model: { name: "echo" },
+      state: "ACTIVE",
+      selected_transport: { protocol: "webrtc", version: "1.0" },
+      capabilities: {
+        protocol_version: "1.0",
+        tracks: [
+          { name: "main_video", kind: "video", direction: "recvonly" },
+        ],
+      },
+    };
+    const result = CreateSessionResponseSchema.parse(data);
+    expect(result.selected_transport.protocol).toBe("webrtc");
+    expect(result.capabilities.tracks).toHaveLength(1);
+  });
+
+  it("rejects when selected_transport is missing", () => {
     expect(() =>
-      CreateSessionResponseSchema.parse({ session_id: "not-a-uuid" })
+      CreateSessionResponseSchema.parse({
+        session_id: "test-id",
+        model: { name: "echo" },
+        state: "ACTIVE",
+        capabilities: {
+          protocol_version: "1.0",
+          tracks: [],
+        },
+      })
+    ).toThrow();
+  });
+
+  it("rejects when capabilities is missing", () => {
+    expect(() =>
+      CreateSessionResponseSchema.parse({
+        session_id: "test-id",
+        model: { name: "echo" },
+        state: "ACTIVE",
+        selected_transport: { protocol: "webrtc", version: "1.0" },
+      })
     ).toThrow();
   });
 });
 
-describe("SDPParamsRequestSchema", () => {
-  it("validates a correct request", () => {
-    const result = SDPParamsRequestSchema.parse({
-      sdp_offer: "v=0\r\noffer",
-      extra_args: {},
-    });
-    expect(result.sdp_offer).toBe("v=0\r\noffer");
+describe("SessionResponseSchema (partial)", () => {
+  it("validates with optional capabilities and transport", () => {
+    const data = {
+      session_id: "test-id",
+      model: { name: "echo" },
+      state: "CREATED",
+    };
+    expect(() => SessionResponseSchema.parse(data)).not.toThrow();
+  });
+
+  it("validates with all fields present", () => {
+    const data = {
+      session_id: "test-id",
+      model: { name: "echo", version: "1.0.0" },
+      state: "ACTIVE",
+      server_info: { server_version: "1.5.0" },
+      selected_transport: { protocol: "webrtc", version: "1.0" },
+      capabilities: {
+        protocol_version: "1.0",
+        tracks: [],
+      },
+      cluster: "sup.us-west-2.aws.prod.reactor.inc",
+    };
+    const result = SessionResponseSchema.parse(data);
+    expect(result.model.version).toBe("1.0.0");
   });
 });
 
-describe("SDPParamsResponseSchema", () => {
-  it("validates a correct response", () => {
-    const result = SDPParamsResponseSchema.parse({
-      sdp_answer: "v=0\r\nanswer",
-      extra_args: {},
+describe("CapabilitiesSchema", () => {
+  it("validates capabilities with tracks", () => {
+    const data = {
+      protocol_version: "1.0",
+      tracks: [
+        { name: "main_video", kind: "video", direction: "recvonly" },
+        { name: "webcam", kind: "video", direction: "sendonly" },
+      ],
+    };
+    const result = CapabilitiesSchema.parse(data);
+    expect(result.tracks).toHaveLength(2);
+  });
+
+  it("validates with optional commands", () => {
+    const data = {
+      protocol_version: "1.0",
+      tracks: [],
+      commands: [
+        { name: "set_effect", description: "Change effect" },
+      ],
+    };
+    const result = CapabilitiesSchema.parse(data);
+    expect(result.commands).toHaveLength(1);
+  });
+
+  it("validates commands with schema", () => {
+    const data = {
+      protocol_version: "1.0",
+      tracks: [],
+      commands: [
+        {
+          name: "set_effect",
+          description: "Change effect",
+          schema: { type: "object", properties: { effect: { type: "string" } } },
+        },
+      ],
+    };
+    expect(() => CapabilitiesSchema.parse(data)).not.toThrow();
+  });
+
+  it("validates with optional emission_fps", () => {
+    const data = {
+      protocol_version: "1.0",
+      tracks: [],
+      emission_fps: 30.0,
+    };
+    const result = CapabilitiesSchema.parse(data);
+    expect(result.emission_fps).toBe(30.0);
+  });
+
+  it("allows null emission_fps", () => {
+    const data = {
+      protocol_version: "1.0",
+      tracks: [],
+      emission_fps: null,
+    };
+    expect(() => CapabilitiesSchema.parse(data)).not.toThrow();
+  });
+});
+
+describe("TrackCapabilitySchema", () => {
+  it("validates a recvonly video track", () => {
+    const result = TrackCapabilitySchema.parse({
+      name: "main_video",
+      kind: "video",
+      direction: "recvonly",
     });
-    expect(result.sdp_answer).toBe("v=0\r\nanswer");
+    expect(result.name).toBe("main_video");
+    expect(result.kind).toBe("video");
+    expect(result.direction).toBe("recvonly");
+  });
+
+  it("validates a sendonly audio track", () => {
+    const result = TrackCapabilitySchema.parse({
+      name: "mic",
+      kind: "audio",
+      direction: "sendonly",
+    });
+    expect(result.direction).toBe("sendonly");
+  });
+
+  it("rejects invalid kind", () => {
+    expect(() =>
+      TrackCapabilitySchema.parse({
+        name: "track",
+        kind: "data",
+        direction: "recvonly",
+      })
+    ).toThrow();
+  });
+
+  it("rejects invalid direction", () => {
+    expect(() =>
+      TrackCapabilitySchema.parse({
+        name: "track",
+        kind: "video",
+        direction: "sendrecv",
+      })
+    ).toThrow();
+  });
+});
+
+describe("CommandCapabilitySchema", () => {
+  it("validates a command with name and description", () => {
+    const result = CommandCapabilitySchema.parse({
+      name: "set_prompt",
+      description: "Set the text prompt",
+    });
+    expect(result.name).toBe("set_prompt");
+  });
+
+  it("validates a command with optional schema", () => {
+    const result = CommandCapabilitySchema.parse({
+      name: "set_prompt",
+      description: "Set the text prompt",
+      schema: { type: "object" },
+    });
+    expect(result.schema).toBeDefined();
   });
 });
 
@@ -113,14 +325,56 @@ describe("IceServersResponseSchema", () => {
   });
 });
 
+describe("WebRTCSdpOfferRequestSchema", () => {
+  it("validates a correct SDP offer request", () => {
+    const data = {
+      sdp_offer: "v=0\r\noffer",
+      track_mapping: [
+        { mid: "0", name: "main_video", kind: "video", direction: "recvonly" },
+      ],
+    };
+    const result = WebRTCSdpOfferRequestSchema.parse(data);
+    expect(result.sdp_offer).toBe("v=0\r\noffer");
+    expect(result.track_mapping).toHaveLength(1);
+  });
+
+  it("validates with optional client_info", () => {
+    const data = {
+      sdp_offer: "v=0\r\noffer",
+      client_info: { sdk_version: "3.0.0", sdk_type: "js" as const },
+      track_mapping: [],
+    };
+    expect(() => WebRTCSdpOfferRequestSchema.parse(data)).not.toThrow();
+  });
+
+  it("rejects missing track_mapping", () => {
+    expect(() =>
+      WebRTCSdpOfferRequestSchema.parse({ sdp_offer: "v=0\r\noffer" })
+    ).toThrow();
+  });
+});
+
+describe("WebRTCSdpAnswerResponseSchema", () => {
+  it("validates a correct SDP answer response", () => {
+    const result = WebRTCSdpAnswerResponseSchema.parse({
+      sdp_answer: "v=0\r\nanswer",
+    });
+    expect(result.sdp_answer).toBe("v=0\r\nanswer");
+  });
+
+  it("rejects missing sdp_answer", () => {
+    expect(() => WebRTCSdpAnswerResponseSchema.parse({})).toThrow();
+  });
+});
+
 describe("SessionState enum", () => {
-  it("maps expected numeric values", () => {
-    expect(SessionState.CREATED).toBe(0);
-    expect(SessionState.PENDING).toBe(1);
-    expect(SessionState.SUSPENDED).toBe(2);
-    expect(SessionState.WAITING).toBe(3);
-    expect(SessionState.ACTIVE).toBe(4);
-    expect(SessionState.INACTIVE).toBe(5);
-    expect(SessionState.CLOSED).toBe(6);
+  it("maps expected string values", () => {
+    expect(SessionState.CREATED).toBe("CREATED");
+    expect(SessionState.PENDING).toBe("PENDING");
+    expect(SessionState.SUSPENDED).toBe("SUSPENDED");
+    expect(SessionState.WAITING).toBe("WAITING");
+    expect(SessionState.ACTIVE).toBe("ACTIVE");
+    expect(SessionState.INACTIVE).toBe("INACTIVE");
+    expect(SessionState.CLOSED).toBe("CLOSED");
   });
 });

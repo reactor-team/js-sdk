@@ -15,8 +15,12 @@ import {
   findSenderForTrack,
   removeAllTracks,
   closePeerConnection,
-  rewriteMids,
+  transformIceServers,
+  sendMessage,
+  parseMessage,
   extractConnectionStats,
+  isConnected,
+  isClosed,
 } from "../../src/utils/webrtc";
 
 // ---------------------------------------------------------------------------
@@ -135,50 +139,21 @@ describe("createDataChannel()", () => {
 });
 
 // ---------------------------------------------------------------------------
-// createOffer
+// createOffer — no MID rewriting in the new architecture
 // ---------------------------------------------------------------------------
 
 describe("createOffer()", () => {
-  it("happy path: creates offer, sets local desc, waits for ICE, returns SDP", async () => {
+  it("creates offer, sets local desc, waits for ICE, returns SDP string", async () => {
     const mockPC = makeMockPC();
     const result = await createOffer(mockPC as any);
 
     expect(mockPC.createOffer).toHaveBeenCalled();
     expect(mockPC.setLocalDescription).toHaveBeenCalled();
-    expect(result.sdp).toBe(OFFER_SDP);
-    expect(result.needsAnswerRestore).toBe(false);
+    expect(typeof result).toBe("string");
+    expect(result).toBe(OFFER_SDP);
   });
 
-  it("with trackNames: rewrites MIDs before setLocalDescription", async () => {
-    const mockPC = makeMockPC();
-    await createOffer(mockPC as any, ["my_video"]);
-
-    const desc = mockPC.setLocalDescription.mock.calls[0][0];
-    expect(desc.sdp).toContain("a=mid:my_video");
-  });
-
-  it("Firefox fallback: falls back to original offer and sets needsAnswerRestore=true", async () => {
-    let callCount = 0;
-    const mockPC = makeMockPC({
-      setLocalDescription: vi.fn().mockImplementation((desc: any) => {
-        callCount++;
-        if (callCount === 1 && desc.sdp?.includes("a=mid:my_video")) {
-          throw new Error("Changing the mid of m-sections is not allowed");
-        }
-      }),
-      get localDescription() {
-        return { sdp: OFFER_SDP };
-      },
-    });
-
-    const result = await createOffer(mockPC as any, ["my_video"]);
-
-    expect(mockPC.setLocalDescription).toHaveBeenCalledTimes(2);
-    expect(result.needsAnswerRestore).toBe(true);
-    expect(result.sdp).toContain("a=mid:my_video");
-  });
-
-  it("returns error when localDescription is null after ICE gathering", async () => {
+  it("throws when localDescription is null after ICE gathering", async () => {
     const mockPC = makeMockPC({
       get localDescription() {
         return null;
@@ -196,7 +171,7 @@ describe("createOffer()", () => {
 // ---------------------------------------------------------------------------
 
 describe("createAnswer()", () => {
-  it("happy path: sets remote description, creates answer, returns SDP", async () => {
+  it("sets remote description, creates answer, returns SDP", async () => {
     const answerSdp = "v=0\r\na=answer\r\n";
     const mockPC = {
       setRemoteDescription: vi.fn(),
@@ -323,7 +298,7 @@ describe("waitForIceGathering()", () => {
 });
 
 // ---------------------------------------------------------------------------
-// addTrack
+// Track management
 // ---------------------------------------------------------------------------
 
 describe("addTrack()", () => {
@@ -347,14 +322,9 @@ describe("addTrack()", () => {
     const pc = { addTrack: vi.fn().mockReturnValue({ track }) } as any;
 
     addTrack(pc, track, stream);
-
     expect(pc.addTrack).toHaveBeenCalledWith(track, stream);
   });
 });
-
-// ---------------------------------------------------------------------------
-// removeTrack
-// ---------------------------------------------------------------------------
 
 describe("removeTrack()", () => {
   it("calls removeTrack on pc", () => {
@@ -365,10 +335,6 @@ describe("removeTrack()", () => {
     expect(pc.removeTrack).toHaveBeenCalledWith(sender);
   });
 });
-
-// ---------------------------------------------------------------------------
-// findSenderForTrack
-// ---------------------------------------------------------------------------
 
 describe("findSenderForTrack()", () => {
   it("returns matching sender", () => {
@@ -390,10 +356,6 @@ describe("findSenderForTrack()", () => {
     expect(findSenderForTrack(pc, track)).toBeUndefined();
   });
 });
-
-// ---------------------------------------------------------------------------
-// removeAllTracks
-// ---------------------------------------------------------------------------
 
 describe("removeAllTracks()", () => {
   it("removes all senders", () => {
@@ -424,64 +386,120 @@ describe("closePeerConnection()", () => {
 });
 
 // ---------------------------------------------------------------------------
-// rewriteMids – edge cases
+// transformIceServers
 // ---------------------------------------------------------------------------
 
-describe("rewriteMids() edge cases", () => {
-  it("empty trackNames returns SDP unchanged", () => {
-    const sdp = "v=0\r\na=mid:0\r\n";
-    expect(rewriteMids(sdp, [])).toBe(sdp);
-  });
-
-  it("more trackNames than media sections ignores excess", () => {
-    const sdp =
-      "v=0\r\na=group:BUNDLE 0\r\nm=video 9 UDP/TLS/RTP/SAVPF 96\r\na=mid:0\r\n";
-    const result = rewriteMids(sdp, ["track_a", "track_b", "track_c"]);
-    expect(result).toContain("a=mid:track_a");
-    expect(result).not.toContain("track_b");
-    expect(result).not.toContain("track_c");
+describe("transformIceServers()", () => {
+  it("maps uris to urls and nested credentials", () => {
+    const servers = transformIceServers({
+      ice_servers: [
+        {
+          uris: ["turn:turn.example.com:3478"],
+          credentials: { username: "user", password: "pass" },
+        },
+      ],
+    });
+    expect(servers).toEqual([
+      {
+        urls: ["turn:turn.example.com:3478"],
+        username: "user",
+        credential: "pass",
+      },
+    ]);
   });
 });
 
 // ---------------------------------------------------------------------------
-// extractConnectionStats – edge cases
+// sendMessage / parseMessage
 // ---------------------------------------------------------------------------
 
-describe("extractConnectionStats() edge cases", () => {
-  it("missing currentRoundTripTime returns undefined rtt", () => {
+describe("sendMessage()", () => {
+  it("sends envelope with scope and inner type/data", () => {
+    const sent: string[] = [];
+    const channel = {
+      readyState: "open",
+      send: (data: string) => sent.push(data),
+    } as unknown as RTCDataChannel;
+
+    sendMessage(channel, "set_effect", { effect: "blur" });
+    expect(JSON.parse(sent[0])).toEqual({
+      scope: "application",
+      data: { type: "set_effect", data: { effect: "blur" } },
+    });
+  });
+
+  it("sends with runtime scope", () => {
+    const sent: string[] = [];
+    const channel = {
+      readyState: "open",
+      send: (data: string) => sent.push(data),
+    } as unknown as RTCDataChannel;
+
+    sendMessage(channel, "ping", {}, "runtime");
+    expect(JSON.parse(sent[0]).scope).toBe("runtime");
+  });
+
+  it("parses string data as JSON before wrapping", () => {
+    const sent: string[] = [];
+    const channel = {
+      readyState: "open",
+      send: (data: string) => sent.push(data),
+    } as unknown as RTCDataChannel;
+
+    sendMessage(channel, "cmd", '{"key":"val"}');
+    expect(JSON.parse(sent[0]).data.data).toEqual({ key: "val" });
+  });
+
+  it("throws when data channel is closed", () => {
+    const channel = { readyState: "closed" } as unknown as RTCDataChannel;
+    expect(() => sendMessage(channel, "cmd", {})).toThrow(
+      "Data channel not open"
+    );
+  });
+});
+
+describe("parseMessage()", () => {
+  it("parses valid JSON strings", () => {
+    expect(parseMessage('{"type":"test"}')).toEqual({ type: "test" });
+  });
+
+  it("returns invalid JSON strings as-is", () => {
+    expect(parseMessage("not json")).toBe("not json");
+  });
+
+  it("returns non-string data unchanged", () => {
+    const obj = { foo: "bar" };
+    expect(parseMessage(obj)).toBe(obj);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractConnectionStats
+// ---------------------------------------------------------------------------
+
+describe("extractConnectionStats() full report", () => {
+  it("extracts all fields from a complete report", () => {
     const entries = new Map<string, any>([
       [
         "cp1",
         {
           type: "candidate-pair",
           state: "succeeded",
-          availableOutgoingBitrate: 500_000,
+          currentRoundTripTime: 0.025,
+          availableOutgoingBitrate: 1_000_000,
           localCandidateId: "lc1",
         },
       ],
-      ["lc1", { type: "local-candidate", candidateType: "srflx" }],
-    ]);
-    const report = {
-      forEach: (cb: (v: any, k: string) => void) => entries.forEach(cb),
-      get: (k: string) => entries.get(k),
-    } as unknown as RTCStatsReport;
-
-    const stats = extractConnectionStats(report);
-    expect(stats.rtt).toBeUndefined();
-    expect(stats.availableOutgoingBitrate).toBe(500_000);
-    expect(stats.candidateType).toBe("srflx");
-  });
-
-  it("missing framesPerSecond returns undefined fps", () => {
-    const entries = new Map<string, any>([
+      ["lc1", { type: "local-candidate", candidateType: "relay" }],
       [
         "ir1",
         {
           type: "inbound-rtp",
           kind: "video",
-          jitter: 0.005,
-          packetsReceived: 100,
-          packetsLost: 0,
+          framesPerSecond: 30,
+          jitter: 0.01,
+          packetsReceived: 990,
+          packetsLost: 10,
         },
       ],
     ]);
@@ -491,29 +509,64 @@ describe("extractConnectionStats() edge cases", () => {
     } as unknown as RTCStatsReport;
 
     const stats = extractConnectionStats(report);
-    expect(stats.framesPerSecond).toBeUndefined();
-    expect(stats.jitter).toBe(0.005);
+    expect(stats.rtt).toBe(25);
+    expect(stats.candidateType).toBe("relay");
+    expect(stats.availableOutgoingBitrate).toBe(1_000_000);
+    expect(stats.framesPerSecond).toBe(30);
+    expect(stats.jitter).toBe(0.01);
+    expect(stats.packetLossRatio).toBeCloseTo(0.01);
   });
+});
 
-  it("missing localCandidate returns undefined candidateType", () => {
-    const entries = new Map<string, any>([
-      [
-        "cp1",
-        {
-          type: "candidate-pair",
-          state: "succeeded",
-          currentRoundTripTime: 0.05,
-          localCandidateId: "lc-missing",
-        },
-      ],
-    ]);
+describe("extractConnectionStats() empty report", () => {
+  it("returns all undefined fields", () => {
     const report = {
-      forEach: (cb: (v: any, k: string) => void) => entries.forEach(cb),
+      forEach: () => {},
       get: () => undefined,
     } as unknown as RTCStatsReport;
 
     const stats = extractConnectionStats(report);
-    expect(stats.rtt).toBe(50);
+    expect(stats.rtt).toBeUndefined();
     expect(stats.candidateType).toBeUndefined();
+    expect(stats.framesPerSecond).toBeUndefined();
+    expect(stats.timestamp).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isConnected / isClosed
+// ---------------------------------------------------------------------------
+
+describe("isConnected()", () => {
+  it("returns true for connected state", () => {
+    expect(
+      isConnected({ connectionState: "connected" } as RTCPeerConnection)
+    ).toBe(true);
+  });
+
+  it("returns false for other states", () => {
+    expect(isConnected({ connectionState: "new" } as RTCPeerConnection)).toBe(
+      false
+    );
+  });
+});
+
+describe("isClosed()", () => {
+  it("returns true for closed", () => {
+    expect(isClosed({ connectionState: "closed" } as RTCPeerConnection)).toBe(
+      true
+    );
+  });
+
+  it("returns true for failed", () => {
+    expect(isClosed({ connectionState: "failed" } as RTCPeerConnection)).toBe(
+      true
+    );
+  });
+
+  it("returns false for connected", () => {
+    expect(
+      isClosed({ connectionState: "connected" } as RTCPeerConnection)
+    ).toBe(false);
   });
 });

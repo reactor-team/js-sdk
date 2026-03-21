@@ -3,17 +3,34 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Reactor } from "../../src/core/Reactor";
 
-let machineClientHandlers: Record<string, (...args: any[]) => void> = {};
-let mockMachineClient: any;
+const MOCK_SESSION_ID = "85ded560-014c-42df-8902-89dfbca8fa00";
+
+const MOCK_INITIAL_RESPONSE = {
+  session_id: MOCK_SESSION_ID,
+  model: { name: "echo" },
+  state: "CREATED",
+};
+
+const MOCK_FULL_SESSION_RESPONSE = {
+  session_id: MOCK_SESSION_ID,
+  model: { name: "echo" },
+  state: "ACTIVE",
+  selected_transport: { protocol: "webrtc", version: "1.0" },
+  capabilities: {
+    protocol_version: "1.0",
+    tracks: [
+      { name: "main_video", kind: "video", direction: "recvonly" as const },
+    ],
+  },
+};
+
+let transportHandlers: Record<string, (...args: any[]) => void> = {};
+let mockTransportClient: any;
 
 vi.mock("../../src/core/CoordinatorClient", () => ({
   CoordinatorClient: vi.fn().mockImplementation(() => ({
-    getIceServers: vi.fn().mockResolvedValue([]),
-    createSession: vi.fn().mockResolvedValue("test-session-id"),
-    connect: vi.fn().mockResolvedValue({
-      sdpAnswer: "mock-sdp-answer",
-      sdpPollingAttempts: 2,
-    }),
+    createSession: vi.fn().mockResolvedValue(MOCK_INITIAL_RESPONSE),
+    pollSessionReady: vi.fn().mockResolvedValue(MOCK_FULL_SESSION_RESPONSE),
     terminateSession: vi.fn().mockResolvedValue(undefined),
     abort: vi.fn(),
   })),
@@ -21,51 +38,51 @@ vi.mock("../../src/core/CoordinatorClient", () => ({
 
 vi.mock("../../src/core/LocalCoordinatorClient", () => ({
   LocalCoordinatorClient: vi.fn().mockImplementation(() => ({
-    getIceServers: vi.fn().mockResolvedValue([]),
-    createSession: vi.fn().mockResolvedValue("local"),
-    connect: vi.fn().mockResolvedValue({
-      sdpAnswer: "mock-sdp-answer",
-      sdpPollingAttempts: 0,
-    }),
+    createSession: vi.fn().mockResolvedValue(MOCK_INITIAL_RESPONSE),
+    pollSessionReady: vi.fn().mockResolvedValue(MOCK_FULL_SESSION_RESPONSE),
     terminateSession: vi.fn().mockResolvedValue(undefined),
     abort: vi.fn(),
   })),
 }));
 
-vi.mock("../../src/core/GPUMachineClient", () => ({
-  GPUMachineClient: vi.fn().mockImplementation(() => {
-    machineClientHandlers = {};
-    mockMachineClient = {
-      createOffer: vi.fn().mockResolvedValue("mock-sdp-offer"),
+vi.mock("../../src/core/WebRTCTransportClient", () => ({
+  WebRTCTransportClient: vi.fn().mockImplementation(() => {
+    transportHandlers = {};
+    mockTransportClient = {
       connect: vi.fn().mockResolvedValue(undefined),
+      reconnect: vi.fn().mockResolvedValue(undefined),
       disconnect: vi.fn().mockResolvedValue(undefined),
       sendCommand: vi.fn(),
       publishTrack: vi.fn().mockResolvedValue(undefined),
       unpublishTrack: vi.fn().mockResolvedValue(undefined),
       on: vi.fn((event: string, handler: any) => {
-        machineClientHandlers[event] = handler;
+        transportHandlers[event] = handler;
       }),
       off: vi.fn(),
       getStats: vi.fn().mockReturnValue({ rtt: 10, timestamp: Date.now() }),
-      getConnectionTimings: vi
-        .fn()
-        .mockReturnValue({ iceNegotiationMs: 45, dataChannelMs: 55 }),
-      resetConnectionTimings: vi.fn(),
+      getTransportTimings: vi.fn().mockReturnValue({
+        protocol: "webrtc",
+        sdpPollingMs: 100,
+        sdpPollingAttempts: 2,
+        iceNegotiationMs: 45,
+        dataChannelMs: 55,
+      }),
+      abort: vi.fn(),
     };
-    return mockMachineClient;
+    return mockTransportClient;
   }),
 }));
 
 describe("Reactor connection timings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    machineClientHandlers = {};
-    mockMachineClient = undefined;
+    transportHandlers = {};
+    mockTransportClient = undefined;
   });
 
   async function connectAndReady(r: Reactor, jwt = "jwt") {
     await r.connect(jwt);
-    machineClientHandlers["statusChanged"]("connected");
+    transportHandlers["statusChanged"]("connected");
   }
 
   it("populates connectionTimings after reaching ready", async () => {
@@ -78,10 +95,7 @@ describe("Reactor connection timings", () => {
 
     const t = stats!.connectionTimings!;
     expect(t.sessionCreationMs).toBeGreaterThanOrEqual(0);
-    expect(t.sdpPollingMs).toBeGreaterThanOrEqual(0);
-    expect(t.sdpPollingAttempts).toBe(2);
-    expect(t.iceNegotiationMs).toBe(45);
-    expect(t.dataChannelMs).toBe(55);
+    expect(t.transportConnectingMs).toBeGreaterThanOrEqual(0);
     expect(t.totalMs).toBeGreaterThanOrEqual(0);
 
     await r.disconnect();
@@ -94,13 +108,15 @@ describe("Reactor connection timings", () => {
     const statsHandler = vi.fn();
     r.on("statsUpdate", statsHandler);
 
-    machineClientHandlers["statsUpdate"]({ rtt: 25, timestamp: Date.now() });
+    transportHandlers["statsUpdate"]({ rtt: 25, timestamp: Date.now() });
 
     expect(statsHandler).toHaveBeenCalledTimes(1);
     const emitted = statsHandler.mock.calls[0][0];
     expect(emitted.rtt).toBe(25);
     expect(emitted.connectionTimings).toBeDefined();
-    expect(emitted.connectionTimings.sdpPollingAttempts).toBe(2);
+    expect(emitted.connectionTimings.sessionCreationMs).toBeGreaterThanOrEqual(
+      0
+    );
 
     await r.disconnect();
   });
@@ -115,26 +131,20 @@ describe("Reactor connection timings", () => {
     expect(r.getStats()).toBeUndefined();
   });
 
-  it("clears connectionTimings from statsUpdate events after disconnect and reconnect", async () => {
+  it("clears connectionTimings from statsUpdate events after disconnect", async () => {
     const r = new Reactor({ modelName: "echo" });
     await connectAndReady(r);
 
-    // Timings present after first connection
     const statsHandler = vi.fn();
     r.on("statsUpdate", statsHandler);
-    machineClientHandlers["statsUpdate"]({ rtt: 10, timestamp: Date.now() });
+    transportHandlers["statsUpdate"]({ rtt: 10, timestamp: Date.now() });
     expect(statsHandler.mock.calls[0][0].connectionTimings).toBeDefined();
-    expect(
-      statsHandler.mock.calls[0][0].connectionTimings.sdpPollingAttempts
-    ).toBe(2);
 
     await r.disconnect();
-
-    // After disconnect, getStats returns undefined (machineClient cleared)
     expect(r.getStats()).toBeUndefined();
   });
 
-  it("has partial connectionTimings before machine client emits connected", async () => {
+  it("has connectionTimings with zero totalMs before transport emits connected", async () => {
     const r = new Reactor({ modelName: "echo" });
     await r.connect("jwt");
 
@@ -142,10 +152,7 @@ describe("Reactor connection timings", () => {
     expect(stats).toBeDefined();
     const t = stats!.connectionTimings!;
     expect(t.sessionCreationMs).toBeGreaterThanOrEqual(0);
-    expect(t.sdpPollingMs).toBeGreaterThanOrEqual(0);
-    // ICE/data-channel/total are placeholder zeros until finalized
-    expect(t.iceNegotiationMs).toBe(0);
-    expect(t.dataChannelMs).toBe(0);
+    expect(t.transportConnectingMs).toBeGreaterThanOrEqual(0);
     expect(t.totalMs).toBe(0);
 
     await r.disconnect();
