@@ -13,89 +13,14 @@ export type ReactorStatus =
  */
 export type MessageScope = "application" | "runtime";
 
-/**
- * Describes a single named media track for SDP negotiation.
- *
- * Track names must exactly match the class attribute names defined on the
- * model's Python code.  The name is encoded as the SDP MID so both sides
- * can route media by name rather than by positional index.
- *
- * Use the {@link video} and {@link audio} helper functions to create
- * instances instead of constructing this interface directly.
- */
-export interface TrackConfig {
-  name: string;
-  kind: "audio" | "video";
-}
-
-/**
- * Optional configuration for a video track (reserved for future use).
- */
-export interface VideoTrackOptions {
-  /** Maximum framerate constraint for the video track. */
-  maxFramerate?: number;
-}
-
-/**
- * Optional configuration for an audio track (reserved for future use).
- */
-export interface AudioTrackOptions {
-  /** Sample rate constraint for the audio track. */
-  sampleRate?: number;
-}
-
-/**
- * Creates a **video** {@link TrackConfig}.
- *
- * A track declared in the **`receive`** array means the client will
- * **RECEIVE** video frames **from the model** (model → client).
- *
- * A track declared in the **`send`** array means the client will
- * **SEND** video frames **to the model** (client → model).
- *
- * Track names must be unique across both arrays — the same name cannot
- * appear in `receive` and `send`.
- *
- * @param name    - The track name.  Must match the model's declared track attribute name.
- * @param options - Reserved for future constraints (e.g. `maxFramerate`).
- *
- * When no `receive` array is provided to the Reactor constructor, a single
- * `video("main_video")` track is used by default.
- *
- * @example
- * ```ts
- * receive: [video("main_video")]          // receive video from the model
- * send:    [video("webcam")]              // send webcam video to the model
- * ```
- */
-export function video(name: string, _options?: VideoTrackOptions): TrackConfig {
-  return { name, kind: "video" };
-}
-
-/**
- * Creates an **audio** {@link TrackConfig}.
- *
- * A track declared in the **`receive`** array means the client will
- * **RECEIVE** audio samples **from the model** (model → client).
- *
- * A track declared in the **`send`** array means the client will
- * **SEND** audio samples **to the model** (client → model).
- *
- * Track names must be unique across both arrays — the same name cannot
- * appear in `receive` and `send`.
- *
- * @param name    - The track name.  Must match the model's declared track attribute name.
- * @param options - Reserved for future constraints (e.g. `sampleRate`).
- *
- * @example
- * ```ts
- * receive: [audio("main_audio")]          // receive audio from the model
- * send:    [audio("mic")]                 // send microphone audio to the model
- * ```
- */
-export function audio(name: string, _options?: AudioTrackOptions): TrackConfig {
-  return { name, kind: "audio" };
-}
+// Re-export core types that users may need
+export type {
+  TrackCapability,
+  CommandCapability,
+  Capabilities,
+  TransportDeclaration,
+  CreateSessionResponse as SessionInfo,
+} from "./core/types";
 
 export interface ReactorError {
   code: string;
@@ -140,21 +65,18 @@ export interface ConnectOptions {
 }
 
 /**
- * One-shot timing breakdown of the connect() handshake, recorded once per
- * connection and included in every subsequent {@link ConnectionStats} update.
- * All durations are in milliseconds (from `performance.now()`).
+ * Transport-agnostic timing breakdown of the connect() handshake, recorded
+ * once per connection and included in every subsequent {@link ConnectionStats}
+ * update. All durations are in milliseconds (from `performance.now()`).
+ *
+ * For transport-specific timings (e.g. ICE negotiation, data channel open),
+ * see the relevant transport stats type (e.g. {@link WebRTCTransportTimings}).
  */
 export interface ConnectionTimings {
   /** POST /sessions round-trip time */
   sessionCreationMs: number;
-  /** Total time spent polling for the SDP answer */
-  sdpPollingMs: number;
-  /** Number of SDP poll requests made (1 = answered on first try) */
-  sdpPollingAttempts: number;
-  /** setRemoteDescription → RTCPeerConnection connectionState "connected" */
-  iceNegotiationMs: number;
-  /** setRemoteDescription → RTCDataChannel "open" */
-  dataChannelMs: number;
+  /** Total time spent in transport.connect() (signaling, negotiation, etc.) */
+  transportConnectingMs: number;
   /** End-to-end: connect() invocation → status "ready" */
   totalMs: number;
 }
@@ -185,4 +107,5 @@ export type ReactorEvent =
   | "trackReceived" // (name: string, track: MediaStreamTrack, stream: MediaStream)
   | "error" //error events with ReactorError details
   | "sessionExpirationChanged" //session expiration has changed
+  | "capabilitiesReceived" //server capabilities received after session creation
   | "statsUpdate"; //WebRTC stats update (RTT, etc.)

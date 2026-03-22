@@ -1,91 +1,200 @@
+// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
+
 /**
  * Internal types for the Reactor SDK.
+ *
+ * All Zod schemas and derived TypeScript types live here.
+ * Version constants are sourced from package.json via resolveJsonModule.
  */
 
 import { z } from "zod";
+import packageJson from "../../package.json";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Version Constants (single source of truth: package.json)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const REACTOR_SDK_VERSION: string = packageJson.version;
+export const REACTOR_API_VERSION: number = (packageJson as any).reactor
+  .apiVersion;
+export const REACTOR_WEBRTC_VERSION: string = (packageJson as any).reactor
+  .webrtcVersion;
+export const REACTOR_SDK_TYPE = "js" as const;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Versioning Headers
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const API_VERSION_HEADER = "Reactor-API-Version";
+export const API_ACCEPT_VERSION_HEADER = "Reactor-API-Accept-Version";
+export const WEBRTC_VERSION_HEADER = "Reactor-WebRTC-Version";
+
+export const VERSION_ERROR_CODES = {
+  426: "CLIENT_VERSION_TOO_OLD",
+  501: "SERVER_VERSION_TOO_OLD",
+} as const;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Session States
+// ─────────────────────────────────────────────────────────────────────────────
 
 export enum SessionState {
-  CREATED,
-  PENDING,
-  SUSPENDED,
-  WAITING,
-  ACTIVE,
-  INACTIVE,
-  CLOSED,
+  CREATED = "CREATED",
+  PENDING = "PENDING",
+  SUSPENDED = "SUSPENDED",
+  WAITING = "WAITING",
+  ACTIVE = "ACTIVE",
+  INACTIVE = "INACTIVE",
+  CLOSED = "CLOSED",
 }
 
-export const ModelSchema = z.object({
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared Schemas
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const ClientInfoSchema = z.object({
+  sdk_version: z.string(),
+  sdk_type: z.literal("js"),
+});
+
+export const TransportDeclarationSchema = z.object({
+  protocol: z.string(),
+  version: z.string(),
+});
+
+export const TrackCapabilitySchema = z.object({
   name: z.string(),
+  kind: z.enum(["video", "audio"]),
+  direction: z.enum(["recvonly", "sendonly"]),
 });
 
-// Schema used for the HTTP POST request to start a session from the CLIENT to the COORDINATOR.
+export const TrackMappingEntrySchema = TrackCapabilitySchema.extend({
+  mid: z.string(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Session API Schemas
+// ─────────────────────────────────────────────────────────────────────────────
+
+// POST /sessions — Request
 export const CreateSessionRequestSchema = z.object({
-  model: ModelSchema,
-  sdp_offer: z.string(),
-  extra_args: z.record(z.string(), z.any()), // Dictionary
+  model: z.object({ name: z.string() }),
+  client_info: ClientInfoSchema,
+  supported_transports: z.array(TransportDeclarationSchema),
+  extra_args: z.record(z.string(), z.any()).optional(),
 });
 
-// Schema used to return the session ID that was created.
-export const CreateSessionResponseSchema = z.object({
-  session_id: z.uuidv4(),
+// POST /sessions — Response (201): slim initial response before Runtime accepts
+export const InitialSessionResponseSchema = z.object({
+  session_id: z.string(),
+  model: z.object({ name: z.string() }),
+  server_info: z.object({ server_version: z.string() }).optional(),
+  state: z.string(),
+  cluster: z.string().optional(),
 });
 
-// GET /sessions/{session_id}/info
-export const SessionStatusResponseSchema = z.object({
-  session_id: z.uuidv4(),
-  state: SessionState,
+// Mirrors the proto Command message.
+export const CommandCapabilitySchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  schema: z.record(z.string(), z.any()).optional(),
 });
 
-// Response to GET /session/{session_id} request
-export const SessionInfoResponseSchema = SessionStatusResponseSchema.extend({
-  session_info: CreateSessionRequestSchema.extend({
-    session_id: z.uuidv4(),
-  }),
+// GET /sessions/{id} — Full response with capabilities (populated after Runtime accepts).
+// Mirrors the proto TransportCapabilities message.
+export const CapabilitiesSchema = z.object({
+  protocol_version: z.string(),
+  tracks: z.array(TrackCapabilitySchema),
+  commands: z.array(CommandCapabilitySchema).optional(),
+  emission_fps: z.number().nullable().optional(),
 });
 
-// SDPParamsRequest is the request body for PUT /sessions/{session_id}/sdp_params
-export const SDPParamsRequestSchema = z.object({
-  sdp_offer: z.string(),
-  extra_args: z.record(z.string(), z.any()), // Dictionary
+export const SessionResponseSchema = z.object({
+  session_id: z.string(),
+  server_info: z.object({ server_version: z.string() }).optional(),
+  selected_transport: TransportDeclarationSchema.optional(),
+  model: z.object({ name: z.string(), version: z.string().optional() }),
+  capabilities: CapabilitiesSchema.optional(),
+  state: z.string(),
+  cluster: z.string().optional(),
 });
 
-// SDPParamsResponse is the response for GET /sessions/{session_id}/sdp_params
-// and for for PUT /sessions/{session_id}/sdp_params.
-export const SDPParamsResponseSchema = z.object({
-  sdp_answer: z.string(),
-  extra_args: z.record(z.string(), z.any()), // Dictionary
+// Full session response: selected_transport and capabilities are guaranteed present
+export const CreateSessionResponseSchema = SessionResponseSchema.extend({
+  selected_transport: TransportDeclarationSchema,
+  capabilities: CapabilitiesSchema,
 });
 
-// Response from GET /ice_servers endpoint (coordinator)
+// GET /sessions/{id}/info — Response (200)
+export const SessionInfoResponseSchema = z.object({
+  session_id: z.string(),
+  cluster: z.string().optional(),
+  state: z.string(),
+});
+
+// DELETE /sessions/{id} — Request
+export const TerminateSessionRequestSchema = z.object({
+  reason: z.string().optional(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WebRTC Transport Schemas
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GET /sessions/{id}/transport/webrtc/ice_servers — Response (200)
+export const IceServerCredentialsSchema = z.object({
+  username: z.string(),
+  password: z.string(),
+});
+
+export const IceServerSchema = z.object({
+  uris: z.array(z.string()),
+  credentials: IceServerCredentialsSchema.optional(),
+});
+
 export const IceServersResponseSchema = z.object({
-  ice_servers: z.array(
-    z.object({
-      uris: z.array(z.string()),
-      credentials: z
-        .object({
-          username: z.string(),
-          password: z.string(),
-        })
-        .optional(),
-    })
-  ),
+  ice_servers: z.array(IceServerSchema),
 });
 
-// Internal connection status for individual components
-export type InternalConnectionStatus =
-  | "disconnected"
-  | "connecting"
-  | "connected"
-  | "error";
+// POST/PUT /sessions/{id}/transport/webrtc/sdp_params — Request
+export const WebRTCSdpOfferRequestSchema = z.object({
+  sdp_offer: z.string(),
+  client_info: ClientInfoSchema.optional(),
+  track_mapping: z.array(TrackMappingEntrySchema),
+});
 
-// Inferred types from Zod schemas
+// GET /sessions/{id}/transport/webrtc/sdp_params — Response (200)
+export const WebRTCSdpAnswerResponseSchema = z.object({
+  sdp_answer: z.string(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Inferred TypeScript Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ClientInfo = z.infer<typeof ClientInfoSchema>;
+export type TransportDeclaration = z.infer<typeof TransportDeclarationSchema>;
+export type TrackCapability = z.infer<typeof TrackCapabilitySchema>;
+export type CommandCapability = z.infer<typeof CommandCapabilitySchema>;
+export type TrackMappingEntry = z.infer<typeof TrackMappingEntrySchema>;
+
 export type CreateSessionRequest = z.infer<typeof CreateSessionRequestSchema>;
+export type InitialSessionResponse = z.infer<
+  typeof InitialSessionResponseSchema
+>;
+export type SessionResponse = z.infer<typeof SessionResponseSchema>;
 export type CreateSessionResponse = z.infer<typeof CreateSessionResponseSchema>;
-
-export type SDPParamsResponse = z.infer<typeof SDPParamsResponseSchema>;
-export type SDPParamsRequest = z.infer<typeof SDPParamsRequestSchema>;
+export type Capabilities = z.infer<typeof CapabilitiesSchema>;
 
 export type SessionInfoResponse = z.infer<typeof SessionInfoResponseSchema>;
-export type SessionStatusResponse = z.infer<typeof SessionStatusResponseSchema>;
+export type TerminateSessionRequest = z.infer<
+  typeof TerminateSessionRequestSchema
+>;
 
+export type IceServer = z.infer<typeof IceServerSchema>;
 export type IceServersResponse = z.infer<typeof IceServersResponseSchema>;
+
+export type WebRTCSdpOfferRequest = z.infer<typeof WebRTCSdpOfferRequestSchema>;
+export type WebRTCSdpAnswerResponse = z.infer<
+  typeof WebRTCSdpAnswerResponseSchema
+>;

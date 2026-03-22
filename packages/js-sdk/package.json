@@ -1,6 +1,6 @@
 {
   "name": "@reactor-team/js-sdk",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "description": "Reactor JavaScript frontend SDK",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -32,6 +32,10 @@
     "sdk"
   ],
   "author": "Reactor Technologies, Inc.",
+  "reactor": {
+    "apiVersion": 1,
+    "webrtcVersion": "1.0"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
