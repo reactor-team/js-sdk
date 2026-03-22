@@ -57,7 +57,7 @@ export function ReactorProvider({
   // Destructure connectOptions with defaults
   const { autoConnect = false, ...pollingOptions } = connectOptions ?? {};
 
-  const { apiUrl, modelName, local, receive, send } = props;
+  const { apiUrl, modelName, local } = props;
   const maxAttempts = pollingOptions.maxAttempts;
 
   // Handle page unload (refresh, close, navigate away) with non-recoverable disconnect
@@ -134,8 +134,6 @@ export function ReactorProvider({
         apiUrl,
         modelName,
         local,
-        receive,
-        send,
         jwtToken,
       } satisfies ReactorInitializationProps)
     );
@@ -180,16 +178,7 @@ export function ReactorProvider({
           console.error("[ReactorProvider] Failed to disconnect:", error);
         });
     };
-  }, [
-    apiUrl,
-    modelName,
-    autoConnect,
-    local,
-    receive,
-    send,
-    jwtToken,
-    maxAttempts,
-  ]);
+  }, [apiUrl, modelName, autoConnect, local, jwtToken, maxAttempts]);
 
   return (
     <ReactorContext.Provider value={storeRef.current}>

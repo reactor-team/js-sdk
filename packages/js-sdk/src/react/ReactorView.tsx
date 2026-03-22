@@ -6,14 +6,16 @@ import React from "react";
 
 export interface ReactorViewProps {
   /**
-   * The name of the **receive** track to render.
-   * Must match a track name declared in the `receive` array (model → client).
+   * The name of the recvonly track to render.
+   * Must match a track name declared in the server capabilities.
+   * Check the model's documentation for available track names.
    * Defaults to `"main_video"`.
    */
   track?: string;
   /**
-   * Optional name of a **receive** audio track to play alongside the video
-   * (e.g. `"main_audio"`).  The audio is mixed into the same `<video>` element.
+   * Optional name of a recvonly audio track to play alongside the video
+   * (e.g. `"main_audio"`). The audio is mixed into the same `<video>` element.
+   * Check the model's documentation for available track names.
    */
   audioTrack?: string;
   width?: number;

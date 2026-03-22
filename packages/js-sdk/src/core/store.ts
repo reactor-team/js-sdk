@@ -16,7 +16,7 @@ export interface ReactorState {
   /**
    * Media tracks received from the model, keyed by track name.
    *
-   * Each entry maps a declared **receive** track name (e.g. `"main_video"`,
+   * Each entry maps a recvonly track name (e.g. `"main_video"`,
    * `"main_audio"`) to the live `MediaStreamTrack` delivered by the model.
    */
   tracks: Record<string, MediaStreamTrack>;

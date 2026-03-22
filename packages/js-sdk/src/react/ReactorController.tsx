@@ -8,23 +8,30 @@ export interface ReactorControllerProps {
   style?: React.CSSProperties;
 }
 
+interface CommandParamSchema {
+  description?: string;
+  type: string;
+  minimum?: number;
+  maximum?: number;
+  required?: boolean;
+  enum?: string[];
+}
+
 interface CommandSchema {
   description: string;
-  schema: Record<
-    string,
-    {
-      description?: string;
-      type: string;
-      minimum?: number;
-      maximum?: number;
-      required?: boolean;
-      enum?: string[];
-    }
-  >;
+  schema: Record<string, CommandParamSchema>;
+}
+
+// The runtime sends commands as a list of {name, description, schema}
+// matching the proto Command message.
+interface CommandCapabilityMessage {
+  name: string;
+  description: string;
+  schema?: Record<string, CommandParamSchema>;
 }
 
 interface CommandsMessage {
-  commands: Record<string, CommandSchema>;
+  commands: CommandCapabilityMessage[];
 }
 
 export function ReactorController({
@@ -89,34 +96,40 @@ export function ReactorController({
       "commands" in message.data
     ) {
       const commandsMessage = message.data as CommandsMessage;
-      setCommands(commandsMessage.commands);
+
+      // Convert the list of command descriptors (proto Command shape)
+      // into a Record keyed by name for the controller's internal state.
+      const commandsRecord: Record<string, CommandSchema> = {};
+      for (const cmd of commandsMessage.commands) {
+        commandsRecord[cmd.name] = {
+          description: cmd.description,
+          schema: cmd.schema ?? {},
+        };
+      }
+      setCommands(commandsRecord);
 
       // Initialize form values for each command
       const initialValues: Record<string, Record<string, any>> = {};
       const initialExpanded: Record<string, boolean> = {};
 
-      Object.entries(commandsMessage.commands).forEach(
-        ([commandName, commandSchema]) => {
-          initialValues[commandName] = {};
-          initialExpanded[commandName] = false; // Start collapsed by default
+      Object.entries(commandsRecord).forEach(([commandName, commandSchema]) => {
+        initialValues[commandName] = {};
+        initialExpanded[commandName] = false;
 
-          Object.entries(commandSchema.schema).forEach(
-            ([paramName, paramSchema]) => {
-              if (paramSchema.type === "number") {
-                initialValues[commandName][paramName] =
-                  paramSchema.minimum ?? 0;
-              } else if (paramSchema.type === "string") {
-                initialValues[commandName][paramName] = "";
-              } else if (paramSchema.type === "boolean") {
-                initialValues[commandName][paramName] = false;
-              } else if (paramSchema.type === "integer") {
-                initialValues[commandName][paramName] =
-                  paramSchema.minimum ?? 0;
-              }
+        Object.entries(commandSchema.schema).forEach(
+          ([paramName, paramSchema]) => {
+            if (paramSchema.type === "number") {
+              initialValues[commandName][paramName] = paramSchema.minimum ?? 0;
+            } else if (paramSchema.type === "string") {
+              initialValues[commandName][paramName] = "";
+            } else if (paramSchema.type === "boolean") {
+              initialValues[commandName][paramName] = false;
+            } else if (paramSchema.type === "integer") {
+              initialValues[commandName][paramName] = paramSchema.minimum ?? 0;
             }
-          );
-        }
-      );
+          }
+        );
+      });
       setFormValues(initialValues);
       setExpandedCommands(initialExpanded);
     }
