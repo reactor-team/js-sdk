@@ -1,116 +1,130 @@
+// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
+
 /**
- * LocalCoordinatorClient is a client for connecting to a local coordinator.
- * It extends CoordinatorClient and overrides methods for local development.
+ * LocalCoordinatorClient connects to a local runtime instance.
+ *
+ * The local runtime uses a simpler protocol than the production coordinator:
+ *   - POST /start_session  → starts session, returns full capabilities immediately
+ *   - POST /stop_session   → stops session
+ *   - Transport signaling via /sessions/{id}/transport/webrtc/* (unchanged)
+ *
+ * No session polling is needed because the local runtime IS the model host —
+ * capabilities are known the moment the session is created.
  */
 
-import { ConflictError } from "../types";
-import { transformIceServers } from "../utils/webrtc";
 import { CoordinatorClient } from "./CoordinatorClient";
-import { IceServersResponseSchema } from "./types";
+import {
+  type CreateSessionResponse,
+  type InitialSessionResponse,
+  CreateSessionResponseSchema,
+  InitialSessionResponseSchema,
+  API_VERSION_HEADER,
+  API_ACCEPT_VERSION_HEADER,
+  REACTOR_API_VERSION,
+} from "./types";
 
 export class LocalCoordinatorClient extends CoordinatorClient {
-  private localBaseUrl: string;
-  private sdpOffer: string | undefined;
+  private cachedSessionResponse?: CreateSessionResponse;
 
-  constructor(baseUrl: string) {
-    // Pass dummy values to parent - they won't be used for local
+  constructor(baseUrl: string, model: string) {
     super({
-      baseUrl: baseUrl,
+      baseUrl,
       jwtToken: "local",
-      model: "local",
+      model,
     });
-    this.localBaseUrl = baseUrl;
+  }
+
+  protected override getHeaders(): HeadersInit {
+    return {
+      [API_VERSION_HEADER]: String(REACTOR_API_VERSION),
+      [API_ACCEPT_VERSION_HEADER]: String(REACTOR_API_VERSION),
+    };
   }
 
   /**
-   * Gets ICE servers from the local HTTP runtime.
-   * @returns The ICE server configuration
+   * Starts a session on the local runtime.
+   *
+   * Unlike the production coordinator, the local runtime returns the full
+   * response (capabilities, selected_transport) immediately — no polling needed.
    */
-  async getIceServers(): Promise<RTCIceServer[]> {
-    console.debug("[LocalCoordinatorClient] Fetching ICE servers...");
-    const response = await fetch(`${this.localBaseUrl}/ice_servers`, {
-      method: "GET",
+  override async createSession(
+    extraArgs?: Record<string, any>
+  ): Promise<InitialSessionResponse> {
+    console.debug("[LocalCoordinatorClient] Starting session...");
+
+    const response = await fetch(`${this.baseUrl}/start_session`, {
+      method: "POST",
+      headers: {
+        ...this.getHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...(extraArgs ? { extra_args: extraArgs } : {}),
+      }),
       signal: this.signal,
     });
 
     if (!response.ok) {
-      throw new Error("Failed to get ICE servers from local coordinator.");
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to start session: ${response.status} ${errorText}`
+      );
     }
 
     const data = await response.json();
-    const parsed = IceServersResponseSchema.parse(data);
-    const iceServers = transformIceServers(parsed);
+
+    this.cachedSessionResponse = CreateSessionResponseSchema.parse(data);
+    this.currentSessionId = this.cachedSessionResponse.session_id;
 
     console.debug(
-      "[LocalCoordinatorClient] Received ICE servers:",
-      iceServers.length
+      "[LocalCoordinatorClient] Session started:",
+      this.currentSessionId,
+      "transport:",
+      this.cachedSessionResponse.selected_transport.protocol,
+      "tracks:",
+      this.cachedSessionResponse.capabilities.tracks.length
     );
-    return iceServers;
+
+    return InitialSessionResponseSchema.parse(data);
   }
 
   /**
-   * Creates a local session by posting to /start_session.
-   * @returns always "local"
+   * Returns the cached full session response immediately.
+   * The local runtime already provided everything in start_session.
    */
-  async createSession(sdpOffer: string): Promise<string> {
-    console.debug("[LocalCoordinatorClient] Creating local session...");
-    this.sdpOffer = sdpOffer;
-    const response = await fetch(`${this.localBaseUrl}/start_session`, {
-      method: "POST",
-      signal: this.signal,
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to send local start session command.");
+  override async pollSessionReady(): Promise<CreateSessionResponse> {
+    if (!this.cachedSessionResponse) {
+      throw new Error(
+        "No cached session response. Call createSession() first."
+      );
     }
-
-    console.debug("[LocalCoordinatorClient] Local session created");
-    return "local";
+    return this.cachedSessionResponse;
   }
 
   /**
-   * Connects to the local session by posting SDP params to /sdp_params.
-   * Local connections are always immediate (no polling).
-   * @param sessionId - The session ID (ignored for local)
-   * @param sdpMessage - The SDP offer from the local WebRTC peer connection
-   * @returns The SDP answer and polling attempts (always 0 for local)
+   * Stops the session on the local runtime.
    */
-  async connect(
-    sessionId: string,
-    sdpMessage?: string
-  ): Promise<{ sdpAnswer: string; sdpPollingAttempts: number }> {
-    this.sdpOffer = sdpMessage || this.sdpOffer;
-    console.debug("[LocalCoordinatorClient] Connecting to local session...");
-    const sdpBody = {
-      sdp: this.sdpOffer,
-      type: "offer",
-    };
-    const response = await fetch(`${this.localBaseUrl}/sdp_params`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(sdpBody),
-      signal: this.signal,
-    });
-
-    if (!response.ok) {
-      if (response.status === 409) {
-        throw new ConflictError("Connection superseded by newer request");
-      }
-      throw new Error("Failed to get SDP answer from local coordinator.");
+  override async terminateSession(): Promise<void> {
+    if (!this.currentSessionId) {
+      return;
     }
 
-    const sdpAnswer: { sdp: string; type: "answer" } = await response.json();
-    console.debug("[LocalCoordinatorClient] Received SDP answer");
-    return { sdpAnswer: sdpAnswer.sdp, sdpPollingAttempts: 0 };
-  }
+    console.debug(
+      "[LocalCoordinatorClient] Stopping session:",
+      this.currentSessionId
+    );
 
-  async terminateSession(): Promise<void> {
-    console.debug("[LocalCoordinatorClient] Stopping local session...");
-    await fetch(`${this.localBaseUrl}/stop_session`, {
-      method: "POST",
-      signal: this.signal,
-    });
+    try {
+      await fetch(`${this.baseUrl}/stop_session`, {
+        method: "POST",
+        headers: this.getHeaders(),
+        signal: this.signal,
+      });
+    } catch (error) {
+      console.error("[LocalCoordinatorClient] Error stopping session:", error);
+    }
+
+    this.currentSessionId = undefined;
+    this.cachedSessionResponse = undefined;
   }
 }
