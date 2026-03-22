@@ -107,9 +107,7 @@ describe("CreateSessionResponseSchema (full)", () => {
       selected_transport: { protocol: "webrtc", version: "1.0" },
       capabilities: {
         protocol_version: "1.0",
-        tracks: [
-          { name: "main_video", kind: "video", direction: "recvonly" },
-        ],
+        tracks: [{ name: "main_video", kind: "video", direction: "recvonly" }],
       },
     };
     const result = CreateSessionResponseSchema.parse(data);
@@ -188,9 +186,7 @@ describe("CapabilitiesSchema", () => {
     const data = {
       protocol_version: "1.0",
       tracks: [],
-      commands: [
-        { name: "set_effect", description: "Change effect" },
-      ],
+      commands: [{ name: "set_effect", description: "Change effect" }],
     };
     const result = CapabilitiesSchema.parse(data);
     expect(result.commands).toHaveLength(1);
@@ -204,7 +200,10 @@ describe("CapabilitiesSchema", () => {
         {
           name: "set_effect",
           description: "Change effect",
-          schema: { type: "object", properties: { effect: { type: "string" } } },
+          schema: {
+            type: "object",
+            properties: { effect: { type: "string" } },
+          },
         },
       ],
     };

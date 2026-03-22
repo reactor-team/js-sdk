@@ -28,9 +28,7 @@ const MOCK_FULL_SESSION_RESPONSE = {
   selected_transport: { protocol: "webrtc", version: "1.0" },
   capabilities: {
     protocol_version: "1.0",
-    tracks: [
-      { name: "main_video", kind: "video", direction: "recvonly" },
-    ],
+    tracks: [{ name: "main_video", kind: "video", direction: "recvonly" }],
   },
 };
 
@@ -214,9 +212,7 @@ describe("CoordinatorClient", () => {
           }),
       });
 
-      await expect(client.pollSessionReady()).rejects.toThrow(
-        "terminal state"
-      );
+      await expect(client.pollSessionReady()).rejects.toThrow("terminal state");
     });
 
     it("throws on terminal state INACTIVE", async () => {
@@ -236,9 +232,7 @@ describe("CoordinatorClient", () => {
           }),
       });
 
-      await expect(client.pollSessionReady()).rejects.toThrow(
-        "terminal state"
-      );
+      await expect(client.pollSessionReady()).rejects.toThrow("terminal state");
     });
 
     it("throws after exhausting max attempts", async () => {
@@ -258,9 +252,9 @@ describe("CoordinatorClient", () => {
           }),
       });
 
-      await expect(
-        client.pollSessionReady({ maxAttempts: 2 })
-      ).rejects.toThrow("maximum attempts");
+      await expect(client.pollSessionReady({ maxAttempts: 2 })).rejects.toThrow(
+        "maximum attempts"
+      );
     });
   });
 

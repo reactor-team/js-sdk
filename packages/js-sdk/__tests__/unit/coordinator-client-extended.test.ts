@@ -18,9 +18,7 @@ const MOCK_FULL_SESSION_RESPONSE = {
   selected_transport: { protocol: "webrtc", version: "1.0" },
   capabilities: {
     protocol_version: "1.0",
-    tracks: [
-      { name: "main_video", kind: "video", direction: "recvonly" },
-    ],
+    tracks: [{ name: "main_video", kind: "video", direction: "recvonly" }],
   },
 };
 

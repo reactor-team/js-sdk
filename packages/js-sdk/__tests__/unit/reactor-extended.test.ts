@@ -63,15 +63,13 @@ vi.mock("../../src/core/WebRTCTransportClient", () => ({
       }),
       off: vi.fn(),
       getStats: vi.fn().mockReturnValue(undefined),
-      getTransportTimings: vi
-        .fn()
-        .mockReturnValue({
-          protocol: "webrtc",
-          sdpPollingMs: 100,
-          sdpPollingAttempts: 1,
-          iceNegotiationMs: 50,
-          dataChannelMs: 60,
-        }),
+      getTransportTimings: vi.fn().mockReturnValue({
+        protocol: "webrtc",
+        sdpPollingMs: 100,
+        sdpPollingAttempts: 1,
+        iceNegotiationMs: 50,
+        dataChannelMs: 60,
+      }),
       abort: vi.fn(),
     };
     return mockTransportClient;

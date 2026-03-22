@@ -101,9 +101,9 @@ describe("sendMessage()", () => {
       send: vi.fn(),
     } as unknown as RTCDataChannel;
 
-    expect(() => sendMessage(channel, "cmd", { big: "x".repeat(100) }, "application", 10)).toThrow(
-      "too large"
-    );
+    expect(() =>
+      sendMessage(channel, "cmd", { big: "x".repeat(100) }, "application", 10)
+    ).toThrow("too large");
   });
 });
 
