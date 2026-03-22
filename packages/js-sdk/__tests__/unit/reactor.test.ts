@@ -3,49 +3,80 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Reactor, DEFAULT_BASE_URL } from "../../src/core/Reactor";
 
+const MOCK_SESSION_ID = "85ded560-014c-42df-8902-89dfbca8fa00";
+
+const MOCK_INITIAL_RESPONSE = {
+  session_id: MOCK_SESSION_ID,
+  model: { name: "echo" },
+  state: "CREATED",
+};
+
+const MOCK_FULL_SESSION_RESPONSE = {
+  session_id: MOCK_SESSION_ID,
+  model: { name: "echo" },
+  state: "ACTIVE",
+  selected_transport: { protocol: "webrtc", version: "1.0" },
+  capabilities: {
+    protocol_version: "1.0",
+    tracks: [
+      { name: "main_video", kind: "video", direction: "recvonly" as const },
+    ],
+  },
+};
+
+let transportHandlers: Record<string, (...args: any[]) => void> = {};
+let mockTransportClient: any;
+
 vi.mock("../../src/core/CoordinatorClient", () => ({
   CoordinatorClient: vi.fn().mockImplementation(() => ({
-    getIceServers: vi.fn().mockResolvedValue([]),
-    createSession: vi.fn().mockResolvedValue("test-session-id"),
-    connect: vi.fn().mockResolvedValue({
-      sdpAnswer: "mock-sdp-answer",
-      sdpPollingAttempts: 1,
-    }),
+    createSession: vi.fn().mockResolvedValue(MOCK_INITIAL_RESPONSE),
+    pollSessionReady: vi.fn().mockResolvedValue(MOCK_FULL_SESSION_RESPONSE),
+    getSession: vi.fn().mockResolvedValue(MOCK_FULL_SESSION_RESPONSE),
     terminateSession: vi.fn().mockResolvedValue(undefined),
     abort: vi.fn(),
+    getSessionId: vi.fn().mockReturnValue(MOCK_SESSION_ID),
   })),
 }));
 
 vi.mock("../../src/core/LocalCoordinatorClient", () => ({
   LocalCoordinatorClient: vi.fn().mockImplementation(() => ({
-    getIceServers: vi.fn().mockResolvedValue([]),
-    createSession: vi.fn().mockResolvedValue("local"),
-    connect: vi.fn().mockResolvedValue({
-      sdpAnswer: "mock-sdp-answer",
-      sdpPollingAttempts: 0,
-    }),
+    createSession: vi.fn().mockResolvedValue(MOCK_INITIAL_RESPONSE),
+    pollSessionReady: vi.fn().mockResolvedValue(MOCK_FULL_SESSION_RESPONSE),
+    getSession: vi.fn().mockResolvedValue(MOCK_FULL_SESSION_RESPONSE),
     terminateSession: vi.fn().mockResolvedValue(undefined),
     abort: vi.fn(),
   })),
 }));
 
-vi.mock("../../src/core/GPUMachineClient", () => ({
-  GPUMachineClient: vi.fn().mockImplementation(() => ({
-    createOffer: vi.fn().mockResolvedValue("mock-sdp-offer"),
-    connect: vi.fn().mockResolvedValue(undefined),
-    disconnect: vi.fn().mockResolvedValue(undefined),
-    sendCommand: vi.fn(),
-    publishTrack: vi.fn().mockResolvedValue(undefined),
-    unpublishTrack: vi.fn().mockResolvedValue(undefined),
-    on: vi.fn(),
-    off: vi.fn(),
-    getStats: vi.fn().mockReturnValue(undefined),
-    getConnectionTimings: vi.fn().mockReturnValue(undefined),
-    resetConnectionTimings: vi.fn(),
-  })),
+vi.mock("../../src/core/WebRTCTransportClient", () => ({
+  WebRTCTransportClient: vi.fn().mockImplementation(() => {
+    transportHandlers = {};
+    mockTransportClient = {
+      connect: vi.fn().mockResolvedValue(undefined),
+      reconnect: vi.fn().mockResolvedValue(undefined),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+      sendCommand: vi.fn(),
+      publishTrack: vi.fn().mockResolvedValue(undefined),
+      unpublishTrack: vi.fn().mockResolvedValue(undefined),
+      on: vi.fn((event: string, handler: any) => {
+        transportHandlers[event] = handler;
+      }),
+      off: vi.fn(),
+      getStats: vi.fn().mockReturnValue(undefined),
+      getTransportTimings: vi.fn().mockReturnValue(undefined),
+      abort: vi.fn(),
+    };
+    return mockTransportClient;
+  }),
 }));
 
 describe("Reactor", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    transportHandlers = {};
+    mockTransportClient = undefined;
+  });
+
   // ── Constructor ──────────────────────────────────────────────────────────
 
   describe("constructor", () => {
@@ -132,6 +163,14 @@ describe("Reactor", () => {
     it("getStats() returns undefined when not connected", () => {
       expect(r.getStats()).toBeUndefined();
     });
+
+    it("getCapabilities() returns undefined initially", () => {
+      expect(r.getCapabilities()).toBeUndefined();
+    });
+
+    it("getSessionInfo() returns undefined initially", () => {
+      expect(r.getSessionInfo()).toBeUndefined();
+    });
   });
 
   // ── connect() validation ──────────────────────────────────────────────
@@ -146,8 +185,6 @@ describe("Reactor", () => {
 
     it("throws when called while already connecting", async () => {
       const r = new Reactor({ modelName: "echo" });
-      // First connect completes the SDP exchange (all mocked) but status
-      // stays "connecting" because no GPUMachineClient events fire.
       await r.connect("jwt-token");
 
       await expect(r.connect("jwt-token")).rejects.toThrow(
@@ -159,8 +196,46 @@ describe("Reactor", () => {
 
     it("does not throw when local mode is used without JWT", async () => {
       const r = new Reactor({ modelName: "echo", local: true });
-      // Should not throw authentication error
       await r.connect();
+      await r.disconnect();
+    });
+
+    it("emits capabilitiesReceived after session ready", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      const capHandler = vi.fn();
+      r.on("capabilitiesReceived", capHandler);
+
+      await r.connect("jwt-token");
+
+      expect(capHandler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          protocol_version: "1.0",
+          tracks: expect.arrayContaining([
+            expect.objectContaining({ name: "main_video" }),
+          ]),
+        })
+      );
+      await r.disconnect();
+    });
+
+    it("stores capabilities after connect", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      await r.connect("jwt-token");
+
+      const caps = r.getCapabilities();
+      expect(caps).toBeDefined();
+      expect(caps!.tracks).toHaveLength(1);
+      expect(caps!.tracks[0].name).toBe("main_video");
+      await r.disconnect();
+    });
+
+    it("stores session info after connect", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      await r.connect("jwt-token");
+
+      const info = r.getSessionInfo();
+      expect(info).toBeDefined();
+      expect(info!.session_id).toBe(MOCK_SESSION_ID);
       await r.disconnect();
     });
   });
@@ -174,8 +249,6 @@ describe("Reactor", () => {
       r.on("statusChanged", handler);
 
       await r.disconnect();
-
-      // No status transition should fire
       expect(handler).not.toHaveBeenCalled();
     });
 

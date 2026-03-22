@@ -1,7 +1,8 @@
 // Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { GPUMachineClient } from "../../src/core/GPUMachineClient";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { WebRTCTransportClient } from "../../src/core/WebRTCTransportClient";
+import type { TrackCapability } from "../../src/core/types";
 
 function createMockPeerConnection() {
   return {
@@ -11,15 +12,7 @@ function createMockPeerConnection() {
     }),
     createOffer: vi.fn().mockResolvedValue({
       type: "offer",
-      sdp: [
-        "v=0",
-        "o=- 0 0 IN IP4 127.0.0.1",
-        "s=-",
-        "a=group:BUNDLE 0",
-        "m=application 9 UDP/DTLS/SCTP webrtc-datachannel",
-        "a=mid:0",
-        "",
-      ].join("\r\n"),
+      sdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\na=group:BUNDLE 0\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\na=mid:0\r\n",
     }),
     setLocalDescription: vi.fn(),
     setRemoteDescription: vi.fn(),
@@ -38,17 +31,10 @@ function createMockPeerConnection() {
     getStats: vi.fn().mockResolvedValue(new Map()),
     get localDescription() {
       return {
-        sdp: [
-          "v=0",
-          "o=- 0 0 IN IP4 127.0.0.1",
-          "s=-",
-          "a=group:BUNDLE 0",
-          "m=application 9 UDP/DTLS/SCTP webrtc-datachannel",
-          "a=mid:0",
-          "",
-        ].join("\r\n"),
+        sdp: "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\na=group:BUNDLE 0\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\na=mid:0\r\n",
       };
     },
+    sctp: { maxMessageSize: 262144 },
     signalingState: "have-local-offer",
     connectionState: "new",
     iceGatheringState: "complete",
@@ -62,8 +48,12 @@ function createMockPeerConnection() {
   };
 }
 
-describe("GPUMachineClient connection timings", () => {
+const MOCK_TRACKS: TrackCapability[] = [];
+const ICE_SERVERS_RESPONSE = { ice_servers: [] };
+
+describe("WebRTCTransportClient connection timings", () => {
   let mockPC: ReturnType<typeof createMockPeerConnection>;
+  const mockFetch = vi.fn();
 
   beforeEach(() => {
     mockPC = createMockPeerConnection();
@@ -80,51 +70,78 @@ describe("GPUMachineClient connection timings", () => {
       "MediaStream",
       vi.fn().mockImplementation(() => ({ getTracks: () => [] }))
     );
+    vi.stubGlobal("fetch", mockFetch);
+    mockFetch.mockReset();
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  function createClient() {
+    return new WebRTCTransportClient({
+      baseUrl: "https://api.test.com",
+      sessionId: "test-session-id",
+      jwtToken: "test-jwt",
+      maxPollAttempts: 2,
+    });
+  }
+
+  function setupFullConnect() {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(ICE_SERVERS_RESPONSE),
+    });
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 202 });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ sdp_answer: "v=0\r\nanswer" }),
+    });
+  }
+
   it("returns undefined before connect", () => {
-    const client = new GPUMachineClient({ iceServers: [] });
-    expect(client.getConnectionTimings()).toBeUndefined();
+    const client = createClient();
+    expect(client.getTransportTimings()).toBeUndefined();
   });
 
   it("records ICE and data channel durations after connection", async () => {
-    const client = new GPUMachineClient({ iceServers: [] });
+    const client = createClient();
+    setupFullConnect();
+    await client.connect(MOCK_TRACKS);
 
-    await client.createOffer({ send: [], receive: [] });
-    await client.connect("v=0\r\nanswer");
-
-    // Simulate peer connection reaching "connected"
     mockPC.connectionState = "connected";
     mockPC.onconnectionstatechange!();
 
-    // Simulate data channel opening
     const dc = mockPC.createDataChannel.mock.results[0].value;
     dc.readyState = "open";
     dc.onopen(new Event("open"));
 
-    const timings = client.getConnectionTimings();
+    const timings = client.getTransportTimings();
     expect(timings).toBeDefined();
+    expect(timings!.protocol).toBe("webrtc");
     expect(timings!.iceNegotiationMs).toBeGreaterThanOrEqual(0);
     expect(timings!.dataChannelMs).toBeGreaterThanOrEqual(0);
+    expect(timings!.sdpPollingMs).toBeGreaterThanOrEqual(0);
+    expect(timings!.sdpPollingAttempts).toBeGreaterThanOrEqual(1);
   });
 
   it("returns undefined when only ICE connected but data channel not open", async () => {
-    const client = new GPUMachineClient({ iceServers: [] });
-
-    await client.createOffer({ send: [], receive: [] });
-    await client.connect("v=0\r\nanswer");
+    const client = createClient();
+    setupFullConnect();
+    await client.connect(MOCK_TRACKS);
 
     mockPC.connectionState = "connected";
     mockPC.onconnectionstatechange!();
 
-    expect(client.getConnectionTimings()).toBeUndefined();
+    expect(client.getTransportTimings()).toBeUndefined();
   });
 
   it("clears timings on disconnect", async () => {
-    const client = new GPUMachineClient({ iceServers: [] });
-
-    await client.createOffer({ send: [], receive: [] });
-    await client.connect("v=0\r\nanswer");
+    const client = createClient();
+    setupFullConnect();
+    await client.connect(MOCK_TRACKS);
 
     mockPC.connectionState = "connected";
     mockPC.onconnectionstatechange!();
@@ -132,27 +149,9 @@ describe("GPUMachineClient connection timings", () => {
     dc.readyState = "open";
     dc.onopen(new Event("open"));
 
-    expect(client.getConnectionTimings()).toBeDefined();
+    expect(client.getTransportTimings()).toBeDefined();
 
     await client.disconnect();
-    expect(client.getConnectionTimings()).toBeUndefined();
-  });
-
-  it("resetConnectionTimings clears all timing state", async () => {
-    const client = new GPUMachineClient({ iceServers: [] });
-
-    await client.createOffer({ send: [], receive: [] });
-    await client.connect("v=0\r\nanswer");
-
-    mockPC.connectionState = "connected";
-    mockPC.onconnectionstatechange!();
-    const dc = mockPC.createDataChannel.mock.results[0].value;
-    dc.readyState = "open";
-    dc.onopen(new Event("open"));
-
-    expect(client.getConnectionTimings()).toBeDefined();
-
-    client.resetConnectionTimings();
-    expect(client.getConnectionTimings()).toBeUndefined();
+    expect(client.getTransportTimings()).toBeUndefined();
   });
 });

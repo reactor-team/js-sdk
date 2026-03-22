@@ -27,7 +27,7 @@ describe.skipIf(!API_KEY)("CoordinatorClient — integration", () => {
     }
   });
 
-  it("fetches ICE servers from production", async () => {
+  it("creates a session and receives a session ID", async () => {
     const jwt = await getJwt();
     client = new CoordinatorClient({
       baseUrl: COORDINATOR_URL,
@@ -35,32 +35,29 @@ describe.skipIf(!API_KEY)("CoordinatorClient — integration", () => {
       model: MODEL,
     });
 
-    const servers = await client.getIceServers();
-    expect(Array.isArray(servers)).toBe(true);
-    expect(servers.length).toBeGreaterThan(0);
-    expect(servers[0]).toHaveProperty("urls");
-  }, 15_000);
-
-  it("creates a session and receives a UUID session ID", async () => {
-    const jwt = await getJwt();
-    client = new CoordinatorClient({
-      baseUrl: COORDINATOR_URL,
-      jwtToken: jwt,
-      model: MODEL,
-    });
-
-    // Generate a real SDP offer so the coordinator accepts it
-    const pc = new RTCPeerConnection({ iceServers: [] });
-    pc.addTransceiver("video", { direction: "recvonly" });
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    const sdp = pc.localDescription!.sdp;
-    pc.close();
-
-    const sessionId = await client.createSession(sdp);
-    expect(typeof sessionId).toBe("string");
-    expect(sessionId.length).toBeGreaterThan(0);
+    const response = await client.createSession();
+    expect(typeof response.session_id).toBe("string");
+    expect(response.session_id.length).toBeGreaterThan(0);
+    expect(response.model.name).toBe(MODEL);
+    expect(response.state).toBeDefined();
   }, 30_000);
+
+  it("polls until session is ready with capabilities", async () => {
+    const jwt = await getJwt();
+    client = new CoordinatorClient({
+      baseUrl: COORDINATOR_URL,
+      jwtToken: jwt,
+      model: MODEL,
+    });
+
+    await client.createSession();
+    const fullResponse = await client.pollSessionReady({ maxAttempts: 30 });
+
+    expect(fullResponse.capabilities).toBeDefined();
+    expect(fullResponse.capabilities.tracks).toBeDefined();
+    expect(fullResponse.selected_transport).toBeDefined();
+    expect(fullResponse.selected_transport.protocol).toBe("webrtc");
+  }, 60_000);
 
   it("retrieves session info after creation", async () => {
     const jwt = await getJwt();
@@ -70,16 +67,9 @@ describe.skipIf(!API_KEY)("CoordinatorClient — integration", () => {
       model: MODEL,
     });
 
-    const pc = new RTCPeerConnection({ iceServers: [] });
-    pc.addTransceiver("video", { direction: "recvonly" });
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    const sdp = pc.localDescription!.sdp;
-    pc.close();
-
-    const sessionId = await client.createSession(sdp);
+    const initial = await client.createSession();
     const info = await client.getSession();
-    expect(info.session_id).toBe(sessionId);
+    expect(info.session_id).toBe(initial.session_id);
   }, 30_000);
 
   it("terminates a session cleanly", async () => {
@@ -90,14 +80,7 @@ describe.skipIf(!API_KEY)("CoordinatorClient — integration", () => {
       model: MODEL,
     });
 
-    const pc = new RTCPeerConnection({ iceServers: [] });
-    pc.addTransceiver("video", { direction: "recvonly" });
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    const sdp = pc.localDescription!.sdp;
-    pc.close();
-
-    await client.createSession(sdp);
+    await client.createSession();
     await expect(client.terminateSession()).resolves.toBeUndefined();
   }, 30_000);
 });

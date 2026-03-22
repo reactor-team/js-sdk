@@ -2,9 +2,8 @@
 
 import { describe, it, expect, afterEach } from "vitest";
 import { Reactor, DEFAULT_BASE_URL } from "../../src/core/Reactor";
-import { video } from "../../src/types";
 import { fetchInsecureToken } from "../../src/utils/tokens";
-import type { ReactorStatus } from "../../src/types";
+import type { ReactorStatus, Capabilities } from "../../src/types";
 
 const API_KEY = process.env.REACTOR_API_KEY;
 const COORDINATOR_URL = process.env.REACTOR_COORDINATOR_URL ?? DEFAULT_BASE_URL;
@@ -45,10 +44,6 @@ function waitForStatus(
   });
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
   let reactor: Reactor;
 
@@ -67,7 +62,6 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
     reactor = new Reactor({
       modelName: MODEL,
       apiUrl: COORDINATOR_URL,
-      receive: [video("main_video")],
     });
 
     const statuses: ReactorStatus[] = [];
@@ -78,6 +72,7 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
 
     expect(reactor.getStatus()).toBe("ready");
     expect(statuses).toContain("connecting");
+    expect(statuses).toContain("waiting");
     expect(reactor.getSessionId()).toBeDefined();
   }, 90_000);
 
@@ -86,7 +81,6 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
     reactor = new Reactor({
       modelName: MODEL,
       apiUrl: COORDINATOR_URL,
-      receive: [video("main_video")],
     });
 
     let sessionId: string | undefined;
@@ -101,14 +95,34 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
     expect(sessionId!.length).toBeGreaterThan(0);
   }, 90_000);
 
-  // ── Commands ───────────────────────────────────────────────────────────
-
-  it("sends commands (set_effect, set_intensity) without error", async () => {
+  it("receives capabilities after session creation", async () => {
     const jwt = await fetchInsecureToken(API_KEY!, COORDINATOR_URL);
     reactor = new Reactor({
       modelName: MODEL,
       apiUrl: COORDINATOR_URL,
-      receive: [video("main_video")],
+    });
+
+    let receivedCaps: Capabilities | undefined;
+    reactor.on("capabilitiesReceived", (caps: Capabilities) => {
+      receivedCaps = caps;
+    });
+
+    await reactor.connect(jwt);
+    await waitForStatus(reactor, "ready", 60_000);
+
+    expect(receivedCaps).toBeDefined();
+    expect(receivedCaps!.tracks).toBeDefined();
+    expect(receivedCaps!.tracks.length).toBeGreaterThan(0);
+    expect(reactor.getCapabilities()).toBeDefined();
+  }, 90_000);
+
+  // ── Commands ───────────────────────────────────────────────────────────
+
+  it("sends commands without error", async () => {
+    const jwt = await fetchInsecureToken(API_KEY!, COORDINATOR_URL);
+    reactor = new Reactor({
+      modelName: MODEL,
+      apiUrl: COORDINATOR_URL,
     });
 
     await reactor.connect(jwt);
@@ -130,7 +144,6 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
     reactor = new Reactor({
       modelName: MODEL,
       apiUrl: COORDINATOR_URL,
-      receive: [video("main_video")],
     });
 
     await reactor.connect(jwt);
@@ -143,12 +156,11 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
 
   // ── Full status lifecycle ──────────────────────────────────────────────
 
-  it("status transitions: connecting → ready → disconnected", async () => {
+  it("status transitions: connecting → waiting → ready → disconnected", async () => {
     const jwt = await fetchInsecureToken(API_KEY!, COORDINATOR_URL);
     reactor = new Reactor({
       modelName: MODEL,
       apiUrl: COORDINATOR_URL,
-      receive: [video("main_video")],
     });
 
     const statuses: ReactorStatus[] = [];
@@ -159,6 +171,7 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
     await reactor.disconnect();
 
     expect(statuses[0]).toBe("connecting");
+    expect(statuses).toContain("waiting");
     expect(statuses).toContain("ready");
     expect(statuses[statuses.length - 1]).toBe("disconnected");
   }, 90_000);
@@ -170,7 +183,6 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
     reactor = new Reactor({
       modelName: MODEL,
       apiUrl: COORDINATOR_URL,
-      receive: [video("main_video")],
     });
 
     await reactor.connect(jwt);
@@ -196,43 +208,6 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
     expect(stats.timestamp).toBeGreaterThan(0);
   }, 90_000);
 
-  // ── Multiple receive tracks ────────────────────────────────────────────
-
-  it("negotiates multiple receive tracks", async () => {
-    const jwt = await fetchInsecureToken(API_KEY!, COORDINATOR_URL);
-    reactor = new Reactor({
-      modelName: MODEL,
-      apiUrl: COORDINATOR_URL,
-      receive: [
-        video("main_video"),
-        video("video_edges"),
-        video("video_sepia"),
-      ],
-    });
-
-    await reactor.connect(jwt);
-    await waitForStatus(reactor, "ready", 60_000);
-    expect(reactor.getStatus()).toBe("ready");
-  }, 90_000);
-
-  // ── Send + receive tracks ──────────────────────────────────────────────
-
-  it("connects with both send and receive tracks", async () => {
-    const jwt = await fetchInsecureToken(API_KEY!, COORDINATOR_URL);
-    reactor = new Reactor({
-      modelName: MODEL,
-      apiUrl: COORDINATOR_URL,
-      receive: [video("main_video")],
-      send: [video("webcam")],
-    });
-
-    await reactor.connect(jwt);
-    await waitForStatus(reactor, "ready", 60_000);
-
-    expect(reactor.getStatus()).toBe("ready");
-    expect(reactor.getSessionId()).toBeDefined();
-  }, 90_000);
-
   // ── Error path ─────────────────────────────────────────────────────────
 
   it("rejects with an error for a non-existent model", async () => {
@@ -240,7 +215,6 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
     const bad = new Reactor({
       modelName: "nonexistent-model-xyz-12345",
       apiUrl: COORDINATOR_URL,
-      receive: [video("main_video")],
     });
 
     await expect(bad.connect(jwt)).rejects.toThrow();
