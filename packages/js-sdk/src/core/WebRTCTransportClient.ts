@@ -40,7 +40,7 @@ type EventHandler = (...args: any[]) => void;
 const PING_INTERVAL_MS = 5_000;
 const STATS_INTERVAL_MS = 2_000;
 
-const INITIAL_BACKOFF_MS = 500;
+const INITIAL_BACKOFF_MS = 200;
 const MAX_BACKOFF_MS = 15_000;
 const BACKOFF_MULTIPLIER = 2;
 const DEFAULT_MAX_POLL_ATTEMPTS = 6;
