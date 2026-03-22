@@ -28,7 +28,7 @@ import {
 } from "./types";
 import { AbortError } from "../types";
 
-const SESSION_POLL_INITIAL_BACKOFF_MS = 500;
+const SESSION_POLL_INITIAL_BACKOFF_MS = 200;
 const SESSION_POLL_MAX_BACKOFF_MS = 10_000;
 const SESSION_POLL_BACKOFF_MULTIPLIER = 2;
 const SESSION_POLL_DEFAULT_MAX_ATTEMPTS = 20;
