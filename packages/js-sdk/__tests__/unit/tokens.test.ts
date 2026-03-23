@@ -49,7 +49,7 @@ describe("fetchInsecureToken", () => {
     );
   });
 
-  it("sends API key in X-API-Key header", async () => {
+  it("sends API key in Reactor-API-Key header", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => ({ jwt: "token" }),
@@ -60,7 +60,7 @@ describe("fetchInsecureToken", () => {
       expect.any(String),
       expect.objectContaining({
         method: "GET",
-        headers: { "X-API-Key": "rk_my_secret_key" },
+        headers: { "Reactor-API-Key": "rk_my_secret_key" },
       })
     );
   });

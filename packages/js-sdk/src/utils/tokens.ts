@@ -24,7 +24,7 @@ export async function fetchInsecureToken(
   const response = await fetch(`${apiUrl}/tokens`, {
     method: "GET",
     headers: {
-      "X-API-Key": apiKey,
+      "Reactor-API-Key": apiKey,
     },
   });
 
