@@ -18,8 +18,7 @@ export type {
   TrackCapability,
   CommandCapability,
   Capabilities,
-  TransportDeclaration,
-  SessionResponse as SessionInfo,
+  SessionResponse,
 } from "./core/types";
 
 export interface ReactorError {

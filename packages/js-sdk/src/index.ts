@@ -1,6 +1,4 @@
 export * from "./core/Reactor";
-export * from "./core/TransportClient";
-export * from "./core/WebRTCTransportClient";
 export * from "./react/ReactorProvider";
 export * from "./react/ReactorView";
 export * from "./react/ReactorController";
