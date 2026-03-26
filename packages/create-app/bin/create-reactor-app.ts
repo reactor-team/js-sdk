@@ -10,6 +10,7 @@ const REPO_OWNER = "reactor-team";
 const REPO_NAME = "reactor-experiments";
 const REPO_URL = `github.com/${REPO_OWNER}/${REPO_NAME}.git`;
 const EXAMPLES_PATH = "";
+const DEFAULT_TEMPLATE = "helios-interactive";
 
 function getAuthenticatedRepoUrl(token: string): string {
   return `https://${token}@${REPO_URL}`;
@@ -194,15 +195,6 @@ async function main(): Promise<void> {
     });
   }
 
-  if (!argTemplate) {
-    prompts.push({
-      type: "list",
-      name: "template",
-      message: "Select a template:",
-      choices: templates,
-    });
-  }
-
   // Get answers from prompts (if any are needed)
   let answers: any = {};
   if (prompts.length > 0) {
@@ -221,6 +213,11 @@ async function main(): Promise<void> {
       }
       throw error;
     }
+  }
+
+  if (!argTemplate) {
+    answers.template = DEFAULT_TEMPLATE;
+    console.log(chalk.green(`Using default template "${DEFAULT_TEMPLATE}"`));
   }
 
   // Use provided arguments or prompted answers
@@ -310,19 +307,13 @@ async function main(): Promise<void> {
     )
   );
   console.log(chalk.cyan("Next steps:"));
-  console.log(chalk.white(`	cd ${projectName}`));
-  console.log(chalk.white(`	cp .env.example .env`));
-  console.log(chalk.white(`\nFor development scenarios:`));
-  console.log(chalk.cyan(`	• Using an existing model:`));
-  console.log(
-    chalk.white(`	  - Edit .env and set your NEXT_PUBLIC_REACTOR_API_KEY`)
-  );
-  console.log(chalk.cyan(`\n	• Local development with custom model:`));
-  console.log(
-    chalk.white(`	  - Set local={true} in your ReactorProvider in app/page.tsx:`)
-  );
-  console.log(chalk.gray(`	    <ReactorProvider modelName="..." local={true}>`));
-  console.log(chalk.white(`\n	pnpm dev\n`));
+  console.log(chalk.white(`  cd ${projectName}`));
+  console.log(chalk.white(`  cp .env.example .env.local`));
+  console.log(chalk.white(`  # Add your API keys to .env.local`));
+  console.log(chalk.white(`  pnpm dev\n`));
+  console.log(chalk.cyan("Learn more:"));
+  console.log(chalk.white(`  Docs:    https://docs.reactor.inc/overview`));
+  console.log(chalk.white(`  Discord: https://discord.gg/xSbBWECQRk\n`));
 }
 
 main().catch((err) => {
