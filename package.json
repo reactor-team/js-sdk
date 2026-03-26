@@ -5,16 +5,10 @@
   "description": "Reactor JS SDK - client libraries and tools for building real-time AI video applications",
   "scripts": {
     "build": "pnpm --filter @reactor-team/js-sdk build",
-    "dev": "pnpm --filter @reactor-team/js-sdk dev",
-    "proto": "pnpm --filter @reactor-team/js-sdk proto",
-    "test": "pnpm --filter @reactor-team/js-sdk test",
     "test:unit": "pnpm --filter @reactor-team/js-sdk test:unit",
     "test:integration": "pnpm --filter @reactor-team/js-sdk test:integration",
-    "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "dev:longlive": "pnpm --filter longlive dev",
-    "dev:matrix-2": "pnpm --filter matrix-2 dev",
-    "dev:stream-diffusion-v2": "pnpm --filter stream-diffusion-v2 dev"
+    "local-build": "pnpm --filter @reactor-team/js-sdk build && echo '\n@reactor-team/js-sdk built. Link with:\n  pnpm link '$(realpath packages/js-sdk)"
   },
   "packageManager": "pnpm@10.12.1",
   "devDependencies": {
