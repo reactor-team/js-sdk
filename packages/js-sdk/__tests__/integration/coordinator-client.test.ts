@@ -26,8 +26,7 @@ describe.skipIf(!API_KEY)("CoordinatorClient — integration", () => {
 
   let cachedJwt: string | undefined;
   async function getJwt(): Promise<string> {
-    if (!cachedJwt)
-      cachedJwt = await fetchTestToken(API_KEY!, COORDINATOR_URL);
+    if (!cachedJwt) cachedJwt = await fetchTestToken(API_KEY!, COORDINATOR_URL);
     return cachedJwt;
   }
 
