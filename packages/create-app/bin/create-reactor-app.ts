@@ -309,19 +309,13 @@ async function main(): Promise<void> {
     )
   );
   console.log(chalk.cyan("Next steps:"));
-  console.log(chalk.white(`	cd ${projectName}`));
-  console.log(chalk.white(`	cp .env.example .env`));
-  console.log(chalk.white(`\nFor development scenarios:`));
-  console.log(chalk.cyan(`	• Using an existing model:`));
-  console.log(
-    chalk.white(`	  - Edit .env and set your NEXT_PUBLIC_REACTOR_API_KEY`)
-  );
-  console.log(chalk.cyan(`\n	• Local development with custom model:`));
-  console.log(
-    chalk.white(`	  - Set local={true} in your ReactorProvider in app/page.tsx:`)
-  );
-  console.log(chalk.gray(`	    <ReactorProvider modelName="..." local={true}>`));
-  console.log(chalk.white(`\n	pnpm dev\n`));
+  console.log(chalk.white(`  cd ${projectName}`));
+  console.log(chalk.white(`  cp .env.example .env.local`));
+  console.log(chalk.white(`  # Add your API keys to .env.local`));
+  console.log(chalk.white(`  pnpm dev\n`));
+  console.log(chalk.cyan("Learn more:"));
+  console.log(chalk.white(`  Docs:    https://docs.reactor.inc/overview`));
+  console.log(chalk.white(`  Discord: https://discord.gg/xSbBWECQRk\n`));
 }
 
 main().catch((err) => {
