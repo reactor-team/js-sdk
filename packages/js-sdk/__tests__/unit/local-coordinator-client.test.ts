@@ -11,7 +11,9 @@ import {
 const MOCK_LOCAL_SESSION_RESPONSE = {
   session_id: "local",
   model: { name: "echo" },
+  server_info: { server_version: "1.0.0" },
   state: "ACTIVE",
+  cluster: "local",
   selected_transport: { protocol: "webrtc", version: "1.0" },
   capabilities: {
     protocol_version: "1.0",
@@ -36,7 +38,7 @@ describe("LocalCoordinatorClient", () => {
   // ── createSession() ────────────────────────────────────────────────────
 
   describe("createSession()", () => {
-    it("posts to /start_session and returns InitialSessionResponse", async () => {
+    it("posts to /start_session and returns CreateSessionResponse", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(MOCK_LOCAL_SESSION_RESPONSE),

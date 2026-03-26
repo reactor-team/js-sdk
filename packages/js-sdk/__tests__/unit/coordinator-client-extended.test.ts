@@ -5,16 +5,23 @@ import { CoordinatorClient } from "../../src/core/CoordinatorClient";
 
 const MOCK_SESSION_ID = "85ded560-014c-42df-8902-89dfbca8fa00";
 
+const MOCK_CLUSTER = "sup.us-west-2.aws.prod.reactor.inc";
+const MOCK_SERVER_INFO = { server_version: "1.5.0" };
+
 const MOCK_INITIAL_RESPONSE = {
   session_id: MOCK_SESSION_ID,
   model: { name: "echo" },
+  server_info: MOCK_SERVER_INFO,
   state: "CREATED",
+  cluster: MOCK_CLUSTER,
 };
 
 const MOCK_FULL_SESSION_RESPONSE = {
   session_id: MOCK_SESSION_ID,
   model: { name: "echo" },
+  server_info: MOCK_SERVER_INFO,
   state: "ACTIVE",
+  cluster: MOCK_CLUSTER,
   selected_transport: { protocol: "webrtc", version: "1.0" },
   capabilities: {
     protocol_version: "1.0",
@@ -90,7 +97,9 @@ describe("CoordinatorClient (extended)", () => {
           Promise.resolve({
             session_id: MOCK_SESSION_ID,
             model: { name: "echo" },
+            server_info: MOCK_SERVER_INFO,
             state: "PENDING",
+            cluster: MOCK_CLUSTER,
           }),
       });
 
@@ -129,7 +138,9 @@ describe("CoordinatorClient (extended)", () => {
             Promise.resolve({
               session_id: MOCK_SESSION_ID,
               model: { name: "echo" },
+              server_info: MOCK_SERVER_INFO,
               state: "PENDING",
+              cluster: MOCK_CLUSTER,
             }),
         });
 
@@ -140,7 +151,9 @@ describe("CoordinatorClient (extended)", () => {
             Promise.resolve({
               session_id: MOCK_SESSION_ID,
               model: { name: "echo" },
+              server_info: MOCK_SERVER_INFO,
               state: "WAITING",
+              cluster: MOCK_CLUSTER,
             }),
         });
 

@@ -10,11 +10,10 @@
 import {
   type CreateSessionRequest,
   type CreateSessionResponse,
-  type InitialSessionResponse,
+  type SessionResponse,
   type SessionInfoResponse,
   type TerminateSessionRequest,
   CreateSessionResponseSchema,
-  InitialSessionResponseSchema,
   SessionResponseSchema,
   SessionInfoResponseSchema,
   SessionState,
@@ -132,7 +131,7 @@ export class CoordinatorClient {
    */
   async createSession(
     extraArgs?: Record<string, any>
-  ): Promise<InitialSessionResponse> {
+  ): Promise<CreateSessionResponse> {
     console.debug("[CoordinatorClient] Creating session...");
 
     const requestBody: CreateSessionRequest = {
@@ -167,7 +166,7 @@ export class CoordinatorClient {
     }
 
     const data = await response.json();
-    const parsed = InitialSessionResponseSchema.parse(data);
+    const parsed = CreateSessionResponseSchema.parse(data);
     this.currentSessionId = parsed.session_id;
 
     console.debug(
@@ -186,7 +185,7 @@ export class CoordinatorClient {
    */
   async pollSessionReady(opts?: {
     maxAttempts?: number;
-  }): Promise<CreateSessionResponse> {
+  }): Promise<SessionResponse> {
     if (!this.currentSessionId) {
       throw new Error("No active session. Call createSession() first.");
     }
@@ -245,13 +244,12 @@ export class CoordinatorClient {
       }
 
       if (partial.capabilities && partial.selected_transport) {
-        const full = CreateSessionResponseSchema.parse(data);
         console.debug(
           `[CoordinatorClient] Session ready after ${attempt} poll(s), ` +
-            `transport: ${full.selected_transport.protocol}, ` +
-            `tracks: ${full.capabilities.tracks.length}`
+            `transport: ${partial.selected_transport.protocol}, ` +
+            `tracks: ${partial.capabilities.tracks.length}`
         );
-        return full;
+        return partial;
       }
 
       console.debug(
@@ -268,10 +266,11 @@ export class CoordinatorClient {
   }
 
   /**
-   * Gets full session details from the coordinator.
-   * Returns the same shape as the creation response but with updated state.
+   * Gets session details from the coordinator.
+   * Fields like selected_transport and capabilities are only present
+   * after the Runtime accepts the session.
    */
-  async getSession(): Promise<CreateSessionResponse> {
+  async getSession(): Promise<SessionResponse> {
     if (!this.currentSessionId) {
       throw new Error("No active session. Call createSession() first.");
     }
@@ -293,7 +292,7 @@ export class CoordinatorClient {
     }
 
     const data = await response.json();
-    return CreateSessionResponseSchema.parse(data);
+    return SessionResponseSchema.parse(data);
   }
 
   /**

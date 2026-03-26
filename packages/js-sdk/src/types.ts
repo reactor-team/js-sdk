@@ -19,7 +19,7 @@ export type {
   CommandCapability,
   Capabilities,
   TransportDeclaration,
-  CreateSessionResponse as SessionInfo,
+  SessionResponse as SessionInfo,
 } from "./core/types";
 
 export interface ReactorError {

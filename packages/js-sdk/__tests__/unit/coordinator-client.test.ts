@@ -17,6 +17,7 @@ const MOCK_SESSION_ID = "85ded560-014c-42df-8902-89dfbca8fa00";
 const MOCK_INITIAL_RESPONSE = {
   session_id: MOCK_SESSION_ID,
   model: { name: "echo" },
+  server_info: { server_version: "1.5.0" },
   state: "CREATED",
   cluster: "sup.us-west-2.aws.prod.reactor.inc",
 };
@@ -24,7 +25,9 @@ const MOCK_INITIAL_RESPONSE = {
 const MOCK_FULL_SESSION_RESPONSE = {
   session_id: MOCK_SESSION_ID,
   model: { name: "echo" },
+  server_info: { server_version: "1.5.0" },
   state: "ACTIVE",
+  cluster: "sup.us-west-2.aws.prod.reactor.inc",
   selected_transport: { protocol: "webrtc", version: "1.0" },
   capabilities: {
     protocol_version: "1.0",
@@ -54,7 +57,7 @@ describe("CoordinatorClient", () => {
   // ── createSession() ────────────────────────────────────────────────────
 
   describe("createSession()", () => {
-    it("sends correct request body and returns InitialSessionResponse", async () => {
+    it("sends correct request body and returns CreateSessionResponse", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 201,
@@ -179,7 +182,9 @@ describe("CoordinatorClient", () => {
           Promise.resolve({
             session_id: MOCK_SESSION_ID,
             model: { name: "echo" },
+            server_info: { server_version: "1.5.0" },
             state: "PENDING",
+            cluster: "sup.us-west-2.aws.prod.reactor.inc",
           }),
       });
 
@@ -208,7 +213,9 @@ describe("CoordinatorClient", () => {
           Promise.resolve({
             session_id: MOCK_SESSION_ID,
             model: { name: "echo" },
+            server_info: { server_version: "1.5.0" },
             state: SessionState.CLOSED,
+            cluster: "sup.us-west-2.aws.prod.reactor.inc",
           }),
       });
 
@@ -228,7 +235,9 @@ describe("CoordinatorClient", () => {
           Promise.resolve({
             session_id: MOCK_SESSION_ID,
             model: { name: "echo" },
+            server_info: { server_version: "1.5.0" },
             state: SessionState.INACTIVE,
+            cluster: "sup.us-west-2.aws.prod.reactor.inc",
           }),
       });
 
@@ -248,7 +257,9 @@ describe("CoordinatorClient", () => {
           Promise.resolve({
             session_id: MOCK_SESSION_ID,
             model: { name: "echo" },
+            server_info: { server_version: "1.5.0" },
             state: "PENDING",
+            cluster: "sup.us-west-2.aws.prod.reactor.inc",
           }),
       });
 
@@ -279,7 +290,7 @@ describe("CoordinatorClient", () => {
 
       const result = await client.getSession();
       expect(result.session_id).toBe(MOCK_SESSION_ID);
-      expect(result.capabilities.tracks).toHaveLength(1);
+      expect(result.capabilities?.tracks).toHaveLength(1);
     });
 
     it("throws on non-OK response", async () => {

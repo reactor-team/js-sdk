@@ -15,16 +15,16 @@
 import { CoordinatorClient } from "./CoordinatorClient";
 import {
   type CreateSessionResponse,
-  type InitialSessionResponse,
+  type SessionResponse,
   CreateSessionResponseSchema,
-  InitialSessionResponseSchema,
+  SessionResponseSchema,
   API_VERSION_HEADER,
   API_ACCEPT_VERSION_HEADER,
   REACTOR_API_VERSION,
 } from "./types";
 
 export class LocalCoordinatorClient extends CoordinatorClient {
-  private cachedSessionResponse?: CreateSessionResponse;
+  private cachedSessionResponse?: SessionResponse;
 
   constructor(baseUrl: string, model: string) {
     super({
@@ -49,7 +49,7 @@ export class LocalCoordinatorClient extends CoordinatorClient {
    */
   override async createSession(
     extraArgs?: Record<string, any>
-  ): Promise<InitialSessionResponse> {
+  ): Promise<CreateSessionResponse> {
     console.debug("[LocalCoordinatorClient] Starting session...");
 
     const response = await fetch(`${this.baseUrl}/start_session`, {
@@ -73,26 +73,27 @@ export class LocalCoordinatorClient extends CoordinatorClient {
 
     const data = await response.json();
 
-    this.cachedSessionResponse = CreateSessionResponseSchema.parse(data);
-    this.currentSessionId = this.cachedSessionResponse.session_id;
+    const session = SessionResponseSchema.parse(data);
+    this.cachedSessionResponse = session;
+    this.currentSessionId = session.session_id;
 
     console.debug(
       "[LocalCoordinatorClient] Session started:",
       this.currentSessionId,
       "transport:",
-      this.cachedSessionResponse.selected_transport.protocol,
+      session.selected_transport?.protocol,
       "tracks:",
-      this.cachedSessionResponse.capabilities.tracks.length
+      session.capabilities?.tracks.length
     );
 
-    return InitialSessionResponseSchema.parse(data);
+    return CreateSessionResponseSchema.parse(data);
   }
 
   /**
    * Returns the cached full session response immediately.
    * The local runtime already provided everything in start_session.
    */
-  override async pollSessionReady(): Promise<CreateSessionResponse> {
+  override async pollSessionReady(): Promise<SessionResponse> {
     if (!this.cachedSessionResponse) {
       throw new Error(
         "No cached session response. Call createSession() first."

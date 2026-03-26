@@ -84,15 +84,6 @@ export const CreateSessionRequestSchema = z.object({
   extra_args: z.record(z.string(), z.any()).optional(),
 });
 
-// POST /sessions — Response (201): slim initial response before Runtime accepts
-export const InitialSessionResponseSchema = z.object({
-  session_id: z.string(),
-  model: z.object({ name: z.string() }),
-  server_info: z.object({ server_version: z.string() }).optional(),
-  state: z.string(),
-  cluster: z.string().optional(),
-});
-
 // Mirrors the proto Command message.
 export const CommandCapabilitySchema = z.object({
   name: z.string(),
@@ -100,7 +91,6 @@ export const CommandCapabilitySchema = z.object({
   schema: z.record(z.string(), z.any()).optional(),
 });
 
-// GET /sessions/{id} — Full response with capabilities (populated after Runtime accepts).
 // Mirrors the proto TransportCapabilities message.
 export const CapabilitiesSchema = z.object({
   protocol_version: z.string(),
@@ -109,27 +99,23 @@ export const CapabilitiesSchema = z.object({
   emission_fps: z.number().nullable().optional(),
 });
 
-export const SessionResponseSchema = z.object({
-  session_id: z.string(),
-  server_info: z.object({ server_version: z.string() }).optional(),
-  selected_transport: TransportDeclarationSchema.optional(),
-  model: z.object({ name: z.string(), version: z.string().optional() }),
-  capabilities: CapabilitiesSchema.optional(),
-  state: z.string(),
-  cluster: z.string().optional(),
-});
-
-// Full session response: selected_transport and capabilities are guaranteed present
-export const CreateSessionResponseSchema = SessionResponseSchema.extend({
-  selected_transport: TransportDeclarationSchema,
-  capabilities: CapabilitiesSchema,
-});
-
 // GET /sessions/{id}/info — Response (200)
 export const SessionInfoResponseSchema = z.object({
   session_id: z.string(),
-  cluster: z.string().optional(),
   state: z.string(),
+  cluster: z.string(),
+});
+
+// POST /sessions — Response (201)
+export const CreateSessionResponseSchema = SessionInfoResponseSchema.extend({
+  model: z.object({ name: z.string(), version: z.string().optional() }),
+  server_info: z.object({ server_version: z.string() }),
+});
+
+// GET /sessions/{id} — Response (200)
+export const SessionResponseSchema = CreateSessionResponseSchema.extend({
+  selected_transport: TransportDeclarationSchema.optional(),
+  capabilities: CapabilitiesSchema.optional(),
 });
 
 // DELETE /sessions/{id} — Request
@@ -179,11 +165,8 @@ export type CommandCapability = z.infer<typeof CommandCapabilitySchema>;
 export type TrackMappingEntry = z.infer<typeof TrackMappingEntrySchema>;
 
 export type CreateSessionRequest = z.infer<typeof CreateSessionRequestSchema>;
-export type InitialSessionResponse = z.infer<
-  typeof InitialSessionResponseSchema
->;
-export type SessionResponse = z.infer<typeof SessionResponseSchema>;
 export type CreateSessionResponse = z.infer<typeof CreateSessionResponseSchema>;
+export type SessionResponse = z.infer<typeof SessionResponseSchema>;
 export type Capabilities = z.infer<typeof CapabilitiesSchema>;
 
 export type SessionInfoResponse = z.infer<typeof SessionInfoResponseSchema>;

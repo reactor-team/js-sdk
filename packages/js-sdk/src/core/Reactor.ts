@@ -17,7 +17,7 @@ import { type TransportClient, type TransportStatus } from "./TransportClient";
 import { WebRTCTransportClient } from "./WebRTCTransportClient";
 import {
   type Capabilities,
-  type CreateSessionResponse,
+  type SessionResponse,
   type TrackCapability,
   REACTOR_WEBRTC_VERSION,
 } from "./types";
@@ -50,7 +50,7 @@ export class Reactor {
 
   private capabilities?: Capabilities;
   private tracks: TrackCapability[] = [];
-  private sessionResponse?: CreateSessionResponse;
+  private sessionResponse?: SessionResponse;
 
   constructor(options: Options) {
     const validatedOptions = OptionsSchema.parse(options);
@@ -244,19 +244,19 @@ export class Reactor {
       this.sessionResponse = sessionResponse;
 
       // 3. Store capabilities and tracks
-      this.capabilities = sessionResponse.capabilities;
-      this.tracks = sessionResponse.capabilities.tracks;
+      this.capabilities = sessionResponse.capabilities!;
+      this.tracks = sessionResponse.capabilities!.tracks;
       this.emit("capabilitiesReceived", this.capabilities);
 
       console.debug(
         "[Reactor] Session ready, transport:",
-        sessionResponse.selected_transport.protocol,
+        sessionResponse.selected_transport!.protocol,
         "tracks:",
         this.tracks.length
       );
 
       // 4. Instantiate transport based on selected_transport
-      const protocol = sessionResponse.selected_transport.protocol;
+      const protocol = sessionResponse.selected_transport!.protocol;
       if (protocol !== "webrtc") {
         throw new Error(`Unsupported transport protocol: ${protocol}`);
       }
@@ -266,7 +266,7 @@ export class Reactor {
         sessionId: sessionResponse.session_id,
         jwtToken: this.local ? "local" : jwtToken!,
         webrtcVersion:
-          sessionResponse.selected_transport.version ?? REACTOR_WEBRTC_VERSION,
+          sessionResponse.selected_transport?.version ?? REACTOR_WEBRTC_VERSION,
         maxPollAttempts: options?.maxAttempts,
       });
       this.setupTransportHandlers();
@@ -429,7 +429,7 @@ export class Reactor {
     return this.capabilities;
   }
 
-  getSessionInfo(): CreateSessionResponse | undefined {
+  getSessionInfo(): SessionResponse | undefined {
     return this.sessionResponse;
   }
 

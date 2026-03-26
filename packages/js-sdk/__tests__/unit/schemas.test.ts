@@ -3,7 +3,6 @@
 import { describe, it, expect } from "vitest";
 import {
   CreateSessionRequestSchema,
-  InitialSessionResponseSchema,
   CreateSessionResponseSchema,
   SessionResponseSchema,
   CapabilitiesSchema,
@@ -63,28 +62,19 @@ describe("CreateSessionRequestSchema", () => {
   });
 });
 
-describe("InitialSessionResponseSchema", () => {
-  it("validates a slim session creation response", () => {
+describe("CreateSessionResponseSchema", () => {
+  it("validates a session creation response", () => {
     const data = {
       session_id: "85ded560-014c-42df-8902-89dfbca8fa00",
-      model: { name: "echo" },
-      state: "CREATED",
-    };
-    const result = InitialSessionResponseSchema.parse(data);
-    expect(result.session_id).toBe("85ded560-014c-42df-8902-89dfbca8fa00");
-    expect(result.state).toBe("CREATED");
-  });
-
-  it("accepts optional server_info and cluster", () => {
-    const data = {
-      session_id: "test-id",
       model: { name: "echo" },
       server_info: { server_version: "1.5.0" },
       state: "CREATED",
       cluster: "sup.us-west-2.aws.prod.reactor.inc",
     };
-    const result = InitialSessionResponseSchema.parse(data);
-    expect(result.server_info?.server_version).toBe("1.5.0");
+    const result = CreateSessionResponseSchema.parse(data);
+    expect(result.session_id).toBe("85ded560-014c-42df-8902-89dfbca8fa00");
+    expect(result.state).toBe("CREATED");
+    expect(result.server_info.server_version).toBe("1.5.0");
     expect(result.cluster).toBe("sup.us-west-2.aws.prod.reactor.inc");
   });
 
@@ -92,61 +82,22 @@ describe("InitialSessionResponseSchema", () => {
     const data = {
       session_id: "local",
       model: { name: "echo" },
+      server_info: { server_version: "1.0.0" },
       state: "CREATED",
+      cluster: "local",
     };
-    expect(() => InitialSessionResponseSchema.parse(data)).not.toThrow();
+    expect(() => CreateSessionResponseSchema.parse(data)).not.toThrow();
   });
 });
 
-describe("CreateSessionResponseSchema (full)", () => {
-  it("validates a full response with capabilities and transport", () => {
-    const data = {
-      session_id: "85ded560-014c-42df-8902-89dfbca8fa00",
-      model: { name: "echo" },
-      state: "ACTIVE",
-      selected_transport: { protocol: "webrtc", version: "1.0" },
-      capabilities: {
-        protocol_version: "1.0",
-        tracks: [{ name: "main_video", kind: "video", direction: "recvonly" }],
-      },
-    };
-    const result = CreateSessionResponseSchema.parse(data);
-    expect(result.selected_transport.protocol).toBe("webrtc");
-    expect(result.capabilities.tracks).toHaveLength(1);
-  });
-
-  it("rejects when selected_transport is missing", () => {
-    expect(() =>
-      CreateSessionResponseSchema.parse({
-        session_id: "test-id",
-        model: { name: "echo" },
-        state: "ACTIVE",
-        capabilities: {
-          protocol_version: "1.0",
-          tracks: [],
-        },
-      })
-    ).toThrow();
-  });
-
-  it("rejects when capabilities is missing", () => {
-    expect(() =>
-      CreateSessionResponseSchema.parse({
-        session_id: "test-id",
-        model: { name: "echo" },
-        state: "ACTIVE",
-        selected_transport: { protocol: "webrtc", version: "1.0" },
-      })
-    ).toThrow();
-  });
-});
-
-describe("SessionResponseSchema (partial)", () => {
+describe("SessionResponseSchema", () => {
   it("validates with optional capabilities and transport", () => {
     const data = {
       session_id: "test-id",
       model: { name: "echo" },
+      server_info: { server_version: "1.5.0" },
       state: "CREATED",
+      cluster: "sup.us-west-2.aws.prod.reactor.inc",
     };
     expect(() => SessionResponseSchema.parse(data)).not.toThrow();
   });
@@ -157,12 +108,12 @@ describe("SessionResponseSchema (partial)", () => {
       model: { name: "echo", version: "1.0.0" },
       state: "ACTIVE",
       server_info: { server_version: "1.5.0" },
+      cluster: "sup.us-west-2.aws.prod.reactor.inc",
       selected_transport: { protocol: "webrtc", version: "1.0" },
       capabilities: {
         protocol_version: "1.0",
         tracks: [],
       },
-      cluster: "sup.us-west-2.aws.prod.reactor.inc",
     };
     const result = SessionResponseSchema.parse(data);
     expect(result.model.version).toBe("1.0.0");
