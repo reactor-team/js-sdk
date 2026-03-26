@@ -10,6 +10,7 @@ const REPO_OWNER = "reactor-team";
 const REPO_NAME = "reactor-experiments";
 const REPO_URL = `github.com/${REPO_OWNER}/${REPO_NAME}.git`;
 const EXAMPLES_PATH = "";
+const DEFAULT_TEMPLATE = "helios-interactive";
 
 function getAuthenticatedRepoUrl(token: string): string {
   return `https://${token}@${REPO_URL}`;
@@ -195,12 +196,10 @@ async function main(): Promise<void> {
   }
 
   if (!argTemplate) {
-    prompts.push({
-      type: "list",
-      name: "template",
-      message: "Select a template:",
-      choices: templates,
-    });
+    answers.template = DEFAULT_TEMPLATE;
+    console.log(
+      chalk.green(`Using default template "${DEFAULT_TEMPLATE}"`)
+    );
   }
 
   // Get answers from prompts (if any are needed)
