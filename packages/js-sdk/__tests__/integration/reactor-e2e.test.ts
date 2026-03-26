@@ -2,11 +2,23 @@
 
 import { describe, it, expect, afterEach } from "vitest";
 import { Reactor, DEFAULT_BASE_URL } from "../../src/core/Reactor";
-import { fetchInsecureToken } from "../../src/utils/tokens";
 import type { ReactorStatus, Capabilities } from "../../src/types";
 
 const API_KEY = process.env.REACTOR_API_KEY;
 const COORDINATOR_URL = process.env.REACTOR_COORDINATOR_URL ?? DEFAULT_BASE_URL;
+
+async function fetchTestToken(apiKey: string, apiUrl: string): Promise<string> {
+  const response = await fetch(`${apiUrl}/tokens`, {
+    method: "GET",
+    headers: { "Reactor-API-Key": apiKey },
+  });
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to create token: ${response.status} ${error}`);
+  }
+  const { jwt } = await response.json();
+  return jwt;
+}
 const MODEL = "echo";
 
 function waitForStatus(
@@ -58,7 +70,7 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
   // ── Connection lifecycle ───────────────────────────────────────────────
 
   it("connects and reaches the ready state", async () => {
-    const jwt = await fetchInsecureToken(API_KEY!, COORDINATOR_URL);
+    const jwt = await fetchTestToken(API_KEY!, COORDINATOR_URL);
     reactor = new Reactor({
       modelName: MODEL,
       apiUrl: COORDINATOR_URL,
@@ -77,7 +89,7 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
   }, 90_000);
 
   it("emits sessionIdChanged on connect", async () => {
-    const jwt = await fetchInsecureToken(API_KEY!, COORDINATOR_URL);
+    const jwt = await fetchTestToken(API_KEY!, COORDINATOR_URL);
     reactor = new Reactor({
       modelName: MODEL,
       apiUrl: COORDINATOR_URL,
@@ -96,7 +108,7 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
   }, 90_000);
 
   it("receives capabilities after session creation", async () => {
-    const jwt = await fetchInsecureToken(API_KEY!, COORDINATOR_URL);
+    const jwt = await fetchTestToken(API_KEY!, COORDINATOR_URL);
     reactor = new Reactor({
       modelName: MODEL,
       apiUrl: COORDINATOR_URL,
@@ -119,7 +131,7 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
   // ── Commands ───────────────────────────────────────────────────────────
 
   it("sends commands without error", async () => {
-    const jwt = await fetchInsecureToken(API_KEY!, COORDINATOR_URL);
+    const jwt = await fetchTestToken(API_KEY!, COORDINATOR_URL);
     reactor = new Reactor({
       modelName: MODEL,
       apiUrl: COORDINATOR_URL,
@@ -140,7 +152,7 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
   // ── Disconnect ─────────────────────────────────────────────────────────
 
   it("disconnects cleanly after reaching ready", async () => {
-    const jwt = await fetchInsecureToken(API_KEY!, COORDINATOR_URL);
+    const jwt = await fetchTestToken(API_KEY!, COORDINATOR_URL);
     reactor = new Reactor({
       modelName: MODEL,
       apiUrl: COORDINATOR_URL,
@@ -157,7 +169,7 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
   // ── Full status lifecycle ──────────────────────────────────────────────
 
   it("status transitions: connecting → waiting → ready → disconnected", async () => {
-    const jwt = await fetchInsecureToken(API_KEY!, COORDINATOR_URL);
+    const jwt = await fetchTestToken(API_KEY!, COORDINATOR_URL);
     reactor = new Reactor({
       modelName: MODEL,
       apiUrl: COORDINATOR_URL,
@@ -179,7 +191,7 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
   // ── Stats ──────────────────────────────────────────────────────────────
 
   it("receives stats updates when connected", async () => {
-    const jwt = await fetchInsecureToken(API_KEY!, COORDINATOR_URL);
+    const jwt = await fetchTestToken(API_KEY!, COORDINATOR_URL);
     reactor = new Reactor({
       modelName: MODEL,
       apiUrl: COORDINATOR_URL,
@@ -211,7 +223,7 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
   // ── Error path ─────────────────────────────────────────────────────────
 
   it("rejects with an error for a non-existent model", async () => {
-    const jwt = await fetchInsecureToken(API_KEY!, COORDINATOR_URL);
+    const jwt = await fetchTestToken(API_KEY!, COORDINATOR_URL);
     const bad = new Reactor({
       modelName: "nonexistent-model-xyz-12345",
       apiUrl: COORDINATOR_URL,

@@ -2,11 +2,23 @@
 
 import { describe, it, expect, afterEach } from "vitest";
 import { CoordinatorClient } from "../../src/core/CoordinatorClient";
-import { fetchInsecureToken } from "../../src/utils/tokens";
 import { DEFAULT_BASE_URL } from "../../src/core/Reactor";
 
 const API_KEY = process.env.REACTOR_API_KEY;
 const COORDINATOR_URL = process.env.REACTOR_COORDINATOR_URL ?? DEFAULT_BASE_URL;
+
+async function fetchTestToken(apiKey: string, apiUrl: string): Promise<string> {
+  const response = await fetch(`${apiUrl}/tokens`, {
+    method: "GET",
+    headers: { "Reactor-API-Key": apiKey },
+  });
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to create token: ${response.status} ${error}`);
+  }
+  const { jwt } = await response.json();
+  return jwt;
+}
 const MODEL = "echo";
 
 describe.skipIf(!API_KEY)("CoordinatorClient — integration", () => {
@@ -15,7 +27,7 @@ describe.skipIf(!API_KEY)("CoordinatorClient — integration", () => {
   let cachedJwt: string | undefined;
   async function getJwt(): Promise<string> {
     if (!cachedJwt)
-      cachedJwt = await fetchInsecureToken(API_KEY!, COORDINATOR_URL);
+      cachedJwt = await fetchTestToken(API_KEY!, COORDINATOR_URL);
     return cachedJwt;
   }
 
