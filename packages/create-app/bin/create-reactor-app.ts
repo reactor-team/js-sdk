@@ -217,9 +217,7 @@ async function main(): Promise<void> {
 
   if (!argTemplate) {
     answers.template = DEFAULT_TEMPLATE;
-    console.log(
-      chalk.green(`Using default template "${DEFAULT_TEMPLATE}"`)
-    );
+    console.log(chalk.green(`Using default template "${DEFAULT_TEMPLATE}"`));
   }
 
   // Use provided arguments or prompted answers
