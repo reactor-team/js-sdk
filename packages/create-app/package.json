@@ -23,6 +23,7 @@
     "@types/node": "^22.8.1"
   },
   "scripts": {
-    "build": "tsup"
+    "build": "tsup",
+    "install-cli": "tsup && pnpm link --global && echo '\n✅ create-reactor-app linked globally. Run it with:\n\n  create-reactor-app\n'"
   }
 }
