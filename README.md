@@ -24,25 +24,25 @@ npm run dev
 ## Usage
 
 ```tsx
-import { ReactorProvider, ReactorView, useReactor } from "@reactor-team/js-sdk";
+"use client";
 
-function App() {
+import { use } from "react";
+import { ReactorProvider, ReactorView } from "@reactor-team/js-sdk";
+
+const tokenPromise = fetch("/api/token")
+  .then((r) => r.json())
+  .then(({ token }) => token);
+
+export default function App() {
+  const token = use(tokenPromise);
+
   return (
-    <ReactorProvider modelName="your-model" jwtToken={token}>
+    <ReactorProvider modelName="your-model-name" jwtToken={token}>
       <ReactorView className="w-full aspect-video" />
-      <Controls />
     </ReactorProvider>
   );
 }
 ```
-
-## Examples
-
-| Example                                   | Description                                                                   |
-| ----------------------------------------- | ----------------------------------------------------------------------------- |
-| [livecore](./examples/livecore)           | Minimal demo for real-time video generation with the Livecore model           |
-| [film-director](./examples/film-director) | Timeline-based editor for directing Livecore video generation frame by frame  |
-| [dynamic](./examples/dynamic)             | Local-only dynamic UI that auto-generates controls from a model's JSON schema |
 
 ## Documentation
 
