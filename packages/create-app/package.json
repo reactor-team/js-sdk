@@ -8,7 +8,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/reactor-team/js-sdk"
+    "url": "https://github.com/reactor-team/js-sdk.git"
   },
   "packageManager": "pnpm@10.12.1",
   "dependencies": {
