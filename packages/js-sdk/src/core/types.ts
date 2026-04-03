@@ -103,7 +103,7 @@ export const CapabilitiesSchema = z.object({
 export const SessionInfoResponseSchema = z.object({
   session_id: z.string(),
   state: z.string(),
-  cluster: z.string(),
+  cluster: z.string().optional(),
 });
 
 // POST /sessions — Response (201)
