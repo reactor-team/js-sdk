@@ -155,11 +155,21 @@ export async function addIceCandidate(
 }
 
 /**
- * Waits for ICE gathering to complete with a timeout.
+ * Waits for ICE gathering to produce usable candidates, then resolves.
+ *
+ * Strategy: resolve as soon as we have at least one server-reflexive (srflx)
+ * or relay candidate, which means STUN/TURN succeeded and we have a
+ * routable candidate. Falls back to a hard timeout if no such candidate
+ * arrives (e.g. host-only networks).
+ *
+ * This avoids waiting for the full "complete" state which can take 2-5s
+ * when TURN-TCP or TURN-TLS candidates are still being gathered.
+ * Any remaining candidates (relay, etc.) trickle in after the offer is
+ * sent and are usable once setRemoteDescription is called on both sides.
  */
 export function waitForIceGathering(
   pc: RTCPeerConnection,
-  timeoutMs: number = 5000
+  timeoutMs: number = 500
 ): Promise<void> {
   return new Promise((resolve) => {
     if (pc.iceGatheringState === "complete") {
@@ -167,21 +177,42 @@ export function waitForIceGathering(
       return;
     }
 
+    let resolved = false;
+    const cleanup = () => {
+      if (resolved) return;
+      resolved = true;
+      pc.removeEventListener("icegatheringstatechange", onGatheringStateChange);
+      pc.removeEventListener("icecandidate", onIceCandidate);
+      resolve();
+    };
+
     const onGatheringStateChange = () => {
       if (pc.iceGatheringState === "complete") {
-        pc.removeEventListener(
-          "icegatheringstatechange",
-          onGatheringStateChange
+        cleanup();
+      }
+    };
+
+    const onIceCandidate = (event: RTCPeerConnectionIceEvent) => {
+      if (!event.candidate) return;
+      const typ = event.candidate.type;
+      if (typ === "srflx" || typ === "relay") {
+        console.debug(
+          `[WebRTC] ICE gathering early-complete: got ${typ} candidate`
         );
-        resolve();
+        cleanup();
       }
     };
 
     pc.addEventListener("icegatheringstatechange", onGatheringStateChange);
+    pc.addEventListener("icecandidate", onIceCandidate);
 
     setTimeout(() => {
-      pc.removeEventListener("icegatheringstatechange", onGatheringStateChange);
-      resolve();
+      if (!resolved) {
+        console.debug(
+          `[WebRTC] ICE gathering timeout (${timeoutMs}ms), proceeding with current candidates`
+        );
+      }
+      cleanup();
     }, timeoutMs);
   });
 }

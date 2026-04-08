@@ -252,31 +252,30 @@ describe("addIceCandidate()", () => {
 // ---------------------------------------------------------------------------
 
 describe("waitForIceGathering()", () => {
-  it('resolves immediately when state is "complete"', async () => {
-    const pc = {
-      iceGatheringState: "complete",
-      addEventListener: vi.fn(),
+  function mockPc(initialState: string = "gathering") {
+    const handlers: Record<string, Function> = {};
+    return {
+      iceGatheringState: initialState,
+      addEventListener: vi.fn((event: string, cb: Function) => {
+        handlers[event] = cb;
+      }),
       removeEventListener: vi.fn(),
+      _handlers: handlers,
     } as any;
+  }
 
+  it('resolves immediately when state is "complete"', async () => {
+    const pc = mockPc("complete");
     await waitForIceGathering(pc);
     expect(pc.addEventListener).not.toHaveBeenCalled();
   });
 
   it('resolves when state changes to "complete" via event', async () => {
-    let handler: (() => void) | undefined;
-    const pc = {
-      iceGatheringState: "gathering",
-      addEventListener: vi.fn((_event: string, cb: () => void) => {
-        handler = cb;
-      }),
-      removeEventListener: vi.fn(),
-    } as any;
-
+    const pc = mockPc();
     const promise = waitForIceGathering(pc, 10_000);
 
     pc.iceGatheringState = "complete";
-    handler!();
+    pc._handlers["icegatheringstatechange"]();
 
     await promise;
     expect(pc.removeEventListener).toHaveBeenCalledWith(
@@ -285,13 +284,43 @@ describe("waitForIceGathering()", () => {
     );
   });
 
-  it("resolves on timeout without error", async () => {
-    const pc = {
-      iceGatheringState: "gathering",
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    } as any;
+  it("resolves early when srflx candidate arrives", async () => {
+    const pc = mockPc();
+    const promise = waitForIceGathering(pc, 10_000);
 
+    pc._handlers["icecandidate"]({ candidate: { type: "srflx" } });
+
+    await promise;
+    expect(pc.removeEventListener).toHaveBeenCalledWith(
+      "icecandidate",
+      expect.any(Function)
+    );
+  });
+
+  it("resolves early when relay candidate arrives", async () => {
+    const pc = mockPc();
+    const promise = waitForIceGathering(pc, 10_000);
+
+    pc._handlers["icecandidate"]({ candidate: { type: "relay" } });
+
+    await promise;
+    expect(pc.removeEventListener).toHaveBeenCalledWith(
+      "icecandidate",
+      expect.any(Function)
+    );
+  });
+
+  it("does not resolve early for host candidates", async () => {
+    const pc = mockPc();
+    const promise = waitForIceGathering(pc, 100);
+
+    pc._handlers["icecandidate"]({ candidate: { type: "host" } });
+
+    await promise;
+  });
+
+  it("resolves on timeout without error", async () => {
+    const pc = mockPc();
     await waitForIceGathering(pc, 50);
     expect(pc.removeEventListener).toHaveBeenCalled();
   });
