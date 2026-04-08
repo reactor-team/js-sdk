@@ -42,6 +42,9 @@ importers:
       '@bufbuild/protobuf':
         specifier: ^2.0.0
         version: 2.11.0
+      '@opentelemetry/api':
+        specifier: ^1.4.0
+        version: 1.9.1
       chalk:
         specifier: ^5.3.0
         version: 5.6.2
@@ -284,6 +287,10 @@ packages:
 
   '@kwsites/promise-deferred@1.1.1':
     resolution: {integrity: sha512-GaHYm+c0O9MjZRu0ongGBRbinu8gVAMd2UZjji6jVmqKtZluZnptXGWhz1E8j8D2HJ3f/yMxKAUC0b+57wncIw==}
+
+  '@opentelemetry/api@1.9.1':
+    resolution: {integrity: sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q==}
+    engines: {node: '>=8.0.0'}
 
   '@reactor-team/js-sdk@2.7.0':
     resolution: {integrity: sha512-hDvWCef3PqHe9lQqBYar/1h4eqO3tqqkf8g3n74NQf8YMtuccwuUvjErJ2KdSfmAqLhW/fychg8atSe3MS1glA==}
@@ -1207,6 +1214,8 @@ snapshots:
       - supports-color
 
   '@kwsites/promise-deferred@1.1.1': {}
+
+  '@opentelemetry/api@1.9.1': {}
 
   '@reactor-team/js-sdk@2.7.0(@types/node@22.19.15)(react@19.2.4)(zustand@5.0.12(@types/react@18.3.28)(react@19.2.4))':
     dependencies:

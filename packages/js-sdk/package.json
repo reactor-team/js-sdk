@@ -62,7 +62,13 @@
     "zod": "^4.0.5"
   },
   "peerDependencies": {
+    "@opentelemetry/api": "^1.4.0",
     "react": "^17.0.0 || ^18.0.0 || ^19.0.0",
     "zustand": "^5.0.6"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/api": { "optional": true },
+    "react": { "optional": true },
+    "zustand": { "optional": true }
   }
 }

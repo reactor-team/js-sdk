@@ -26,6 +26,7 @@ import {
   VERSION_ERROR_CODES,
 } from "./types";
 import { AbortError } from "../types";
+import { tracedFetch, withSpan } from "./telemetry";
 
 const SESSION_POLL_INITIAL_BACKOFF_MS = 200;
 const SESSION_POLL_MAX_BACKOFF_MS = 10_000;
@@ -146,15 +147,19 @@ export class CoordinatorClient {
       ...(extraArgs ? { extra_args: extraArgs } : {}),
     };
 
-    const response = await fetch(`${this.baseUrl}/sessions`, {
-      method: "POST",
-      headers: {
-        ...this.getHeaders(),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-      signal: this.signal,
-    });
+    const response = await tracedFetch(
+      "reactor.session.create",
+      `${this.baseUrl}/sessions`,
+      {
+        method: "POST",
+        headers: {
+          ...this.getHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+        signal: this.signal,
+      }
+    );
 
     await this.checkVersionMismatch(response);
 
@@ -190,79 +195,88 @@ export class CoordinatorClient {
       throw new Error("No active session. Call createSession() first.");
     }
 
+    const sessionId = this.currentSessionId;
     const maxAttempts = opts?.maxAttempts ?? SESSION_POLL_DEFAULT_MAX_ATTEMPTS;
-    let backoffMs = SESSION_POLL_INITIAL_BACKOFF_MS;
-    let attempt = 0;
 
-    console.debug(
-      "[CoordinatorClient] Polling session until capabilities are available..."
-    );
+    return withSpan(
+      "reactor.session.poll",
+      { "session.id": sessionId },
+      async () => {
+        let backoffMs = SESSION_POLL_INITIAL_BACKOFF_MS;
+        let attempt = 0;
 
-    while (true) {
-      if (this.signal.aborted) {
-        throw new AbortError("Session polling aborted");
-      }
-
-      if (attempt >= maxAttempts) {
-        throw new Error(
-          `Session polling exceeded maximum attempts (${maxAttempts}). ` +
-            `The model may be unavailable or overloaded.`
-        );
-      }
-
-      attempt++;
-
-      const response = await fetch(
-        `${this.baseUrl}/sessions/${this.currentSessionId}`,
-        {
-          method: "GET",
-          headers: this.getHeaders(),
-          signal: this.signal,
-        }
-      );
-
-      await this.checkVersionMismatch(response);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `Failed to poll session: ${response.status} ${errorText}`
-        );
-      }
-
-      const data = await response.json();
-      const partial = SessionResponseSchema.parse(data);
-
-      const terminalStates: string[] = [
-        SessionState.CLOSED,
-        SessionState.INACTIVE,
-      ];
-      if (terminalStates.includes(partial.state)) {
-        throw new Error(
-          `Session entered terminal state "${partial.state}" while waiting for capabilities`
-        );
-      }
-
-      if (partial.capabilities && partial.selected_transport) {
         console.debug(
-          `[CoordinatorClient] Session ready after ${attempt} poll(s), ` +
-            `transport: ${partial.selected_transport.protocol}, ` +
-            `tracks: ${partial.capabilities.tracks.length}`
+          "[CoordinatorClient] Polling session until capabilities are available..."
         );
-        return partial;
+
+        while (true) {
+          if (this.signal.aborted) {
+            throw new AbortError("Session polling aborted");
+          }
+
+          if (attempt >= maxAttempts) {
+            throw new Error(
+              `Session polling exceeded maximum attempts (${maxAttempts}). ` +
+                `The model may be unavailable or overloaded.`
+            );
+          }
+
+          attempt++;
+
+          const response = await tracedFetch(
+            "reactor.session.poll.attempt",
+            `${this.baseUrl}/sessions/${sessionId}`,
+            {
+              method: "GET",
+              headers: this.getHeaders(),
+              signal: this.signal,
+            }
+          );
+
+          await this.checkVersionMismatch(response);
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(
+              `Failed to poll session: ${response.status} ${errorText}`
+            );
+          }
+
+          const data = await response.json();
+          const partial = SessionResponseSchema.parse(data);
+
+          const terminalStates: string[] = [
+            SessionState.CLOSED,
+            SessionState.INACTIVE,
+          ];
+          if (terminalStates.includes(partial.state)) {
+            throw new Error(
+              `Session entered terminal state "${partial.state}" while waiting for capabilities`
+            );
+          }
+
+          if (partial.capabilities && partial.selected_transport) {
+            console.debug(
+              `[CoordinatorClient] Session ready after ${attempt} poll(s), ` +
+                `transport: ${partial.selected_transport.protocol}, ` +
+                `tracks: ${partial.capabilities.tracks.length}`
+            );
+            return partial;
+          }
+
+          console.debug(
+            `[CoordinatorClient] Session poll ${attempt}/${maxAttempts} — ` +
+              `state: ${partial.state}, waiting ${backoffMs}ms...`
+          );
+
+          await this.sleep(backoffMs);
+          backoffMs = Math.min(
+            backoffMs * SESSION_POLL_BACKOFF_MULTIPLIER,
+            SESSION_POLL_MAX_BACKOFF_MS
+          );
+        }
       }
-
-      console.debug(
-        `[CoordinatorClient] Session poll ${attempt}/${maxAttempts} — ` +
-          `state: ${partial.state}, waiting ${backoffMs}ms...`
-      );
-
-      await this.sleep(backoffMs);
-      backoffMs = Math.min(
-        backoffMs * SESSION_POLL_BACKOFF_MULTIPLIER,
-        SESSION_POLL_MAX_BACKOFF_MS
-      );
-    }
+    );
   }
 
   /**
@@ -275,7 +289,8 @@ export class CoordinatorClient {
       throw new Error("No active session. Call createSession() first.");
     }
 
-    const response = await fetch(
+    const response = await tracedFetch(
+      "reactor.session.get",
       `${this.baseUrl}/sessions/${this.currentSessionId}`,
       {
         method: "GET",
@@ -339,7 +354,8 @@ export class CoordinatorClient {
       this.currentSessionId
     );
 
-    const response = await fetch(
+    const response = await tracedFetch(
+      "reactor.session.restart",
       `${this.baseUrl}/sessions/${this.currentSessionId}`,
       {
         method: "PUT",
@@ -377,7 +393,8 @@ export class CoordinatorClient {
       ? { reason }
       : undefined;
 
-    const response = await fetch(
+    const response = await tracedFetch(
+      "reactor.session.terminate",
       `${this.baseUrl}/sessions/${this.currentSessionId}`,
       {
         method: "DELETE",

@@ -7,6 +7,7 @@ export default defineConfig({
     entry: ["src/index.ts"],
     resolve: true,
   },
+  external: ["@opentelemetry/api", "react", "zustand"],
   splitting: false,
   sourcemap: true,
   clean: true,

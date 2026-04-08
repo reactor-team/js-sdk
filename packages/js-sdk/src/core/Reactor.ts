@@ -22,6 +22,7 @@ import {
   REACTOR_WEBRTC_VERSION,
 } from "./types";
 import { z } from "zod";
+import { setEnabled as setTelemetryEnabled, withSpan } from "./telemetry";
 
 const LOCAL_COORDINATOR_URL = "http://localhost:8080";
 export const DEFAULT_BASE_URL = "https://api.reactor.inc";
@@ -60,6 +61,7 @@ export class Reactor {
     if (this.local && options.apiUrl === undefined) {
       this.coordinatorUrl = LOCAL_COORDINATOR_URL;
     }
+    setTelemetryEnabled(!this.local);
   }
 
   private eventListeners: Map<ReactorEvent, Set<EventHandler>> = new Map();
@@ -167,30 +169,36 @@ export class Reactor {
 
     this.setStatus("connecting");
 
-    try {
-      if (!this.transportClient) {
-        this.transportClient = new WebRTCTransportClient({
-          baseUrl: this.coordinatorUrl,
-          sessionId: this.sessionId,
-          jwtToken: this.local ? "local" : "",
-          maxPollAttempts: options?.maxAttempts,
-        });
-        this.setupTransportHandlers();
+    return withSpan(
+      "reactor.reconnect",
+      { "session.id": this.sessionId, "session.model": this.model },
+      async () => {
+        try {
+          if (!this.transportClient) {
+            this.transportClient = new WebRTCTransportClient({
+              baseUrl: this.coordinatorUrl,
+              sessionId: this.sessionId!,
+              jwtToken: this.local ? "local" : "",
+              maxPollAttempts: options?.maxAttempts,
+            });
+            this.setupTransportHandlers();
+          }
+
+          await this.transportClient.reconnect(this.tracks);
+        } catch (error) {
+          if (isAbortError(error)) return;
+
+          console.error("[Reactor] Failed to reconnect:", error);
+          this.disconnect(true);
+          this.createError(
+            "RECONNECTION_FAILED",
+            `Failed to reconnect: ${error}`,
+            "api",
+            true
+          );
+        }
       }
-
-      await this.transportClient.reconnect(this.tracks);
-    } catch (error) {
-      if (isAbortError(error)) return;
-
-      console.error("[Reactor] Failed to reconnect:", error);
-      this.disconnect(true);
-      this.createError(
-        "RECONNECTION_FAILED",
-        `Failed to reconnect: ${error}`,
-        "api",
-        true
-      );
-    }
+    );
   }
 
   /**
@@ -211,96 +219,105 @@ export class Reactor {
 
     this.connectStartTime = performance.now();
 
-    try {
-      this.coordinatorClient = this.local
-        ? new LocalCoordinatorClient(this.coordinatorUrl, this.model)
-        : new CoordinatorClient({
+    return withSpan(
+      "reactor.connect",
+      { "session.model": this.model },
+      async () => {
+        try {
+          this.coordinatorClient = this.local
+            ? new LocalCoordinatorClient(this.coordinatorUrl, this.model)
+            : new CoordinatorClient({
+                baseUrl: this.coordinatorUrl,
+                jwtToken: jwtToken!,
+                model: this.model,
+              });
+
+          // 1. Create session — slim response with session_id and status
+          const tSession = performance.now();
+          const initialResponse =
+            await this.coordinatorClient.createSession();
+          const sessionCreationMs = performance.now() - tSession;
+
+          this.setSessionId(initialResponse.session_id);
+
+          console.debug(
+            "[Reactor] Session created:",
+            initialResponse.session_id,
+            "state:",
+            initialResponse.state
+          );
+
+          // 2. Poll until the Runtime accepts and capabilities are available
+          this.setStatus("waiting");
+
+          const tPoll = performance.now();
+          const sessionResponse =
+            await this.coordinatorClient.pollSessionReady();
+          const sessionPollingMs = performance.now() - tPoll;
+
+          this.sessionResponse = sessionResponse;
+
+          // 3. Store capabilities and tracks
+          this.capabilities = sessionResponse.capabilities!;
+          this.tracks = sessionResponse.capabilities!.tracks;
+          this.emit("capabilitiesReceived", this.capabilities);
+
+          console.debug(
+            "[Reactor] Session ready, transport:",
+            sessionResponse.selected_transport!.protocol,
+            "tracks:",
+            this.tracks.length
+          );
+
+          // 4. Instantiate transport based on selected_transport
+          const protocol = sessionResponse.selected_transport!.protocol;
+          if (protocol !== "webrtc") {
+            throw new Error(`Unsupported transport protocol: ${protocol}`);
+          }
+
+          this.transportClient = new WebRTCTransportClient({
             baseUrl: this.coordinatorUrl,
-            jwtToken: jwtToken!,
-            model: this.model,
+            sessionId: sessionResponse.session_id,
+            jwtToken: this.local ? "local" : jwtToken!,
+            webrtcVersion:
+              sessionResponse.selected_transport?.version ??
+              REACTOR_WEBRTC_VERSION,
+            maxPollAttempts: options?.maxAttempts,
           });
+          this.setupTransportHandlers();
 
-      // 1. Create session — slim response with session_id and status
-      const tSession = performance.now();
-      const initialResponse = await this.coordinatorClient.createSession();
-      const sessionCreationMs = performance.now() - tSession;
+          // 5. Connect transport using capabilities tracks
+          const tTransport = performance.now();
+          await this.transportClient.connect(this.tracks);
+          const transportConnectingMs = performance.now() - tTransport;
 
-      this.setSessionId(initialResponse.session_id);
+          this.connectionTimings = {
+            sessionCreationMs: sessionCreationMs + sessionPollingMs,
+            transportConnectingMs,
+            totalMs: 0,
+          };
+        } catch (error) {
+          if (isAbortError(error)) return;
 
-      console.debug(
-        "[Reactor] Session created:",
-        initialResponse.session_id,
-        "state:",
-        initialResponse.state
-      );
-
-      // 2. Poll until the Runtime accepts and capabilities are available
-      this.setStatus("waiting");
-
-      const tPoll = performance.now();
-      const sessionResponse = await this.coordinatorClient.pollSessionReady();
-      const sessionPollingMs = performance.now() - tPoll;
-
-      this.sessionResponse = sessionResponse;
-
-      // 3. Store capabilities and tracks
-      this.capabilities = sessionResponse.capabilities!;
-      this.tracks = sessionResponse.capabilities!.tracks;
-      this.emit("capabilitiesReceived", this.capabilities);
-
-      console.debug(
-        "[Reactor] Session ready, transport:",
-        sessionResponse.selected_transport!.protocol,
-        "tracks:",
-        this.tracks.length
-      );
-
-      // 4. Instantiate transport based on selected_transport
-      const protocol = sessionResponse.selected_transport!.protocol;
-      if (protocol !== "webrtc") {
-        throw new Error(`Unsupported transport protocol: ${protocol}`);
+          console.error("[Reactor] Connection failed:", error);
+          this.createError(
+            "CONNECTION_FAILED",
+            `Connection failed: ${error}`,
+            "api",
+            true
+          );
+          try {
+            await this.disconnect(false);
+          } catch (disconnectError) {
+            console.error(
+              "[Reactor] Failed to clean up after connection failure:",
+              disconnectError
+            );
+          }
+          throw error;
+        }
       }
-
-      this.transportClient = new WebRTCTransportClient({
-        baseUrl: this.coordinatorUrl,
-        sessionId: sessionResponse.session_id,
-        jwtToken: this.local ? "local" : jwtToken!,
-        webrtcVersion:
-          sessionResponse.selected_transport?.version ?? REACTOR_WEBRTC_VERSION,
-        maxPollAttempts: options?.maxAttempts,
-      });
-      this.setupTransportHandlers();
-
-      // 5. Connect transport using capabilities tracks
-      const tTransport = performance.now();
-      await this.transportClient.connect(this.tracks);
-      const transportConnectingMs = performance.now() - tTransport;
-
-      this.connectionTimings = {
-        sessionCreationMs: sessionCreationMs + sessionPollingMs,
-        transportConnectingMs,
-        totalMs: 0,
-      };
-    } catch (error) {
-      if (isAbortError(error)) return;
-
-      console.error("[Reactor] Connection failed:", error);
-      this.createError(
-        "CONNECTION_FAILED",
-        `Connection failed: ${error}`,
-        "api",
-        true
-      );
-      try {
-        await this.disconnect(false);
-      } catch (disconnectError) {
-        console.error(
-          "[Reactor] Failed to clean up after connection failure:",
-          disconnectError
-        );
-      }
-      throw error;
-    }
+    );
   }
 
   /**
@@ -368,38 +385,48 @@ export class Reactor {
       return;
     }
 
-    this.coordinatorClient?.abort();
-    this.transportClient?.abort();
+    return withSpan(
+      "reactor.disconnect",
+      {
+        ...(this.sessionId ? { "session.id": this.sessionId } : {}),
+        "session.model": this.model,
+        recoverable,
+      },
+      async () => {
+        this.coordinatorClient?.abort();
+        this.transportClient?.abort();
 
-    if (this.coordinatorClient && !recoverable) {
-      try {
-        await this.coordinatorClient.terminateSession();
-      } catch (error) {
-        console.error("[Reactor] Error terminating session:", error);
-      }
-      this.coordinatorClient = undefined;
-    }
+        if (this.coordinatorClient && !recoverable) {
+          try {
+            await this.coordinatorClient.terminateSession();
+          } catch (error) {
+            console.error("[Reactor] Error terminating session:", error);
+          }
+          this.coordinatorClient = undefined;
+        }
 
-    if (this.transportClient) {
-      try {
-        await this.transportClient.disconnect();
-      } catch (error) {
-        console.error("[Reactor] Error disconnecting transport:", error);
-      }
-      if (!recoverable) {
-        this.transportClient = undefined;
-      }
-    }
+        if (this.transportClient) {
+          try {
+            await this.transportClient.disconnect();
+          } catch (error) {
+            console.error("[Reactor] Error disconnecting transport:", error);
+          }
+          if (!recoverable) {
+            this.transportClient = undefined;
+          }
+        }
 
-    this.setStatus("disconnected");
-    this.resetConnectionTimings();
-    if (!recoverable) {
-      this.setSessionExpiration(undefined);
-      this.setSessionId(undefined);
-      this.capabilities = undefined;
-      this.tracks = [];
-      this.sessionResponse = undefined;
-    }
+        this.setStatus("disconnected");
+        this.resetConnectionTimings();
+        if (!recoverable) {
+          this.setSessionExpiration(undefined);
+          this.setSessionId(undefined);
+          this.capabilities = undefined;
+          this.tracks = [];
+          this.sessionResponse = undefined;
+        }
+      }
+    );
   }
 
   // ─────────────────────────────────────────────────────────────────────────

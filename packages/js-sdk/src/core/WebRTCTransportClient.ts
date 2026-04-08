@@ -17,6 +17,7 @@ import type {
 } from "./TransportClient";
 import type { MessageScope, ConnectionStats } from "../types";
 import { AbortError } from "../types";
+import { tracedFetch, withSpan } from "./telemetry";
 import {
   type TrackCapability,
   type TrackMappingEntry,
@@ -199,11 +200,15 @@ export class WebRTCTransportClient implements TransportClient {
   private async fetchIceServers(): Promise<RTCIceServer[]> {
     console.debug("[WebRTCTransport] Fetching ICE servers...");
 
-    const response = await fetch(`${this.transportBaseUrl}/ice_servers`, {
-      method: "GET",
-      headers: this.getHeaders(),
-      signal: this.signal,
-    });
+    const response = await tracedFetch(
+      "reactor.transport.ice_servers",
+      `${this.transportBaseUrl}/ice_servers`,
+      {
+        method: "GET",
+        headers: this.getHeaders(),
+        signal: this.signal,
+      }
+    );
 
     await this.checkVersionMismatch(response);
 
@@ -238,15 +243,19 @@ export class WebRTCTransportClient implements TransportClient {
       track_mapping: trackMapping,
     };
 
-    const response = await fetch(`${this.transportBaseUrl}/sdp_params`, {
-      method,
-      headers: {
-        ...this.getHeaders(),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-      signal: this.signal,
-    });
+    const response = await tracedFetch(
+      "reactor.transport.sdp_offer",
+      `${this.transportBaseUrl}/sdp_params`,
+      {
+        method,
+        headers: {
+          ...this.getHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+        signal: this.signal,
+      }
+    );
 
     await this.checkVersionMismatch(response);
 
@@ -261,61 +270,74 @@ export class WebRTCTransportClient implements TransportClient {
   }
 
   private async pollSdpAnswer(): Promise<WebRTCSdpAnswerResponse> {
-    console.debug("[WebRTCTransport] Polling for SDP answer...");
+    return withSpan(
+      "reactor.transport.sdp_poll",
+      { "session.id": this.sessionId },
+      async () => {
+        console.debug("[WebRTCTransport] Polling for SDP answer...");
 
-    const pollStart = performance.now();
-    let backoffMs = INITIAL_BACKOFF_MS;
-    let attempt = 0;
+        const pollStart = performance.now();
+        let backoffMs = INITIAL_BACKOFF_MS;
+        let attempt = 0;
 
-    while (true) {
-      if (this.signal.aborted) {
-        throw new AbortError("SDP polling aborted");
+        while (true) {
+          if (this.signal.aborted) {
+            throw new AbortError("SDP polling aborted");
+          }
+
+          if (attempt >= this.maxPollAttempts) {
+            throw new Error(
+              `SDP polling exceeded maximum attempts (${this.maxPollAttempts})`
+            );
+          }
+
+          attempt++;
+          console.debug(
+            `[WebRTCTransport] SDP poll attempt ${attempt}/${this.maxPollAttempts}`
+          );
+
+          const response = await tracedFetch(
+            "reactor.transport.sdp_poll.attempt",
+            `${this.transportBaseUrl}/sdp_params`,
+            {
+              method: "GET",
+              headers: this.getHeaders(),
+              signal: this.signal,
+            }
+          );
+
+          await this.checkVersionMismatch(response);
+
+          if (response.status === 200) {
+            const data = await response.json();
+            const parsed = WebRTCSdpAnswerResponseSchema.parse(data);
+            this.sdpPollingMs = performance.now() - pollStart;
+            this.sdpPollingAttempts = attempt;
+            console.debug(
+              `[WebRTCTransport] Received SDP answer via polling (${attempt} attempt(s), ${this.sdpPollingMs.toFixed(0)}ms)`
+            );
+            return parsed;
+          }
+
+          if (response.status === 202) {
+            console.debug(
+              `[WebRTCTransport] SDP answer pending, retrying in ${backoffMs}ms...`
+            );
+            await this.sleep(backoffMs);
+            backoffMs = Math.min(
+              backoffMs * BACKOFF_MULTIPLIER,
+              MAX_BACKOFF_MS
+            );
+            continue;
+          }
+
+          const errorText = await response.text();
+          throw new Error(
+            `Failed to poll SDP answer: ${response.status} ${errorText}`
+          );
+        }
       }
-
-      if (attempt >= this.maxPollAttempts) {
-        throw new Error(
-          `SDP polling exceeded maximum attempts (${this.maxPollAttempts})`
-        );
-      }
-
-      attempt++;
-      console.debug(
-        `[WebRTCTransport] SDP poll attempt ${attempt}/${this.maxPollAttempts}`
-      );
-
-      const response = await fetch(`${this.transportBaseUrl}/sdp_params`, {
-        method: "GET",
-        headers: this.getHeaders(),
-        signal: this.signal,
-      });
-
-      await this.checkVersionMismatch(response);
-
-      if (response.status === 200) {
-        const data = await response.json();
-        const parsed = WebRTCSdpAnswerResponseSchema.parse(data);
-        this.sdpPollingMs = performance.now() - pollStart;
-        this.sdpPollingAttempts = attempt;
-        console.debug(
-          `[WebRTCTransport] Received SDP answer via polling (${attempt} attempt(s), ${this.sdpPollingMs.toFixed(0)}ms)`
-        );
-        return parsed;
-      }
-
-      if (response.status === 202) {
-        console.debug(
-          `[WebRTCTransport] SDP answer pending, retrying in ${backoffMs}ms...`
-        );
-        await this.sleep(backoffMs);
-        backoffMs = Math.min(backoffMs * BACKOFF_MULTIPLIER, MAX_BACKOFF_MS);
-        continue;
-      }
-
-      const errorText = await response.text();
-      throw new Error(
-        `Failed to poll SDP answer: ${response.status} ${errorText}`
-      );
-    }
+    );
   }
 
   // ─────────────────────────────────────────────────────────────────────────
