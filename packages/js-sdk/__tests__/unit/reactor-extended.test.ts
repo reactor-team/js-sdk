@@ -116,7 +116,8 @@ describe("Reactor (extended)", () => {
       expect(mockTransportClient.sendCommand).toHaveBeenCalledWith(
         "set_effect",
         { effect: "blur" },
-        "application"
+        "application",
+        undefined
       );
       await r.disconnect();
     });

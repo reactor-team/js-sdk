@@ -10,10 +10,13 @@
 import {
   type CreateSessionRequest,
   type CreateSessionResponse,
+  type CreateUploadRequest,
+  type CreateUploadResponse,
   type SessionResponse,
   type SessionInfoResponse,
   type TerminateSessionRequest,
   CreateSessionResponseSchema,
+  CreateUploadResponseSchema,
   SessionResponseSchema,
   SessionInfoResponseSchema,
   SessionState,
@@ -408,6 +411,47 @@ export class CoordinatorClient {
     throw new Error(
       `Failed to terminate session: ${response.status} ${errorText}`
     );
+  }
+
+  /**
+   * Allocates an upload slot for a file.
+   * Returns a presigned PUT URL the caller can use to upload the file
+   * directly to the object store (production) or local runtime (local dev).
+   */
+  async createUpload(
+    sessionId: string,
+    request: CreateUploadRequest
+  ): Promise<CreateUploadResponse> {
+    console.debug("[CoordinatorClient] Creating upload slot...", {
+      sessionId,
+      name: request.name,
+      size: request.size,
+    });
+
+    const response = await fetch(
+      `${this.baseUrl}/sessions/${sessionId}/uploads`,
+      {
+        method: "POST",
+        headers: {
+          ...this.getHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request),
+        signal: this.signal,
+      }
+    );
+
+    await this.checkVersionMismatch(response);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to create upload slot: ${response.status} ${errorText}`
+      );
+    }
+
+    const data = await response.json();
+    return CreateUploadResponseSchema.parse(data);
   }
 
   getSessionId(): string | undefined {

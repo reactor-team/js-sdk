@@ -33,6 +33,12 @@ const OptionsSchema = z.object({
 });
 export type Options = z.input<typeof OptionsSchema>;
 
+export { FileRef } from "./FileRef";
+import { FileRef } from "./FileRef";
+
+/** @deprecated Use {@link FileRef} instead. */
+export type UploadResult = FileRef;
+
 type EventHandler = (...args: any[]) => void;
 
 export class Reactor {
@@ -81,6 +87,10 @@ export class Reactor {
 
   /**
    * Sends a command to the model via the data channel.
+   *
+   * When any value in `data` is a {@link FileRef}, it is automatically
+   * extracted and serialized into a separate `uploads` section on the
+   * wire, keyed by the parameter name.  Scalar values remain in `data`.
    */
   async sendCommand(
     command: string,
@@ -94,7 +104,32 @@ export class Reactor {
     }
 
     try {
-      this.transportClient?.sendCommand(command, data, scope);
+      let uploads: Record<string, object> | undefined;
+
+      if (data && typeof data === "object" && !Array.isArray(data)) {
+        const scalarData: Record<string, unknown> = {};
+        const extractedUploads: Record<string, object> = {};
+
+        for (const [key, value] of Object.entries(data)) {
+          if (value instanceof FileRef) {
+            extractedUploads[key] = {
+              upload_id: value.uploadId,
+              name: value.name,
+              mime_type: value.mimeType,
+              size: value.size,
+            };
+          } else {
+            scalarData[key] = value;
+          }
+        }
+
+        if (Object.keys(extractedUploads).length > 0) {
+          uploads = extractedUploads;
+          data = scalarData;
+        }
+      }
+
+      this.transportClient?.sendCommand(command, data, scope, uploads);
     } catch (error) {
       console.error("[Reactor] Failed to send message:", error);
       this.createError(
@@ -104,6 +139,79 @@ export class Reactor {
         true
       );
     }
+  }
+
+  /**
+   * Uploads a file to the session's object store and returns a {@link FileRef}.
+   *
+   * Flow:
+   *  1. POST /sessions/{id}/uploads → allocate presigned PUT URL
+   *  2. PUT file bytes to the presigned URL
+   *  3. Send `fileUploaded` notification on the runtime data channel
+   *     (fires `@file_uploaded` on the model if registered)
+   *  4. Return a `FileRef` to pass into {@link sendCommand}
+   *
+   * Works identically in local and production modes.
+   */
+  async uploadFile(
+    file: File | Blob,
+    options?: { name?: string }
+  ): Promise<FileRef> {
+    if (this.status !== "ready") {
+      throw new Error(
+        `Cannot upload file, status is "${this.status}". Must be "ready".`
+      );
+    }
+    if (!this.coordinatorClient || !this.sessionId) {
+      throw new Error("No active session. Call connect() first.");
+    }
+
+    const name = options?.name ?? (file instanceof File ? file.name : "upload");
+    const mimeType = file.type || "application/octet-stream";
+    const size = file.size;
+
+    if (size <= 0) {
+      throw new Error("File is empty");
+    }
+
+    const slot = await this.coordinatorClient.createUpload(this.sessionId, {
+      name,
+      size,
+      mime_type: mimeType,
+    });
+
+    const putResponse = await fetch(slot.presigned_url, {
+      method: "PUT",
+      body: file,
+      headers: {
+        "Content-Length": String(size),
+      },
+    });
+    if (!putResponse.ok) {
+      throw new Error(
+        `File upload failed: ${putResponse.status} ${putResponse.statusText}`
+      );
+    }
+
+    await this.sendCommand(
+      "fileUploaded",
+      {
+        upload_id: slot.presigned_id,
+        name,
+        mime_type: mimeType,
+        size,
+      },
+      "runtime"
+    );
+
+    console.debug("[Reactor] File uploaded:", {
+      uploadId: slot.presigned_id,
+      name,
+      mimeType,
+      size,
+    });
+
+    return new FileRef(slot.presigned_id, name, mimeType, size);
   }
 
   /**

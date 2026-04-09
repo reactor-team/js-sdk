@@ -124,6 +124,24 @@ export const TerminateSessionRequestSchema = z.object({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Upload API Schemas
+// ─────────────────────────────────────────────────────────────────────────────
+
+// POST /sessions/{id}/uploads — Request
+export const CreateUploadRequestSchema = z.object({
+  name: z.string(),
+  size: z.number().int().positive(),
+  mime_type: z.string(),
+});
+
+// POST /sessions/{id}/uploads — Response (201)
+export const CreateUploadResponseSchema = z.object({
+  presigned_id: z.string(),
+  presigned_url: z.string(),
+  path: z.string(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // WebRTC Transport Schemas
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -173,6 +191,9 @@ export type SessionInfoResponse = z.infer<typeof SessionInfoResponseSchema>;
 export type TerminateSessionRequest = z.infer<
   typeof TerminateSessionRequestSchema
 >;
+
+export type CreateUploadRequest = z.infer<typeof CreateUploadRequestSchema>;
+export type CreateUploadResponse = z.infer<typeof CreateUploadResponseSchema>;
 
 export type IceServer = z.infer<typeof IceServerSchema>;
 export type IceServersResponse = z.infer<typeof IceServersResponseSchema>;

@@ -251,13 +251,17 @@ export function sendMessage(
   command: string,
   data: any,
   scope: MessageScope = "application",
-  maxBytes: number = DEFAULT_MAX_MESSAGE_BYTES
+  maxBytes: number = DEFAULT_MAX_MESSAGE_BYTES,
+  uploads?: Record<string, object>
 ): void {
   if (channel.readyState !== "open") {
     throw new Error(`Data channel not open: ${channel.readyState}`);
   }
   const jsonData = typeof data === "string" ? JSON.parse(data) : data;
-  const inner = { type: command, data: jsonData };
+  const inner: Record<string, any> = { type: command, data: jsonData };
+  if (uploads && Object.keys(uploads).length > 0) {
+    inner.uploads = uploads;
+  }
   const payload = { scope, data: inner };
   const serialized = JSON.stringify(payload);
 

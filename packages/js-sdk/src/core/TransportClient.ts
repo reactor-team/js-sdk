@@ -81,7 +81,12 @@ export interface TransportClient {
    * @param data The command payload.
    * @param scope "application" for model commands, "runtime" for platform messages.
    */
-  sendCommand(command: string, data: any, scope: MessageScope): void;
+  sendCommand(
+    command: string,
+    data: any,
+    scope: MessageScope,
+    uploads?: Record<string, object>
+  ): void;
 
   /**
    * Publishes a MediaStreamTrack to a named sendonly track.
