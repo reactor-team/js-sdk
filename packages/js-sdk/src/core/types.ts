@@ -99,35 +99,11 @@ export const CapabilitiesSchema = z.object({
   emission_fps: z.number().nullable().optional(),
 });
 
-// GET /sessions/{id}/info — Response (200)
-export const SessionInfoResponseSchema = z.object({
-  session_id: z.string(),
-  state: z.string(),
-  cluster: z.string(),
-});
-
-// POST /sessions — Response (201)
-export const CreateSessionResponseSchema = SessionInfoResponseSchema.extend({
-  model: z.object({ name: z.string(), version: z.string().optional() }),
-  server_info: z.object({ server_version: z.string() }),
-});
-
-// GET /sessions/{id} — Response (200)
-export const SessionResponseSchema = CreateSessionResponseSchema.extend({
-  selected_transport: TransportDeclarationSchema.optional(),
-  capabilities: CapabilitiesSchema.optional(),
-});
-
-// DELETE /sessions/{id} — Request
-export const TerminateSessionRequestSchema = z.object({
-  reason: z.string().optional(),
-});
-
 // ─────────────────────────────────────────────────────────────────────────────
-// WebRTC Transport Schemas
+// ICE Server Schemas (defined before session schemas because
+// CreateSessionResponseSchema references IceServersResponseSchema)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// GET /sessions/{id}/transport/webrtc/ice_servers — Response (200)
 export const IceServerCredentialsSchema = z.object({
   username: z.string(),
   password: z.string(),
@@ -140,6 +116,35 @@ export const IceServerSchema = z.object({
 
 export const IceServersResponseSchema = z.object({
   ice_servers: z.array(IceServerSchema),
+});
+
+// GET /sessions/{id}/info — Response (200)
+export const SessionInfoResponseSchema = z.object({
+  session_id: z.string(),
+  state: z.string(),
+  cluster: z.string(),
+});
+
+// POST /sessions — Response (201)
+// The coordinator may enrich this response with capabilities, selected_transport,
+// and ice_servers when the runtime reports them within a bounded wait window.
+export const CreateSessionResponseSchema = SessionInfoResponseSchema.extend({
+  model: z.object({ name: z.string(), version: z.string().optional() }),
+  server_info: z.object({ server_version: z.string() }),
+  selected_transport: TransportDeclarationSchema.optional(),
+  capabilities: CapabilitiesSchema.optional(),
+  ice_servers: IceServersResponseSchema.optional(),
+});
+
+// GET /sessions/{id} — Response (200)
+export const SessionResponseSchema = CreateSessionResponseSchema.extend({
+  selected_transport: TransportDeclarationSchema.optional(),
+  capabilities: CapabilitiesSchema.optional(),
+});
+
+// DELETE /sessions/{id} — Request
+export const TerminateSessionRequestSchema = z.object({
+  reason: z.string().optional(),
 });
 
 // POST/PUT /sessions/{id}/transport/webrtc/sdp_params — Request

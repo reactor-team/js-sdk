@@ -322,11 +322,20 @@ export class WebRTCTransportClient implements TransportClient {
   // Connection Lifecycle
   // ─────────────────────────────────────────────────────────────────────────
 
-  async connect(tracks: TrackCapability[]): Promise<void> {
+  async connect(
+    tracks: TrackCapability[],
+    prefetchedIceServers?: RTCIceServer[]
+  ): Promise<void> {
     this.setStatus("connecting");
     this.resetTransportTimings();
 
-    const iceServers = await this.fetchIceServers();
+    const iceServers = prefetchedIceServers ?? (await this.fetchIceServers());
+    if (prefetchedIceServers) {
+      console.debug(
+        "[WebRTCTransport] Using pre-fetched ICE servers:",
+        prefetchedIceServers.length
+      );
+    }
 
     this.peerConnection = webrtc.createPeerConnection({ iceServers });
     this.setupPeerConnectionHandlers();

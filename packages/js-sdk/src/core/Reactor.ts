@@ -220,7 +220,7 @@ export class Reactor {
             model: this.model,
           });
 
-      // 1. Create session — slim response with session_id and status
+      // 1. Create session — may return enriched response with capabilities + ICE servers
       const tSession = performance.now();
       const initialResponse = await this.coordinatorClient.createSession();
       const sessionCreationMs = performance.now() - tSession;
@@ -234,46 +234,82 @@ export class Reactor {
         initialResponse.state
       );
 
-      // 2. Poll until the Runtime accepts and capabilities are available
-      this.setStatus("waiting");
+      // 2. Check if the POST response already contains capabilities (enriched response).
+      //    If so, skip the polling loop entirely.
+      let sessionPollingMs = 0;
+      let prefetchedIceServers: RTCIceServer[] | undefined;
 
-      const tPoll = performance.now();
-      const sessionResponse = await this.coordinatorClient.pollSessionReady();
-      const sessionPollingMs = performance.now() - tPoll;
+      if (
+        initialResponse.capabilities &&
+        initialResponse.selected_transport &&
+        initialResponse.ice_servers
+      ) {
+        console.debug(
+          "[Reactor] Enriched POST response — skipping capability polling",
+          "tracks:",
+          initialResponse.capabilities.tracks.length
+        );
 
-      this.sessionResponse = sessionResponse;
+        this.capabilities = initialResponse.capabilities;
+        this.tracks = initialResponse.capabilities.tracks;
 
-      // 3. Store capabilities and tracks
-      this.capabilities = sessionResponse.capabilities!;
-      this.tracks = sessionResponse.capabilities!.tracks;
+        prefetchedIceServers = initialResponse.ice_servers.ice_servers.map(
+          (server) => {
+            const rtcServer: RTCIceServer = { urls: server.uris };
+            if (server.credentials) {
+              rtcServer.username = server.credentials.username;
+              rtcServer.credential = server.credentials.password;
+            }
+            return rtcServer;
+          }
+        );
+      } else {
+        this.setStatus("waiting");
+
+        const tPoll = performance.now();
+        const sessionResponse =
+          await this.coordinatorClient.pollSessionReady();
+        sessionPollingMs = performance.now() - tPoll;
+
+        this.sessionResponse = sessionResponse;
+        this.capabilities = sessionResponse.capabilities!;
+        this.tracks = sessionResponse.capabilities!.tracks;
+      }
+
       this.emit("capabilitiesReceived", this.capabilities);
+
+      const selectedProtocol =
+        initialResponse.selected_transport?.protocol ??
+        this.sessionResponse?.selected_transport?.protocol;
+      const selectedVersion =
+        initialResponse.selected_transport?.version ??
+        this.sessionResponse?.selected_transport?.version ??
+        REACTOR_WEBRTC_VERSION;
 
       console.debug(
         "[Reactor] Session ready, transport:",
-        sessionResponse.selected_transport!.protocol,
+        selectedProtocol,
         "tracks:",
         this.tracks.length
       );
 
-      // 4. Instantiate transport based on selected_transport
-      const protocol = sessionResponse.selected_transport!.protocol;
-      if (protocol !== "webrtc") {
-        throw new Error(`Unsupported transport protocol: ${protocol}`);
+      // 3. Instantiate transport based on selected_transport
+      if (selectedProtocol !== "webrtc") {
+        throw new Error(`Unsupported transport protocol: ${selectedProtocol}`);
       }
 
       this.transportClient = new WebRTCTransportClient({
         baseUrl: this.coordinatorUrl,
-        sessionId: sessionResponse.session_id,
+        sessionId: initialResponse.session_id,
         jwtToken: this.local ? "local" : jwtToken!,
-        webrtcVersion:
-          sessionResponse.selected_transport?.version ?? REACTOR_WEBRTC_VERSION,
+        webrtcVersion: selectedVersion,
         maxPollAttempts: options?.maxAttempts,
       });
       this.setupTransportHandlers();
 
-      // 5. Connect transport using capabilities tracks
+      // 4. Connect transport using capabilities tracks (pass pre-fetched ICE servers if available)
       const tTransport = performance.now();
-      await this.transportClient.connect(this.tracks);
+      await this.transportClient.connect(this.tracks, prefetchedIceServers);
       const transportConnectingMs = performance.now() - tTransport;
 
       this.connectionTimings = {

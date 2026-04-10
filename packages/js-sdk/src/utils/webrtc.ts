@@ -21,6 +21,17 @@ const DEFAULT_DATA_CHANNEL_LABEL = "data";
 const FORCE_RELAY_MODE = false;
 
 /**
+ * When true, ICE gathering resolves early on the first srflx or relay
+ * candidate instead of waiting for the full "complete" state. This
+ * reduces connection time by 0.5–1.5s but may omit slower relay
+ * candidates from the initial offer, potentially affecting connectivity
+ * on restrictive networks.
+ *
+ * Set to false to wait for full ICE gathering (safer, slower).
+ */
+const EARLY_ICE_GATHERING = false;
+
+/**
  * Safe cross-browser default for the maximum data channel message size (bytes).
  * Most browsers negotiate 256 KiB via SCTP; we use a slightly lower value to
  * leave room for framing overhead.
@@ -157,19 +168,17 @@ export async function addIceCandidate(
 /**
  * Waits for ICE gathering to produce usable candidates, then resolves.
  *
- * Strategy: resolve as soon as we have at least one server-reflexive (srflx)
- * or relay candidate, which means STUN/TURN succeeded and we have a
- * routable candidate. Falls back to a hard timeout if no such candidate
- * arrives (e.g. host-only networks).
+ * When {@link EARLY_ICE_GATHERING} is enabled, resolves as soon as the first
+ * server-reflexive (srflx) or relay candidate arrives, which typically takes
+ * 50–200ms. This avoids waiting for the full "complete" state (2–5s) when
+ * TURN-TCP or TURN-TLS candidates are still being gathered.
  *
- * This avoids waiting for the full "complete" state which can take 2-5s
- * when TURN-TCP or TURN-TLS candidates are still being gathered.
- * Any remaining candidates (relay, etc.) trickle in after the offer is
- * sent and are usable once setRemoteDescription is called on both sides.
+ * When disabled, waits for the full "complete" state or the hard timeout,
+ * ensuring all candidate types (including relay) are in the offer.
  */
 export function waitForIceGathering(
   pc: RTCPeerConnection,
-  timeoutMs: number = 500
+  timeoutMs: number = EARLY_ICE_GATHERING ? 500 : 5000
 ): Promise<void> {
   return new Promise((resolve) => {
     if (pc.iceGatheringState === "complete") {
@@ -193,6 +202,7 @@ export function waitForIceGathering(
     };
 
     const onIceCandidate = (event: RTCPeerConnectionIceEvent) => {
+      if (!EARLY_ICE_GATHERING) return;
       if (!event.candidate) return;
       const typ = event.candidate.type;
       if (typ === "srflx" || typ === "relay") {

@@ -56,7 +56,10 @@ export interface TransportClient {
    * connection negotiation, and transceiver setup. For sendonly tracks,
    * no media flows until {@link publishTrack} is called.
    */
-  connect(tracks: TrackCapability[]): Promise<void>;
+  connect(
+    tracks: TrackCapability[],
+    prefetchedIceServers?: RTCIceServer[]
+  ): Promise<void>;
 
   /**
    * Reconnects an existing session with a fresh transport negotiation.
