@@ -104,7 +104,7 @@ export class WebRTCTransportClient implements TransportClient {
   private readonly baseUrl: string;
   private readonly sessionId: string;
   private readonly jwtToken: string;
-  private readonly webrtcVersion: string;
+  webrtcVersion: string;
   private readonly maxPollAttempts: number;
   private abortController: AbortController;
 
@@ -196,7 +196,7 @@ export class WebRTCTransportClient implements TransportClient {
   // Transport Signaling (HTTP)
   // ─────────────────────────────────────────────────────────────────────────
 
-  private async fetchIceServers(): Promise<RTCIceServer[]> {
+  async fetchIceServers(): Promise<RTCIceServer[]> {
     console.debug("[WebRTCTransport] Fetching ICE servers...");
 
     const response = await fetch(`${this.transportBaseUrl}/ice_servers`, {
@@ -322,11 +322,16 @@ export class WebRTCTransportClient implements TransportClient {
   // Connection Lifecycle
   // ─────────────────────────────────────────────────────────────────────────
 
-  async connect(tracks: TrackCapability[]): Promise<void> {
+  async connect(
+    tracks: TrackCapability[],
+    prefetchedIceServers?: Promise<RTCIceServer[]>
+  ): Promise<void> {
     this.setStatus("connecting");
     this.resetTransportTimings();
 
-    const iceServers = await this.fetchIceServers();
+    const iceServers = prefetchedIceServers
+      ? await prefetchedIceServers
+      : await this.fetchIceServers();
 
     this.peerConnection = webrtc.createPeerConnection({ iceServers });
     this.setupPeerConnectionHandlers();

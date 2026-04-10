@@ -339,8 +339,23 @@ export class Reactor {
         initialResponse.state
       );
 
-      // 2. Poll until the Runtime accepts and capabilities are available
+      // 2. Poll capabilities and prefetch ICE servers in parallel.
+      //    ICE servers only need the session_id (available now), so we can
+      //    start that fetch while waiting for the runtime to report capabilities.
       this.setStatus("waiting");
+
+      this.transportClient = new WebRTCTransportClient({
+        baseUrl: this.coordinatorUrl,
+        sessionId: initialResponse.session_id,
+        jwtToken: this.local ? "local" : jwtToken!,
+        webrtcVersion: REACTOR_WEBRTC_VERSION,
+        maxPollAttempts: options?.maxAttempts,
+      });
+
+      const iceServersPromise = (
+        this.transportClient as WebRTCTransportClient
+      ).fetchIceServers();
+      iceServersPromise.catch(() => {});
 
       const tPoll = performance.now();
       const sessionResponse = await this.coordinatorClient.pollSessionReady();
@@ -360,24 +375,17 @@ export class Reactor {
         this.tracks.length
       );
 
-      // 4. Instantiate transport based on selected_transport
+      // 4. Validate transport protocol
       const protocol = sessionResponse.selected_transport!.protocol;
       if (protocol !== "webrtc") {
         throw new Error(`Unsupported transport protocol: ${protocol}`);
       }
 
-      this.transportClient = new WebRTCTransportClient({
-        baseUrl: this.coordinatorUrl,
-        sessionId: sessionResponse.session_id,
-        jwtToken: this.local ? "local" : jwtToken!,
-        webrtcVersion: REACTOR_WEBRTC_VERSION,
-        maxPollAttempts: options?.maxAttempts,
-      });
       this.setupTransportHandlers();
 
-      // 5. Connect transport using capabilities tracks
+      // 5. Connect transport, reusing the already-inflight ICE servers fetch
       const tTransport = performance.now();
-      await this.transportClient.connect(this.tracks);
+      await this.transportClient.connect(this.tracks, iceServersPromise);
       const transportConnectingMs = performance.now() - tTransport;
 
       this.connectionTimings = {
