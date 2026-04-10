@@ -21,6 +21,17 @@ const DEFAULT_DATA_CHANNEL_LABEL = "data";
 const FORCE_RELAY_MODE = false;
 
 /**
+ * When true, ICE gathering resolves early on the first srflx or relay
+ * candidate instead of waiting for the full "complete" state. This
+ * reduces connection time by 0.5–1.5s but may omit slower relay
+ * candidates from the initial offer, potentially affecting connectivity
+ * on restrictive networks.
+ *
+ * Set to false to wait for full ICE gathering (safer, slower).
+ */
+const EARLY_ICE_GATHERING = false;
+
+/**
  * Safe cross-browser default for the maximum data channel message size (bytes).
  * Most browsers negotiate 256 KiB via SCTP; we use a slightly lower value to
  * leave room for framing overhead.
@@ -155,11 +166,19 @@ export async function addIceCandidate(
 }
 
 /**
- * Waits for ICE gathering to complete with a timeout.
+ * Waits for ICE gathering to produce usable candidates, then resolves.
+ *
+ * When {@link EARLY_ICE_GATHERING} is enabled, resolves as soon as the first
+ * server-reflexive (srflx) or relay candidate arrives, which typically takes
+ * 50–200ms. This avoids waiting for the full "complete" state (2–5s) when
+ * TURN-TCP or TURN-TLS candidates are still being gathered.
+ *
+ * When disabled, waits for the full "complete" state or the hard timeout,
+ * ensuring all candidate types (including relay) are in the offer.
  */
 export function waitForIceGathering(
   pc: RTCPeerConnection,
-  timeoutMs: number = 5000
+  timeoutMs: number = EARLY_ICE_GATHERING ? 500 : 5000
 ): Promise<void> {
   return new Promise((resolve) => {
     if (pc.iceGatheringState === "complete") {
@@ -167,21 +186,43 @@ export function waitForIceGathering(
       return;
     }
 
+    let resolved = false;
+    const cleanup = () => {
+      if (resolved) return;
+      resolved = true;
+      pc.removeEventListener("icegatheringstatechange", onGatheringStateChange);
+      pc.removeEventListener("icecandidate", onIceCandidate);
+      resolve();
+    };
+
     const onGatheringStateChange = () => {
       if (pc.iceGatheringState === "complete") {
-        pc.removeEventListener(
-          "icegatheringstatechange",
-          onGatheringStateChange
+        cleanup();
+      }
+    };
+
+    const onIceCandidate = (event: RTCPeerConnectionIceEvent) => {
+      if (!EARLY_ICE_GATHERING) return;
+      if (!event.candidate) return;
+      const typ = event.candidate.type;
+      if (typ === "srflx" || typ === "relay") {
+        console.debug(
+          `[WebRTC] ICE gathering early-complete: got ${typ} candidate`
         );
-        resolve();
+        cleanup();
       }
     };
 
     pc.addEventListener("icegatheringstatechange", onGatheringStateChange);
+    pc.addEventListener("icecandidate", onIceCandidate);
 
     setTimeout(() => {
-      pc.removeEventListener("icegatheringstatechange", onGatheringStateChange);
-      resolve();
+      if (!resolved) {
+        console.debug(
+          `[WebRTC] ICE gathering timeout (${timeoutMs}ms), proceeding with current candidates`
+        );
+      }
+      cleanup();
     }, timeoutMs);
   });
 }
