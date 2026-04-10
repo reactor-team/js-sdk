@@ -29,7 +29,7 @@ const FORCE_RELAY_MODE = false;
  *
  * Set to false to wait for full ICE gathering (safer, slower).
  */
-const EARLY_ICE_GATHERING = false;
+const EARLY_ICE_GATHERING = true;
 
 /**
  * Safe cross-browser default for the maximum data channel message size (bytes).
