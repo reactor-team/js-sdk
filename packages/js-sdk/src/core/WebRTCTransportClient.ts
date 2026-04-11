@@ -288,7 +288,7 @@ export class WebRTCTransportClient implements TransportClient {
     }
 
     console.debug("[WebRTCTransport] ICE candidates accepted (200)");
-    return
+    return;
   }
 
   private async pollSdpAnswer(): Promise<WebRTCSdpAnswerResponse> {
@@ -732,11 +732,13 @@ export class WebRTCTransportClient implements TransportClient {
     this.peerConnection.onicecandidate = async (event) => {
       if (event.candidate) {
         console.debug("[WebRTCTransport] ICE candidate:", event.candidate);
-        await this.sendIceCandidates([{
-          candidate: event.candidate.candidate,
-          mline_index: event.candidate.sdpMLineIndex ?? undefined,
-          mid: event.candidate.sdpMid ?? undefined,
-        }]);
+        await this.sendIceCandidates([
+          {
+            candidate: event.candidate.candidate,
+            mline_index: event.candidate.sdpMLineIndex ?? undefined,
+            mid: event.candidate.sdpMid ?? undefined,
+          },
+        ]);
       }
     };
 
