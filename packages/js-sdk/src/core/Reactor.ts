@@ -265,8 +265,7 @@ export class Reactor {
         baseUrl: this.coordinatorUrl,
         sessionId: sessionResponse.session_id,
         jwtToken: this.local ? "local" : jwtToken!,
-        webrtcVersion:
-          sessionResponse.selected_transport?.version ?? REACTOR_WEBRTC_VERSION,
+        webrtcVersion: REACTOR_WEBRTC_VERSION,
         maxPollAttempts: options?.maxAttempts,
       });
       this.setupTransportHandlers();
