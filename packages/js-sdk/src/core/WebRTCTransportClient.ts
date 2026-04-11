@@ -20,6 +20,8 @@ import {
   type TrackMappingEntry,
   type WebRTCSdpOfferRequest,
   type WebRTCSdpAnswerResponse,
+  type IceCandidate,
+  type IceCandidatesRequest,
   IceServersResponseSchema,
   WebRTCSdpAnswerResponseSchema,
   REACTOR_WEBRTC_VERSION,
@@ -260,6 +262,33 @@ export class WebRTCTransportClient implements TransportClient {
     }
 
     console.debug("[WebRTCTransport] SDP offer accepted (202)");
+  }
+
+  private async sendIceCandidates(candidates: IceCandidate[]): Promise<void> {
+    console.debug("[WebRTCTransport] Sending ICE candidates...");
+
+    const requestBody: IceCandidatesRequest = {
+      candidates,
+    };
+
+    const response = await fetch(`${this.transportBaseUrl}/ice_candidates`, {
+      method: "POST",
+      headers: this.getHeaders(),
+      body: JSON.stringify(requestBody),
+      signal: this.signal,
+    });
+
+    await this.checkVersionMismatch(response);
+
+    if (response.status !== 200) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to send ICE candidates: ${response.status} ${errorText}`
+      );
+    }
+
+    console.debug("[WebRTCTransport] ICE candidates accepted (200)");
+    return
   }
 
   private async pollSdpAnswer(): Promise<WebRTCSdpAnswerResponse> {
@@ -700,9 +729,14 @@ export class WebRTCTransportClient implements TransportClient {
       this.emit("trackReceived", trackName, event.track, stream);
     };
 
-    this.peerConnection.onicecandidate = (event) => {
+    this.peerConnection.onicecandidate = async (event) => {
       if (event.candidate) {
         console.debug("[WebRTCTransport] ICE candidate:", event.candidate);
+        await this.sendIceCandidates([{
+          candidate: event.candidate.candidate,
+          mline_index: event.candidate.sdpMLineIndex ?? undefined,
+          mid: event.candidate.sdpMid ?? undefined,
+        }]);
       }
     };
 

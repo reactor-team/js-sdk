@@ -170,6 +170,17 @@ export const WebRTCSdpAnswerResponseSchema = z.object({
   sdp_answer: z.string(),
 });
 
+export const IceCandidateSchema = z.object({
+  candidate: z.string(),
+  mline_index: z.number().optional(),
+  mid: z.string().optional(),
+});
+
+// POST /sessions/{id}/transport/webrtc/ice_candidates — Request
+export const IceCandidatesRequestSchema = z.object({
+  candidates: z.array(IceCandidateSchema),
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Inferred TypeScript Types
 // ─────────────────────────────────────────────────────────────────────────────
@@ -200,3 +211,5 @@ export type WebRTCSdpOfferRequest = z.infer<typeof WebRTCSdpOfferRequestSchema>;
 export type WebRTCSdpAnswerResponse = z.infer<
   typeof WebRTCSdpAnswerResponseSchema
 >;
+export type IceCandidate = z.infer<typeof IceCandidateSchema>;
+export type IceCandidatesRequest = z.infer<typeof IceCandidatesRequestSchema>;
