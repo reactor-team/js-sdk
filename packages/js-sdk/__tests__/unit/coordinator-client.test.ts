@@ -456,6 +456,94 @@ describe("CoordinatorClient", () => {
     });
   });
 
+  // ── createUpload() ─────────────────────────────────────────────────────
+
+  describe("createUpload()", () => {
+    const MOCK_UPLOAD_RESPONSE = {
+      presigned_id: "cf868483-fa9f-4744-a4ce-aa2724e45f0a",
+      presigned_url:
+        "https://s3.example.com/sessions/test/uploads/cf868483/ref.jpg?sig=abc",
+      path: "sessions/test/uploads/cf868483/ref.jpg",
+    };
+
+    it("sends correct request and returns CreateUploadResponse", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: () => Promise.resolve(MOCK_UPLOAD_RESPONSE),
+      });
+
+      const result = await client.createUpload("session-123", {
+        name: "ref.jpg",
+        size: 2048,
+        mime_type: "image/jpeg",
+      });
+
+      expect(result.presigned_id).toBe(MOCK_UPLOAD_RESPONSE.presigned_id);
+      expect(result.presigned_url).toBe(MOCK_UPLOAD_RESPONSE.presigned_url);
+      expect(result.path).toBe(MOCK_UPLOAD_RESPONSE.path);
+
+      const [url, opts] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://api.test.com/sessions/session-123/uploads");
+      expect(opts.method).toBe("POST");
+
+      const body = JSON.parse(opts.body);
+      expect(body.name).toBe("ref.jpg");
+      expect(body.size).toBe(2048);
+      expect(body.mime_type).toBe("image/jpeg");
+    });
+
+    it("sends auth and versioning headers", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: () => Promise.resolve(MOCK_UPLOAD_RESPONSE),
+      });
+
+      await client.createUpload("s1", {
+        name: "a.bin",
+        size: 1,
+        mime_type: "application/octet-stream",
+      });
+
+      const headers = mockFetch.mock.calls[0][1].headers;
+      expect(headers["Authorization"]).toBe("Bearer test-jwt");
+      expect(headers[API_VERSION_HEADER]).toBe(String(REACTOR_API_VERSION));
+    });
+
+    it("throws on non-ok response", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        text: () => Promise.resolve('{"error":"size must be > 0"}'),
+      });
+
+      await expect(
+        client.createUpload("s1", {
+          name: "a.bin",
+          size: 0,
+          mime_type: "text/plain",
+        })
+      ).rejects.toThrow("Failed to create upload slot: 400");
+    });
+
+    it("throws on 404 (session not found)", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: () => Promise.resolve("Not Found"),
+      });
+
+      await expect(
+        client.createUpload("bad-session", {
+          name: "a.bin",
+          size: 10,
+          mime_type: "text/plain",
+        })
+      ).rejects.toThrow("Failed to create upload slot: 404");
+    });
+  });
+
   // ── abort() ───────────────────────────────────────────────────────────
 
   describe("abort()", () => {

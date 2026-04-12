@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { Reactor, DEFAULT_BASE_URL } from "../../src/core/Reactor";
+import { Reactor, DEFAULT_BASE_URL, FileRef } from "../../src/core/Reactor";
 
 const MOCK_SESSION_ID = "85ded560-014c-42df-8902-89dfbca8fa00";
 
@@ -27,12 +27,20 @@ const MOCK_FULL_SESSION_RESPONSE = {
 let transportHandlers: Record<string, (...args: any[]) => void> = {};
 let mockTransportClient: any;
 
+const MOCK_UPLOAD_RESPONSE = {
+  presigned_id: "cf868483-fa9f-4744-a4ce-aa2724e45f0a",
+  presigned_url:
+    "https://s3.example.com/sessions/test/uploads/cf868483/ref.jpg?sig=abc",
+  path: "sessions/test/uploads/cf868483/ref.jpg",
+};
+
 vi.mock("../../src/core/CoordinatorClient", () => ({
   CoordinatorClient: vi.fn().mockImplementation(() => ({
     createSession: vi.fn().mockResolvedValue(MOCK_INITIAL_RESPONSE),
     pollSessionReady: vi.fn().mockResolvedValue(MOCK_FULL_SESSION_RESPONSE),
     getSession: vi.fn().mockResolvedValue(MOCK_FULL_SESSION_RESPONSE),
     terminateSession: vi.fn().mockResolvedValue(undefined),
+    createUpload: vi.fn().mockResolvedValue(MOCK_UPLOAD_RESPONSE),
     abort: vi.fn(),
     getSessionId: vi.fn().mockReturnValue(MOCK_SESSION_ID),
   })),
@@ -44,6 +52,7 @@ vi.mock("../../src/core/LocalCoordinatorClient", () => ({
     pollSessionReady: vi.fn().mockResolvedValue(MOCK_FULL_SESSION_RESPONSE),
     getSession: vi.fn().mockResolvedValue(MOCK_FULL_SESSION_RESPONSE),
     terminateSession: vi.fn().mockResolvedValue(undefined),
+    createUpload: vi.fn().mockResolvedValue(MOCK_UPLOAD_RESPONSE),
     abort: vi.fn(),
   })),
 }));
@@ -463,6 +472,206 @@ describe("Reactor (extended)", () => {
       expect(err!.timestamp).toBeGreaterThan(0);
       expect(typeof err!.recoverable).toBe("boolean");
       expect(err!.component).toBe("gpu");
+    });
+  });
+
+  // ── uploadFile() ──────────────────────────────────────────────────────────
+
+  describe("uploadFile()", () => {
+    it("throws when not ready", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      const file = new File(["hello"], "test.txt", { type: "text/plain" });
+      await expect(r.uploadFile(file)).rejects.toThrow(
+        'status is "disconnected"'
+      );
+    });
+
+    it("throws on empty file", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      await connectAndReady(r);
+
+      const emptyFile = new File([], "empty.txt", { type: "text/plain" });
+      await expect(r.uploadFile(emptyFile)).rejects.toThrow("File is empty");
+      await r.disconnect();
+    });
+
+    it("completes the full upload flow and returns FileRef", async () => {
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue({ ok: true, status: 200, statusText: "OK" });
+      vi.stubGlobal("fetch", mockFetch);
+
+      const r = new Reactor({ modelName: "echo" });
+      await connectAndReady(r);
+
+      const fileContent = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]);
+      const file = new File([fileContent], "ref.jpg", { type: "image/jpeg" });
+
+      const result = await r.uploadFile(file);
+
+      // Returns a FileRef instance
+      expect(result).toBeInstanceOf(FileRef);
+      expect(result.uploadId).toBe(MOCK_UPLOAD_RESPONSE.presigned_id);
+      expect(result.name).toBe("ref.jpg");
+      expect(result.mimeType).toBe("image/jpeg");
+      expect(result.size).toBe(4);
+
+      // Verify PUT was called with the presigned URL
+      expect(mockFetch).toHaveBeenCalledWith(
+        MOCK_UPLOAD_RESPONSE.presigned_url,
+        expect.objectContaining({ method: "PUT" })
+      );
+
+      // Verify runtime data channel notification was sent
+      expect(mockTransportClient.sendCommand).toHaveBeenCalledWith(
+        "fileUploaded",
+        expect.objectContaining({
+          upload_id: MOCK_UPLOAD_RESPONSE.presigned_id,
+          name: "ref.jpg",
+          mime_type: "image/jpeg",
+          size: 4,
+        }),
+        "runtime",
+        undefined
+      );
+
+      vi.unstubAllGlobals();
+      await r.disconnect();
+    });
+
+    it("throws when PUT to presigned URL fails", async () => {
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue({ ok: false, status: 403, statusText: "Forbidden" });
+      vi.stubGlobal("fetch", mockFetch);
+
+      const r = new Reactor({ modelName: "echo" });
+      await connectAndReady(r);
+
+      const file = new File(["data"], "test.bin", {
+        type: "application/octet-stream",
+      });
+      await expect(r.uploadFile(file)).rejects.toThrow(
+        "File upload failed: 403"
+      );
+
+      vi.unstubAllGlobals();
+      await r.disconnect();
+    });
+
+    it("uses options.name when provided", async () => {
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue({ ok: true, status: 200, statusText: "OK" });
+      vi.stubGlobal("fetch", mockFetch);
+
+      const r = new Reactor({ modelName: "echo" });
+      await connectAndReady(r);
+
+      const blob = new Blob([new Uint8Array([1, 2, 3])], { type: "image/png" });
+      const result = await r.uploadFile(blob, { name: "custom-name.png" });
+
+      expect(result.name).toBe("custom-name.png");
+
+      vi.unstubAllGlobals();
+      await r.disconnect();
+    });
+
+    it("defaults mime type to application/octet-stream for untyped blobs", async () => {
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue({ ok: true, status: 200, statusText: "OK" });
+      vi.stubGlobal("fetch", mockFetch);
+
+      const r = new Reactor({ modelName: "echo" });
+      await connectAndReady(r);
+
+      const blob = new Blob([new Uint8Array([1, 2])]);
+      const result = await r.uploadFile(blob, { name: "data.bin" });
+
+      expect(result.mimeType).toBe("application/octet-stream");
+
+      vi.unstubAllGlobals();
+      await r.disconnect();
+    });
+  });
+
+  // ── sendCommand() with FileRef ──────────────────────────────────────────
+
+  describe("sendCommand() with FileRef", () => {
+    it("extracts FileRef into uploads, keeps scalar args in data", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      await connectAndReady(r);
+
+      const ref = new FileRef("upload-123", "style.jpg", "image/jpeg", 1024);
+      await r.sendCommand("set_style", { file: ref, strength: 0.8 });
+
+      expect(mockTransportClient.sendCommand).toHaveBeenCalledWith(
+        "set_style",
+        { strength: 0.8 },
+        "application",
+        {
+          file: {
+            upload_id: "upload-123",
+            name: "style.jpg",
+            mime_type: "image/jpeg",
+            size: 1024,
+          },
+        }
+      );
+
+      await r.disconnect();
+    });
+
+    it("handles multiple FileRefs in one command", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      await connectAndReady(r);
+
+      const styleRef = new FileRef("id-1", "style.jpg", "image/jpeg", 100);
+      const contentRef = new FileRef("id-2", "photo.png", "image/png", 200);
+      await r.sendCommand("blend", {
+        style: styleRef,
+        content: contentRef,
+        factor: 0.5,
+      });
+
+      expect(mockTransportClient.sendCommand).toHaveBeenCalledWith(
+        "blend",
+        { factor: 0.5 },
+        "application",
+        {
+          style: {
+            upload_id: "id-1",
+            name: "style.jpg",
+            mime_type: "image/jpeg",
+            size: 100,
+          },
+          content: {
+            upload_id: "id-2",
+            name: "photo.png",
+            mime_type: "image/png",
+            size: 200,
+          },
+        }
+      );
+
+      await r.disconnect();
+    });
+
+    it("passes no uploads when data has no FileRefs", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      await connectAndReady(r);
+
+      await r.sendCommand("set_brightness", { brightness: 0.5 });
+
+      expect(mockTransportClient.sendCommand).toHaveBeenCalledWith(
+        "set_brightness",
+        { brightness: 0.5 },
+        "application",
+        undefined
+      );
+
+      await r.disconnect();
     });
   });
 });
