@@ -8,6 +8,7 @@
     "test:unit": "pnpm --filter @reactor-team/js-sdk test:unit",
     "test:integration": "pnpm --filter @reactor-team/js-sdk test:integration",
     "format:check": "prettier --check .",
+    "format": "prettier --write .",
     "local-build": "pnpm --filter @reactor-team/js-sdk build && echo '\n@reactor-team/js-sdk built. Link with:\n  pnpm link '$(realpath packages/js-sdk)",
     "install:create-app": "pnpm --filter create-reactor-app install-cli"
   },

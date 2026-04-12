@@ -21,6 +21,8 @@ export type {
   SessionResponse,
 } from "./core/types";
 
+export { FileRef } from "./core/FileRef";
+
 export interface ReactorError {
   code: string;
   message: string;

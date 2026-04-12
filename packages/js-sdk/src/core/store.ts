@@ -6,6 +6,7 @@ import type {
   ConnectOptions,
 } from "../types";
 import { Reactor, type Options as ReactorOptions } from "./Reactor";
+import { FileRef } from "./FileRef";
 import { create } from "zustand/react";
 import { createContext } from "react";
 
@@ -33,6 +34,7 @@ export interface ReactorActions {
   publish(name: string, track: MediaStreamTrack): Promise<void>;
   unpublish(name: string): Promise<void>;
   reconnect(options?: ConnectOptions): Promise<void>;
+  uploadFile(file: File | Blob, options?: { name?: string }): Promise<FileRef>;
 }
 
 // Internal state not exposed to components
@@ -236,6 +238,17 @@ export const createReactorStore = (
           console.debug("[ReactorStore] Reconnect completed successfully");
         } catch (error) {
           console.error("[ReactorStore] Failed to reconnect:", error);
+          throw error;
+        }
+      },
+      uploadFile: async (file: File | Blob, options?: { name?: string }) => {
+        console.debug("[ReactorStore] Uploading file");
+        try {
+          const result = await get().internal.reactor.uploadFile(file, options);
+          console.debug("[ReactorStore] File uploaded successfully", result);
+          return result;
+        } catch (error) {
+          console.error("[ReactorStore] Failed to upload file:", error);
           throw error;
         }
       },

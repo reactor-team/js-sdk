@@ -494,7 +494,8 @@ export class WebRTCTransportClient implements TransportClient {
   sendCommand(
     command: string,
     data: any,
-    scope: MessageScope = "application"
+    scope: MessageScope = "application",
+    uploads?: Record<string, object>
   ): void {
     if (!this.dataChannel) {
       throw new Error("[WebRTCTransport] Data channel not available");
@@ -506,7 +507,8 @@ export class WebRTCTransportClient implements TransportClient {
         command,
         data,
         scope,
-        this.maxMessageBytes
+        this.maxMessageBytes,
+        uploads
       );
     } catch (error) {
       console.warn("[WebRTCTransport] Failed to send message:", error);
