@@ -36,9 +36,6 @@ export type Options = z.input<typeof OptionsSchema>;
 export { FileRef } from "./FileRef";
 import { FileRef } from "./FileRef";
 
-/** @deprecated Use {@link FileRef} instead. */
-export type UploadResult = FileRef;
-
 type EventHandler = (...args: any[]) => void;
 
 export class Reactor {
