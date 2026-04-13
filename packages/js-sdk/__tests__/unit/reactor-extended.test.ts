@@ -596,9 +596,9 @@ describe("Reactor (extended)", () => {
     });
   });
 
-  // ── uploadFile() local URL rewrite (REA-1573) ──────────────────────────
+  // ── uploadFile() local URL rewrite ─────────────────────────────────────
 
-  describe("uploadFile() local URL rewrite (REA-1573)", () => {
+  describe("uploadFile() local URL rewrite", () => {
     const LOCAL_UPLOAD_RESPONSE = {
       presigned_id: "local-upload-id",
       presigned_url: "http://localhost:8090/uploads/local-upload-id",
