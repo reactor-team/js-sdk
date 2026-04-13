@@ -618,9 +618,8 @@ describe("Reactor (extended)", () => {
       });
       await connectAndReady(r);
 
-      const { LocalCoordinatorClient: LCC } = await import(
-        "../../src/core/LocalCoordinatorClient"
-      );
+      const { LocalCoordinatorClient: LCC } =
+        await import("../../src/core/LocalCoordinatorClient");
       const localCoord = (LCC as any).mock.results.at(-1)!.value;
       localCoord.createUpload = vi
         .fn()
@@ -635,9 +634,7 @@ describe("Reactor (extended)", () => {
         ([, opts]: any) => opts?.method === "PUT"
       );
       expect(putCall).toBeDefined();
-      expect(putCall![0]).toBe(
-        "http://localhost:8080/uploads/local-upload-id"
-      );
+      expect(putCall![0]).toBe("http://localhost:8080/uploads/local-upload-id");
 
       vi.unstubAllGlobals();
       await r.disconnect();
@@ -656,9 +653,8 @@ describe("Reactor (extended)", () => {
       });
       await connectAndReady(r);
 
-      const { LocalCoordinatorClient: LCC } = await import(
-        "../../src/core/LocalCoordinatorClient"
-      );
+      const { LocalCoordinatorClient: LCC } =
+        await import("../../src/core/LocalCoordinatorClient");
       const localCoord = (LCC as any).mock.results.at(-1)!.value;
       localCoord.createUpload = vi
         .fn()
@@ -724,9 +720,8 @@ describe("Reactor (extended)", () => {
       });
       await connectAndReady(r);
 
-      const { LocalCoordinatorClient: LCC } = await import(
-        "../../src/core/LocalCoordinatorClient"
-      );
+      const { LocalCoordinatorClient: LCC } =
+        await import("../../src/core/LocalCoordinatorClient");
       const localCoord = (LCC as any).mock.results.at(-1)!.value;
       localCoord.createUpload = vi.fn().mockResolvedValue(uploadWithQuery);
 
