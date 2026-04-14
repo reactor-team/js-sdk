@@ -1,0 +1,42 @@
+{
+  "name": "@reactor-team/codegen",
+  "version": "0.1.0",
+  "description": "Code generator for strongly-typed Reactor model SDKs",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "reactor-codegen": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "codegen:test": "tsx src/cli.ts --model-name helios --model-version 1.0.0 --capabilities capabilities.json --sdk-version 2.9.1 --output .generated/helios"
+  },
+  "keywords": [
+    "reactor",
+    "codegen",
+    "sdk"
+  ],
+  "author": "Reactor Technologies, Inc.",
+  "license": "MIT",
+  "devDependencies": {
+    "tsup": "^8.5.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.0.0"
+  }
+}
