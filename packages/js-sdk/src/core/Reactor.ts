@@ -148,7 +148,9 @@ export class Reactor {
    *     (fires `@file_uploaded` on the model if registered)
    *  4. Return a `FileRef` to pass into {@link sendCommand}
    *
-   * Works identically in local and production modes.
+   * In local mode, the presigned URL returned by the runtime is rewritten
+   * to use the SDK-configured base URL (scheme + host), so port-forwarded
+   * setups work correctly (REA-1573).
    */
   async uploadFile(
     file: File | Blob,
@@ -177,7 +179,17 @@ export class Reactor {
       mime_type: mimeType,
     });
 
-    const putResponse = await fetch(slot.presigned_url, {
+    let presignedUrl = slot.presigned_url;
+    if (this.local) {
+      const target = new URL(this.coordinatorUrl);
+      const parsed = new URL(presignedUrl);
+      parsed.protocol = target.protocol;
+      parsed.hostname = target.hostname;
+      parsed.port = target.port;
+      presignedUrl = parsed.toString();
+    }
+
+    const putResponse = await fetch(presignedUrl, {
       method: "PUT",
       body: file,
       headers: {

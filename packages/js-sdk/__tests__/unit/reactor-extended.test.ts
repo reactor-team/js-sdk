@@ -596,6 +596,152 @@ describe("Reactor (extended)", () => {
     });
   });
 
+  // ── uploadFile() local URL rewrite ─────────────────────────────────────
+
+  describe("uploadFile() local URL rewrite", () => {
+    const LOCAL_UPLOAD_RESPONSE = {
+      presigned_id: "local-upload-id",
+      presigned_url: "http://localhost:8090/uploads/local-upload-id",
+      path: "sessions/local/uploads/local-upload-id/photo.jpg",
+    };
+
+    it("rewrites presigned URL host+port to match SDK-configured apiUrl", async () => {
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue({ ok: true, status: 200, statusText: "OK" });
+      vi.stubGlobal("fetch", mockFetch);
+
+      const r = new Reactor({
+        modelName: "echo",
+        local: true,
+        apiUrl: "http://localhost:8080",
+      });
+      await connectAndReady(r);
+
+      const { LocalCoordinatorClient: LCC } =
+        await import("../../src/core/LocalCoordinatorClient");
+      const localCoord = (LCC as any).mock.results.at(-1)!.value;
+      localCoord.createUpload = vi
+        .fn()
+        .mockResolvedValue(LOCAL_UPLOAD_RESPONSE);
+
+      const file = new File(["img-data"], "photo.jpg", {
+        type: "image/jpeg",
+      });
+      await r.uploadFile(file);
+
+      const putCall = mockFetch.mock.calls.find(
+        ([, opts]: any) => opts?.method === "PUT"
+      );
+      expect(putCall).toBeDefined();
+      expect(putCall![0]).toBe("http://localhost:8080/uploads/local-upload-id");
+
+      vi.unstubAllGlobals();
+      await r.disconnect();
+    });
+
+    it("rewrites scheme when SDK uses https", async () => {
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue({ ok: true, status: 200, statusText: "OK" });
+      vi.stubGlobal("fetch", mockFetch);
+
+      const r = new Reactor({
+        modelName: "echo",
+        local: true,
+        apiUrl: "https://my-tunnel.example.com",
+      });
+      await connectAndReady(r);
+
+      const { LocalCoordinatorClient: LCC } =
+        await import("../../src/core/LocalCoordinatorClient");
+      const localCoord = (LCC as any).mock.results.at(-1)!.value;
+      localCoord.createUpload = vi
+        .fn()
+        .mockResolvedValue(LOCAL_UPLOAD_RESPONSE);
+
+      const file = new File(["img-data"], "photo.jpg", {
+        type: "image/jpeg",
+      });
+      await r.uploadFile(file);
+
+      const putCall = mockFetch.mock.calls.find(
+        ([, opts]: any) => opts?.method === "PUT"
+      );
+      expect(putCall![0]).toBe(
+        "https://my-tunnel.example.com/uploads/local-upload-id"
+      );
+
+      vi.unstubAllGlobals();
+      await r.disconnect();
+    });
+
+    it("does not rewrite presigned URL in production mode", async () => {
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue({ ok: true, status: 200, statusText: "OK" });
+      vi.stubGlobal("fetch", mockFetch);
+
+      const r = new Reactor({ modelName: "echo" });
+      await connectAndReady(r);
+
+      const fileContent = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]);
+      const file = new File([fileContent], "ref.jpg", {
+        type: "image/jpeg",
+      });
+      await r.uploadFile(file);
+
+      const putCall = mockFetch.mock.calls.find(
+        ([, opts]: any) => opts?.method === "PUT"
+      );
+      expect(putCall![0]).toBe(MOCK_UPLOAD_RESPONSE.presigned_url);
+
+      vi.unstubAllGlobals();
+      await r.disconnect();
+    });
+
+    it("preserves path and query params during rewrite", async () => {
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue({ ok: true, status: 200, statusText: "OK" });
+      vi.stubGlobal("fetch", mockFetch);
+
+      const uploadWithQuery = {
+        presigned_id: "q-upload",
+        presigned_url:
+          "http://localhost:9000/uploads/q-upload?token=abc&expires=123",
+        path: "sessions/local/uploads/q-upload/file.bin",
+      };
+
+      const r = new Reactor({
+        modelName: "echo",
+        local: true,
+        apiUrl: "http://localhost:8080",
+      });
+      await connectAndReady(r);
+
+      const { LocalCoordinatorClient: LCC } =
+        await import("../../src/core/LocalCoordinatorClient");
+      const localCoord = (LCC as any).mock.results.at(-1)!.value;
+      localCoord.createUpload = vi.fn().mockResolvedValue(uploadWithQuery);
+
+      const file = new File(["data"], "file.bin", {
+        type: "application/octet-stream",
+      });
+      await r.uploadFile(file);
+
+      const putCall = mockFetch.mock.calls.find(
+        ([, opts]: any) => opts?.method === "PUT"
+      );
+      expect(putCall![0]).toBe(
+        "http://localhost:8080/uploads/q-upload?token=abc&expires=123"
+      );
+
+      vi.unstubAllGlobals();
+      await r.disconnect();
+    });
+  });
+
   // ── sendCommand() with FileRef ──────────────────────────────────────────
 
   describe("sendCommand() with FileRef", () => {
