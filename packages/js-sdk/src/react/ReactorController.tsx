@@ -1,7 +1,8 @@
 "use client";
 
 import { useReactor, useReactorInternalMessage } from "./hooks";
-import React, { useState, useCallback } from "react";
+import { FileRef } from "../core/FileRef";
+import React, { useState, useCallback, useRef } from "react";
 
 export interface ReactorControllerProps {
   className?: string;
@@ -11,10 +12,19 @@ export interface ReactorControllerProps {
 interface CommandParamSchema {
   description?: string;
   type: string;
+  format?: string;
   minimum?: number;
   maximum?: number;
   required?: boolean;
   enum?: string[];
+  default?: unknown;
+}
+
+function isFileParam(ps: CommandParamSchema): boolean {
+  return (
+    ps.type === "file" ||
+    (ps.type === "object" && ps.format === "file-reference")
+  );
 }
 
 interface CommandSchema {
@@ -38,14 +48,17 @@ export function ReactorController({
   className,
   style,
 }: ReactorControllerProps) {
-  const { sendCommand, status } = useReactor((state) => ({
+  const { sendCommand, uploadFile, status } = useReactor((state) => ({
     sendCommand: state.sendCommand,
+    uploadFile: state.uploadFile,
     status: state.status,
   }));
   const [commands, setCommands] = useState<Record<string, CommandSchema>>({});
   const [formValues, setFormValues] = useState<
     Record<string, Record<string, any>>
   >({});
+  const formRef = useRef(formValues);
+  formRef.current = formValues;
   const [expandedCommands, setExpandedCommands] = useState<
     Record<string, boolean>
   >({});
@@ -118,14 +131,16 @@ export function ReactorController({
 
         Object.entries(commandSchema.schema).forEach(
           ([paramName, paramSchema]) => {
-            if (paramSchema.type === "number") {
+            if (isFileParam(paramSchema)) {
+              initialValues[commandName][paramName] = null;
+            } else if (paramSchema.default !== undefined) {
+              initialValues[commandName][paramName] = paramSchema.default;
+            } else if (paramSchema.type === "number" || paramSchema.type === "integer") {
               initialValues[commandName][paramName] = paramSchema.minimum ?? 0;
             } else if (paramSchema.type === "string") {
               initialValues[commandName][paramName] = "";
             } else if (paramSchema.type === "boolean") {
               initialValues[commandName][paramName] = false;
-            } else if (paramSchema.type === "integer") {
-              initialValues[commandName][paramName] = paramSchema.minimum ?? 0;
             }
           }
         );
@@ -158,17 +173,19 @@ export function ReactorController({
   const handleCommandSubmit = useCallback(
     async (commandName: string) => {
       const commandSchema = commands[commandName];
-      const formData = formValues[commandName] || {};
+      const formData = formRef.current[commandName] || {};
 
-      // Build the data object according to the schema structure
       const data: Record<string, any> = {};
 
-      // Only include parameters that are defined in the schema
       Object.keys(commandSchema.schema).forEach((paramName) => {
         const paramSchema = commandSchema.schema[paramName];
         let value = formData[paramName];
 
-        // Type conversion based on schema
+        if (value instanceof FileRef) {
+          data[paramName] = value;
+          return;
+        }
+
         if (paramSchema.type === "number" && typeof value === "string") {
           value = parseFloat(value) || 0;
         } else if (
@@ -183,14 +200,10 @@ export function ReactorController({
           value = Boolean(value);
         }
 
-        // Only include the parameter if it has a value or is required
         if (value !== undefined && value !== "" && value !== null) {
           data[paramName] = value;
         } else if (paramSchema.required) {
-          // Set default values for required parameters
-          if (paramSchema.type === "number") {
-            data[paramName] = paramSchema.minimum ?? 0;
-          } else if (paramSchema.type === "integer") {
+          if (paramSchema.type === "number" || paramSchema.type === "integer") {
             data[paramName] = paramSchema.minimum ?? 0;
           } else if (paramSchema.type === "string") {
             data[paramName] = "";
@@ -200,19 +213,32 @@ export function ReactorController({
         }
       });
 
-      console.log(`Executing command: ${commandName}`, data);
-
       await sendCommand(commandName, data);
     },
-    [formValues, sendCommand, commands]
+    [sendCommand, commands]
   );
 
   const renderInput = (
     commandName: string,
     paramName: string,
-    paramSchema: any
+    paramSchema: CommandParamSchema
   ) => {
     const value = formValues[commandName]?.[paramName] ?? "";
+
+    if (isFileParam(paramSchema)) {
+      return (
+        <FileParamInput
+          key={`${commandName}-${paramName}`}
+          commandName={commandName}
+          paramName={paramName}
+          description={paramSchema.description}
+          value={value}
+          onChange={handleInputChange}
+          disabled={status !== "ready"}
+          uploadFile={uploadFile}
+        />
+      );
+    }
 
     if (paramSchema.type === "number" || paramSchema.type === "integer") {
       const isInteger = paramSchema.type === "integer";
@@ -395,16 +421,17 @@ export function ReactorController({
     const hasParams = Object.keys(commandSchema.schema).length > 0;
     const isExpanded = expandedCommands[commandName];
 
-    // Check if this command has any slider inputs (number/integer with min/max)
-    const hasSliderInputs = Object.values(commandSchema.schema).some(
-      (paramSchema) =>
-        (paramSchema.type === "number" || paramSchema.type === "integer") &&
-        typeof paramSchema.minimum === "number" &&
-        typeof paramSchema.maximum === "number"
-    );
+    const params = Object.values(commandSchema.schema);
+    const allSliders =
+      params.length > 0 &&
+      params.every(
+        (ps) =>
+          (ps.type === "number" || ps.type === "integer") &&
+          typeof ps.minimum === "number" &&
+          typeof ps.maximum === "number"
+      );
 
-    // Don't show execute button if command has slider inputs (they execute automatically)
-    const showExecuteButton = !hasSliderInputs;
+    const showExecuteButton = !allSliders;
 
     return (
       <div
@@ -547,6 +574,83 @@ export function ReactorController({
               </div>
             ))}
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FileParamInput({
+  commandName,
+  paramName,
+  description,
+  value,
+  onChange,
+  disabled,
+  uploadFile,
+}: {
+  commandName: string;
+  paramName: string;
+  description?: string;
+  value: any;
+  onChange: (cmd: string, param: string, value: any) => void;
+  disabled: boolean;
+  uploadFile: (file: File | Blob, options?: { name?: string }) => Promise<FileRef>;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = value instanceof FileRef ? value : null;
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setUploading(true);
+    try {
+      const ref = await uploadFile(file);
+      onChange(commandName, paramName, ref);
+    } catch (err) {
+      console.error("[FileParamInput] Upload failed:", err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div style={{ marginBottom: "8px" }}>
+      <label style={{ fontSize: "12px", color: "#666", display: "block" }}>
+        {paramName}
+        <span style={{ color: "#888", fontSize: "11px" }}> (file)</span>
+        {description && ` - ${description}`}
+      </label>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFile}
+          style={{ display: "none" }}
+        />
+        <button
+          disabled={disabled || uploading}
+          onClick={() => inputRef.current?.click()}
+          style={{
+            padding: "4px 12px",
+            fontSize: "12px",
+            backgroundColor: "#007bff",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: disabled || uploading ? "default" : "pointer",
+            opacity: disabled || uploading ? 0.5 : 1,
+          }}
+        >
+          {uploading ? "Uploading\u2026" : fileRef ? "Change" : "Choose File"}
+        </button>
+        {fileRef && (
+          <span style={{ fontSize: "11px", color: "#28a745" }}>
+            \u2713 {fileRef.name}
+          </span>
         )}
       </div>
     </div>
