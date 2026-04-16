@@ -349,6 +349,31 @@ describe("Reactor (extended)", () => {
       await r.disconnect();
     });
 
+    it("reconnects with preset tracks", async () => {
+      const presetTracks = [
+        {
+          name: "main_video" as const,
+          kind: "video" as const,
+          direction: "recvonly" as const,
+        },
+      ];
+      const r = new Reactor({
+        modelName: "echo",
+        modelTracks: presetTracks,
+      });
+      await r.connect("jwt");
+      transportHandlers["statusChanged"]("connected");
+
+      await r.disconnect(true);
+      mockTransportClient.prepare.mockClear();
+      mockTransportClient.connect.mockClear();
+
+      await r.reconnect();
+      expect(mockTransportClient.prepare).toHaveBeenCalledWith(presetTracks);
+      expect(mockTransportClient.connect).toHaveBeenCalledWith(true);
+      await r.disconnect();
+    });
+
     it("warns when already ready", async () => {
       const r = new Reactor({ modelName: "echo" });
       await connectAndReady(r);
