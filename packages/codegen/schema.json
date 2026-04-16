@@ -1,0 +1,554 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "helios",
+        "version": "0.0.0",
+        "description": ""
+    },
+    "x-reactor": {
+        "tracks": [
+            {
+                "name": "main_video",
+                "kind": "video",
+                "direction": "out"
+            }
+        ]
+    },
+    "paths": {
+        "/events/set_prompt": {
+            "post": {
+                "operationId": "set_prompt",
+                "summary": "Set and encode scene prompt",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "prompt": {
+                                        "type": "string",
+                                        "default": "",
+                                        "description": "Text prompt describing the scene to generate"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "Event accepted"
+                    }
+                }
+            }
+        },
+        "/events/set_image": {
+            "post": {
+                "operationId": "set_image",
+                "summary": "Set starting frame and VAE-encode",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "image": {
+                                        "$ref": "#/components/schemas/ReactorUploadReference",
+                                        "default": null
+                                    },
+                                    "image_b64": {
+                                        "type": "string",
+                                        "default": "",
+                                        "description": "(Deprecated) Base64-encoded reference image (RGB). Use file upload instead."
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "Event accepted"
+                    }
+                }
+            }
+        },
+        "/events/schedule_prompt": {
+            "post": {
+                "operationId": "schedule_prompt",
+                "summary": "Schedule prompt change at a specific chunk",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "prompt": {
+                                        "type": "string",
+                                        "default": "",
+                                        "description": "Text prompt to schedule"
+                                    },
+                                    "chunk": {
+                                        "type": "integer",
+                                        "default": 0,
+                                        "description": "Chunk index at which the prompt takes effect",
+                                        "minimum": 0
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "Event accepted"
+                    }
+                }
+            }
+        },
+        "/events/start": {
+            "post": {
+                "operationId": "start",
+                "summary": "Begin generation (requires prompt)",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {}
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "Event accepted"
+                    }
+                }
+            }
+        },
+        "/events/pause": {
+            "post": {
+                "operationId": "pause",
+                "summary": "Pause generation after current chunk",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {}
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "Event accepted"
+                    }
+                }
+            }
+        },
+        "/events/resume": {
+            "post": {
+                "operationId": "resume",
+                "summary": "Resume paused generation",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {}
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "Event accepted"
+                    }
+                }
+            }
+        },
+        "/events/reset": {
+            "post": {
+                "operationId": "reset",
+                "summary": "Reset generation and return to waiting state",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {}
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "Event accepted"
+                    }
+                }
+            }
+        },
+        "/events/set_image_strength": {
+            "post": {
+                "operationId": "set_image_strength",
+                "summary": "Set image_strength",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "image_strength": {
+                                        "type": "number",
+                                        "default": 1.0,
+                                        "description": "Image conditioning strength",
+                                        "minimum": 0.0,
+                                        "maximum": 1.0
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "Event accepted"
+                    }
+                }
+            }
+        },
+        "/events/set_seed": {
+            "post": {
+                "operationId": "set_seed",
+                "summary": "Set seed",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "seed": {
+                                        "type": "integer",
+                                        "default": 0,
+                                        "description": "RNG seed (-1 for random)"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "Event accepted"
+                    }
+                }
+            }
+        },
+        "/events/set_sr_scale": {
+            "post": {
+                "operationId": "set_sr_scale",
+                "summary": "Set sr_scale",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "sr_scale": {
+                                        "type": "string",
+                                        "default": "2x",
+                                        "description": "Super-resolution scale",
+                                        "enum": [
+                                            "off",
+                                            "2x",
+                                            "4x"
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "Event accepted"
+                    }
+                }
+            }
+        }
+    },
+    "webhooks": {
+        "prompt_accepted": {
+            "post": {
+                "operationId": "prompt_accepted",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "prompt": {
+                                        "type": "string",
+                                        "description": "The accepted prompt text"
+                                    }
+                                },
+                                "required": [
+                                    "prompt"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "summary": "A prompt was accepted and scheduled for encoding."
+            }
+        },
+        "image_accepted": {
+            "post": {
+                "operationId": "image_accepted",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "width": {
+                                        "type": "integer",
+                                        "description": "Width of the accepted image in pixels"
+                                    },
+                                    "height": {
+                                        "type": "integer",
+                                        "description": "Height of the accepted image in pixels"
+                                    }
+                                },
+                                "required": [
+                                    "width",
+                                    "height"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "summary": "A reference image was accepted and VAE-encoded."
+            }
+        },
+        "conditions_ready": {
+            "post": {
+                "operationId": "conditions_ready",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "has_prompt": {
+                                        "type": "boolean",
+                                        "description": "Whether a prompt has been set"
+                                    },
+                                    "has_image": {
+                                        "type": "boolean",
+                                        "description": "Whether a reference image has been set"
+                                    }
+                                },
+                                "required": [
+                                    "has_prompt",
+                                    "has_image"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "summary": "Current readiness state of generation preconditions."
+            }
+        },
+        "generation_started": {
+            "post": {
+                "operationId": "generation_started",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "prompt": {
+                                        "type": "string",
+                                        "description": "The active prompt for this chunk"
+                                    },
+                                    "chunk_index": {
+                                        "type": "integer",
+                                        "description": "Index of the chunk being generated"
+                                    }
+                                },
+                                "required": [
+                                    "prompt",
+                                    "chunk_index"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "summary": "Generation has begun for a new chunk."
+            }
+        },
+        "chunk_complete": {
+            "post": {
+                "operationId": "chunk_complete",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "chunk_index": {
+                                        "type": "integer",
+                                        "description": "Index of the completed chunk"
+                                    },
+                                    "frames_emitted": {
+                                        "type": "integer",
+                                        "description": "Total frames emitted so far"
+                                    },
+                                    "active_prompt": {
+                                        "type": "string",
+                                        "description": "The prompt used for this chunk"
+                                    }
+                                },
+                                "required": [
+                                    "chunk_index",
+                                    "frames_emitted",
+                                    "active_prompt"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "summary": "A video chunk has finished generating."
+            }
+        },
+        "generation_paused": {
+            "post": {
+                "operationId": "generation_paused",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "chunk_index": {
+                                        "type": "integer",
+                                        "description": "Chunk index at which generation paused"
+                                    }
+                                },
+                                "required": [
+                                    "chunk_index"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "summary": "Generation was paused after the current chunk."
+            }
+        },
+        "generation_resumed": {
+            "post": {
+                "operationId": "generation_resumed",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "chunk_index": {
+                                        "type": "integer",
+                                        "description": "Chunk index at which generation resumed"
+                                    }
+                                },
+                                "required": [
+                                    "chunk_index"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "summary": "Generation was resumed from a paused state."
+            }
+        },
+        "command_error": {
+            "post": {
+                "operationId": "command_error",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "command": {
+                                        "type": "string",
+                                        "description": "The command that failed"
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "description": "The reason the command failed"
+                                    }
+                                },
+                                "required": [
+                                    "command",
+                                    "reason"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "summary": "A command failed to execute because of a precondition."
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ReactorUploadReference": {
+                "type": "object",
+                "format": "reactor-upload-reference",
+                "description": "Reference to a file uploaded via the Reactor presigned-URL protocol.",
+                "properties": {
+                    "upload_id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "mime_type": {
+                        "type": "string"
+                    },
+                    "size": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "upload_id",
+                    "name",
+                    "mime_type",
+                    "size"
+                ]
+            }
+        }
+    }
+}

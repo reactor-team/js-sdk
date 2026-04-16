@@ -1,15 +1,14 @@
 // Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
 
-export { generateModelSdk, writePackage, loadCapabilities } from "./codegen.js";
-export { resolveGenerator, registerProtocol, getRegisteredVersions } from "./protocols/index.js";
+export { generateModelSdk, writePackage, loadSchema, parseSchema } from "./codegen.js";
 export type {
-  Capabilities,
+  OpenApiSchema,
+  ModelSchema,
   CodegenOptions,
-  CommandCapability,
-  MessageCapability,
-  TrackCapability,
+  EventSchema,
+  MessageSchema,
+  TrackSchema,
   FieldSchema,
-  ProtocolGenerator,
   GeneratedPackage,
   GeneratedFile,
 } from "./types.js";

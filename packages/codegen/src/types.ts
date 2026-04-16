@@ -1,13 +1,90 @@
 // Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
 
-/**
- * Canonical representation of a model's capabilities as extracted by
- * `reactor capabilities`. This is the input to the codegen pipeline.
- *
- * The shape is protocol-version-dependent — v1 uses "commands", a future v2
- * might rename that to "events". The codegen dispatches to the correct
- * generator based on `protocol_version`.
- */
+// ---------------------------------------------------------------------------
+// OpenAPI schema types — the raw shapes we read from the model's schema.json
+// ---------------------------------------------------------------------------
+
+export interface OpenApiInfo {
+  title: string;
+  version: string;
+  description?: string;
+}
+
+export interface OpenApiSchemaProperty {
+  type?: string;
+  default?: unknown;
+  description?: string;
+  minimum?: number;
+  maximum?: number;
+  minLength?: number;
+  maxLength?: number;
+  enum?: (string | number | boolean)[];
+  format?: string;
+  $ref?: string;
+}
+
+export interface OpenApiSchemaObject {
+  type: "object";
+  properties?: Record<string, OpenApiSchemaProperty>;
+  required?: string[];
+}
+
+export interface OpenApiRequestBody {
+  required?: boolean;
+  content: {
+    "application/json": {
+      schema: OpenApiSchemaObject;
+    };
+  };
+}
+
+export interface OpenApiOperation {
+  operationId: string;
+  summary?: string;
+  description?: string;
+  requestBody?: OpenApiRequestBody;
+  responses?: Record<string, unknown>;
+}
+
+export interface OpenApiPathItem {
+  post?: OpenApiOperation;
+}
+
+export interface ReactorTrackExtension {
+  name: string;
+  kind: "video" | "audio";
+  direction: "in" | "out";
+}
+
+export interface ReactorExtensions {
+  tracks?: ReactorTrackExtension[];
+}
+
+export interface OpenApiComponentSchemaObject {
+  type?: string;
+  format?: string;
+  description?: string;
+  properties?: Record<string, OpenApiSchemaProperty>;
+  required?: string[];
+}
+
+export interface OpenApiComponents {
+  schemas?: Record<string, OpenApiComponentSchemaObject>;
+}
+
+export interface OpenApiSchema {
+  openapi: string;
+  info: OpenApiInfo;
+  "x-reactor"?: ReactorExtensions;
+  paths?: Record<string, OpenApiPathItem>;
+  webhooks?: Record<string, OpenApiPathItem>;
+  components?: OpenApiComponents;
+}
+
+// ---------------------------------------------------------------------------
+// Internal IR — the normalised representation the generators consume.
+// Decoupled from the raw OpenAPI shape so generators never parse OpenAPI.
+// ---------------------------------------------------------------------------
 
 export interface FieldSchema {
   type: string;
@@ -21,46 +98,45 @@ export interface FieldSchema {
   format?: string;
 }
 
-export interface CommandCapability {
+export interface EventSchema {
   name: string;
   description: string;
-  schema: Record<string, FieldSchema>;
+  fields: Record<string, FieldSchema>;
 }
 
-export interface MessageCapability {
+export interface MessageSchema {
   name: string;
-  schema: Record<string, FieldSchema>;
+  description: string;
+  fields: Record<string, FieldSchema>;
 }
 
-export interface TrackCapability {
+export interface TrackSchema {
   name: string;
   kind: "video" | "audio";
-  direction: "recvonly" | "sendonly";
+  direction: "in" | "out";
 }
 
-export interface Capabilities {
-  protocol_version: string;
-  tracks: TrackCapability[];
-  commands?: CommandCapability[];
-  messages?: MessageCapability[];
-  emission_fps?: number | null;
+export interface ModelSchema {
+  modelName: string;
+  modelVersion: string;
+  events: EventSchema[];
+  messages: MessageSchema[];
+  tracks: TrackSchema[];
 }
+
+// ---------------------------------------------------------------------------
+// Codegen pipeline types
+// ---------------------------------------------------------------------------
 
 export interface CodegenOptions {
   modelName: string;
   modelVersion: string;
   sdkVersion: string;
-  capabilities: Capabilities;
+  schema: ModelSchema;
   outputDir: string;
 }
 
-/**
- * A protocol generator produces all the TypeScript source for a given
- * capabilities schema version. New protocol versions add a new generator
- * implementation without touching old ones.
- */
 export interface ProtocolGenerator {
-  readonly protocolVersion: string;
   generate(options: CodegenOptions): GeneratedPackage;
 }
 

@@ -24,7 +24,7 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "codegen:test": "tsx src/cli.ts --model-name helios --model-version 1.0.0 --capabilities capabilities.json --sdk-version 2.9.1 --output .generated/helios"
+    "codegen:test": "tsx src/cli.ts --schema schema.json --sdk-version 2.9.1 --output .generated/helios"
   },
   "keywords": [
     "reactor",

@@ -2,13 +2,10 @@
 
 import * as path from "node:path";
 import { execSync } from "node:child_process";
-import { loadCapabilities, generateModelSdk, writePackage } from "./codegen.js";
-import { getRegisteredVersions } from "./protocols/index.js";
+import { loadSchema, parseSchema, generateModelSdk, writePackage } from "./codegen.js";
 
 interface CliArgs {
-  modelName: string;
-  modelVersion: string;
-  capabilities: string;
+  schema: string;
   sdkVersion: string;
   output: string;
   dryRun: boolean;
@@ -16,20 +13,15 @@ interface CliArgs {
 }
 
 function usage(): never {
-  const versions = getRegisteredVersions().join(", ");
   console.error(`
 Usage: reactor-codegen [options]
 
 Options:
-  --model-name <name>         Model name (e.g. "helios")
-  --model-version <semver>    Model version (e.g. "1.0.0")
-  --capabilities <path>       Path to capabilities JSON file
-  --sdk-version <semver>      JS SDK version to pin as peer dependency
+  --schema <path>             Path to the model's OpenAPI schema JSON
+  --sdk-version <semver>      JS SDK version to pin as a dependency
   --output <dir>              Output directory for the generated package
   --dry-run                   Print generated files without writing to disk
   --no-build                  Skip the build step (just generate source)
-
-Supported protocol versions: ${versions}
 `);
   process.exit(1);
 }
@@ -39,14 +31,8 @@ function parseArgs(argv: string[]): CliArgs {
 
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
-      case "--model-name":
-        args.modelName = argv[++i];
-        break;
-      case "--model-version":
-        args.modelVersion = argv[++i];
-        break;
-      case "--capabilities":
-        args.capabilities = argv[++i];
+      case "--schema":
+        args.schema = argv[++i];
         break;
       case "--sdk-version":
         args.sdkVersion = argv[++i];
@@ -70,7 +56,7 @@ function parseArgs(argv: string[]): CliArgs {
     }
   }
 
-  if (!args.modelName || !args.modelVersion || !args.capabilities || !args.sdkVersion || !args.output) {
+  if (!args.schema || !args.sdkVersion || !args.output) {
     console.error("Error: missing required arguments.\n");
     usage();
   }
@@ -93,25 +79,25 @@ function buildPackage(outputDir: string): void {
 function main(): void {
   const args = parseArgs(process.argv.slice(2));
 
+  const rawSchema = loadSchema(args.schema);
+  const schema = parseSchema(rawSchema);
+
   console.log(`@reactor-team/codegen`);
-  console.log(`  Model:    ${args.modelName}@${args.modelVersion}`);
+  console.log(`  Model:    ${schema.modelName}@${schema.modelVersion}`);
   console.log(`  SDK pin:  @reactor-team/js-sdk@^${args.sdkVersion}`);
-  console.log(`  Input:    ${args.capabilities}`);
+  console.log(`  Schema:   ${args.schema}`);
   console.log(`  Output:   ${args.output}`);
   console.log();
-
-  const capabilities = loadCapabilities(args.capabilities);
-  console.log(`  Protocol: ${capabilities.protocol_version}`);
-  console.log(`  Commands: ${capabilities.commands?.length ?? 0}`);
-  console.log(`  Messages: ${capabilities.messages?.length ?? 0}`);
-  console.log(`  Tracks:   ${capabilities.tracks.length}`);
+  console.log(`  Events:   ${schema.events.length}`);
+  console.log(`  Messages: ${schema.messages.length}`);
+  console.log(`  Tracks:   ${schema.tracks.length}`);
   console.log();
 
   const pkg = generateModelSdk({
-    modelName: args.modelName,
-    modelVersion: args.modelVersion,
+    modelName: schema.modelName,
+    modelVersion: schema.modelVersion,
     sdkVersion: args.sdkVersion,
-    capabilities,
+    schema,
     outputDir: args.output,
   });
 

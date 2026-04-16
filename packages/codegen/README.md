@@ -1,23 +1,23 @@
 # @reactor-team/codegen
 
-Code generator that turns a model's capabilities JSON into a strongly-typed npm package (`@reactor-models/<name>`).
+Code generator that turns a model's OpenAPI schema into a strongly-typed npm package (`@reactor-models/<name>`).
 
 ## How it works
 
 ```
-capabilities.json ──▶ codegen ──▶ @reactor-models/helios (npm package)
-                                    ├── src/index.ts      (typed client)
-                                    ├── package.json
-                                    ├── tsconfig.json
-                                    └── dist/             (built output)
+schema.json ──▶ codegen ──▶ @reactor-models/helios (npm package)
+                              ├── src/index.ts      (typed client)
+                              ├── package.json
+                              ├── tsconfig.json
+                              └── dist/             (built output)
 ```
 
-The codegen reads a model's capabilities (commands, messages, tracks) and produces a TypeScript package with:
+The codegen reads a model's OpenAPI schema (events, messages, tracks) and produces a TypeScript package with:
 
-- **Typed command methods** — `setPrompt({ prompt: "..." })` instead of `sendCommand("set_prompt", { prompt: "..." })`
+- **Typed event methods** — `setPrompt({ prompt: "..." })` instead of `sendCommand("set_prompt", { prompt: "..." })`
 - **Typed message listeners** — `onChunkComplete((msg) => msg.chunk_index)` with full autocomplete
 - **Per-message listener helpers** — `onPromptAccepted(handler)`, `onGenerationStarted(handler)`, etc.
-- **File upload passthrough** — `uploadFile()` exposed when any command uses file references
+- **File upload passthrough** — `uploadFile()` exposed when any event uses upload references
 - **Track constants** — `HeliosTracks.MAIN_VIDEO`
 - **JSDoc** from model descriptions, constraints, and defaults
 
@@ -25,20 +25,18 @@ The codegen reads a model's capabilities (commands, messages, tracks) and produc
 
 ```bash
 reactor-codegen \
-  --model-name helios \
-  --model-version 1.0.0 \
-  --capabilities capabilities.json \
+  --schema schema.json \
   --sdk-version 2.9.0 \
   --output ./out/helios
 ```
+
+The model name and version are read directly from the schema's `info.title` and `info.version` fields.
 
 ### Options
 
 | Flag | Required | Description |
 |---|---|---|
-| `--model-name <name>` | Yes | Model name (e.g. `helios`). Becomes the package scope: `@reactor-models/helios` |
-| `--model-version <semver>` | Yes | Model version. Becomes the npm package version |
-| `--capabilities <path>` | Yes | Path to the capabilities JSON file |
+| `--schema <path>` | Yes | Path to the model's OpenAPI schema JSON |
 | `--sdk-version <semver>` | Yes | `@reactor-team/js-sdk` version to pin as a dependency |
 | `--output <dir>` | Yes | Output directory for the generated package |
 | `--dry-run` | No | Print generated files to stdout without writing to disk |
@@ -47,19 +45,15 @@ reactor-codegen \
 ## Local development
 
 ```bash
-# Run codegen against the test capabilities (Helios)
+# Run codegen against the test schema (Helios)
 pnpm tsx src/cli.ts \
-  --model-name helios \
-  --model-version 1.0.0 \
-  --capabilities capabilities.json \
+  --schema schema.json \
   --sdk-version 2.9.0 \
   --output .generated/helios
 
 # Dry-run to preview output without writing files
 pnpm tsx src/cli.ts \
-  --model-name helios \
-  --model-version 1.0.0 \
-  --capabilities capabilities.json \
+  --schema schema.json \
   --sdk-version 2.9.0 \
   --output .generated/helios \
   --dry-run
@@ -70,15 +64,16 @@ pnpm tsx src/cli.ts \
 The codegen can also be used as a library:
 
 ```typescript
-import { loadCapabilities, generateModelSdk, writePackage } from "@reactor-team/codegen";
+import { loadSchema, parseSchema, generateModelSdk, writePackage } from "@reactor-team/codegen";
 
-const capabilities = loadCapabilities("capabilities.json");
+const rawSchema = loadSchema("schema.json");
+const schema = parseSchema(rawSchema);
 
 const pkg = generateModelSdk({
-  modelName: "helios",
-  modelVersion: "1.0.0",
+  modelName: schema.modelName,
+  modelVersion: schema.modelVersion,
   sdkVersion: "2.9.0",
-  capabilities,
+  schema,
   outputDir: "./out/helios",
 });
 
@@ -95,7 +90,7 @@ import { HeliosModel } from "@reactor-models/helios";
 const helios = new HeliosModel();
 await helios.connect(token);
 
-// Typed commands — full autocomplete, type checking
+// Typed events — full autocomplete, type checking
 await helios.setPrompt({ prompt: "a sunset over the ocean" });
 await helios.setSrScale({ sr_scale: "2x" });
 await helios.start();
@@ -117,68 +112,119 @@ const heliosCustom = new HeliosModel({ apiUrl: "https://custom.api.com" });
 helios.reactor.on("statusChanged", (status) => { /* ... */ });
 ```
 
-## Protocol versioning
+## OpenAPI schema format
 
-The codegen dispatches to a protocol-version-specific generator based on the `protocol_version` field in the capabilities JSON. This allows future breaking changes to the capabilities schema (e.g. renaming `commands` to `events`) to be handled by adding a new generator without touching the existing one.
+The input is a standard OpenAPI 3.1 JSON document with Reactor extensions. See `schema.json` in this directory for a full example (Helios).
 
-Currently supported:
+### Events (client → model)
 
-| Protocol version | Generator | Notes |
-|---|---|---|
-| `1.x` | `v1` | Current format: `commands`, `messages`, `tracks` |
-
-To add a new protocol version, create a new generator in `src/protocols/` and register it via `registerProtocol()`.
-
-## Capabilities JSON format
-
-The input is the JSON produced by `reactor capabilities` on a model image. See `capabilities.json` in this directory for a full example (Helios).
+Events are defined as `POST` operations under `/events/{name}`:
 
 ```json
 {
-  "protocol_version": "1.3",
-  "tracks": [
-    { "name": "main_video", "kind": "video", "direction": "recvonly" }
-  ],
-  "commands": [
-    {
-      "name": "set_prompt",
-      "description": "Set and encode scene prompt",
-      "schema": {
-        "prompt": { "type": "string", "default": "" }
+  "paths": {
+    "/events/set_prompt": {
+      "post": {
+        "operationId": "set_prompt",
+        "summary": "Set and encode scene prompt",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "prompt": { "type": "string", "default": "" }
+                }
+              }
+            }
+          }
+        }
       }
     }
-  ],
-  "messages": [
-    {
-      "name": "prompt_accepted",
-      "schema": {
-        "prompt": { "type": "string" }
-      }
-    }
-  ],
-  "emission_fps": 30
+  }
 }
 ```
 
-### Supported field schema types
+### Messages (model → client)
 
-| JSON Schema `type` | TypeScript output | Source |
-|---|---|---|
-| `"string"` | `string` | `str` |
-| `"integer"` | `number` | `int` |
-| `"number"` | `number` | `float` |
-| `"boolean"` | `boolean` | `bool` |
-| `"object"` with `"format": "file-reference"` | `FileRef` | `UploadedFile` |
-| `"object"` (no format) | `Record<string, unknown>` | Unknown/complex types |
-| Any type with `"enum"` | Union literal (e.g. `"a" \| "b"` or `1 \| 2`) | `Literal[...]` or `InputField(choices=...)` |
+Messages are defined as OpenAPI `webhooks`:
+
+```json
+{
+  "webhooks": {
+    "prompt_accepted": {
+      "post": {
+        "operationId": "prompt_accepted",
+        "summary": "A prompt was accepted and scheduled for encoding.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "prompt": { "type": "string" }
+                },
+                "required": ["prompt"]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### Tracks
+
+Tracks are declared in the `x-reactor` extension:
+
+```json
+{
+  "x-reactor": {
+    "tracks": [
+      { "name": "main_video", "kind": "video", "direction": "out" }
+    ]
+  }
+}
+```
+
+### Upload references (`$ref`)
+
+File upload parameters use a `$ref` to the `ReactorUploadReference` component schema:
+
+```json
+{
+  "image": {
+    "$ref": "#/components/schemas/ReactorUploadReference",
+    "default": null
+  }
+}
+```
+
+The component schema uses `"format": "reactor-upload-reference"` which the codegen maps to the SDK's `FileRef` type.
+
+### Supported field types
+
+| JSON Schema `type` | TypeScript output |
+|---|---|
+| `"string"` | `string` |
+| `"integer"` | `number` |
+| `"number"` | `number` |
+| `"boolean"` | `boolean` |
+| `"object"` with `"format": "reactor-upload-reference"` | `FileRef` |
+| `"object"` (no format) | `Record<string, unknown>` |
+| Any type with `"enum"` | Union literal (e.g. `"a" \| "b"`) |
 
 ### Supported field constraints
 
-| JSON Schema field | JSDoc tag | Source |
-|---|---|---|
-| `"minimum"` | `@minimum` | `InputField(ge=...)` |
-| `"maximum"` | `@maximum` | `InputField(le=...)` |
-| `"minLength"` | `@minLength` | `InputField(min_length=...)` |
-| `"maxLength"` | `@maxLength` | `InputField(max_length=...)` |
-| `"default"` | `@default` | Field default value |
-| `"description"` | JSDoc body | `InputField(description=...)` |
+| JSON Schema field | JSDoc tag |
+|---|---|
+| `"minimum"` | `@minimum` |
+| `"maximum"` | `@maximum` |
+| `"minLength"` | `@minLength` |
+| `"maxLength"` | `@maxLength` |
+| `"default"` | `@default` |
+| `"description"` | JSDoc body |

@@ -2,14 +2,13 @@
 
 import type {
   CodegenOptions,
-  CommandCapability,
+  EventSchema,
   FieldSchema,
   GeneratedPackage,
-  MessageCapability,
+  MessageSchema,
   ProtocolGenerator,
-  TrackCapability,
-} from "../types.js";
-import { registerProtocol } from "./registry.js";
+  TrackSchema,
+} from "./types.js";
 
 function toPascalCase(snake: string): string {
   return snake
@@ -36,8 +35,14 @@ function enumValueToTs(v: string | number | boolean): string {
   return String(v);
 }
 
+const UPLOAD_REF_FORMATS = new Set(["reactor-upload-reference", "file-reference"]);
+
+function isUploadReference(field: FieldSchema): boolean {
+  return field.type === "object" && !!field.format && UPLOAD_REF_FORMATS.has(field.format);
+}
+
 function fieldSchemaToTsType(field: FieldSchema): string {
-  if (field.format === "file-reference") {
+  if (isUploadReference(field)) {
     return "FileRef";
   }
   if (field.enum && field.enum.length > 0) {
@@ -60,12 +65,8 @@ function fieldSchemaToTsType(field: FieldSchema): string {
   }
 }
 
-function isFileReference(field: FieldSchema): boolean {
-  return field.type === "object" && field.format === "file-reference";
-}
-
-function hasFileParams(command: CommandCapability): boolean {
-  return Object.values(command.schema).some(isFileReference);
+function hasUploadRefParam(event: EventSchema): boolean {
+  return Object.values(event.fields).some(isUploadReference);
 }
 
 function generateJsDoc(lines: string[], indentLevel: number = 0): string {
@@ -76,20 +77,21 @@ function generateJsDoc(lines: string[], indentLevel: number = 0): string {
   return `${pad}/**\n${inner}\n${pad} */\n`;
 }
 
+// ---------------------------------------------------------------------------
+// Event (command) param interfaces
+// ---------------------------------------------------------------------------
+
 function generateParamInterface(
   modelPrefix: string,
-  command: CommandCapability,
+  event: EventSchema,
 ): string {
-  const interfaceName = `${modelPrefix}${toPascalCase(command.name)}Params`;
-  const fields = Object.entries(command.schema);
+  const interfaceName = `${modelPrefix}${toPascalCase(event.name)}Params`;
+  const fields = Object.entries(event.fields);
 
   if (fields.length === 0) return "";
 
   const lines: string[] = [];
-  const doc = generateJsDoc(
-    command.description ? [command.description] : [],
-    0,
-  );
+  const doc = generateJsDoc(event.description ? [event.description] : [], 0);
   lines.push(`${doc}export interface ${interfaceName} {`);
 
   for (const [name, field] of fields) {
@@ -114,19 +116,27 @@ function generateParamInterface(
   return lines.join("\n");
 }
 
+// ---------------------------------------------------------------------------
+// Message interfaces + discriminated union
+// ---------------------------------------------------------------------------
+
 function generateMessageInterface(
   modelPrefix: string,
-  message: MessageCapability,
+  message: MessageSchema,
 ): string {
   const interfaceName = `${modelPrefix}${toPascalCase(message.name)}Message`;
-  const fields = Object.entries(message.schema);
+  const fields = Object.entries(message.fields);
 
   const lines: string[] = [];
-  lines.push(`export interface ${interfaceName} {`);
+  const doc = generateJsDoc(message.description ? [message.description] : [], 0);
+  lines.push(`${doc}export interface ${interfaceName} {`);
   lines.push(`  type: "${message.name}";`);
 
   for (const [name, field] of fields) {
     const tsType = fieldSchemaToTsType(field);
+    const fieldDoc: string[] = [];
+    if (field.description) fieldDoc.push(field.description);
+    if (fieldDoc.length > 0) lines.push(indent(generateJsDoc(fieldDoc), 1));
     lines.push(`  ${name}: ${tsType};`);
   }
 
@@ -136,7 +146,7 @@ function generateMessageInterface(
 
 function generateMessageUnion(
   modelPrefix: string,
-  messages: MessageCapability[],
+  messages: MessageSchema[],
 ): string {
   if (messages.length === 0) return "";
 
@@ -146,9 +156,13 @@ function generateMessageUnion(
   return `export type ${modelPrefix}Message =\n${members.join("\n")};`;
 }
 
+// ---------------------------------------------------------------------------
+// Track constants
+// ---------------------------------------------------------------------------
+
 function generateTrackConstants(
   modelPrefix: string,
-  tracks: TrackCapability[],
+  tracks: TrackSchema[],
 ): string {
   if (tracks.length === 0) return "";
 
@@ -163,6 +177,10 @@ function generateTrackConstants(
   lines.push("} as const;");
   return lines.join("\n");
 }
+
+// ---------------------------------------------------------------------------
+// Options type + client class
+// ---------------------------------------------------------------------------
 
 function generateOptionsType(modelPrefix: string): string {
   const lines: string[] = [];
@@ -182,13 +200,12 @@ function generateOptionsType(modelPrefix: string): string {
 function generateClientClass(
   modelPrefix: string,
   modelName: string,
-  commands: CommandCapability[],
-  messages: MessageCapability[],
-  tracks: TrackCapability[],
+  events: EventSchema[],
+  messages: MessageSchema[],
 ): string {
   const className = `${modelPrefix}Model`;
   const optionsType = `${modelPrefix}Options`;
-  const needsFileRef = commands.some(hasFileParams);
+  const needsFileRef = events.some(hasUploadRefParam);
 
   const lines: string[] = [];
 
@@ -196,7 +213,7 @@ function generateClientClass(
     `Strongly-typed client for the ${modelPrefix} model.`,
     "",
     "Creates a Reactor connection with the model name pre-configured.",
-    "Provides typed methods for every command and typed message listeners.",
+    "Provides typed methods for every event and typed message listeners.",
   ];
   lines.push(generateJsDoc(classDoc, 0));
   lines.push(`export class ${className} {`);
@@ -214,30 +231,30 @@ function generateClientClass(
   lines.push(`    await this.reactor.disconnect();`);
   lines.push(`  }`);
 
-  for (const command of commands) {
-    const methodName = toCamelCase(command.name);
-    const fields = Object.entries(command.schema);
+  for (const event of events) {
+    const methodName = toCamelCase(event.name);
+    const fields = Object.entries(event.fields);
     const hasParams = fields.length > 0;
     const paramType = hasParams
-      ? `${modelPrefix}${toPascalCase(command.name)}Params`
+      ? `${modelPrefix}${toPascalCase(event.name)}Params`
       : undefined;
 
     lines.push("");
 
     const methodDoc: string[] = [];
-    if (command.description) methodDoc.push(command.description);
-    if (hasParams) methodDoc.push(`@param params - ${command.description}`);
+    if (event.description) methodDoc.push(event.description);
+    if (hasParams) methodDoc.push(`@param params - ${event.description}`);
     lines.push(indent(generateJsDoc(methodDoc), 1));
 
     if (paramType) {
       lines.push(`  async ${methodName}(params: ${paramType}): Promise<void> {`);
       lines.push(
-        `    await this.reactor.sendCommand("${command.name}", params);`,
+        `    await this.reactor.sendCommand("${event.name}", params);`,
       );
     } else {
       lines.push(`  async ${methodName}(): Promise<void> {`);
       lines.push(
-        `    await this.reactor.sendCommand("${command.name}", {});`,
+        `    await this.reactor.sendCommand("${event.name}", {});`,
       );
     }
     lines.push(`  }`);
@@ -287,7 +304,7 @@ function generateClientClass(
   if (needsFileRef) {
     lines.push("");
     const uploadDoc = [
-      "Upload a file and get a FileRef for use in commands.",
+      "Upload a file and get a FileRef for use in events.",
       "@param file - File or Blob to upload",
       "@param options - Optional name override",
     ];
@@ -303,15 +320,18 @@ function generateClientClass(
   return lines.join("\n");
 }
 
-function generateSourceFile(options: CodegenOptions): string {
-  const { modelName, modelVersion, capabilities } = options;
-  const modelPrefix = toPascalCase(modelName);
-  const commands = capabilities.commands ?? [];
-  const messages = capabilities.messages ?? [];
-  const tracks = capabilities.tracks ?? [];
+// ---------------------------------------------------------------------------
+// Full source file assembly
+// ---------------------------------------------------------------------------
 
-  const needsFileRef =
-    commands.some(hasFileParams);
+function generateSourceFile(options: CodegenOptions): string {
+  const { schema } = options;
+  const modelPrefix = toPascalCase(schema.modelName);
+  const events = schema.events;
+  const messages = schema.messages;
+  const tracks = schema.tracks;
+
+  const needsFileRef = events.some(hasUploadRefParam);
 
   const sections: string[] = [];
 
@@ -319,7 +339,7 @@ function generateSourceFile(options: CodegenOptions): string {
   sections.push("");
   sections.push(`// Auto-generated by @reactor-team/codegen — DO NOT EDIT`);
   sections.push(
-    `// Model: ${modelName} v${modelVersion} | Protocol: ${capabilities.protocol_version}`,
+    `// Model: ${schema.modelName} v${schema.modelVersion}`,
   );
   sections.push(
     `// Generated: ${new Date().toISOString().split("T")[0]}`,
@@ -333,19 +353,16 @@ function generateSourceFile(options: CodegenOptions): string {
   );
   sections.push("");
 
-  sections.push(`export const MODEL_NAME = "${modelName}" as const;`);
-  sections.push(`export const MODEL_VERSION = "${modelVersion}" as const;`);
-  sections.push(
-    `export const PROTOCOL_VERSION = "${capabilities.protocol_version}" as const;`,
-  );
+  sections.push(`export const MODEL_NAME = "${schema.modelName}" as const;`);
+  sections.push(`export const MODEL_VERSION = "${schema.modelVersion}" as const;`);
 
   if (tracks.length > 0) {
     sections.push("");
     sections.push(generateTrackConstants(modelPrefix, tracks));
   }
 
-  for (const command of commands) {
-    const iface = generateParamInterface(modelPrefix, command);
+  for (const event of events) {
+    const iface = generateParamInterface(modelPrefix, event);
     if (iface) {
       sections.push("");
       sections.push(iface);
@@ -363,23 +380,25 @@ function generateSourceFile(options: CodegenOptions): string {
   }
 
   sections.push("");
-  sections.push(
-    generateOptionsType(modelPrefix),
-  );
+  sections.push(generateOptionsType(modelPrefix));
   sections.push("");
   sections.push(
-    generateClientClass(modelPrefix, modelName, commands, messages, tracks),
+    generateClientClass(modelPrefix, schema.modelName, events, messages),
   );
 
   sections.push("");
   return sections.join("\n");
 }
 
+// ---------------------------------------------------------------------------
+// Package scaffolding
+// ---------------------------------------------------------------------------
+
 function generatePackageJson(options: CodegenOptions): string {
   const pkg = {
-    name: `@reactor-models/${options.modelName}`,
-    version: options.modelVersion,
-    description: `Strongly-typed SDK for the ${toPascalCase(options.modelName)} model on Reactor`,
+    name: `@reactor-models/${options.schema.modelName}`,
+    version: options.schema.modelVersion,
+    description: `Strongly-typed SDK for the ${toPascalCase(options.schema.modelName)} model on Reactor`,
     main: "dist/index.js",
     module: "dist/index.mjs",
     types: "dist/index.d.ts",
@@ -401,7 +420,7 @@ function generatePackageJson(options: CodegenOptions): string {
       tsup: "^8.5.0",
       typescript: "^5.8.3",
     },
-    keywords: ["reactor", options.modelName, "sdk", "typed"],
+    keywords: ["reactor", options.schema.modelName, "sdk", "typed"],
     author: "Reactor Technologies, Inc.",
     license: "MIT",
   };
@@ -441,9 +460,11 @@ function generateTsConfig(): string {
   return JSON.stringify(config, null, 2) + "\n";
 }
 
-const v1Generator: ProtocolGenerator = {
-  protocolVersion: "1",
+// ---------------------------------------------------------------------------
+// Exported generator
+// ---------------------------------------------------------------------------
 
+export const generator: ProtocolGenerator = {
   generate(options: CodegenOptions): GeneratedPackage {
     return {
       files: [
@@ -455,5 +476,3 @@ const v1Generator: ProtocolGenerator = {
     };
   },
 };
-
-registerProtocol(v1Generator);
