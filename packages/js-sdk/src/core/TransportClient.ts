@@ -50,12 +50,25 @@ export interface TransportClientConfig {
 
 export interface TransportClient {
   /**
+   * Optional early work the transport can do before tracks are known.
+   *
+   * For example, fetching signaling credentials that only require the
+   * session_id. Results are cached internally and reused by
+   * {@link prepare}. Safe to call in parallel with session polling.
+   *
+   * Calling this is optional — {@link prepare} will do the work itself
+   * if `warmup()` was not called.
+   */
+  warmup(): Promise<void>;
+
+  /**
    * Phase 1: Prepare the transport for connection.
    *
    * Performs all setup that can happen before the Runtime is confirmed
-   * ready — e.g. fetching signaling credentials, creating the local
-   * connection object, and configuring media tracks. This phase can run
-   * in parallel with session polling since it only requires the
+   * ready — e.g. creating the local connection object and configuring
+   * media tracks. If {@link warmup} was called, reuses its cached
+   * results (e.g. signaling credentials). This phase can run in
+   * parallel with session polling since it only requires the
    * session_id and cluster assignment, not full Runtime readiness.
    *
    * Must be called before {@link connect}.

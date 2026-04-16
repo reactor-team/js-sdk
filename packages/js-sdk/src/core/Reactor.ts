@@ -26,10 +26,17 @@ import { z } from "zod";
 const LOCAL_COORDINATOR_URL = "http://localhost:8080";
 export const DEFAULT_BASE_URL = "https://api.reactor.inc";
 
+const TrackHintSchema = z.object({
+  name: z.string(),
+  kind: z.enum(["video", "audio"]),
+  direction: z.enum(["recvonly", "sendonly"]),
+});
+
 const OptionsSchema = z.object({
   apiUrl: z.string().default(DEFAULT_BASE_URL),
   modelName: z.string(),
   local: z.boolean().default(false),
+  modelTracks: z.array(TrackHintSchema).optional(),
 });
 export type Options = z.input<typeof OptionsSchema>;
 
@@ -53,6 +60,7 @@ export class Reactor {
 
   private capabilities?: Capabilities;
   private tracks: TrackCapability[] = [];
+  private presetTracks?: TrackCapability[];
   private sessionResponse?: SessionResponse;
 
   constructor(options: Options) {
@@ -62,6 +70,9 @@ export class Reactor {
     this.local = validatedOptions.local;
     if (this.local && options.apiUrl === undefined) {
       this.coordinatorUrl = LOCAL_COORDINATOR_URL;
+    }
+    if (validatedOptions.modelTracks) {
+      this.presetTracks = validatedOptions.modelTracks;
     }
   }
 
@@ -352,48 +363,64 @@ export class Reactor {
         initialResponse.state
       );
 
-      // 2. Poll until the Runtime accepts and capabilities are available
       this.setStatus("waiting");
-
-      const tPoll = performance.now();
-      const sessionResponse = await this.coordinatorClient.pollSessionReady();
-      const sessionPollingMs = performance.now() - tPoll;
-
-      this.sessionResponse = sessionResponse;
-
-      // 3. Store capabilities and tracks
-      this.capabilities = sessionResponse.capabilities!;
-      this.tracks = sessionResponse.capabilities!.tracks;
-      this.emit("capabilitiesReceived", this.capabilities);
-
-      console.debug(
-        "[Reactor] Session ready, transport:",
-        sessionResponse.selected_transport!.protocol,
-        "tracks:",
-        this.tracks.length
-      );
-
-      // 4. Validate transport protocol
-      const protocol = sessionResponse.selected_transport!.protocol;
-      if (protocol !== "webrtc") {
-        throw new Error(`Unsupported transport protocol: ${protocol}`);
-      }
 
       this.transportClient = new WebRTCTransportClient({
         baseUrl: this.coordinatorUrl,
-        sessionId: sessionResponse.session_id,
+        sessionId: initialResponse.session_id,
         jwtToken: this.local ? "local" : jwtToken!,
         webrtcVersion: REACTOR_WEBRTC_VERSION,
         maxPollAttempts: options?.maxAttempts,
       });
       this.setupTransportHandlers();
 
-      // 5. Prepare SDP offer (ICE fetch + PeerConnection + createOffer),
-      //    then send it and poll for the answer.
-      const tTransport = performance.now();
-      await this.transportClient.prepare(this.tracks);
-      await this.transportClient.connect();
-      const transportConnectingMs = performance.now() - tTransport;
+      let sessionPollingMs: number;
+      let transportConnectingMs: number;
+
+      if (this.presetTracks) {
+        // 2a. Parallel path: tracks are known at build time, so we can
+        //     prepare the transport while waiting for the Runtime.
+        const tParallel = performance.now();
+        const [sessionResponse] = await Promise.all([
+          this.coordinatorClient.pollSessionReady(),
+          this.transportClient.prepare(this.presetTracks),
+        ]);
+        sessionPollingMs = performance.now() - tParallel;
+
+        this.sessionResponse = sessionResponse;
+        this.capabilities = sessionResponse.capabilities!;
+        this.tracks = this.presetTracks;
+        this.emit("capabilitiesReceived", this.capabilities);
+
+        const tConnect = performance.now();
+        await this.transportClient.connect();
+        transportConnectingMs = performance.now() - tConnect;
+      } else {
+        // 2b. Sequential path: tracks come from the poll response, but
+        //     we can still warm up the transport (ICE fetch) in parallel.
+        this.transportClient.warmup();
+
+        const tPoll = performance.now();
+        const sessionResponse = await this.coordinatorClient.pollSessionReady();
+        sessionPollingMs = performance.now() - tPoll;
+
+        this.sessionResponse = sessionResponse;
+        this.capabilities = sessionResponse.capabilities!;
+        this.tracks = sessionResponse.capabilities!.tracks;
+        this.emit("capabilitiesReceived", this.capabilities);
+
+        const protocol = sessionResponse.selected_transport!.protocol;
+        if (protocol !== "webrtc") {
+          throw new Error(`Unsupported transport protocol: ${protocol}`);
+        }
+
+        const tTransport = performance.now();
+        await this.transportClient.prepare(this.tracks);
+        await this.transportClient.connect();
+        transportConnectingMs = performance.now() - tTransport;
+      }
+
+      console.debug("[Reactor] Session ready, tracks:", this.tracks.length);
 
       this.connectionTimings = {
         sessionCreationMs: sessionCreationMs + sessionPollingMs,

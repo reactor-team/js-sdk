@@ -52,6 +52,7 @@ vi.mock("../../src/core/WebRTCTransportClient", () => ({
   WebRTCTransportClient: vi.fn().mockImplementation(() => {
     transportHandlers = {};
     mockTransportClient = {
+      warmup: vi.fn().mockResolvedValue(undefined),
       prepare: vi.fn().mockResolvedValue(undefined),
       connect: vi.fn().mockResolvedValue(undefined),
       disconnect: vi.fn().mockResolvedValue(undefined),
@@ -236,6 +237,56 @@ describe("Reactor", () => {
       const info = r.getSessionInfo();
       expect(info).toBeDefined();
       expect(info!.session_id).toBe(MOCK_SESSION_ID);
+      await r.disconnect();
+    });
+
+    it("uses parallel path when tracks are preset", async () => {
+      const r = new Reactor({
+        modelName: "echo",
+        modelTracks: [
+          { name: "main_video", kind: "video", direction: "recvonly" },
+        ],
+      });
+      await r.connect("jwt-token");
+
+      expect(mockTransportClient.prepare).toHaveBeenCalledWith([
+        { name: "main_video", kind: "video", direction: "recvonly" },
+      ]);
+      expect(mockTransportClient.connect).toHaveBeenCalled();
+      await r.disconnect();
+    });
+
+    it("uses sequential path when tracks are not preset", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      await r.connect("jwt-token");
+
+      expect(mockTransportClient.prepare).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({ name: "main_video" }),
+        ])
+      );
+      expect(mockTransportClient.connect).toHaveBeenCalled();
+      await r.disconnect();
+    });
+
+    it("calls warmup in sequential path (no preset tracks)", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      await r.connect("jwt-token");
+
+      expect(mockTransportClient.warmup).toHaveBeenCalled();
+      await r.disconnect();
+    });
+
+    it("does not call warmup in parallel path (preset tracks)", async () => {
+      const r = new Reactor({
+        modelName: "echo",
+        modelTracks: [
+          { name: "main_video", kind: "video", direction: "recvonly" },
+        ],
+      });
+      await r.connect("jwt-token");
+
+      expect(mockTransportClient.warmup).not.toHaveBeenCalled();
       await r.disconnect();
     });
   });
