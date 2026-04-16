@@ -128,7 +128,8 @@ describe("WebRTCTransportClient (extended)", () => {
 
   async function connectClient(client: WebRTCTransportClient) {
     setupFullConnect();
-    await client.connect(MOCK_TRACKS);
+    await client.prepare(MOCK_TRACKS);
+    await client.connect();
   }
 
   // ── publishTrack() guards ─────────────────────────────────────────────
@@ -369,15 +370,14 @@ describe("WebRTCTransportClient (extended)", () => {
     });
   });
 
-  // ── reconnect() ───────────────────────────────────────────────────────
+  // ── reconnect via prepare + connect("PUT") ─────────────
 
-  describe("reconnect()", () => {
+  describe("reconnect (prepare + connect PUT)", () => {
     it("tears down old connection and creates new one with PUT", async () => {
       const client = createClient();
       await connectClient(client);
       simulateConnected();
 
-      // Setup mocks for reconnect
       mockFetch.mockReset();
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -390,9 +390,9 @@ describe("WebRTCTransportClient (extended)", () => {
         json: () => Promise.resolve({ sdp_answer: "v=0\r\nnew-answer" }),
       });
 
-      await client.reconnect(MOCK_TRACKS);
+      await client.prepare(MOCK_TRACKS);
+      await client.connect(true);
 
-      // SDP offer should use PUT for reconnect
       expect(mockFetch.mock.calls[1][1].method).toBe("PUT");
     });
   });
@@ -404,7 +404,7 @@ describe("WebRTCTransportClient (extended)", () => {
       const client = createClient();
       mockFetch.mockResolvedValueOnce({ ok: false, status: 426 });
 
-      await expect(client.connect(MOCK_TRACKS)).rejects.toThrow(
+      await expect(client.prepare(MOCK_TRACKS)).rejects.toThrow(
         "CLIENT_VERSION_TOO_OLD"
       );
     });
@@ -413,7 +413,7 @@ describe("WebRTCTransportClient (extended)", () => {
       const client = createClient();
       mockFetch.mockResolvedValueOnce({ ok: false, status: 501 });
 
-      await expect(client.connect(MOCK_TRACKS)).rejects.toThrow(
+      await expect(client.prepare(MOCK_TRACKS)).rejects.toThrow(
         "SERVER_VERSION_TOO_OLD"
       );
     });

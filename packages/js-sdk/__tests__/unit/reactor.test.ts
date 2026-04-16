@@ -52,9 +52,8 @@ vi.mock("../../src/core/WebRTCTransportClient", () => ({
   WebRTCTransportClient: vi.fn().mockImplementation(() => {
     transportHandlers = {};
     mockTransportClient = {
-      fetchIceServers: vi.fn().mockResolvedValue([]),
+      prepare: vi.fn().mockResolvedValue(undefined),
       connect: vi.fn().mockResolvedValue(undefined),
-      reconnect: vi.fn().mockResolvedValue(undefined),
       disconnect: vi.fn().mockResolvedValue(undefined),
       sendCommand: vi.fn(),
       publishTrack: vi.fn().mockResolvedValue(undefined),

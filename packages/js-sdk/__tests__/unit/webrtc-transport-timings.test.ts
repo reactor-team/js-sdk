@@ -109,7 +109,8 @@ describe("WebRTCTransportClient connection timings", () => {
   it("records ICE and data channel durations after connection", async () => {
     const client = createClient();
     setupFullConnect();
-    await client.connect(MOCK_TRACKS);
+    await client.prepare(MOCK_TRACKS);
+    await client.connect();
 
     mockPC.connectionState = "connected";
     mockPC.onconnectionstatechange!();
@@ -130,7 +131,8 @@ describe("WebRTCTransportClient connection timings", () => {
   it("returns undefined when only ICE connected but data channel not open", async () => {
     const client = createClient();
     setupFullConnect();
-    await client.connect(MOCK_TRACKS);
+    await client.prepare(MOCK_TRACKS);
+    await client.connect();
 
     mockPC.connectionState = "connected";
     mockPC.onconnectionstatechange!();
@@ -141,7 +143,8 @@ describe("WebRTCTransportClient connection timings", () => {
   it("clears timings on disconnect", async () => {
     const client = createClient();
     setupFullConnect();
-    await client.connect(MOCK_TRACKS);
+    await client.prepare(MOCK_TRACKS);
+    await client.connect();
 
     mockPC.connectionState = "connected";
     mockPC.onconnectionstatechange!();
