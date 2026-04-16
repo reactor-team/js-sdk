@@ -135,7 +135,10 @@ export function ReactorController({
               initialValues[commandName][paramName] = null;
             } else if (paramSchema.default !== undefined) {
               initialValues[commandName][paramName] = paramSchema.default;
-            } else if (paramSchema.type === "number" || paramSchema.type === "integer") {
+            } else if (
+              paramSchema.type === "number" ||
+              paramSchema.type === "integer"
+            ) {
               initialValues[commandName][paramName] = paramSchema.minimum ?? 0;
             } else if (paramSchema.type === "string") {
               initialValues[commandName][paramName] = "";
@@ -595,7 +598,10 @@ function FileParamInput({
   value: any;
   onChange: (cmd: string, param: string, value: any) => void;
   disabled: boolean;
-  uploadFile: (file: File | Blob, options?: { name?: string }) => Promise<FileRef>;
+  uploadFile: (
+    file: File | Blob,
+    options?: { name?: string }
+  ) => Promise<FileRef>;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -623,7 +629,14 @@ function FileParamInput({
         <span style={{ color: "#888", fontSize: "11px" }}> (file)</span>
         {description && ` - ${description}`}
       </label>
-      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          marginTop: "4px",
+        }}
+      >
         <input
           ref={inputRef}
           type="file"
