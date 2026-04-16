@@ -6,7 +6,6 @@ import type {
   FieldSchema,
   GeneratedPackage,
   MessageSchema,
-  ProtocolGenerator,
   TrackSchema,
 } from "./types.js";
 
@@ -464,7 +463,7 @@ function generateTsConfig(): string {
 // Exported generator
 // ---------------------------------------------------------------------------
 
-export const generator: ProtocolGenerator = {
+export const generator = {
   generate(options: CodegenOptions): GeneratedPackage {
     return {
       files: [
