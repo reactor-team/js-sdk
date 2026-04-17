@@ -312,6 +312,20 @@ function generateMessageUnion(
 // Track constants
 // ---------------------------------------------------------------------------
 
+/**
+ * The schema expresses track direction from the model's perspective
+ * (`"in"` = model consumes, `"out"` = model produces). The JS SDK's
+ * {@link Reactor} constructor accepts the transport / client
+ * perspective via `modelTracks[*].direction` — `"sendonly"` when the
+ * client sends media into the model, `"recvonly"` when the client
+ * receives media from it.
+ */
+function schemaDirectionToTransport(
+  direction: TrackSchema["direction"],
+): "sendonly" | "recvonly" {
+  return direction === "in" ? "sendonly" : "recvonly";
+}
+
 function generateTrackConstants(
   modelPrefix: string,
   tracks: TrackSchema[],
@@ -319,15 +333,91 @@ function generateTrackConstants(
   if (tracks.length === 0) return "";
 
   const lines: string[] = [];
-  lines.push(`export const ${modelPrefix}Tracks = {`);
+  const doc = generateJsDoc(
+    [
+      `Preset media tracks for the ${modelPrefix} model.`,
+      "",
+      "Declared in the model's OpenAPI schema and passed to the SDK as",
+      "`modelTracks` so the transport can prepare the SDP offer in",
+      "parallel with session polling (faster first-frame latency).",
+    ],
+    0,
+  );
+  lines.push(doc + `export const ${modelPrefix}Tracks = [`);
   for (const track of tracks) {
-    const constName = track.name.toUpperCase();
+    const transportDirection = schemaDirectionToTransport(track.direction);
+    // Route every schema-sourced field through JSON.stringify so a hostile
+    // IR (parser bypass / hand-rolled ModelSchema) can't smuggle a quote
+    // into the constant and turn this array literal into executable code.
+    // `transportDirection` is derived internally from a closed enum, but
+    // we route it through the same helper for consistency.
     lines.push(
-      `  ${constName}: { name: "${track.name}", kind: "${track.kind}", direction: "${track.direction}" },`,
+      `  { name: ${JSON.stringify(track.name)}, kind: ${JSON.stringify(track.kind)}, direction: ${JSON.stringify(transportDirection)} },`,
     );
   }
-  lines.push("} as const;");
+  lines.push("] as const;");
   return lines.join("\n");
+}
+
+/** Tracks the user can publish bytes INTO (client → model). */
+function sendonlyTracks(tracks: TrackSchema[]): TrackSchema[] {
+  return tracks.filter((t) => t.direction === "in");
+}
+
+/** Tracks the user can subscribe bytes OUT of (model → client). */
+function recvonlyTracks(tracks: TrackSchema[]): TrackSchema[] {
+  return tracks.filter((t) => t.direction === "out");
+}
+
+/**
+ * Emit `export type <Prefix>SendTrackName = "a" | "b"` and
+ * `export type <Prefix>RecvTrackName = "c" | "d"` — string-literal
+ * unions of the track names the user can publish to / subscribe to.
+ *
+ * Only emit the direction that actually has tracks. A union with zero
+ * members collapses to `never`, which makes every generated hook
+ * signature uncallable (dead code worth surfacing as absence instead).
+ *
+ * Every name flows through `JSON.stringify` so a hostile IR cannot
+ * smuggle a quote into the literal — same defense-in-depth contract as
+ * every other schema-sourced identifier the emitter writes.
+ */
+function generateTrackTypes(
+  modelPrefix: string,
+  tracks: TrackSchema[],
+): string {
+  const send = sendonlyTracks(tracks);
+  const recv = recvonlyTracks(tracks);
+  if (send.length === 0 && recv.length === 0) return "";
+
+  const parts: string[] = [];
+  if (send.length > 0) {
+    parts.push(
+      generateJsDoc(
+        [
+          `Track names the client can publish into (sendonly, from the client's perspective).`,
+        ],
+        0,
+      ) +
+        `export type ${modelPrefix}SendTrackName =\n  ${send
+          .map((t) => JSON.stringify(t.name))
+          .join("\n  | ")};`,
+    );
+  }
+  if (recv.length > 0) {
+    parts.push(
+      generateJsDoc(
+        [
+          `Track names the client can subscribe to (recvonly, from the client's perspective).`,
+        ],
+        0,
+      ) +
+        `export type ${modelPrefix}RecvTrackName =\n  ${recv
+          .map((t) => JSON.stringify(t.name))
+          .join("\n  | ")};`,
+    );
+  }
+  return parts.join("\n\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -355,10 +445,12 @@ function generateClientClass(
   modelPrefix: string,
   events: EventSchema[],
   messages: MessageSchema[],
+  tracks: TrackSchema[],
 ): string {
   const className = `${modelPrefix}Model`;
   const optionsType = `${modelPrefix}Options`;
   const needsFileRef = events.some(hasUploadRefParam);
+  const hasTracks = tracks.length > 0;
 
   const lines: string[] = [];
 
@@ -373,9 +465,17 @@ function generateClientClass(
   lines.push(`  readonly reactor: Reactor;`);
   lines.push("");
   lines.push(`  constructor(options?: ${optionsType}) {`);
-  lines.push(
-    `    this.reactor = new Reactor({ ...options, modelName: MODEL_NAME });`,
-  );
+  if (hasTracks) {
+    lines.push(`    this.reactor = new Reactor({`);
+    lines.push(`      ...options,`);
+    lines.push(`      modelName: MODEL_NAME,`);
+    lines.push(`      modelTracks: [...${modelPrefix}Tracks],`);
+    lines.push(`    });`);
+  } else {
+    lines.push(
+      `    this.reactor = new Reactor({ ...options, modelName: MODEL_NAME });`,
+    );
+  }
   lines.push(`  }`);
   lines.push("");
   lines.push(`  async connect(jwtToken?: string): Promise<void> {`);
@@ -472,6 +572,88 @@ function generateClientClass(
       `  async uploadFile(file: File | Blob, options?: { name?: string }): Promise<FileRef> {`,
     );
     lines.push(`    return this.reactor.uploadFile(file, options);`);
+    lines.push(`  }`);
+  }
+
+  // Typed track helpers — one publish/unpublish pair per sendonly track
+  // and one `on<Name>` subscription per recvonly track. Keeps the
+  // generated surface consistent with events ({model}.setFoo(...)) and
+  // messages ({model}.onFoo(...)) so consumers never hand-write a
+  // track name as a string literal.
+  //
+  // The generic `reactor.publishTrack(name, ...)` /
+  // `reactor.on("trackReceived", ...)` APIs remain reachable through
+  // `{model}.reactor` for callers that need to pass a dynamic name —
+  // this generator only emits per-schema sugar.
+  for (const track of sendonlyTracks(tracks)) {
+    const pascal = toPascalCase(track.name);
+    const kindNote = track.kind === "audio" ? " audio" : " video";
+    lines.push("");
+    lines.push(
+      indent(
+        generateJsDoc([
+          `Start sending a ${track.kind === "audio" ? "audio" : "video"} track to the model's "${track.name}" sendonly channel.`,
+          "",
+          `Pass a live MediaStreamTrack (e.g. from \`getUserMedia({${kindNote === " audio" ? " audio: true " : " video: true "}})\`).`,
+          `Safe to call repeatedly — the transport \`replaceTrack()\`s the new value onto the existing RTCRtpSender without renegotiating.`,
+          `@param track - The${kindNote} MediaStreamTrack to publish`,
+        ]),
+        1,
+      ),
+    );
+    lines.push(
+      `  async publish${pascal}(track: MediaStreamTrack): Promise<void> {`,
+    );
+    lines.push(
+      `    await this.reactor.publishTrack(${JSON.stringify(track.name)}, track);`,
+    );
+    lines.push(`  }`);
+
+    lines.push("");
+    lines.push(
+      indent(
+        generateJsDoc([
+          `Stop sending on the "${track.name}" sendonly channel.`,
+          "",
+          `The underlying RTCRtpSender stays alive — future \`publish${pascal}()\` calls resume on the same transceiver without renegotiating.`,
+        ]),
+        1,
+      ),
+    );
+    lines.push(`  async unpublish${pascal}(): Promise<void> {`);
+    lines.push(
+      `    await this.reactor.unpublishTrack(${JSON.stringify(track.name)});`,
+    );
+    lines.push(`  }`);
+  }
+
+  for (const track of recvonlyTracks(tracks)) {
+    const pascal = toPascalCase(track.name);
+    lines.push("");
+    lines.push(
+      indent(
+        generateJsDoc([
+          `Subscribe to the "${track.name}" recvonly ${track.kind} track the model publishes.`,
+          "",
+          "The handler fires once the model starts publishing this track; it receives the live MediaStreamTrack and the parent MediaStream (useful for attaching to a `<video>` / `<audio>` element via `srcObject`).",
+          "@param handler - Called with the received track and its stream",
+          "@returns Unsubscribe function",
+        ]),
+        1,
+      ),
+    );
+    lines.push(
+      `  on${pascal}(\n    handler: (track: MediaStreamTrack, stream: MediaStream) => void,\n  ): () => void {`,
+    );
+    lines.push(
+      `    const wrapped = (name: string, t: MediaStreamTrack, s: MediaStream) => {`,
+    );
+    lines.push(
+      `      if (name === ${JSON.stringify(track.name)}) handler(t, s);`,
+    );
+    lines.push(`    };`);
+    lines.push(`    this.reactor.on("trackReceived", wrapped);`);
+    lines.push(`    return () => this.reactor.off("trackReceived", wrapped);`);
     lines.push(`  }`);
   }
 
@@ -703,7 +885,20 @@ function generateReactFile(options: CodegenOptions): string {
   const modelPrefix = toPascalCase(schema.modelName);
   const events = schema.events;
   const messages = schema.messages;
-  const hasTracks = schema.tracks.length > 0;
+  const tracks = schema.tracks;
+  const hasTracks = tracks.length > 0;
+  const send = sendonlyTracks(tracks);
+  const recv = recvonlyTracks(tracks);
+  // The per-track component wrappers only make sense for tracks the SDK
+  // already has a ready-made React component for. `<ReactorView>` and
+  // `<WebcamStream>` are both video-only today; audio-only tracks
+  // would need bespoke wiring that this emitter intentionally leaves
+  // to the consumer.
+  const sendVideo = send.filter((t) => t.kind === "video");
+  const recvVideo = recv.filter((t) => t.kind === "video");
+  const emitsTrackHook = recv.length > 0;
+  const emitsViewComponents = recvVideo.length > 0;
+  const emitsPublisherComponents = sendVideo.length > 0;
   const needsFileRef = events.some(hasUploadRefParam);
 
   const sections: string[] = [];
@@ -734,6 +929,10 @@ function generateReactFile(options: CodegenOptions): string {
     "type ReactorConnectOptions",
   ];
   if (needsFileRef) sdkImports.push("type FileRef");
+  if (emitsViewComponents)
+    sdkImports.push("ReactorView", "type ReactorViewProps");
+  if (emitsPublisherComponents)
+    sdkImports.push("WebcamStream", "type WebcamStreamProps");
   sections.push(
     `import {\n  ${sdkImports.join(",\n  ")},\n} from "@reactor-team/js-sdk";`,
   );
@@ -757,6 +956,9 @@ function generateReactFile(options: CodegenOptions): string {
         `type ${modelPrefix}${toPascalCase(message.name)}Message`,
       );
     }
+  }
+  if (emitsTrackHook) {
+    localImports.push(`type ${modelPrefix}RecvTrackName`);
   }
   sections.push(
     `import {\n  ${localImports.join(",\n  ")},\n} from "./index.js";`,
@@ -806,8 +1008,134 @@ function generateReactFile(options: CodegenOptions): string {
     sections.push(generateReactHooksForMessages(modelPrefix, messages));
   }
 
+  // Track hook: `use<Prefix>Track(name)` — reactive subscription to a
+  // single recvonly MediaStreamTrack by name. Only emitted when the
+  // schema declares at least one recvonly track; otherwise `name`
+  // would be `never` and the hook uncallable.
+  if (emitsTrackHook) {
+    sections.push("");
+    sections.push(generateTrackHook(modelPrefix));
+  }
+
+  // Per-track wrapper components. One component per video track in
+  // each direction, name derived from the track name so callers never
+  // have to re-type a string literal (`<EchoMainVideoView />` instead
+  // of `<ReactorView track="main_video" />`).
+  if (emitsViewComponents || emitsPublisherComponents) {
+    sections.push("");
+    sections.push(generateTrackComponents(modelPrefix, recvVideo, sendVideo));
+  }
+
   sections.push("");
   return sections.join("\n");
+}
+
+/**
+ * Emit `use<Prefix>Track(name)` — a reactive subscription to the
+ * recvonly MediaStreamTrack with the given name. The hook returns
+ * `undefined` before the track arrives and the live
+ * `MediaStreamTrack` once it does. `name` is typed as
+ * `<Prefix>RecvTrackName` so a typo is a compile error.
+ */
+function generateTrackHook(modelPrefix: string): string {
+  const hookName = `use${modelPrefix}Track`;
+  const nameType = `${modelPrefix}RecvTrackName`;
+  return (
+    generateJsDoc(
+      [
+        `Subscribe to a recvonly MediaStreamTrack the model publishes, by name.`,
+        "",
+        `Returns \`undefined\` until the model emits the track, then the live track for the lifetime of the connection. \`name\` is constrained to the model's declared recvonly channels — use one of \`${nameType}\`.`,
+        "@param name - A recvonly track name declared by the model",
+        "@returns The live MediaStreamTrack, or `undefined` until received",
+      ],
+      0,
+    ) +
+    `export function ${hookName}(
+  name: ${nameType},
+): MediaStreamTrack | undefined {
+  return useReactor((s) => s.tracks[name]);
+}`
+  );
+}
+
+/**
+ * Emit one React component per video track in each direction. For each:
+ *
+ *   - recvonly video → `<<Prefix><Track>View>` wraps `<ReactorView>`
+ *     with `track` pre-bound to the schema-declared name. Audio track
+ *     stays a caller-provided prop because `audioTrack` pairs with the
+ *     video on the same `<video>` element and the schema can't know
+ *     which audio track the caller wants to mix in.
+ *
+ *   - sendonly video → `<<Prefix><Track>View>` wraps `<WebcamStream>`
+ *     with `track` pre-bound. Kept under the `View` suffix to match
+ *     the recvonly naming — both sides visibly render a `<video>`
+ *     element (preview for publish, output for receive), so one name
+ *     pattern is correct for the whole surface.
+ *
+ * Only video tracks get components because `<ReactorView>` /
+ * `<WebcamStream>` are both video-only today. Audio-only tracks would
+ * need a bespoke `<audio>` mounting component the SDK doesn't ship.
+ */
+function generateTrackComponents(
+  modelPrefix: string,
+  recvVideo: TrackSchema[],
+  sendVideo: TrackSchema[],
+): string {
+  const parts: string[] = [];
+
+  for (const track of recvVideo) {
+    const pascal = toPascalCase(track.name);
+    const componentName = `${modelPrefix}${pascal}View`;
+    const propsName = `${componentName}Props`;
+    parts.push(
+      `export interface ${propsName} extends Omit<ReactorViewProps, "track"> {}
+
+${generateJsDoc(
+  [
+    `Render the model's "${track.name}" recvonly video track in a \`<video>\` element.`,
+    "",
+    `Thin wrapper around \`<ReactorView>\` with \`track\` pre-bound. Accepts every other \`ReactorViewProps\` (\`audioTrack\`, \`className\`, \`style\`, \`videoObjectFit\`, \`muted\`, …). Must be rendered inside \`<${modelPrefix}Provider>\`.`,
+  ],
+  0,
+)}export function ${componentName}(
+  props: ${propsName},
+): ReactElement {
+  return createElement(ReactorView, {
+    ...props,
+    track: ${JSON.stringify(track.name)},
+  });
+}`,
+    );
+  }
+
+  for (const track of sendVideo) {
+    const pascal = toPascalCase(track.name);
+    const componentName = `${modelPrefix}${pascal}View`;
+    const propsName = `${componentName}Props`;
+    parts.push(
+      `export interface ${propsName} extends Omit<WebcamStreamProps, "track"> {}
+
+${generateJsDoc(
+  [
+    `Acquire the user's webcam and publish it to the model's "${track.name}" sendonly video channel.`,
+    "",
+    `Thin wrapper around \`<WebcamStream>\` with \`track\` pre-bound. Requests \`getUserMedia()\` on mount, auto-publishes when the connection reaches \`ready\`, cleans up on unmount. Must be rendered inside \`<${modelPrefix}Provider>\`.`,
+  ],
+  0,
+)}export function ${componentName}(
+  props: ${propsName},
+): ReactElement {
+  return createElement(WebcamStream, {
+    ...props,
+    track: ${JSON.stringify(track.name)},
+  });
+}`,
+    );
+  }
+
+  return parts.join("\n\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -877,6 +1205,11 @@ function generateSourceFile(options: CodegenOptions): string {
   if (tracks.length > 0) {
     sections.push("");
     sections.push(generateTrackConstants(modelPrefix, tracks));
+    const trackTypes = generateTrackTypes(modelPrefix, tracks);
+    if (trackTypes) {
+      sections.push("");
+      sections.push(trackTypes);
+    }
   }
 
   for (const event of events) {
@@ -909,7 +1242,7 @@ function generateSourceFile(options: CodegenOptions): string {
     sections.push(UNWRAP_MESSAGE_HELPER);
   }
   sections.push("");
-  sections.push(generateClientClass(modelPrefix, events, messages));
+  sections.push(generateClientClass(modelPrefix, events, messages, tracks));
 
   // Re-export everything the React file defines so consumers only ever
   // import from `@reactor-models/<name>` — no `/react` subpath. The
@@ -1070,6 +1403,11 @@ export const __testing__ = {
   generateMessageInterface,
   generateMessageUnion,
   generateTrackConstants,
+  generateTrackTypes,
+  generateTrackHook,
+  generateTrackComponents,
+  sendonlyTracks,
+  recvonlyTracks,
   generateReactFile,
   stripBuildMetadata,
   formatVersionForHeader,

@@ -500,25 +500,141 @@ function generateReadmeMessageSection(
   return out.join("\n");
 }
 
-function generateReadmeTracksSection(tracks: TrackSchema[]): string {
-  if (tracks.length === 0) return "";
+/**
+ * User-facing code example for a single sendonly track: "here's how you
+ * push media into this channel from plain JS vs. React". The generated
+ * class exposes `publish<Track>` / `unpublish<Track>` sugar methods,
+ * and the React file exposes a `<Prefix><Track>View>` component that
+ * wraps `<WebcamStream>` with the name pre-bound. Reference the
+ * declared track name only once, in the heading — every call site
+ * below uses the typed helpers, so a typo is a compile error.
+ */
+function readmeSendTrackSnippets(
+  track: TrackSchema,
+  modelName: string,
+  modelPrefix: string,
+  packageName: string,
+): { js: string; react: string } {
+  const pascal = toPascalCase(track.name);
+  const methodPublish = `publish${pascal}`;
+  const methodUnpublish = `unpublish${pascal}`;
+  const componentName = `${modelPrefix}${pascal}View`;
+  const kindLabel = track.kind === "audio" ? "audio: true" : "video: true";
+
+  const js = [
+    `import { ${modelPrefix}Model } from ${JSON.stringify(packageName)};`,
+    "",
+    `const ${modelName} = new ${modelPrefix}Model();`,
+    `await ${modelName}.connect(jwt);`,
+    "",
+    `const media = await navigator.mediaDevices.getUserMedia({ ${kindLabel} });`,
+    `const ${track.kind === "audio" ? "audioTrack" : "videoTrack"} = media.get${track.kind === "audio" ? "Audio" : "Video"}Tracks()[0];`,
+    `await ${modelName}.${methodPublish}(${track.kind === "audio" ? "audioTrack" : "videoTrack"});`,
+    "",
+    `// later, to stop sending:`,
+    `await ${modelName}.${methodUnpublish}();`,
+  ].join("\n");
+
+  const react = [
+    `"use client";`,
+    `import { ${componentName} } from "${packageName}";`,
+    "",
+    `// Inside a component wrapped by <${modelPrefix}Provider>:`,
+    `export function Example() {`,
+    `  return <${componentName} />;`,
+    `}`,
+  ].join("\n");
+
+  return { js, react };
+}
+
+/**
+ * User-facing code example for a single recvonly track: "here's how
+ * you subscribe to media from this channel". The generated class
+ * exposes an `on<Track>` subscription; the React file exposes
+ * `use<Prefix>Track(name)` and, for video tracks, a
+ * `<Prefix><Track>View>` component that renders the track in a
+ * `<video>` element with `track` pre-bound.
+ */
+function readmeRecvTrackSnippets(
+  track: TrackSchema,
+  modelName: string,
+  modelPrefix: string,
+  packageName: string,
+): { js: string; react: string } {
+  const pascal = toPascalCase(track.name);
+  const methodOn = `on${pascal}`;
+  const componentName = `${modelPrefix}${pascal}View`;
+  const hookName = `use${modelPrefix}Track`;
+
+  const js = [
+    `import { ${modelPrefix}Model } from ${JSON.stringify(packageName)};`,
+    "",
+    `const ${modelName} = new ${modelPrefix}Model();`,
+    `${modelName}.${methodOn}((track, stream) => {`,
+    `  // attach to a <${track.kind}> element, pipe to a canvas, etc.`,
+    `  videoEl.srcObject = stream;`,
+    `});`,
+    `await ${modelName}.connect(jwt);`,
+  ].join("\n");
+
+  const react =
+    track.kind === "video"
+      ? [
+          `"use client";`,
+          `import { ${componentName} } from "${packageName}";`,
+          "",
+          `// Inside a component wrapped by <${modelPrefix}Provider>:`,
+          `export function Example() {`,
+          `  return <${componentName} className="w-full aspect-video" />;`,
+          `}`,
+        ].join("\n")
+      : [
+          `"use client";`,
+          `import { ${hookName} } from "${packageName}";`,
+          "",
+          `// Inside a component wrapped by <${modelPrefix}Provider>:`,
+          `export function Example() {`,
+          `  const track = ${hookName}(${JSON.stringify(track.name)});`,
+          `  // attach \`track\` to an <${track.kind}> element via a ref + srcObject.`,
+          `  return null;`,
+          `}`,
+        ].join("\n");
+
+  return { js, react };
+}
+
+function generateReadmeTrackSection(
+  track: TrackSchema,
+  modelName: string,
+  modelPrefix: string,
+  packageName: string,
+): string {
+  const isSend = track.direction === "in";
+  const snippets = isSend
+    ? readmeSendTrackSnippets(track, modelName, modelPrefix, packageName)
+    : readmeRecvTrackSnippets(track, modelName, modelPrefix, packageName);
+
   const out: string[] = [];
+  out.push(`### \`${track.name}\``);
+  out.push("");
   out.push(
-    "The generated package pre-wires these as `modelTracks` so the SDK prepares the WebRTC offer in parallel with session setup — no client wiring required.",
+    isSend
+      ? `A ${track.kind} channel you push media into (for example, the user's ${track.kind === "audio" ? "microphone" : "webcam"}).`
+      : `A ${track.kind} channel you subscribe to — the model publishes this for your app to render.`,
   );
   out.push("");
-  out.push("| Name | Kind | Direction | Transport |");
-  out.push("|---|---|---|---|");
-  for (const t of tracks) {
-    // Schema direction is from the model's perspective; the transport
-    // (client) direction is the mirror image. Kept inline here so the
-    // README emitter doesn't take a dep on the track-constant rewrite
-    // that lands in a later PR.
-    const transport = t.direction === "in" ? "sendonly" : "recvonly";
-    out.push(
-      `| \`${t.name}\` | ${t.kind} | ${t.direction} | \`${transport}\` |`,
-    );
-  }
+  out.push("#### JavaScript");
+  out.push("");
+  out.push("```typescript");
+  out.push(snippets.js);
+  out.push("```");
+  out.push("");
+  out.push("#### React");
+  out.push("");
+  out.push("```tsx");
+  out.push(snippets.react);
+  out.push("```");
   out.push("");
   return out.join("\n");
 }
@@ -613,7 +729,15 @@ export function generateReadme(options: CodegenOptions): string {
   if (schema.tracks.length > 0) {
     sections.push("## Tracks");
     sections.push("");
-    sections.push(generateReadmeTracksSection(schema.tracks));
+    sections.push(
+      `Named media channels between your app and the ${modelPrefix} model. Use the typed helpers below — \`${modelPrefix}Model.publish<Track>\` / \`on<Track>\` in plain JS, and \`use${modelPrefix}Track\` or the per-track \`<${modelPrefix}<Track>View>\` components in React — so track names are checked at compile time.`,
+    );
+    sections.push("");
+    for (const track of schema.tracks) {
+      sections.push(
+        generateReadmeTrackSection(track, modelName, modelPrefix, packageName),
+      );
+    }
   }
 
   // Trailing blank line keeps the final file POSIX-compliant and avoids
