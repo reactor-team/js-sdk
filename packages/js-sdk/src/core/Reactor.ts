@@ -295,7 +295,8 @@ export class Reactor {
         this.setupTransportHandlers();
       }
 
-      await this.transportClient.reconnect(this.tracks);
+      await this.transportClient.prepare(this.tracks);
+      await this.transportClient.connect(true);
     } catch (error) {
       if (isAbortError(error)) return;
 
@@ -351,23 +352,8 @@ export class Reactor {
         initialResponse.state
       );
 
-      // 2. Poll capabilities and prefetch ICE servers in parallel.
-      //    ICE servers only need the session_id (available now), so we can
-      //    start that fetch while waiting for the runtime to report capabilities.
+      // 2. Poll until the Runtime accepts and capabilities are available
       this.setStatus("waiting");
-
-      this.transportClient = new WebRTCTransportClient({
-        baseUrl: this.coordinatorUrl,
-        sessionId: initialResponse.session_id,
-        jwtToken: this.local ? "local" : jwtToken!,
-        webrtcVersion: REACTOR_WEBRTC_VERSION,
-        maxPollAttempts: options?.maxAttempts,
-      });
-
-      const iceServersPromise = (
-        this.transportClient as WebRTCTransportClient
-      ).fetchIceServers();
-      iceServersPromise.catch(() => {});
 
       const tPoll = performance.now();
       const sessionResponse = await this.coordinatorClient.pollSessionReady();
@@ -393,11 +379,20 @@ export class Reactor {
         throw new Error(`Unsupported transport protocol: ${protocol}`);
       }
 
+      this.transportClient = new WebRTCTransportClient({
+        baseUrl: this.coordinatorUrl,
+        sessionId: sessionResponse.session_id,
+        jwtToken: this.local ? "local" : jwtToken!,
+        webrtcVersion: REACTOR_WEBRTC_VERSION,
+        maxPollAttempts: options?.maxAttempts,
+      });
       this.setupTransportHandlers();
 
-      // 5. Connect transport, reusing the already-inflight ICE servers fetch
+      // 5. Prepare SDP offer (ICE fetch + PeerConnection + createOffer),
+      //    then send it and poll for the answer.
       const tTransport = performance.now();
-      await this.transportClient.connect(this.tracks, iceServersPromise);
+      await this.transportClient.prepare(this.tracks);
+      await this.transportClient.connect();
       const transportConnectingMs = performance.now() - tTransport;
 
       this.connectionTimings = {

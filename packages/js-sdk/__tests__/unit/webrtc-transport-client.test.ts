@@ -190,59 +190,45 @@ describe("WebRTCTransportClient", () => {
     });
   });
 
-  // ── connect() ─────────────────────────────────────────────────────────
+  // ── prepare() ──────────────────────────────────────────────────────
 
-  describe("connect()", () => {
-    it("fetches ICE servers, creates PC, sends offer, polls answer", async () => {
+  describe("prepare()", () => {
+    it("fetches ICE servers and creates PeerConnection with transceivers", async () => {
       const client = createClient();
-      setupFullConnect();
+      mockIceServersFetch();
 
-      await client.connect(MOCK_TRACKS);
+      await client.prepare(MOCK_TRACKS);
 
-      // Verify ICE servers fetch
       expect(mockFetch.mock.calls[0][0]).toBe(
         "https://api.test.com/sessions/test-session-id/transport/webrtc/ice_servers"
       );
-
-      // Verify SDP offer POST
-      expect(mockFetch.mock.calls[1][0]).toBe(
-        "https://api.test.com/sessions/test-session-id/transport/webrtc/sdp_params"
-      );
-      expect(mockFetch.mock.calls[1][1].method).toBe("POST");
-
-      const body = JSON.parse(mockFetch.mock.calls[1][1].body);
-      expect(body.sdp_offer).toBeDefined();
-      expect(body.track_mapping).toHaveLength(1);
-      expect(body.track_mapping[0].name).toBe("main_video");
-
-      // Verify SDP answer GET
-      expect(mockFetch.mock.calls[2][0]).toBe(
-        "https://api.test.com/sessions/test-session-id/transport/webrtc/sdp_params"
-      );
-      expect(mockFetch.mock.calls[2][1].method).toBe("GET");
+      expect(mockPC.addTransceiver).toHaveBeenCalledWith("video", {
+        direction: "recvonly",
+      });
+      expect(mockPC.createOffer).toHaveBeenCalled();
     });
 
     it("sets status to connecting", async () => {
       const client = createClient();
-      setupFullConnect();
+      mockIceServersFetch();
 
       const handler = vi.fn();
       client.on("statusChanged", handler);
 
-      await client.connect(MOCK_TRACKS);
+      await client.prepare(MOCK_TRACKS);
       expect(handler).toHaveBeenCalledWith("connecting");
     });
 
     it("creates transceivers for each track", async () => {
       const client = createClient();
-      setupFullConnect();
+      mockIceServersFetch();
 
       const tracks: TrackCapability[] = [
         { name: "main_video", kind: "video", direction: "recvonly" },
         { name: "webcam", kind: "video", direction: "sendonly" },
       ];
 
-      await client.connect(tracks);
+      await client.prepare(tracks);
       expect(mockPC.addTransceiver).toHaveBeenCalledTimes(2);
       expect(mockPC.addTransceiver).toHaveBeenCalledWith("video", {
         direction: "recvonly",
@@ -256,21 +242,70 @@ describe("WebRTCTransportClient", () => {
       const client = createClient();
       mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
 
-      await expect(client.connect(MOCK_TRACKS)).rejects.toThrow(
+      await expect(client.prepare(MOCK_TRACKS)).rejects.toThrow(
         "Failed to fetch ICE servers"
       );
+    });
+  });
+
+  // ── connect() ───────────────────────────────────────────────
+
+  describe("connect()", () => {
+    it("sends the SDP offer and polls for the answer", async () => {
+      const client = createClient();
+      mockIceServersFetch();
+      await client.prepare(MOCK_TRACKS);
+
+      mockSdpOfferAccepted();
+      mockSdpAnswerReady();
+      await client.connect();
+
+      expect(mockFetch.mock.calls[1][0]).toBe(
+        "https://api.test.com/sessions/test-session-id/transport/webrtc/sdp_params"
+      );
+      expect(mockFetch.mock.calls[1][1].method).toBe("POST");
+
+      const body = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(body.sdp_offer).toBeDefined();
+      expect(body.track_mapping).toHaveLength(1);
+      expect(body.track_mapping[0].name).toBe("main_video");
+
+      expect(mockFetch.mock.calls[2][0]).toBe(
+        "https://api.test.com/sessions/test-session-id/transport/webrtc/sdp_params"
+      );
+      expect(mockFetch.mock.calls[2][1].method).toBe("GET");
+    });
+
+    it("uses PUT method for reconnections", async () => {
+      const client = createClient();
+      mockIceServersFetch();
+      await client.prepare(MOCK_TRACKS);
+
+      mockSdpOfferAccepted();
+      mockSdpAnswerReady();
+      await client.connect(true);
+
+      expect(mockFetch.mock.calls[1][1].method).toBe("PUT");
+    });
+
+    it("throws when called without prepare", async () => {
+      const client = createClient();
+
+      await expect(client.connect()).rejects.toThrow("No prepared connection");
     });
 
     it("throws when SDP offer is rejected", async () => {
       const client = createClient();
       mockIceServersFetch();
+      await client.prepare(MOCK_TRACKS);
+
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
         text: () => Promise.resolve("server error"),
       });
 
-      await expect(client.connect(MOCK_TRACKS)).rejects.toThrow(
+      await expect(client.connect()).rejects.toThrow(
         "Failed to send SDP offer"
       );
     });
@@ -278,24 +313,26 @@ describe("WebRTCTransportClient", () => {
     it("polls SDP answer when 202 is returned", async () => {
       const client = createClient({ maxPollAttempts: 3 });
       mockIceServersFetch();
+      await client.prepare(MOCK_TRACKS);
+
       mockSdpOfferAccepted();
-      // First poll → 202
       mockFetch.mockResolvedValueOnce({ ok: true, status: 202 });
-      // Second poll → 200
       mockSdpAnswerReady();
 
-      await client.connect(MOCK_TRACKS);
-      // ICE + POST + GET(202) + GET(200) = 4
+      await client.connect();
+      // ICE(prepare) + POST + GET(202) + GET(200) = 4
       expect(mockFetch).toHaveBeenCalledTimes(4);
     });
 
     it("throws after exhausting SDP poll attempts", async () => {
       const client = createClient({ maxPollAttempts: 2 });
       mockIceServersFetch();
+      await client.prepare(MOCK_TRACKS);
+
       mockSdpOfferAccepted();
       mockFetch.mockResolvedValue({ ok: true, status: 202 });
 
-      await expect(client.connect(MOCK_TRACKS)).rejects.toThrow(
+      await expect(client.connect()).rejects.toThrow(
         "exceeded maximum attempts"
       );
     });

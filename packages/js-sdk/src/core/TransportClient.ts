@@ -50,22 +50,30 @@ export interface TransportClientConfig {
 
 export interface TransportClient {
   /**
-   * Establishes the transport connection using server-declared tracks.
+   * Phase 1: Prepare the transport for connection.
    *
-   * Internally handles: signaling (ICE servers, SDP offer/answer),
-   * connection negotiation, and transceiver setup. For sendonly tracks,
-   * no media flows until {@link publishTrack} is called.
+   * Performs all setup that can happen before the Runtime is confirmed
+   * ready — e.g. fetching signaling credentials, creating the local
+   * connection object, and configuring media tracks. This phase can run
+   * in parallel with session polling since it only requires the
+   * session_id and cluster assignment, not full Runtime readiness.
+   *
+   * Must be called before {@link connect}.
    */
-  connect(
-    tracks: TrackCapability[],
-    prefetchedIceServers?: Promise<RTCIceServer[]>
-  ): Promise<void>;
+  prepare(tracks: TrackCapability[]): Promise<void>;
 
   /**
-   * Reconnects an existing session with a fresh transport negotiation.
-   * Uses the same tracks as the original connection.
+   * Phase 2: Complete the transport connection.
+   *
+   * Sends the prepared signaling data to the server, waits for the
+   * server's response, and finishes the connection handshake. Must only
+   * be called after the Runtime is confirmed ready (i.e. after
+   * {@link prepare} and session polling have both completed).
+   *
+   * @param reconnect If true, signals a reconnection to an existing
+   *   session rather than an initial connection.
    */
-  reconnect(tracks: TrackCapability[]): Promise<void>;
+  connect(reconnect?: boolean): Promise<void>;
 
   /**
    * Tears down the transport connection and releases all resources.

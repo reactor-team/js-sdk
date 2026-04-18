@@ -101,6 +101,9 @@ export class WebRTCTransportClient implements TransportClient {
   private sdpPollingMs?: number;
   private sdpPollingAttempts?: number;
 
+  private pendingSdpOffer?: string;
+  private pendingTrackMapping?: TrackMappingEntry[];
+
   private readonly baseUrl: string;
   private readonly sessionId: string;
   private readonly jwtToken: string;
@@ -196,7 +199,7 @@ export class WebRTCTransportClient implements TransportClient {
   // Transport Signaling (HTTP)
   // ─────────────────────────────────────────────────────────────────────────
 
-  async fetchIceServers(): Promise<RTCIceServer[]> {
+  private async fetchIceServers(): Promise<RTCIceServer[]> {
     console.debug("[WebRTCTransport] Fetching ICE servers...");
 
     const response = await fetch(`${this.transportBaseUrl}/ice_servers`, {
@@ -322,16 +325,25 @@ export class WebRTCTransportClient implements TransportClient {
   // Connection Lifecycle
   // ─────────────────────────────────────────────────────────────────────────
 
-  async connect(
-    tracks: TrackCapability[],
-    prefetchedIceServers?: Promise<RTCIceServer[]>
-  ): Promise<void> {
+  async prepare(tracks: TrackCapability[]): Promise<void> {
     this.setStatus("connecting");
     this.resetTransportTimings();
 
-    const iceServers = prefetchedIceServers
-      ? await prefetchedIceServers
-      : await this.fetchIceServers();
+    this.stopPing();
+    this.stopStatsPolling();
+
+    if (this.dataChannel) {
+      this.dataChannel.close();
+      this.dataChannel = undefined;
+    }
+    if (this.peerConnection) {
+      webrtc.closePeerConnection(this.peerConnection);
+      this.peerConnection = undefined;
+    }
+    this.peerConnected = false;
+    this.dataChannelOpen = false;
+
+    const iceServers = await this.fetchIceServers();
 
     this.peerConnection = webrtc.createPeerConnection({ iceServers });
     this.setupPeerConnectionHandlers();
@@ -355,74 +367,36 @@ export class WebRTCTransportClient implements TransportClient {
       );
     }
 
-    const sdpOffer = await webrtc.createOffer(this.peerConnection);
+    this.pendingSdpOffer = await webrtc.createOffer(this.peerConnection);
+    this.pendingTrackMapping = this.buildTrackMapping(tracks);
 
-    const trackMapping = this.buildTrackMapping(tracks);
+    console.debug("[WebRTCTransport] SDP offer prepared");
+  }
 
-    await this.sendSdpOffer(sdpOffer, trackMapping, "POST");
+  async connect(reconnect: boolean = false): Promise<void> {
+    if (!this.pendingSdpOffer || !this.pendingTrackMapping) {
+      throw new Error(
+        "[WebRTCTransport] No prepared connection. Call prepare() first."
+      );
+    }
+
+    const method = reconnect ? "PUT" : "POST";
+
+    const sdpOffer = this.pendingSdpOffer;
+    const trackMapping = this.pendingTrackMapping;
+    this.pendingSdpOffer = undefined;
+    this.pendingTrackMapping = undefined;
+
+    await this.sendSdpOffer(sdpOffer, trackMapping, method);
 
     const answerResponse = await this.pollSdpAnswer();
 
     this.iceStartTime = performance.now();
     await webrtc.setRemoteDescription(
-      this.peerConnection,
+      this.peerConnection!,
       answerResponse.sdp_answer
     );
     console.debug("[WebRTCTransport] Remote description set");
-  }
-
-  async reconnect(tracks: TrackCapability[]): Promise<void> {
-    this.setStatus("connecting");
-
-    this.stopPing();
-    this.stopStatsPolling();
-
-    if (this.dataChannel) {
-      this.dataChannel.close();
-      this.dataChannel = undefined;
-    }
-    if (this.peerConnection) {
-      webrtc.closePeerConnection(this.peerConnection);
-      this.peerConnection = undefined;
-    }
-    this.peerConnected = false;
-    this.dataChannelOpen = false;
-    this.resetTransportTimings();
-
-    const iceServers = await this.fetchIceServers();
-
-    this.peerConnection = webrtc.createPeerConnection({ iceServers });
-    this.setupPeerConnectionHandlers();
-
-    this.dataChannel = webrtc.createDataChannel(this.peerConnection);
-    this.setupDataChannelHandlers();
-
-    this.transceiverMap.clear();
-    for (const track of tracks) {
-      const transceiver = this.peerConnection.addTransceiver(track.kind, {
-        direction: track.direction,
-      });
-      this.transceiverMap.set(track.name, {
-        name: track.name,
-        kind: track.kind,
-        direction: track.direction,
-        transceiver,
-      });
-    }
-
-    const sdpOffer = await webrtc.createOffer(this.peerConnection);
-    const trackMapping = this.buildTrackMapping(tracks);
-
-    await this.sendSdpOffer(sdpOffer, trackMapping, "PUT");
-
-    const answerResponse = await this.pollSdpAnswer();
-
-    this.iceStartTime = performance.now();
-    await webrtc.setRemoteDescription(
-      this.peerConnection,
-      answerResponse.sdp_answer
-    );
-    console.debug("[WebRTCTransport] Remote description set (reconnect)");
   }
 
   async disconnect(): Promise<void> {
