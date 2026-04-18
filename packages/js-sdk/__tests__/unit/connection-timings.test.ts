@@ -49,6 +49,7 @@ vi.mock("../../src/core/WebRTCTransportClient", () => ({
   WebRTCTransportClient: vi.fn().mockImplementation(() => {
     transportHandlers = {};
     mockTransportClient = {
+      warmup: vi.fn().mockResolvedValue(undefined),
       prepare: vi.fn().mockResolvedValue(undefined),
       connect: vi.fn().mockResolvedValue(undefined),
       disconnect: vi.fn().mockResolvedValue(undefined),

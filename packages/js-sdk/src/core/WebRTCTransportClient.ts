@@ -103,6 +103,7 @@ export class WebRTCTransportClient implements TransportClient {
 
   private pendingSdpOffer?: string;
   private pendingTrackMapping?: TrackMappingEntry[];
+  private cachedIceServers?: Promise<RTCIceServer[]>;
 
   private readonly baseUrl: string;
   private readonly sessionId: string;
@@ -325,6 +326,14 @@ export class WebRTCTransportClient implements TransportClient {
   // Connection Lifecycle
   // ─────────────────────────────────────────────────────────────────────────
 
+  async warmup(): Promise<void> {
+    if (!this.cachedIceServers) {
+      this.cachedIceServers = this.fetchIceServers();
+      this.cachedIceServers.catch(() => {});
+    }
+    await this.cachedIceServers;
+  }
+
   async prepare(tracks: TrackCapability[]): Promise<void> {
     this.setStatus("connecting");
     this.resetTransportTimings();
@@ -343,7 +352,10 @@ export class WebRTCTransportClient implements TransportClient {
     this.peerConnected = false;
     this.dataChannelOpen = false;
 
-    const iceServers = await this.fetchIceServers();
+    const iceServers = this.cachedIceServers
+      ? await this.cachedIceServers
+      : await this.fetchIceServers();
+    this.cachedIceServers = undefined;
 
     this.peerConnection = webrtc.createPeerConnection({ iceServers });
     this.setupPeerConnectionHandlers();

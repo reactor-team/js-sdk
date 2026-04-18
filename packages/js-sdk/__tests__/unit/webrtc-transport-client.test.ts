@@ -148,6 +148,41 @@ describe("WebRTCTransportClient", () => {
     });
   });
 
+  // ── warmup() ──────────────────────────────────────────────────────────
+
+  describe("warmup()", () => {
+    it("prefetches ICE servers so prepare() reuses them", async () => {
+      const client = createClient();
+      mockIceServersFetch();
+
+      await client.warmup();
+
+      mockSdpOfferAccepted();
+      mockSdpAnswerReady();
+
+      await client.prepare(MOCK_TRACKS);
+      await client.connect();
+
+      // ICE servers fetched only once (by warmup), not again by prepare
+      const iceServerCalls = mockFetch.mock.calls.filter(
+        (c: any) => typeof c[0] === "string" && c[0].includes("ice_servers")
+      );
+      expect(iceServerCalls).toHaveLength(1);
+    });
+
+    it("prepare() fetches ICE servers itself when warmup() was not called", async () => {
+      const client = createClient();
+      mockIceServersFetch();
+
+      await client.prepare(MOCK_TRACKS);
+
+      const iceServerCalls = mockFetch.mock.calls.filter(
+        (c: any) => typeof c[0] === "string" && c[0].includes("ice_servers")
+      );
+      expect(iceServerCalls).toHaveLength(1);
+    });
+  });
+
   // ── Event emitter ──────────────────────────────────────────────────────
 
   describe("event emitter", () => {
