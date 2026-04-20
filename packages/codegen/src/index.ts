@@ -17,6 +17,16 @@ export type {
   FetchSchemaOptions,
   ResolveModelIdOptions,
 } from "./coordinator.js";
+export {
+  decideUpdate,
+  getPublishedNpmVersion,
+  NpmRegressionError,
+} from "./update.js";
+export type {
+  GetPublishedNpmVersionOptions,
+  UpdateDecision,
+  UpdateReason,
+} from "./update.js";
 export type { OpenApiSchema } from "./openapi/index.js";
 export type {
   CodegenOptions,
