@@ -9,9 +9,20 @@ import {
   generateModelSdk,
   writePackage,
 } from "./codegen.js";
+import {
+  exchangeApiKeyForJwt,
+  fetchSchema,
+  resolveModelIdByName,
+} from "./coordinator.js";
+import type { OpenApiSchema } from "./openapi/index.js";
 
 interface CliArgs {
-  schema: string;
+  schema?: string;
+  coordinatorUrl?: string;
+  modelId?: string;
+  modelName?: string;
+  release?: string;
+  apiKey?: string;
   sdkVersion: string;
   output: string;
   dryRun: boolean;
@@ -52,8 +63,27 @@ function usage(): never {
   console.error(`
 Usage: reactor-codegen [options]
 
-Options:
+Schema source (pick ONE):
   --schema <path>             Path to the model's OpenAPI schema JSON
+  --coordinator-url <url>     Coordinator base URL to fetch the schema from
+                              (pair with --model-id; optionally --release
+                              and --api-key / REACTOR_API_KEY)
+
+Coordinator-mode options (pick ONE of --model or --model-id):
+  --model <name>              Model name on the coordinator. The CLI resolves
+                              it to a UUID via GET /admin/models; requires an
+                              --api-key that can list models.
+  --model-id <uuid>           Model UUID on the coordinator (no admin list
+                              permission needed for public schemas).
+  --release <semver>          Semver-prefix release selector (e.g. v1.0.5).
+                              If omitted, the CLI lists registered schemas
+                              and picks the highest semver.
+  --api-key <key>             Bearer token for private models. Falls back to
+                              the REACTOR_API_KEY environment variable.
+                              Public models are readable without auth, but
+                              --model name resolution always requires auth.
+
+Common options:
   --sdk-version <semver>      JS SDK version to pin as a dependency.
                               Defaults to the \`defaultSdkVersion\` field in
                               @reactor-team/codegen's package.json${
@@ -96,6 +126,21 @@ function parseArgs(argv: string[]): CliArgs {
       case "--schema":
         args.schema = argv[++i];
         break;
+      case "--coordinator-url":
+        args.coordinatorUrl = argv[++i];
+        break;
+      case "--model":
+        args.modelName = argv[++i];
+        break;
+      case "--model-id":
+        args.modelId = argv[++i];
+        break;
+      case "--release":
+        args.release = argv[++i];
+        break;
+      case "--api-key":
+        args.apiKey = argv[++i];
+        break;
       case "--sdk-version":
         args.sdkVersion = argv[++i];
         break;
@@ -124,11 +169,46 @@ function parseArgs(argv: string[]): CliArgs {
     }
   }
 
-  // `sdkVersion` is optional on the CLI: if the user didn't pass one and
-  // the codegen's package.json default is also missing, only then fail.
-  // This keeps "no flag on the command line" the happy path for CI while
-  // still catching a misconfigured install.
-  if (!args.schema || !args.output || !args.sdkVersion) {
+  // Source selection is mutually exclusive; exactly one must be set.
+  const hasFile = !!args.schema;
+  const hasCoordinator = !!args.coordinatorUrl;
+  if (hasFile && hasCoordinator) {
+    console.error(
+      "Error: --schema and --coordinator-url are mutually exclusive.\n",
+    );
+    usage();
+  }
+  if (!hasFile && !hasCoordinator) {
+    console.error("Error: one of --schema or --coordinator-url is required.\n");
+    usage();
+  }
+
+  // Pick exactly one of --model / --model-id alongside --coordinator-url.
+  // Both together is ambiguous; neither leaves the fetcher with no target.
+  const hasModelId = !!args.modelId;
+  const hasModelName = !!args.modelName;
+  if (hasCoordinator && hasModelId && hasModelName) {
+    console.error("Error: --model and --model-id are mutually exclusive.\n");
+    usage();
+  }
+  if (hasCoordinator && !hasModelId && !hasModelName) {
+    console.error("Error: --coordinator-url requires --model or --model-id.\n");
+    usage();
+  }
+
+  // Fall back to REACTOR_API_KEY. Keeps tokens out of shell history / CI
+  // process listings by default, matching the convention used across
+  // the rest of Reactor's tooling.
+  if (hasCoordinator && !args.apiKey && process.env.REACTOR_API_KEY) {
+    args.apiKey = process.env.REACTOR_API_KEY;
+  }
+
+  // `sdkVersion` is optional on the CLI: `parseArgs` pre-seeds it from
+  // the codegen's `defaultSdkVersion` field, and an explicit
+  // `--sdk-version` on the command line overwrites that. Only fail if
+  // both the CLI and the committed default are missing — that's a
+  // misconfigured install, not a user mistake.
+  if (!args.output || !args.sdkVersion) {
     console.error("Error: missing required arguments.\n");
     usage();
   }
@@ -180,16 +260,87 @@ function resolveStandaloneReactPath(standaloneOutput: string): string {
   return standaloneOutput.replace(/\.ts$/, ".react.ts");
 }
 
-function main(): void {
+/**
+ * Load the raw OpenAPI document from whichever source the user pointed
+ * at. Keeps the two input modes (file on disk vs coordinator HTTP) in
+ * one place so the rest of `main()` never branches on source type.
+ */
+async function resolveSchema(
+  args: CliArgs,
+): Promise<{ raw: OpenApiSchema; resolvedModelId?: string }> {
+  if (args.schema) {
+    return { raw: loadSchema(args.schema) };
+  }
+
+  // Per the REST API contract, the API key is only valid on `POST
+  // /tokens`; every other call wants a JWT. Exchange once at the top
+  // of the coordinator flow and reuse the JWT for both the optional
+  // `/admin/models` name lookup and the schema fetch — that's at most
+  // one `/tokens` round-trip per CLI invocation, instead of one per
+  // coordinator request.
+  const bearerToken = args.apiKey
+    ? await exchangeApiKeyForJwt({
+        coordinatorUrl: args.coordinatorUrl!,
+        apiKey: args.apiKey,
+      })
+    : undefined;
+
+  // `args.coordinatorUrl` is guaranteed by parseArgs here. Either
+  // `--model-id` was given directly or `--model <name>` needs to be
+  // resolved through the coordinator first. The name-resolution call is
+  // intentionally serial (it's one extra round-trip, once per invocation)
+  // rather than folded into `fetchSchema` — keeping the public
+  // `fetchSchema` shape UUID-only means callers that already have the ID
+  // don't pay for the extra /admin/models request.
+  let modelId = args.modelId;
+  if (!modelId && args.modelName) {
+    modelId = await resolveModelIdByName({
+      coordinatorUrl: args.coordinatorUrl!,
+      modelName: args.modelName,
+      bearerToken,
+    });
+  }
+
+  const raw = await fetchSchema({
+    coordinatorUrl: args.coordinatorUrl!,
+    modelId: modelId!,
+    release: args.release,
+    bearerToken,
+  });
+
+  if (!raw || typeof raw !== "object" || !("openapi" in raw)) {
+    throw new Error(
+      `Coordinator returned a schema payload that is not an OpenAPI 3.x ` +
+        `document (missing "openapi" field).`,
+    );
+  }
+
+  return { raw: raw as OpenApiSchema, resolvedModelId: modelId };
+}
+
+async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
-  const rawSchema = loadSchema(args.schema);
+  const { raw: rawSchema, resolvedModelId } = await resolveSchema(args);
   const schema = parseSchema(rawSchema);
 
   console.log(`@reactor-team/codegen`);
   console.log(`  Model:    ${schema.modelName}@${schema.modelVersion}`);
   console.log(`  SDK pin:  @reactor-team/js-sdk@^${args.sdkVersion}`);
-  console.log(`  Schema:   ${args.schema}`);
+  if (args.schema) {
+    console.log(`  Schema:   ${args.schema}`);
+  } else {
+    // Display the resolved UUID whether it came in directly or via the
+    // name-resolution hop — the user always wants to see the ID the
+    // downstream request actually used, for debuggability.
+    const displayId = args.modelId ?? resolvedModelId ?? "(unresolved)";
+    const nameSuffix = args.modelName ? ` name="${args.modelName}"` : "";
+    console.log(
+      `  Schema:   ${args.coordinatorUrl} (model-id=${displayId}${nameSuffix})`,
+    );
+    console.log(`  Release:  ${args.release ?? "<latest>"}`);
+    console.log(`  Auth:     ${args.apiKey ? "bearer token" : "anonymous"}`);
+  }
   console.log(`  Output:   ${args.output}`);
   if (args.standalone) {
     console.log(`  Mode:     standalone (source-only, no package scaffold)`);
@@ -333,4 +484,11 @@ function main(): void {
   }
 }
 
-main();
+// Top-level error wall: any thrown Error (network, 4xx/5xx, bad payload,
+// file-not-found) becomes a single-line stderr message and a non-zero
+// exit. Keeps the CLI's failure surface small and grep-able.
+main().catch((err: unknown) => {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error(`Error: ${msg}`);
+  process.exit(1);
+});

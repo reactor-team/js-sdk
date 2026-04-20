@@ -34,15 +34,55 @@ The model name and version are read directly from the schema's `info.title` and 
 
 ### Options
 
-| Flag                     | Required | Description                                                                                                                                                                          |
-| ------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--schema <path>`        | Yes      | Path to the model's OpenAPI schema JSON                                                                                                                                              |
-| `--sdk-version <semver>` | No       | `@reactor-team/js-sdk` version to pin as a dependency. Defaults to the `defaultSdkVersion` field in this package's `package.json` when omitted                                       |
-| `--output <path>`        | Yes      | Output directory for the generated package, or a `.ts` file path when `--standalone`                                                                                                 |
-| `--standalone`           | No       | Emit only the typed source file (no `package.json` / `tsup.config.ts` / `tsconfig.json`). Drop-in use in an existing project; skips build                                            |
-| `--react`                | No       | Also emit a React entry point: `<Prefix>Provider`, `use<Prefix>()`, one hook per message. Full-package mode adds a `./react` subpath export; standalone writes a sibling `.react.ts` |
-| `--dry-run`              | No       | Print generated files to stdout without writing to disk                                                                                                                              |
-| `--no-build`             | No       | Skip `pnpm install` + `tsup` build (just generate source)                                                                                                                            |
+The schema can come from **one of two sources**, picked by passing either `--schema` (file on disk) or `--coordinator-url` (live fetch from the control plane). Exactly one of the two is required.
+
+| Flag                      | Required                         | Description                                                                                                                                                                          |
+| ------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--schema <path>`         | If not using `--coordinator-url` | Path to the model's OpenAPI schema JSON                                                                                                                                              |
+| `--coordinator-url <url>` | If not using `--schema`          | Base URL of the Reactor coordinator (e.g. `https://api.reactor.inc`). Pair with `--model-id`; optionally `--release` and `--api-key`                                                 |
+| `--model-id <uuid>`       | With `--coordinator-url`         | Model UUID (`{id}` in `/admin/models/{id}/schemas`)                                                                                                                                  |
+| `--release <semver>`      | No                               | Semver-prefix release selector (e.g. `v1.0.5`). If omitted, the most recently registered schema is fetched                                                                           |
+| `--api-key <key>`         | Only for private models          | Bearer token forwarded as `Authorization: Bearer <key>`. Falls back to the `REACTOR_API_KEY` environment variable. Public models read anonymously                                    |
+| `--sdk-version <semver>`  | No                               | `@reactor-team/js-sdk` version to pin as a dependency. Defaults to the `defaultSdkVersion` field in this package's `package.json` when omitted                                       |
+| `--output <path>`         | Yes                              | Output directory for the generated package, or a `.ts` file path when `--standalone`                                                                                                 |
+| `--standalone`            | No                               | Emit only the typed source file (no `package.json` / `tsup.config.ts` / `tsconfig.json`). Drop-in use in an existing project; skips build                                            |
+| `--react`                 | No                               | Also emit a React entry point: `<Prefix>Provider`, `use<Prefix>()`, one hook per message. Full-package mode adds a `./react` subpath export; standalone writes a sibling `.react.ts` |
+| `--dry-run`               | No                               | Print generated files to stdout without writing to disk                                                                                                                              |
+| `--no-build`              | No                               | Skip `pnpm install` + `tsup` build (just generate source)                                                                                                                            |
+
+### Fetching from the coordinator
+
+Instead of keeping a `schema.json` committed or side-loading it into CI, point the codegen at a coordinator and let it pull the schema registered against a given model release:
+
+```bash
+# Release-scoped — semver-prefix match on the server side, newest wins
+reactor-codegen \
+  --coordinator-url https://api.reactor.inc \
+  --model-id 7b3f1bc2-a4e5-4d78-b9c1-123456789abc \
+  --release v1.0.5 \
+  --output ./out/helios
+
+# No --release: list the registered schemas and fetch the most recent one
+reactor-codegen \
+  --coordinator-url https://api.reactor.inc \
+  --model-id 7b3f1bc2-a4e5-4d78-b9c1-123456789abc \
+  --output ./out/helios
+
+# Private model — use an admin bearer token
+REACTOR_API_KEY=rk_... reactor-codegen \
+  --coordinator-url https://api.reactor.inc \
+  --model-id 7b3f1bc2-a4e5-4d78-b9c1-123456789abc \
+  --release v1.0.5 \
+  --output ./out/helios
+```
+
+Behavior notes:
+
+- **Release selection.** With `--release`, the CLI hits `GET /admin/models/{id}/schemas?release=<release>` once and the coordinator returns the single matching record (semver-prefix match, newest wins when multiple records share a prefix). Without `--release`, the CLI first `GET`s the list, picks the most recent summary, then fetches the full record by ID.
+- **Public vs. private models.** Public models are readable without `--api-key`. Private models return `404` (never `403`) to unauthenticated callers so their existence is never leaked — if you expect the request to succeed and see `404`, the most likely cause is a missing `--api-key` / `REACTOR_API_KEY`.
+- **Env fallback.** `REACTOR_API_KEY` is consulted when `--api-key` is absent. The explicit flag always wins.
+- **SDK version default.** `--sdk-version` is optional; when omitted, the CLI reads `defaultSdkVersion` out of `@reactor-team/codegen`'s own `package.json`. CI pipelines that publish periodic releases typically rely on the committed default so bumping the SDK target is a one-field PR in this package rather than a per-call flag change.
+- **Downstream is unchanged.** Both input modes funnel through the same `parseSchema` → emitter pipeline, so `--standalone`, `--react`, `--dry-run`, and `--no-build` behave identically whether the schema came off disk or over HTTP.
 
 ### Standalone mode
 
@@ -156,12 +196,23 @@ The codegen can also be used as a library:
 ```typescript
 import {
   loadSchema,
+  fetchSchema,
   parseSchema,
   generateModelSdk,
   writePackage,
 } from "@reactor-team/codegen";
 
+// Either read the raw OpenAPI doc off disk…
 const rawSchema = loadSchema("schema.json");
+
+// …or pull it straight from the coordinator.
+const rawFromApi = await fetchSchema({
+  coordinatorUrl: "https://api.reactor.inc",
+  modelId: "7b3f1bc2-a4e5-4d78-b9c1-123456789abc",
+  release: "v1.0.5", // optional; omit for "most recent"
+  apiKey: process.env.REACTOR_API_KEY, // optional; required for private models
+});
+
 const schema = parseSchema(rawSchema);
 
 const pkg = generateModelSdk({

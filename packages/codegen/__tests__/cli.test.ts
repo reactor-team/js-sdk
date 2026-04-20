@@ -17,6 +17,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const CLI_PATH = path.join(__dirname, "..", "src", "cli.ts");
 const SCHEMA_PATH = path.join(__dirname, "..", "schema.json");
+const FIXTURE_MODEL_ID = "7b3f1bc2-a4e5-4d78-b9c1-123456789abc";
 
 function runCli(args: string[]): SpawnSyncReturns<string> {
   return spawnSync("pnpm", ["tsx", CLI_PATH, ...args], {
@@ -450,5 +451,102 @@ describe("reactor-codegen CLI — --standalone --react", () => {
 
     expect(result.status).toBe(0);
     expect(fs.existsSync(outputFile)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// --coordinator-url — argument validation (no network).
+//
+// End-to-end coordinator→CLI→emitter coverage deliberately lives in
+// `coordinator.test.ts` (fetch stubbed in-process, no subprocess spawn).
+// CLI-level tests here only assert that the new flags parse, fail fast on
+// the mutually-exclusive / missing-required cases, and route through to
+// the fetcher — keeping the suite fast and sidestepping the cost of
+// spawning `pnpm tsx` per test against a loopback HTTP server.
+// ---------------------------------------------------------------------------
+
+describe("reactor-codegen CLI — coordinator-mode argument validation", () => {
+  it("rejects --schema and --coordinator-url together", () => {
+    const result = runCli([
+      "--schema",
+      SCHEMA_PATH,
+      "--coordinator-url",
+      "https://api.example.com",
+      "--model-id",
+      FIXTURE_MODEL_ID,
+      "--sdk-version",
+      "2.9.1",
+      "--output",
+      "ignored",
+      "--dry-run",
+    ]);
+
+    expect(result.status).not.toBe(0);
+  });
+
+  it("rejects --coordinator-url without --model or --model-id", () => {
+    const result = runCli([
+      "--coordinator-url",
+      "https://api.example.com",
+      "--sdk-version",
+      "2.9.1",
+      "--output",
+      "ignored",
+      "--dry-run",
+    ]);
+
+    expect(result.status).not.toBe(0);
+  });
+
+  it("rejects --model and --model-id together", () => {
+    // Exactly one must identify the model; supporting both at once would
+    // make it ambiguous which wins on a typo.
+    const result = runCli([
+      "--coordinator-url",
+      "https://api.example.com",
+      "--model",
+      "helios",
+      "--model-id",
+      FIXTURE_MODEL_ID,
+      "--release",
+      "v1.0.5",
+      "--output",
+      "ignored",
+      "--dry-run",
+    ]);
+
+    expect(result.status).not.toBe(0);
+  });
+
+  it("rejects --coordinator-url with neither --model nor --model-id", () => {
+    const result = runCli([
+      "--coordinator-url",
+      "https://api.example.com",
+      "--output",
+      "ignored",
+      "--dry-run",
+    ]);
+
+    expect(result.status).not.toBe(0);
+  });
+
+  it("rejects a clearly-malformed --model-id before touching the network", () => {
+    // `fetchSchema`'s pre-IO guard should short-circuit here so the CLI
+    // never attempts a request against a broken ID.
+    const result = runCli([
+      "--coordinator-url",
+      "https://api.example.com",
+      "--model-id",
+      "has/slash",
+      "--release",
+      "v1.0.5",
+      "--sdk-version",
+      "2.9.1",
+      "--output",
+      "ignored",
+      "--dry-run",
+    ]);
+
+    expect(result.status).not.toBe(0);
   });
 });
