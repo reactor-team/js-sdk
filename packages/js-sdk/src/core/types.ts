@@ -179,6 +179,7 @@ export const IceCandidateSchema = z.object({
 // POST /sessions/{id}/transport/webrtc/ice_candidates — Request
 export const IceCandidatesRequestSchema = z.object({
   candidates: z.array(IceCandidateSchema),
+  is_final: z.boolean(),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

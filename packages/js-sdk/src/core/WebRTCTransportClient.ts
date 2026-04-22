@@ -264,16 +264,20 @@ export class WebRTCTransportClient implements TransportClient {
     console.debug("[WebRTCTransport] SDP offer accepted (202)");
   }
 
-  private async sendIceCandidates(candidates: IceCandidate[]): Promise<void> {
+  private async sendIceCandidates(candidates: IceCandidate[], is_final: boolean): Promise<void> {
     console.debug("[WebRTCTransport] Sending ICE candidates...");
 
     const requestBody: IceCandidatesRequest = {
       candidates,
+      is_final,
     };
 
     const response = await fetch(`${this.transportBaseUrl}/ice_candidates`, {
       method: "POST",
-      headers: this.getHeaders(),
+      headers: {
+        ...this.getHeaders(),
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(requestBody),
       signal: this.signal,
     });
@@ -730,16 +734,17 @@ export class WebRTCTransportClient implements TransportClient {
     };
 
     this.peerConnection.onicecandidate = async (event) => {
+      const candidate = [];
       if (event.candidate) {
-        console.debug("[WebRTCTransport] ICE candidate:", event.candidate);
-        await this.sendIceCandidates([
-          {
-            candidate: event.candidate.candidate,
-            mline_index: event.candidate.sdpMLineIndex ?? undefined,
-            mid: event.candidate.sdpMid ?? undefined,
-          },
-        ]);
+        candidate.push({
+          candidate: event.candidate.candidate,
+          mline_index: event.candidate.sdpMLineIndex ?? undefined,
+          mid: event.candidate.sdpMid ?? undefined,
+        });
       }
+      // No candidate means the ICE gathering is complete.
+      const is_final = !Boolean(event.candidate);
+      await this.sendIceCandidates(candidate, is_final);
     };
 
     this.peerConnection.onicecandidateerror = (event) => {
