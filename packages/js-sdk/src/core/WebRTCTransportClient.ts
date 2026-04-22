@@ -264,7 +264,10 @@ export class WebRTCTransportClient implements TransportClient {
     console.debug("[WebRTCTransport] SDP offer accepted (202)");
   }
 
-  private async sendIceCandidates(candidates: IceCandidate[], is_final: boolean): Promise<void> {
+  private async sendIceCandidates(
+    candidates: IceCandidate[],
+    is_final: boolean
+  ): Promise<void> {
     console.debug("[WebRTCTransport] Sending ICE candidates...");
 
     const requestBody: IceCandidatesRequest = {
