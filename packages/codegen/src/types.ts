@@ -53,6 +53,22 @@ export interface CodegenOptions {
   sdkVersion: string;
   schema: ModelSchema;
   outputDir: string;
+  /**
+   * When `true`, emit `src/react.ts` alongside `src/index.ts` with a
+   * provider, a typed command hook, and one typed listener hook per
+   * model message. `src/index.ts` re-exports everything from
+   * `src/react.ts`, so consumers can `import { <Prefix>Provider,
+   * use<Prefix> } from "@reactor-models/<name>"` — the split is a
+   * source-layout concern only and the package exposes a single public
+   * entry. The generated `package.json` grows a `react` peer
+   * dependency and `src/index.ts` gains a top-level `"use client";`
+   * directive so the bundled output is correctly marked as a
+   * client-only module in React Server Components.
+   *
+   * When `false` (default), the output is framework-agnostic — no
+   * React imports appear in the generated package.
+   */
+  react?: boolean;
 }
 
 export interface GeneratedFile {
