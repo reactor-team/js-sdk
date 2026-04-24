@@ -6,6 +6,17 @@ export {
   loadSchema,
   parseSchema,
 } from "./codegen.js";
+export {
+  exchangeApiKeyForJwt,
+  fetchSchema,
+  pickLatestRelease,
+  resolveModelIdByName,
+} from "./coordinator.js";
+export type {
+  ExchangeApiKeyOptions,
+  FetchSchemaOptions,
+  ResolveModelIdOptions,
+} from "./coordinator.js";
 export type { OpenApiSchema } from "./openapi/index.js";
 export type {
   CodegenOptions,
