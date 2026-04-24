@@ -15,34 +15,20 @@ import {
   resolveModelIdByName,
 } from "./coordinator.js";
 import type { OpenApiSchema } from "./openapi/index.js";
+import {
+  decideUpdate,
+  getPublishedNpmVersion,
+  NpmRegressionError,
+} from "./update.js";
+import type { UpdateDecision } from "./update.js";
 
-interface CliArgs {
-  schema?: string;
-  coordinatorUrl?: string;
-  modelId?: string;
-  modelName?: string;
-  release?: string;
-  apiKey?: string;
-  sdkVersion: string;
-  output: string;
-  dryRun: boolean;
-  build: boolean;
-  standalone: boolean;
-  react: boolean;
-}
+// ---------------------------------------------------------------------------
+// Shared `defaultSdkVersion` fallback — the team's committed JS SDK
+// support target, used when the CLI is invoked without an explicit
+// `--sdk-version`. Kept defensive so a malformed install still produces
+// a clear error instead of an empty dep.
+// ---------------------------------------------------------------------------
 
-/**
- * Read `defaultSdkVersion` out of the codegen's own `package.json`. We
- * use this as the fallback for `--sdk-version` so CI pipelines (and the
- * typical developer run) don't have to pin a version manually — the
- * codegen itself ships with whatever the team has committed as the
- * current support target.
- *
- * Kept deliberately defensive: if the file or field ever disappears we
- * return `undefined` and let `parseArgs` surface a clear "missing
- * required arg" error, rather than silently generating a package
- * pointing at the wrong SDK major.
- */
 function readDefaultSdkVersion(): string | undefined {
   try {
     // tsup inlines CLI source to dist/cli.js (CJS), so __dirname is the
@@ -59,7 +45,81 @@ function readDefaultSdkVersion(): string | undefined {
 
 const DEFAULT_SDK_VERSION = readDefaultSdkVersion();
 
-function usage(): never {
+// ---------------------------------------------------------------------------
+// Subcommand dispatch.
+//
+// `reactor-codegen [options]`          → generate (back-compat; default)
+// `reactor-codegen update [options]`   → fetch + generate + compare vs npm
+//
+// Leaving `generate` as the unnamed default preserves every existing
+// pnpm/tsx invocation (tests, examples, local scripts). New subcommands
+// have to be opted into by name.
+// ---------------------------------------------------------------------------
+
+function topLevelUsage(): never {
+  console.error(`
+Usage: reactor-codegen [<command>] [options]
+
+Commands:
+  generate (default)   Generate a typed model SDK from a schema source
+  update               Regenerate from the coordinator and check whether
+                       a newer version than what's on npm is available
+
+Run \`reactor-codegen <command> --help\` for command-specific options.
+`);
+  process.exit(1);
+}
+
+async function main(): Promise<void> {
+  const argv = process.argv.slice(2);
+  const first = argv[0];
+
+  // Known subcommands fire dedicated runners. A bare `--help` at the
+  // top level is ambiguous between "which command?" and "generate
+  // --help", so we fall into the generate runner which handles --help
+  // for itself (matches every prior release's behaviour).
+  if (first === "update") {
+    await runUpdate(argv.slice(1));
+    return;
+  }
+  if (first === "help" || first === "--commands") {
+    topLevelUsage();
+  }
+  await runGenerate(argv);
+}
+
+// Top-level error wall: any thrown Error (network, 4xx/5xx, bad payload,
+// file-not-found) becomes a single-line stderr message and a non-zero
+// exit. Keeps the CLI's failure surface small and grep-able.
+//
+// `NpmRegressionError` gets a dedicated exit code (2) so pipeline
+// wrappers can distinguish "refuse to regress" from generic failures.
+main().catch((err: unknown) => {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error(`Error: ${msg}`);
+  process.exit(err instanceof NpmRegressionError ? 2 : 1);
+});
+
+// ---------------------------------------------------------------------------
+// `generate` subcommand (default).
+// ---------------------------------------------------------------------------
+
+interface GenerateArgs {
+  schema?: string;
+  coordinatorUrl?: string;
+  modelId?: string;
+  modelName?: string;
+  release?: string;
+  apiKey?: string;
+  sdkVersion: string;
+  output: string;
+  dryRun: boolean;
+  build: boolean;
+  standalone: boolean;
+  react: boolean;
+}
+
+function generateUsage(): never {
   console.error(`
 Usage: reactor-codegen [options]
 
@@ -109,8 +169,8 @@ Common options:
   process.exit(1);
 }
 
-function parseArgs(argv: string[]): CliArgs {
-  const args: Partial<CliArgs> = {
+function parseGenerateArgs(argv: string[]): GenerateArgs {
+  const args: Partial<GenerateArgs> = {
     dryRun: false,
     build: true,
     standalone: false,
@@ -161,11 +221,11 @@ function parseArgs(argv: string[]): CliArgs {
         break;
       case "--help":
       case "-h":
-        usage();
+        generateUsage();
         break;
       default:
         console.error(`Unknown option: ${argv[i]}`);
-        usage();
+        generateUsage();
     }
   }
 
@@ -176,11 +236,11 @@ function parseArgs(argv: string[]): CliArgs {
     console.error(
       "Error: --schema and --coordinator-url are mutually exclusive.\n",
     );
-    usage();
+    generateUsage();
   }
   if (!hasFile && !hasCoordinator) {
     console.error("Error: one of --schema or --coordinator-url is required.\n");
-    usage();
+    generateUsage();
   }
 
   // Pick exactly one of --model / --model-id alongside --coordinator-url.
@@ -189,11 +249,11 @@ function parseArgs(argv: string[]): CliArgs {
   const hasModelName = !!args.modelName;
   if (hasCoordinator && hasModelId && hasModelName) {
     console.error("Error: --model and --model-id are mutually exclusive.\n");
-    usage();
+    generateUsage();
   }
   if (hasCoordinator && !hasModelId && !hasModelName) {
     console.error("Error: --coordinator-url requires --model or --model-id.\n");
-    usage();
+    generateUsage();
   }
 
   // Fall back to REACTOR_API_KEY. Keeps tokens out of shell history / CI
@@ -203,14 +263,14 @@ function parseArgs(argv: string[]): CliArgs {
     args.apiKey = process.env.REACTOR_API_KEY;
   }
 
-  // `sdkVersion` is optional on the CLI: `parseArgs` pre-seeds it from
-  // the codegen's `defaultSdkVersion` field, and an explicit
+  // `sdkVersion` is optional on the CLI: `parseGenerateArgs` pre-seeds
+  // it from the codegen's `defaultSdkVersion` field, and an explicit
   // `--sdk-version` on the command line overwrites that. Only fail if
   // both the CLI and the committed default are missing — that's a
   // misconfigured install, not a user mistake.
   if (!args.output || !args.sdkVersion) {
     console.error("Error: missing required arguments.\n");
-    usage();
+    generateUsage();
   }
 
   // Standalone output is a single source file — nothing to build.
@@ -218,7 +278,7 @@ function parseArgs(argv: string[]): CliArgs {
     args.build = false;
   }
 
-  return args as CliArgs;
+  return args as GenerateArgs;
 }
 
 function run(cmd: string, cwd: string): void {
@@ -254,20 +314,26 @@ function resolveStandaloneOutputPath(output: string): string {
  * re-exports from `./react.js` (both emitter defaults, used for the
  * full-package layout). In standalone mode the filenames won't always
  * be `index` / `react`, so we rewrite both sides of the pair to point
- * at the chosen basenames — see main().
+ * at the chosen basenames — see runGenerate().
  */
 function resolveStandaloneReactPath(standaloneOutput: string): string {
   return standaloneOutput.replace(/\.ts$/, ".react.ts");
 }
 
 /**
- * Load the raw OpenAPI document from whichever source the user pointed
- * at. Keeps the two input modes (file on disk vs coordinator HTTP) in
- * one place so the rest of `main()` never branches on source type.
+ * Load the raw OpenAPI document from whichever source the caller
+ * pointed at. Keeps the two input modes (file on disk vs coordinator
+ * HTTP) in one place so the rest of the CLI never branches on source
+ * type. Shared by both the `generate` and `update` subcommands.
  */
-async function resolveSchema(
-  args: CliArgs,
-): Promise<{ raw: OpenApiSchema; resolvedModelId?: string }> {
+async function resolveSchema(args: {
+  schema?: string;
+  coordinatorUrl?: string;
+  modelId?: string;
+  modelName?: string;
+  release?: string;
+  apiKey?: string;
+}): Promise<{ raw: OpenApiSchema; resolvedModelId?: string }> {
   if (args.schema) {
     return { raw: loadSchema(args.schema) };
   }
@@ -285,13 +351,13 @@ async function resolveSchema(
       })
     : undefined;
 
-  // `args.coordinatorUrl` is guaranteed by parseArgs here. Either
-  // `--model-id` was given directly or `--model <name>` needs to be
-  // resolved through the coordinator first. The name-resolution call is
-  // intentionally serial (it's one extra round-trip, once per invocation)
-  // rather than folded into `fetchSchema` — keeping the public
-  // `fetchSchema` shape UUID-only means callers that already have the ID
-  // don't pay for the extra /admin/models request.
+  // `args.coordinatorUrl` is guaranteed by the caller's parser here.
+  // Either `--model-id` was given directly or `--model <name>` needs to
+  // be resolved through the coordinator first. The name-resolution call
+  // is intentionally serial (it's one extra round-trip, once per
+  // invocation) rather than folded into `fetchSchema` — keeping the
+  // public `fetchSchema` shape UUID-only means callers that already
+  // have the ID don't pay for the extra /admin/models request.
   let modelId = args.modelId;
   if (!modelId && args.modelName) {
     modelId = await resolveModelIdByName({
@@ -318,8 +384,8 @@ async function resolveSchema(
   return { raw: raw as OpenApiSchema, resolvedModelId: modelId };
 }
 
-async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
+async function runGenerate(argv: string[]): Promise<void> {
+  const args = parseGenerateArgs(argv);
 
   const { raw: rawSchema, resolvedModelId } = await resolveSchema(args);
   const schema = parseSchema(rawSchema);
@@ -484,11 +550,225 @@ async function main(): Promise<void> {
   }
 }
 
-// Top-level error wall: any thrown Error (network, 4xx/5xx, bad payload,
-// file-not-found) becomes a single-line stderr message and a non-zero
-// exit. Keeps the CLI's failure surface small and grep-able.
-main().catch((err: unknown) => {
-  const msg = err instanceof Error ? err.message : String(err);
-  console.error(`Error: ${msg}`);
+// ---------------------------------------------------------------------------
+// `update` subcommand.
+//
+// Purpose — answer the question "does npm need a republish for this
+// model's latest coordinator schema?" without opening a shell around
+// the CLI. The CI pipeline's `check` step replaces ~50 lines of inline
+// bash with a single `reactor-codegen update …` invocation that:
+//
+//   1. Fetches the latest coordinator schema (same flow as generate).
+//   2. Writes the package scaffold to <output> (no tsup build — the
+//      pack step regenerates with a build of its own).
+//   3. Queries the public npm registry for the currently-published
+//      version of @reactor-models/<name>.
+//   4. Decides (via `decideUpdate`): first-publish / newer-schema /
+//      up-to-date / regression.
+//   5. Writes <output>/.update-decision.json with the decision so
+//      downstream steps can parse it without stdout pipe contortions.
+//
+// Regression (npm > schema) exits with code 2; everything else exits 0.
+// ---------------------------------------------------------------------------
+
+interface UpdateArgs {
+  coordinatorUrl: string;
+  modelId?: string;
+  modelName?: string;
+  release?: string;
+  apiKey?: string;
+  sdkVersion: string;
+  output: string;
+  packageNameOverride?: string;
+  react: boolean;
+}
+
+function updateUsage(): never {
+  console.error(`
+Usage: reactor-codegen update [options]
+
+Required:
+  --coordinator-url <url>   Coordinator base URL (e.g. https://api.reactor.inc)
+  --output <path>           Directory to write the generated scaffold into;
+                            a .update-decision.json file also lands here
+  one of:
+    --model <name>          Resolve UUID via GET /admin/models (requires
+                            --api-key / REACTOR_API_KEY authorised to list)
+    --model-id <uuid>       Model UUID on the coordinator
+
+Optional:
+  --release <semver>        Semver-prefix release selector; omit for latest
+  --api-key <key>           Bearer token; falls back to REACTOR_API_KEY env
+  --sdk-version <semver>    JS SDK pin for the generated package.json.
+                            Defaults to the codegen's own defaultSdkVersion${
+                              DEFAULT_SDK_VERSION
+                                ? ` (currently ${DEFAULT_SDK_VERSION})`
+                                : ""
+                            }
+  --package-name <name>     npm package name to diff against (defaults to
+                            @reactor-models/<model>). Intended for tests;
+                            production invocations should never set this.
+  --react                   Emit the React bindings (Provider + hooks) in
+                            src/react.ts alongside the plain-JS client, so
+                            the scaffold the version decision is taken
+                            against matches the package that downstream
+                            pack/publish will ship.
+
+Exit codes:
+  0   success — decision written to <output>/.update-decision.json
+  1   generic error (flag parse, network, malformed payload)
+  2   npm has a higher version than the coordinator schema (regression);
+      refusing to re-publish would be a silent downgrade
+`);
   process.exit(1);
-});
+}
+
+function parseUpdateArgs(argv: string[]): UpdateArgs {
+  const args: Partial<UpdateArgs> = {
+    sdkVersion: DEFAULT_SDK_VERSION,
+    react: false,
+  };
+
+  for (let i = 0; i < argv.length; i++) {
+    switch (argv[i]) {
+      case "--coordinator-url":
+        args.coordinatorUrl = argv[++i];
+        break;
+      case "--model":
+        args.modelName = argv[++i];
+        break;
+      case "--model-id":
+        args.modelId = argv[++i];
+        break;
+      case "--release":
+        args.release = argv[++i];
+        break;
+      case "--api-key":
+        args.apiKey = argv[++i];
+        break;
+      case "--sdk-version":
+        args.sdkVersion = argv[++i];
+        break;
+      case "--output":
+        args.output = argv[++i];
+        break;
+      case "--package-name":
+        args.packageNameOverride = argv[++i];
+        break;
+      case "--react":
+        args.react = true;
+        break;
+      case "--help":
+      case "-h":
+        updateUsage();
+        break;
+      default:
+        console.error(`Unknown option: ${argv[i]}`);
+        updateUsage();
+    }
+  }
+
+  if (!args.coordinatorUrl) {
+    console.error("Error: --coordinator-url is required for `update`.\n");
+    updateUsage();
+  }
+  const hasModelId = !!args.modelId;
+  const hasModelName = !!args.modelName;
+  if (hasModelId && hasModelName) {
+    console.error("Error: --model and --model-id are mutually exclusive.\n");
+    updateUsage();
+  }
+  if (!hasModelId && !hasModelName) {
+    console.error("Error: `update` requires --model or --model-id.\n");
+    updateUsage();
+  }
+  if (!args.output) {
+    console.error("Error: --output is required for `update`.\n");
+    updateUsage();
+  }
+  if (!args.sdkVersion) {
+    console.error("Error: --sdk-version is required (no committed default).\n");
+    updateUsage();
+  }
+
+  if (!args.apiKey && process.env.REACTOR_API_KEY) {
+    args.apiKey = process.env.REACTOR_API_KEY;
+  }
+
+  return args as UpdateArgs;
+}
+
+async function runUpdate(argv: string[]): Promise<void> {
+  const args = parseUpdateArgs(argv);
+
+  // Fetch + generate exactly as `generate --no-build` would. We reuse
+  // `resolveSchema` so the two subcommands stay in lockstep on model
+  // resolution + release picking.
+  const { raw: rawSchema, resolvedModelId } = await resolveSchema(args);
+  const schema = parseSchema(rawSchema);
+
+  const pkg = generateModelSdk({
+    modelName: schema.modelName,
+    modelVersion: schema.modelVersion,
+    sdkVersion: args.sdkVersion,
+    schema,
+    outputDir: args.output,
+    react: args.react,
+  });
+  const outputDir = path.resolve(args.output);
+  writePackage(pkg, outputDir);
+
+  // Read the version straight out of the package.json we just wrote
+  // — that's the canonical "what would we publish" string (already
+  // semver-normalised by the emitter, e.g. v0.0.0 → 0.0.0).
+  const generatedPkgJson = JSON.parse(
+    fs.readFileSync(path.join(outputDir, "package.json"), "utf-8"),
+  );
+  const schemaVersion: string = generatedPkgJson.version;
+  const packageName: string = args.packageNameOverride ?? generatedPkgJson.name;
+
+  const displayId = args.modelId ?? resolvedModelId ?? "(unresolved)";
+  const nameSuffix = args.modelName ? ` name="${args.modelName}"` : "";
+  console.log(`@reactor-team/codegen update`);
+  console.log(
+    `  Schema:   ${args.coordinatorUrl} (model-id=${displayId}${nameSuffix})`,
+  );
+  console.log(`  Release:  ${args.release ?? "<latest>"}`);
+  console.log(`  Package:  ${packageName}`);
+  console.log(`  Target:   ${schemaVersion}`);
+  if (args.react) {
+    console.log(`  React:    on (provider + hooks in src/react.ts)`);
+  }
+
+  const npmVersion = await getPublishedNpmVersion(packageName);
+  console.log(`  Npm:      ${npmVersion ?? "<not published>"}`);
+
+  // `decideUpdate` throws `NpmRegressionError` when npm is ahead; the
+  // top-level catch maps that to exit code 2 so the Buildkite step can
+  // distinguish "refuse to regress" from other failures without parsing
+  // stderr.
+  const decision: UpdateDecision = decideUpdate(
+    packageName,
+    schemaVersion,
+    npmVersion,
+  );
+
+  const decisionPath = path.join(outputDir, ".update-decision.json");
+  fs.writeFileSync(
+    decisionPath,
+    JSON.stringify(decision, null, 2) + "\n",
+    "utf-8",
+  );
+
+  console.log();
+  if (decision.publishNeeded) {
+    console.log(
+      `→ publish required (${decision.reason}): ${packageName}@${decision.targetVersion}`,
+    );
+  } else {
+    console.log(
+      `→ up to date (${decision.reason}): ${packageName}@${decision.targetVersion}`,
+    );
+  }
+  console.log(`  decision written to ${decisionPath}`);
+}

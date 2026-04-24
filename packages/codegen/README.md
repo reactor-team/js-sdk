@@ -155,6 +155,98 @@ function Controller() {
 
 The generated package gains `peerDependencies: { react: ">=18" }` only when `--react` is used. Without it, the output is fully framework-agnostic.
 
+## `reactor-codegen update`
+
+The `update` subcommand is a one-shot "is a new version available?" check that the CI `check` step calls instead of reimplementing the logic in bash. It fetches the latest coordinator schema, writes the scaffold to `--output`, queries npm for the currently-published version, and writes a decision JSON the caller can parse.
+
+```bash
+reactor-codegen update \
+  --coordinator-url https://api.reactor.inc \
+  --model helios \
+  --output ./out
+```
+
+Flags are a subset of `generate`: `--coordinator-url`, `--model` | `--model-id`, `--output`, plus optional `--release`, `--api-key` (env fallback `REACTOR_API_KEY`), `--sdk-version` (defaults to the committed `defaultSdkVersion`), and `--react` (emit the React bindings alongside the plain-JS client — pass this when the downstream pack/publish step will also pass `--react`, so the version decision is taken against the exact scaffold that ships to npm).
+
+Decision shape (`<output>/.update-decision.json`):
+
+```json
+{
+  "publishNeeded": true,
+  "reason": "newer-schema",
+  "targetVersion": "1.0.5",
+  "currentVersion": "1.0.4"
+}
+```
+
+`reason` is one of `"first-publish"`, `"newer-schema"`, `"up-to-date"`. Exit codes:
+
+| Code | Meaning                                                                                        |
+| ---- | ---------------------------------------------------------------------------------------------- |
+| `0`  | Decision written successfully. Consult `publishNeeded`.                                        |
+| `1`  | Generic failure (flag, network, malformed payload).                                            |
+| `2`  | npm has a **higher** version than the coordinator schema — refusing to republish a regression. |
+
+## Publishing via CI (Buildkite)
+
+Periodic publishing runs through the same `.buildkite/pipeline.yml` entrypoint as normal per-push CI, gated on a `MODELS_SYNC` env var so a scheduled run replaces the regular build + test steps with the dynamic publish plan. The flag name is trigger-agnostic on purpose — the same pipeline is reused whether the sync is kicked off by a cron, a webhook, or a manual build.
+
+**Architecture:**
+
+1. **Entry** — `.buildkite/pipeline.yml` is the single entry for the repo. Top-level steps:
+   - `if: build.env("MODELS_SYNC") != "true"` — normal `build` / format / unit / integration test groups (skipped on sync runs).
+   - `if: build.env("MODELS_SYNC") == "true"` — a single bootstrap step that runs `.buildkite/sync-model-sdks.sh` (reads whitelist, substitutes the model name placeholder in `.buildkite/publish-model-step.yml` once per model) and pipes the output into `buildkite-agent pipeline upload`.
+2. **Dynamic plan** — the bootstrap step uploads one `check-<MODEL>` step per whitelist entry:
+   - **`check-<MODEL>`** — shells out to `reactor-codegen update` (see above). The CLI exits 2 if npm is ahead of the coordinator, failing the build fast and loud. If `publishNeeded=true`, the check step then uploads its own follow-up pipeline (`pack-<MODEL>` + `publish-<MODEL>`) as an inline heredoc fed to `buildkite-agent pipeline upload`. If `publishNeeded=false`, the check step exits 0 and no follow-up is created — that absence _is_ the skip.
+   - **`pack-<MODEL>`** (only uploaded when needed) — regenerates + builds the package, runs `npm pack`, uploads the resulting `.tgz` as a Buildkite artifact.
+   - **`publish-<MODEL>`** (depends on `pack-<MODEL>`) — downloads the tarball artifact and `npm publish`es it — no codegen re-run, so the bytes on npm match the archived Buildkite artifact exactly.
+
+   This avoids `if: build.meta_data(...)` gates — not every agent version exposes `meta_data` as an expression function, and dynamic upload is the Buildkite-canonical pattern. Every docker plugin block that calls `buildkite-agent ...` mounts the host binary via `mount-buildkite-agent: true`.
+
+**Trigger** — configure a Buildkite schedule on the existing pipeline (not a new one). In the schedule's **Env Vars** block, set:
+
+```
+MODELS_SYNC=true
+```
+
+…and any other overrides you want. A sensible default schedule:
+
+```
+Name:    hourly-sync
+Cron:    0 * * * *
+Branch:  main
+Env:     MODELS_SYNC=true
+```
+
+The whitelist is committed, so there's nothing else to pass on a vanilla run. Ad-hoc republishes can also be fired via the Buildkite REST API (or a manual build in the UI) by setting `MODELS_SYNC=true` in the request body's `env` block.
+
+**Env vars (set on the schedule, REST trigger, or manual build):**
+
+| Variable          | Required | Default                   | Purpose                                                                                                                                          |
+| ----------------- | -------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `MODELS_SYNC`     | yes      | _(unset)_                 | Must be `"true"` to enter the publish flow. Anything else runs the normal per-push CI.                                                           |
+| `DRY`             | no       | `"false"`                 | When `"true"`, `check` + `pack` run normally but the publish step swaps in `npm publish --dry-run` — nothing ships to npm. Great for rehearsals. |
+| `COORDINATOR_URL` | no       | `https://api.reactor.inc` | Coordinator the publish flow fetches schemas from. Override to point at a dev/staging coordinator.                                               |
+
+**Required Buildkite secrets (wired per uploaded step):**
+
+| Secret            | Used by         | Purpose                                                                                |
+| ----------------- | --------------- | -------------------------------------------------------------------------------------- |
+| `REACTOR_API_KEY` | `check`, `pack` | Admin bearer token for `/admin/models` name resolution + private-model schema reads    |
+| `NPM_AUTH_TOKEN`  | `publish`       | npm access token with publish rights on `@reactor-models/*` (not used when `DRY=true`) |
+
+`NPM_AUTH_TOKEN` is not consulted when `DRY=true` — a rehearsal run can skip provisioning it entirely.
+
+**Local sanity-check the generator:**
+
+```bash
+bash .buildkite/sync-model-sdks.sh | less    # emits the pipeline to stdout
+```
+
+**Adding a model to the rotation:** edit `.buildkite/whitelist.json` and add the model name. The next scheduled run will detect, pack, and publish it on the first run (first publish always goes through since `npm view` returns empty for unknown packages).
+
+The generated `package.json` strips a leading `v` from the schema's `info.version` (e.g. `v0.0.0` → `0.0.0`) so the tarball passes npm's strict semver check. The `MODEL_VERSION` constant exported from the generated source preserves the author's original string unchanged.
+
 ## Local development
 
 ```bash
