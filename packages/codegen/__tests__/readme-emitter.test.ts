@@ -172,16 +172,37 @@ describe("README emission", () => {
     expect(md).not.toContain('`"off" | "2x" | "4x"`');
   });
 
-  it("renders a tracks table with the schema → transport direction map", () => {
+  it("renders a user-facing section per track with JS + React usage examples (REA-1791)", () => {
     const md = readmeFor({
       tracks: [
         { name: "main_video", kind: "video", direction: "out" as const },
         { name: "webcam", kind: "video", direction: "in" as const },
       ],
     });
+
     expect(md).toContain("## Tracks");
-    expect(md).toContain("| `main_video` | video | out | `recvonly` |");
-    expect(md).toContain("| `webcam` | video | in | `sendonly` |");
+
+    // One `### <name>` heading per track, matching the Events/Messages layout.
+    expect(md).toContain("### `main_video`");
+    expect(md).toContain("### `webcam`");
+
+    // Recvonly track: JS uses `on<Track>`, React shows the wrapper component.
+    expect(md).toContain("helios.onMainVideo((track, stream)");
+    expect(md).toContain("import { HeliosMainVideoView }");
+    expect(md).toContain("<HeliosMainVideoView");
+
+    // Sendonly track: JS uses `publish<Track>`, React shows the publisher component.
+    expect(md).toContain("await helios.publishWebcam(");
+    expect(md).toContain("await helios.unpublishWebcam(");
+    expect(md).toContain("import { HeliosWebcamView }");
+    expect(md).toContain("<HeliosWebcamView");
+
+    // Docs must NOT leak internals — the README is a product surface.
+    // The previous version dumped `modelTracks`, "parallel SDP", etc.;
+    // those now live in the package's code comments, not in user docs.
+    expect(md).not.toMatch(/modelTracks/);
+    expect(md).not.toMatch(/SDP/);
+    expect(md).not.toMatch(/parallel with session/);
   });
 
   it("cross-links backticked message names in event descriptions", () => {

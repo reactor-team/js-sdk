@@ -375,17 +375,41 @@ describe("generateTrackConstants", () => {
     expect(generateTrackConstants("Helios", [])).toBe("");
   });
 
-  it("emits an `as const` object keyed by uppercased track name", () => {
+  it("emits a const array of SDK-shape track hints", () => {
     const tracks: TrackSchema[] = [
       { name: "main_video", kind: "video", direction: "out" },
     ];
     const out = generateTrackConstants("Helios", tracks);
 
-    expect(out).toContain("export const HeliosTracks = {");
+    expect(out).toContain("export const HeliosTracks = [");
     expect(out).toContain(
-      'MAIN_VIDEO: { name: "main_video", kind: "video", direction: "out" },',
+      '{ name: "main_video", kind: "video", direction: "recvonly" },',
     );
-    expect(out).toContain("} as const;");
+    expect(out).toContain("] as const;");
+  });
+
+  it("translates schema directions to transport directions", () => {
+    // Model perspective ("out" = model produces) → client perspective
+    // ("recvonly" = client receives).
+    const out = generateTrackConstants("Helios", [
+      { name: "main_video", kind: "video", direction: "out" },
+      { name: "webcam", kind: "video", direction: "in" },
+      { name: "mic", kind: "audio", direction: "in" },
+    ]);
+
+    expect(out).toContain(
+      '{ name: "main_video", kind: "video", direction: "recvonly" },',
+    );
+    expect(out).toContain(
+      '{ name: "webcam", kind: "video", direction: "sendonly" },',
+    );
+    expect(out).toContain(
+      '{ name: "mic", kind: "audio", direction: "sendonly" },',
+    );
+    // Never leak the schema-side "in"/"out" values into the generated
+    // constant — they are not valid `modelTracks[*].direction` values.
+    expect(out).not.toMatch(/direction: "in"/);
+    expect(out).not.toMatch(/direction: "out"/);
   });
 });
 
@@ -641,6 +665,40 @@ describe("generateModelSdk", () => {
     const readme = pkg.files.find((f) => f.path === "README.md")!.content;
     expect(readme).not.toContain("g404f6950");
     expect(readme).toContain("Version **v0.8.3**");
+  });
+
+  it("wires `modelTracks: [...<Prefix>Tracks]` when tracks are declared", () => {
+    const pkg = generateModelSdk({
+      modelName: "helios",
+      modelVersion: "0.1.0",
+      sdkVersion: "2.9.1",
+      schema: schema({
+        tracks: [{ name: "main_video", kind: "video", direction: "out" }],
+      }),
+      outputDir: "/tmp/ignored",
+    });
+
+    const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    expect(src).toContain("modelTracks: [...HeliosTracks]");
+    expect(src).toContain("export const HeliosTracks = [");
+    expect(src).toContain('direction: "recvonly"');
+  });
+
+  it("omits modelTracks entirely when the schema has no tracks", () => {
+    const pkg = generateModelSdk({
+      modelName: "helios",
+      modelVersion: "0.1.0",
+      sdkVersion: "2.9.1",
+      schema: schema(),
+      outputDir: "/tmp/ignored",
+    });
+
+    const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    expect(src).not.toContain("modelTracks");
+    expect(src).not.toContain("HeliosTracks");
+    expect(src).toContain(
+      "this.reactor = new Reactor({ ...options, modelName: MODEL_NAME });",
+    );
   });
 
   it("is deterministic for a given input (same output twice)", () => {
@@ -1138,6 +1196,217 @@ describe("emitter — message envelope unwrap (REA-1581 follow-up)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Typed track helpers (REA-1791).
+//
+// Until this feature, generated SDKs typed commands and messages but
+// left media-track wiring to string literals on the base SDK. These
+// tests pin down the new surface:
+//   - `<Prefix>SendTrackName` / `<Prefix>RecvTrackName` unions.
+//   - `publish<Name>` / `unpublish<Name>` per sendonly track.
+//   - `on<Name>` per recvonly track.
+//   - `use<Prefix>Track(name)` hook (recvonly only).
+//   - `<<Prefix><Track>View>` per video track in each direction.
+// ---------------------------------------------------------------------------
+
+describe("emitter — typed track helpers (REA-1791)", () => {
+  function pkgWith(
+    tracks: TrackSchema[],
+    react = false,
+  ): ReturnType<typeof generateModelSdk> {
+    return generateModelSdk({
+      modelName: "helios",
+      modelVersion: "0.1.0",
+      sdkVersion: "2.9.1",
+      schema: {
+        modelName: "helios",
+        modelVersion: "0.1.0",
+        events: [],
+        messages: [],
+        tracks,
+      },
+      outputDir: "/tmp/ignored",
+      react,
+    });
+  }
+
+  function sourceOf(
+    tracks: TrackSchema[],
+    react = false,
+  ): { index: string; react?: string } {
+    const pkg = pkgWith(tracks, react);
+    const index = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    const reactFile = react
+      ? pkg.files.find((f) => f.path === "src/react.ts")!.content
+      : undefined;
+    return { index, react: reactFile };
+  }
+
+  // ---- Type-level: name unions -----------------------------------------
+
+  it("emits `<Prefix>SendTrackName` / `<Prefix>RecvTrackName` string-literal unions per direction", () => {
+    const { index } = sourceOf([
+      { name: "webcam", kind: "video", direction: "in" },
+      { name: "mic", kind: "audio", direction: "in" },
+      { name: "main_video", kind: "video", direction: "out" },
+    ]);
+    expect(index).toContain(
+      'export type HeliosSendTrackName =\n  "webcam"\n  | "mic";',
+    );
+    expect(index).toContain(
+      'export type HeliosRecvTrackName =\n  "main_video";',
+    );
+  });
+
+  it("omits a direction's union when the schema has no tracks on that side (no `never` unions)", () => {
+    const { index: recvOnly } = sourceOf([
+      { name: "main_video", kind: "video", direction: "out" },
+    ]);
+    expect(recvOnly).toContain("export type HeliosRecvTrackName");
+    expect(recvOnly).not.toContain("HeliosSendTrackName");
+
+    const { index: sendOnly } = sourceOf([
+      { name: "webcam", kind: "video", direction: "in" },
+    ]);
+    expect(sendOnly).toContain("export type HeliosSendTrackName");
+    expect(sendOnly).not.toContain("HeliosRecvTrackName");
+  });
+
+  // ---- Class methods ---------------------------------------------------
+
+  it("emits `publish<Name>` / `unpublish<Name>` pair per sendonly track", () => {
+    const { index } = sourceOf([
+      { name: "webcam", kind: "video", direction: "in" },
+    ]);
+    expect(index).toContain("async publishWebcam(track: MediaStreamTrack)");
+    expect(index).toContain(
+      'await this.reactor.publishTrack("webcam", track);',
+    );
+    expect(index).toContain("async unpublishWebcam(): Promise<void>");
+    expect(index).toContain('await this.reactor.unpublishTrack("webcam");');
+  });
+
+  it("emits an `on<Name>` subscription per recvonly track, filtering by name internally", () => {
+    const { index } = sourceOf([
+      { name: "main_video", kind: "video", direction: "out" },
+    ]);
+    expect(index).toContain("onMainVideo(");
+    expect(index).toContain(
+      "const wrapped = (name: string, t: MediaStreamTrack, s: MediaStream) => {",
+    );
+    expect(index).toContain('if (name === "main_video") handler(t, s);');
+    expect(index).toContain('this.reactor.on("trackReceived", wrapped);');
+    expect(index).toContain(
+      'return () => this.reactor.off("trackReceived", wrapped);',
+    );
+  });
+
+  it("does not emit any track methods when the schema has no tracks", () => {
+    const { index } = sourceOf([]);
+    expect(index).not.toContain("publishTrack");
+    expect(index).not.toContain("unpublishTrack");
+    expect(index).not.toContain('this.reactor.on("trackReceived"');
+  });
+
+  // ---- React hook ------------------------------------------------------
+
+  it("emits `use<Prefix>Track(name)` only when the schema has at least one recvonly track", () => {
+    const { react: withRecv } = sourceOf(
+      [{ name: "main_video", kind: "video", direction: "out" }],
+      true,
+    );
+    expect(withRecv).toContain("export function useHeliosTrack(");
+    expect(withRecv).toContain("name: HeliosRecvTrackName,");
+    expect(withRecv).toContain("return useReactor((s) => s.tracks[name]);");
+    // The hook is typed on `HeliosRecvTrackName`, so the type has to be imported.
+    expect(withRecv).toContain("type HeliosRecvTrackName");
+
+    const { react: sendOnly } = sourceOf(
+      [{ name: "webcam", kind: "video", direction: "in" }],
+      true,
+    );
+    expect(sendOnly).not.toContain("useHeliosTrack");
+    expect(sendOnly).not.toContain("HeliosRecvTrackName");
+  });
+
+  // ---- React components ------------------------------------------------
+
+  it("emits one `<Prefix><Track>View>` wrapper component per video track, regardless of direction", () => {
+    const { react } = sourceOf(
+      [
+        { name: "main_video", kind: "video", direction: "out" },
+        { name: "webcam", kind: "video", direction: "in" },
+      ],
+      true,
+    );
+    expect(react).toContain("export function HeliosMainVideoView(");
+    expect(react).toContain('track: "main_video"');
+    expect(react).toContain(
+      'export interface HeliosMainVideoViewProps extends Omit<ReactorViewProps, "track"> {}',
+    );
+    expect(react).toContain("export function HeliosWebcamView(");
+    expect(react).toContain('track: "webcam"');
+    expect(react).toContain(
+      'export interface HeliosWebcamViewProps extends Omit<WebcamStreamProps, "track"> {}',
+    );
+  });
+
+  it("pulls ReactorView / WebcamStream (and their props types) from the SDK only when needed", () => {
+    const { react: bothKinds } = sourceOf(
+      [
+        { name: "main_video", kind: "video", direction: "out" },
+        { name: "webcam", kind: "video", direction: "in" },
+      ],
+      true,
+    );
+    expect(bothKinds).toContain("ReactorView");
+    expect(bothKinds).toContain("type ReactorViewProps");
+    expect(bothKinds).toContain("WebcamStream");
+    expect(bothKinds).toContain("type WebcamStreamProps");
+
+    const { react: recvOnly } = sourceOf(
+      [{ name: "main_video", kind: "video", direction: "out" }],
+      true,
+    );
+    expect(recvOnly).toContain("ReactorView");
+    expect(recvOnly).not.toContain("WebcamStream");
+
+    const { react: empty } = sourceOf([], true);
+    expect(empty).not.toContain("ReactorView");
+    expect(empty).not.toContain("WebcamStream");
+  });
+
+  it("skips view components for audio-only tracks (SDK has no audio-only component today)", () => {
+    const { react } = sourceOf(
+      [
+        { name: "mic", kind: "audio", direction: "in" },
+        { name: "main_audio", kind: "audio", direction: "out" },
+      ],
+      true,
+    );
+    // No component imports or definitions referencing these tracks.
+    expect(react).not.toContain("HeliosMicView");
+    expect(react).not.toContain("HeliosMainAudioView");
+    // But the typed hook still exists for audio recvonly tracks — just no component.
+    expect(react).toContain("useHeliosTrack");
+  });
+
+  // ---- Multi-track schemas ---------------------------------------------
+
+  it("emits one publish/on pair per track for multi-track schemas (no naming collision)", () => {
+    const { index } = sourceOf([
+      { name: "webcam", kind: "video", direction: "in" },
+      { name: "screen_share", kind: "video", direction: "in" },
+      { name: "main_video", kind: "video", direction: "out" },
+      { name: "overlay_video", kind: "video", direction: "out" },
+    ]);
+    expect(index).toContain("publishWebcam");
+    expect(index).toContain("publishScreenShare");
+    expect(index).toContain("onMainVideo");
+    expect(index).toContain("onOverlayVideo");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Injection-defence: emitter never trusts IR strings.
 //
 // The parser rejects hostile names at ingress, but the emitter is a
@@ -1284,5 +1553,36 @@ describe("emitter — injection defence (defense in depth)", () => {
     // appear at column 0 of any emitted line.
     expect(src).toContain("first line import 'http://attacker/'");
     expect(src).not.toMatch(/^import 'http:\/\/attacker\/'$/m);
+  });
+
+  it("escapes a hostile track name inside the <Prefix>Tracks constant", () => {
+    // Track-constant emission is re-authored in PR 4 (the schema→transport
+    // direction translation). The escaping has to live on the PR 4 line,
+    // not PR 3's, or the rebase would drop it. This test pins that the
+    // hardening survives the rewrite.
+    const pkg = generateModelSdk({
+      modelName: "helios",
+      modelVersion: "0.1.0",
+      sdkVersion: "2.9.1",
+      schema: hostileBase({
+        tracks: [
+          {
+            name: 'main_video"; evil()',
+            kind: "video",
+            direction: "out",
+          },
+        ],
+      }),
+      outputDir: "/tmp/ignored",
+    });
+    const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+
+    expect(src).toContain('name: "main_video\\"; evil()"');
+    expect(src).not.toMatch(/name: "main_video"; evil\(\)"/);
+    // kind / direction come from a closed set but are also routed through
+    // JSON.stringify for consistency — the emitted literal must still be
+    // the expected clean form for well-formed tracks.
+    expect(src).toContain('kind: "video"');
+    expect(src).toContain('direction: "recvonly"');
   });
 });
