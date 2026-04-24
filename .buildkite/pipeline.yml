@@ -51,15 +51,21 @@ env:
   # scheduled run (or an ad-hoc REST trigger) can override this to
   # point at a dev/staging coordinator.
   COORDINATOR_URL: "https://api.reactor.inc"
-  # Normal per-push CI is the default path. The hourly Buildkite
-  # schedule sets `MODELS_SYNC=true` in its env block to enter the
-  # publish flow; anything else (manual builds, per-push runs) falls
-  # through to the regular build / format / test groups.
-  MODELS_SYNC: "false"
-  # `DRY=true` rehearses the publish flow end-to-end without actually
-  # pushing to npm. Defaults off so the scheduled sync publishes for
-  # real — rehearsals are opt-in per trigger.
-  DRY: "false"
+  #
+  # Deliberately NOT declared here:
+  #
+  #   MODELS_SYNC — trigger-scoped flag. The hourly Buildkite schedule
+  #                 sets this to "true" in its env block to enter the
+  #                 publish flow; every other trigger (per-push, manual
+  #                 build) leaves it unset and falls through to normal
+  #                 CI. Pipeline-level env in Buildkite OUTRANKS build-
+  #                 level env (incl. schedule / REST trigger env), so
+  #                 declaring `MODELS_SYNC: "false"` here would silently
+  #                 clobber what the schedule set. `build.env("MODELS_SYNC")`
+  #                 returns an empty string when the var is unset, which
+  #                 the `if: ... == "true"` gate below already handles.
+  #
+  #   DRY         — same reasoning. Opt-in per trigger when rehearsing.
 
 definitions:
   - &node_docker
