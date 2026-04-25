@@ -12,11 +12,24 @@ import { generateReadme } from "./readme-emitter.js";
 
 // ---------------------------------------------------------------------------
 // String helpers
+//
+// `toPascalCase` / `toCamelCase` split on both `_` and `-`. The dual
+// separator matters for model names — npm packages commonly use
+// hyphens (`@reactor-models/my-cool-model`), and the verifier accepts
+// model names with either separator. Splitting on both here keeps the
+// emitted `<Prefix>Model` / `<Prefix>Tracks` / etc. as a valid TS
+// identifier (`MyCoolModel`, not `My-cool-model`).
+//
+// Event / message / track / field names are gated by the verifier's
+// strict-snake-case regex, which forbids hyphens, so the dual-separator
+// split is effectively a no-op for them.
 // ---------------------------------------------------------------------------
+
+const CASE_SEGMENT_SEPARATOR = /[_-]/;
 
 export function toPascalCase(snake: string): string {
   return snake
-    .split("_")
+    .split(CASE_SEGMENT_SEPARATOR)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join("");
 }

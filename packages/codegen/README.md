@@ -2,6 +2,8 @@
 
 Code generator that turns a model's OpenAPI schema into a strongly-typed npm package (`@reactor-models/<name>`).
 
+> **Reviewer's overview:** [JS-SDK Codegen Process](https://www.notion.so/reactor-technologies/JS-SDK-Codegen-Process-34acacd6a39680b6a96ce5e6e293e9fb) (Notion) — a high-level map of the components, the 6-PR stack, and the Buildkite flow. Read it first if you're reviewing the package; come back here for the day-to-day reference.
+
 ## How it works
 
 ```
@@ -46,7 +48,7 @@ The schema can come from **one of two sources**, picked by passing either `--sch
 | `--sdk-version <semver>`  | No                               | `@reactor-team/js-sdk` version to pin as a dependency. Defaults to the `defaultSdkVersion` field in this package's `package.json` when omitted                                       |
 | `--output <path>`         | Yes                              | Output directory for the generated package, or a `.ts` file path when `--standalone`                                                                                                 |
 | `--standalone`            | No                               | Emit only the typed source file (no `package.json` / `tsup.config.ts` / `tsconfig.json`). Drop-in use in an existing project; skips build                                            |
-| `--react`                 | No                               | Also emit a React entry point: `<Prefix>Provider`, `use<Prefix>()`, one hook per message. Full-package mode adds a `./react` subpath export; standalone writes a sibling `.react.ts` |
+| `--react`                 | No                               | Also emit a React entry point in `src/react.ts` (`<Prefix>Provider`, `use<Prefix>()`, one hook per message, typed track helpers/components). The main `src/index.ts` re-exports them, so consumers import everything from the package root — no `/react` subpath. Standalone mode writes a sibling `<base>.react.ts` |
 | `--dry-run`               | No                               | Print generated files to stdout without writing to disk                                                                                                                              |
 | `--no-build`              | No                               | Skip `pnpm install` + `tsup` build (just generate source)                                                                                                                            |
 
@@ -101,7 +103,7 @@ The emitted `.ts` file is byte-identical to the `src/index.ts` produced by the f
 
 ### React output (`--react`)
 
-Pass `--react` to additionally emit a React entry point. In full-package mode this is published as a subpath export so non-React consumers never resolve a `react` import:
+Pass `--react` to additionally emit a React entry point. The provider, hooks, and track components are emitted in `src/react.ts` and re-exported from `src/index.ts`, so consumers import everything from the package root — there is no `/react` subpath:
 
 ```bash
 reactor-codegen \
@@ -113,17 +115,19 @@ reactor-codegen \
 
 Generated shape:
 
-| Mode                     | Files                                                                                          | Import path                                                 |
-| ------------------------ | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| full package + `--react` | `src/index.ts` + `src/react.ts` + package scaffold (with `./react` subpath + `react` peer dep) | `@reactor-models/<name>` / `@reactor-models/<name>/react`   |
-| `--standalone --react`   | `<base>.ts` + `<base>.react.ts` (no package scaffold)                                          | relative imports; the React file imports from `./<base>.js` |
+| Mode                     | Files                                                                                                                                                                  | Import path                                                                  |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| full package + `--react` | `src/index.ts` (re-exports `./react.js`) + `src/react.ts` + package scaffold (`react` peer dep, `react`/`@types/react` dev deps, `"use client"` directive at root). Single root entry in `package.json` `exports` — no subpath. | `@reactor-models/<name>` (single import path for both plain JS and React)    |
+| `--standalone --react`   | `<base>.ts` + `<base>.react.ts` (no package scaffold). Cross-imports between the two files are rewired to the chosen basename.                                         | relative imports; the React file imports from `./<base>.js` and vice versa  |
 
 The React file declares `"use client"` (Next.js RSC compat), uses `React.createElement` (no JSX in the emitted file, so it stays `.ts`), and exposes:
 
-- **`<Prefix>Provider`** — wraps `ReactorProvider` with `modelName: MODEL_NAME` and `modelTracks: [...<Prefix>Tracks]` pre-configured. Accepts the same `jwtToken` / `connectOptions` props.
-- **`use<Prefix>()`** — typed commands bound to the nearest provider: one method per model event (camelCase) plus `status` and (when any event takes an upload reference) `uploadFile`.
+- **`<Prefix>Provider`** — wraps `ReactorProvider` with `modelName: MODEL_NAME` and (when the schema declares tracks) `modelTracks: [...<Prefix>Tracks]` pre-configured. Accepts `apiUrl`, `local`, `jwtToken`, and `connectOptions` props.
+- **`use<Prefix>()`** — typed commands bound to the nearest provider: one method per model event (camelCase) plus `status`, `connect`, `disconnect`, and (when any event takes an upload reference) `uploadFile`.
 - **`use<Prefix>Message(handler)`** — typed catch-all over the discriminated union.
 - **`use<Prefix><PascalMessage>(handler)`** — one filtered hook per message type, handler receives the exact typed message.
+- **`use<Prefix>Track(name)`** — reactive subscription to a recvonly `MediaStreamTrack` by name. `name` is constrained to `<Prefix>RecvTrackName` so a typo is a compile error. Only emitted when the schema declares at least one recvonly track.
+- **`<<Prefix><Track>View>`** — one React component per video track. Recvonly video tracks wrap `<ReactorView>` with `track` pre-bound; sendonly video tracks wrap `<WebcamStream>` with `track` pre-bound. Audio-only tracks don't get components (the SDK doesn't ship a generic `<audio>` mounting component); use `use<Prefix>Track` directly instead.
 
 Usage in a host app:
 
@@ -132,7 +136,7 @@ import {
   HeliosProvider,
   useHelios,
   useHeliosChunkComplete,
-} from "@reactor-models/helios/react";
+} from "@reactor-models/helios";
 
 function App({ jwtToken }: { jwtToken: string }) {
   return (
@@ -263,7 +267,7 @@ pnpm tsx src/cli.ts \
   --output .generated/helios \
   --dry-run
 
-# With React hooks (adds src/react.ts + ./react subpath export)
+# With React hooks (adds src/react.ts; root re-export — no `/react` subpath)
 pnpm tsx src/cli.ts \
   --schema schema.json \
   --sdk-version 2.9.1 \

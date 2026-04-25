@@ -27,6 +27,8 @@ export type {
   UpdateDecision,
   UpdateReason,
 } from "./update.js";
+export { CodegenVerificationError, verifySchema } from "./verifier.js";
+export type { VerifyOptions } from "./verifier.js";
 export type { OpenApiSchema } from "./openapi/index.js";
 export type {
   CodegenOptions,
