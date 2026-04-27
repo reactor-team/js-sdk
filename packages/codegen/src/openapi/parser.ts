@@ -154,7 +154,14 @@ export function parseSchema(raw: OpenApiSchema): ModelSchema {
 
     events.push({
       name,
-      description: op.summary ?? op.description ?? "",
+      // Prefer `description` (full multi-paragraph docstring as emitted
+      // by current Reactor runtimes) over `summary` (single-line, set by
+      // legacy schemas and as a short title by current runtimes). When
+      // both are present the runtime puts the first paragraph in
+      // `summary` and the full text in `description`, so picking
+      // `description` first gives the SDK the richest copy without
+      // losing legacy schemas that only set `summary`.
+      description: op.description ?? op.summary ?? "",
       fields,
     });
   }
@@ -178,7 +185,11 @@ export function parseSchema(raw: OpenApiSchema): ModelSchema {
 
     messages.push({
       name,
-      description: op.summary ?? op.description ?? "",
+      // See the matching note on the events branch above — same
+      // `description`-then-`summary` precedence so multi-paragraph
+      // ModelMessage docstrings (REA-1801) reach the SDK in full while
+      // legacy schemas that only set `summary` keep working.
+      description: op.description ?? op.summary ?? "",
       fields,
     });
   }
