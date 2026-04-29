@@ -45,6 +45,17 @@ const MAX_BACKOFF_MS = 15_000;
 const BACKOFF_MULTIPLIER = 2;
 const DEFAULT_MAX_POLL_ATTEMPTS = 6;
 
+/**
+ * Debounce window for coalescing trickle ICE candidates into a single
+ * POST. Browsers fire {@link RTCPeerConnection.onicecandidate} in bursts
+ * (host candidates land together, then srflx, then relay); buffering for
+ * a few tens of milliseconds collapses each burst into one request
+ * without adding noticeable latency to the connection. The
+ * gathering-complete event ({@link RTCPeerConnectionIceEvent.candidate}
+ * === ``null``) bypasses the debounce and flushes immediately.
+ */
+const ICE_CANDIDATE_BATCH_WINDOW_MS = 25;
+
 export interface WebRTCTransportConfig extends TransportClientConfig {
   webrtcVersion?: string;
   maxPollAttempts?: number;
@@ -104,6 +115,10 @@ export class WebRTCTransportClient implements TransportClient {
   private pendingSdpOffer?: string;
   private pendingTrackMapping?: TrackMappingEntry[];
   private cachedIceServers?: Promise<RTCIceServer[]>;
+
+  // Trickle ICE batching
+  private pendingIceCandidates: IceCandidate[] = [];
+  private iceCandidateFlushTimer?: ReturnType<typeof setTimeout>;
 
   private readonly baseUrl: string;
   private readonly sessionId: string;
@@ -268,7 +283,9 @@ export class WebRTCTransportClient implements TransportClient {
     candidates: IceCandidate[],
     is_final: boolean
   ): Promise<void> {
-    console.debug("[WebRTCTransport] Sending ICE candidates...");
+    console.debug(
+      `[WebRTCTransport] Sending ICE candidates (count=${candidates.length}, is_final=${is_final})`
+    );
 
     const requestBody: IceCandidatesRequest = {
       candidates,
@@ -300,6 +317,43 @@ export class WebRTCTransportClient implements TransportClient {
 
     console.debug("[WebRTCTransport] ICE candidates accepted (202)");
     return;
+  }
+
+  /**
+   * Drain the pending ICE candidates buffer and POST them as a single
+   * batch. Called either by the debounce timer (collected candidates so
+   * far) or directly by the gathering-complete handler (with
+   * ``isFinal=true``).
+   *
+   * Errors are logged at debug level — trickle ICE is fire-and-forget,
+   * and the connection can still succeed even if some candidate batches
+   * are lost (host/srflx candidates from the other side are usually
+   * sufficient).
+   */
+  private flushPendingIceCandidates(isFinal: boolean): void {
+    if (this.iceCandidateFlushTimer !== undefined) {
+      clearTimeout(this.iceCandidateFlushTimer);
+      this.iceCandidateFlushTimer = undefined;
+    }
+
+    const batch = this.pendingIceCandidates;
+    this.pendingIceCandidates = [];
+
+    if (batch.length === 0 && !isFinal) {
+      return;
+    }
+
+    this.sendIceCandidates(batch, isFinal).catch((err) => {
+      console.debug("[WebRTCTransport] ICE candidate flush failed:", err);
+    });
+  }
+
+  private cancelPendingIceCandidates(): void {
+    if (this.iceCandidateFlushTimer !== undefined) {
+      clearTimeout(this.iceCandidateFlushTimer);
+      this.iceCandidateFlushTimer = undefined;
+    }
+    this.pendingIceCandidates = [];
   }
 
   private async pollSdpAnswer(): Promise<WebRTCSdpAnswerResponse> {
@@ -378,6 +432,7 @@ export class WebRTCTransportClient implements TransportClient {
 
     this.stopPing();
     this.stopStatsPolling();
+    this.cancelPendingIceCandidates();
 
     if (this.dataChannel) {
       this.dataChannel.close();
@@ -452,6 +507,7 @@ export class WebRTCTransportClient implements TransportClient {
   async disconnect(): Promise<void> {
     this.stopPing();
     this.stopStatsPolling();
+    this.cancelPendingIceCandidates();
 
     for (const name of Array.from(this.publishedTracks.keys())) {
       await this.unpublishTrack(name);
@@ -740,18 +796,27 @@ export class WebRTCTransportClient implements TransportClient {
       this.emit("trackReceived", trackName, event.track, stream);
     };
 
-    this.peerConnection.onicecandidate = async (event) => {
-      const candidates: IceCandidate[] = [];
+    this.peerConnection.onicecandidate = (event) => {
+      // Browsers fire onicecandidate in tight bursts (host -> srflx ->
+      // relay). Buffer each candidate and flush after a small debounce
+      // window so we POST one batch per burst instead of one POST per
+      // candidate. The end-of-candidates marker (event.candidate ===
+      // null) bypasses the debounce and flushes immediately.
       if (event.candidate) {
-        candidates.push({
+        this.pendingIceCandidates.push({
           candidate: event.candidate.candidate,
           sdp_mid: event.candidate.sdpMid ?? undefined,
           sdp_mline_index: event.candidate.sdpMLineIndex ?? undefined,
         });
+        if (this.iceCandidateFlushTimer === undefined) {
+          this.iceCandidateFlushTimer = setTimeout(
+            () => this.flushPendingIceCandidates(false),
+            ICE_CANDIDATE_BATCH_WINDOW_MS
+          );
+        }
+      } else {
+        this.flushPendingIceCandidates(true);
       }
-      // No candidate means the ICE gathering is complete.
-      const is_final = !Boolean(event.candidate);
-      await this.sendIceCandidates(candidates, is_final);
     };
 
     this.peerConnection.onicecandidateerror = (event) => {
