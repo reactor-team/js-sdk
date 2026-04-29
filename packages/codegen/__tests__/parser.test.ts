@@ -152,6 +152,67 @@ describe("parseSchema — events (paths → operations)", () => {
     });
   });
 
+  it("prefers `description` over `summary` for the event description", () => {
+    // Current Reactor runtimes (post-REA-1801) emit the full docstring as
+    // OpenAPI `description` and only the first paragraph as `summary`.
+    // The parser must surface the richer `description` to the SDK.
+    const ir = parseSchema(
+      baseSchema({
+        paths: {
+          "/events/set_prompt": {
+            post: {
+              operationId: "set_prompt",
+              summary: "Set the scene prompt.",
+              description:
+                "Set the scene prompt.\n\nApplied on the next inference iteration.",
+              requestBody: {
+                content: { "application/json": { schema: { type: "object" } } },
+              },
+            },
+          },
+        },
+      }),
+    );
+
+    expect(ir.events[0].description).toBe(
+      "Set the scene prompt.\n\nApplied on the next inference iteration.",
+    );
+  });
+
+  it("falls back to `summary` when `description` is absent (legacy schemas)", () => {
+    const ir = parseSchema(
+      baseSchema({
+        paths: {
+          "/events/set_prompt": {
+            post: {
+              operationId: "set_prompt",
+              summary: "Set the scene prompt",
+              requestBody: {
+                content: { "application/json": { schema: { type: "object" } } },
+              },
+            },
+          },
+        },
+      }),
+    );
+
+    expect(ir.events[0].description).toBe("Set the scene prompt");
+  });
+
+  it("returns an empty description when neither field is set", () => {
+    const ir = parseSchema(
+      baseSchema({
+        paths: {
+          "/events/ping": {
+            post: { operationId: "ping" },
+          },
+        },
+      }),
+    );
+
+    expect(ir.events[0].description).toBe("");
+  });
+
   it("falls back to the final path segment when operationId is absent", () => {
     const ir = parseSchema(
       baseSchema({
@@ -288,6 +349,55 @@ describe("parseSchema — messages (webhooks → operations)", () => {
     );
 
     expect(ir.messages[0].name).toBe("generation_started");
+  });
+
+  it("prefers `description` over `summary` for the message description", () => {
+    // Mirror of the events test — same precedence applies on the
+    // webhooks branch so multi-paragraph ModelMessage docstrings
+    // (REA-1801) reach the SDK in full.
+    const ir = parseSchema(
+      baseSchema({
+        webhooks: {
+          generation_reset: {
+            post: {
+              operationId: "generation_reset",
+              summary: "Emitted after `reset` clears session state.",
+              description:
+                "Emitted after `reset` clears session state.\n\nThe model is back in the waiting state.",
+              requestBody: {
+                content: { "application/json": { schema: { type: "object" } } },
+              },
+            },
+          },
+        },
+      }),
+    );
+
+    expect(ir.messages[0].description).toBe(
+      "Emitted after `reset` clears session state.\n\nThe model is back in the waiting state.",
+    );
+  });
+
+  it("falls back to `summary` for messages when `description` is absent (legacy schemas)", () => {
+    const ir = parseSchema(
+      baseSchema({
+        webhooks: {
+          prompt_accepted: {
+            post: {
+              operationId: "prompt_accepted",
+              summary: "A prompt was accepted and scheduled.",
+              requestBody: {
+                content: { "application/json": { schema: { type: "object" } } },
+              },
+            },
+          },
+        },
+      }),
+    );
+
+    expect(ir.messages[0].description).toBe(
+      "A prompt was accepted and scheduled.",
+    );
   });
 });
 

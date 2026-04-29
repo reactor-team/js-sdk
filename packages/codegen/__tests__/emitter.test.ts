@@ -28,6 +28,9 @@ const {
   formatVersionForModelConstant,
   sanitizeJsDocLine,
   enumValueToTs,
+  descriptionToJsDocLines,
+  descriptionSummary,
+  generateJsDoc,
 } = __testing__;
 
 // ---------------------------------------------------------------------------
@@ -91,6 +94,96 @@ describe("sanitizeJsDocLine", () => {
   it("leaves plain prose untouched", () => {
     expect(sanitizeJsDocLine("Set and encode the scene prompt.")).toBe(
       "Set and encode the scene prompt.",
+    );
+  });
+});
+
+describe("descriptionToJsDocLines", () => {
+  it("returns an empty array when the description is empty", () => {
+    expect(descriptionToJsDocLines("")).toEqual([]);
+    expect(descriptionToJsDocLines(undefined as unknown as string)).toEqual([]);
+  });
+
+  it("returns a single line for a single-paragraph description", () => {
+    expect(descriptionToJsDocLines("Set the scene prompt.")).toEqual([
+      "Set the scene prompt.",
+    ]);
+  });
+
+  it("inserts a blank entry between paragraphs so JSDoc renders proper paragraph breaks", () => {
+    // The blank "" entry is the contract `generateJsDoc` consumes to
+    // emit a bare ` *` separator line. Without it, multi-paragraph
+    // ModelMessage docstrings (REA-1801) would collapse onto one line.
+    expect(
+      descriptionToJsDocLines("Summary line.\n\nLonger body explanation."),
+    ).toEqual(["Summary line.", "", "Longer body explanation."]);
+  });
+
+  it("treats runs of three-or-more newlines as a single paragraph break", () => {
+    expect(descriptionToJsDocLines("A.\n\n\n\nB.")).toEqual(["A.", "", "B."]);
+  });
+
+  it("does not split on a single newline (intra-paragraph wrapping is preserved for sanitiser)", () => {
+    // A single `\n` is intra-paragraph code-style line wrapping — we
+    // leave it to `sanitizeJsDocLine` to flatten into a space, so the
+    // paragraph still renders as one logical line.
+    expect(descriptionToJsDocLines("wrapped\nover lines")).toEqual([
+      "wrapped\nover lines",
+    ]);
+  });
+});
+
+describe("descriptionSummary", () => {
+  it("returns the first paragraph for a multi-paragraph description", () => {
+    expect(descriptionSummary("Summary.\n\nBody.")).toBe("Summary.");
+  });
+
+  it("returns the full text when the description has only one paragraph", () => {
+    expect(descriptionSummary("Just one sentence.")).toBe("Just one sentence.");
+  });
+
+  it("returns an empty string for an empty description", () => {
+    expect(descriptionSummary("")).toBe("");
+  });
+});
+
+describe("generateJsDoc — multi-paragraph rendering", () => {
+  it("renders a single-line description as a one-line JSDoc comment", () => {
+    expect(generateJsDoc(["Hello."])).toBe("/** Hello. */\n");
+  });
+
+  it("renders a blank entry as a bare ` *` paragraph-separator line", () => {
+    // This is the JSDoc-idiomatic paragraph break — TypeDoc, VS Code
+    // hovers, and TSDoc all render the gap as a paragraph boundary.
+    const out = generateJsDoc(["Summary.", "", "Body."]);
+    expect(out).toBe(
+      ["/**", " * Summary.", " *", " * Body.", " */", ""].join("\n"),
+    );
+  });
+
+  it("end-to-end: a multi-paragraph event description splits into paragraphs in the param interface", () => {
+    const event: EventSchema = {
+      name: "set_prompt",
+      description: "Set the scene prompt.\n\nApplied next iteration.",
+      fields: { prompt: { type: "string", default: "" } },
+    };
+    const out = generateParamInterface("Helios", event);
+    // Multi-line JSDoc with a bare ` *` between the two paragraphs.
+    expect(out).toContain(
+      "/**\n * Set the scene prompt.\n *\n * Applied next iteration.\n */",
+    );
+  });
+
+  it("end-to-end: a multi-paragraph message description splits into paragraphs in the message interface", () => {
+    const message: MessageSchema = {
+      name: "generation_reset",
+      description:
+        "Emitted after `reset` clears session state.\n\nThe model is back in the waiting state.",
+      fields: {},
+    };
+    const out = generateMessageInterface("Helios", message);
+    expect(out).toContain(
+      "/**\n * Emitted after `reset` clears session state.\n *\n * The model is back in the waiting state.\n */",
     );
   });
 });

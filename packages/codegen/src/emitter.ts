@@ -235,8 +235,39 @@ function generateJsDoc(lines: string[], indentLevel: number = 0): string {
   const pad = "  ".repeat(indentLevel);
   const safe = lines.map(sanitizeJsDocLine);
   if (safe.length === 1) return `${pad}/** ${safe[0]} */\n`;
-  const inner = safe.map((l) => `${pad} * ${l}`).join("\n");
+  // Empty entries render as a bare ` *` line, which is JSDoc's idiomatic
+  // way to separate paragraphs inside a multi-line block — required so
+  // that descriptions split via `descriptionToJsDocLines` show up as
+  // proper paragraph breaks in IDE hovers and TypeDoc output.
+  const inner = safe
+    .map((l) => (l === "" ? `${pad} *` : `${pad} * ${l}`))
+    .join("\n");
   return `${pad}/**\n${inner}\n${pad} */\n`;
+}
+
+// Convert a free-form description (possibly multi-paragraph) into the
+// array of lines that `generateJsDoc` consumes. Paragraph breaks
+// (``\n\n+``) become a blank entry so the rendered JSDoc has a bare
+// ` *` separator line between paragraphs; intra-paragraph wrapping is
+// left alone — `sanitizeJsDocLine` will collapse it into a single
+// space, which matches how the runtime now normalises ModelMessage
+// docstrings (REA-1801).
+function descriptionToJsDocLines(description: string): string[] {
+  if (!description) return [];
+  const paragraphs = description.split(/\n\n+/);
+  const out: string[] = [];
+  for (let i = 0; i < paragraphs.length; i++) {
+    if (i > 0) out.push("");
+    out.push(paragraphs[i]);
+  }
+  return out;
+}
+
+// First paragraph of a description, used for `@param` tags where a
+// terse single sentence beats spilling the full multi-paragraph body
+// onto a tag that consumers see inline at every call site.
+function descriptionSummary(description: string): string {
+  return description.split(/\n\n+/)[0] ?? "";
 }
 
 // ---------------------------------------------------------------------------
@@ -253,7 +284,7 @@ function generateParamInterface(
   if (fields.length === 0) return "";
 
   const lines: string[] = [];
-  const doc = generateJsDoc(event.description ? [event.description] : [], 0);
+  const doc = generateJsDoc(descriptionToJsDocLines(event.description), 0);
   lines.push(`${doc}export interface ${interfaceName} {`);
 
   for (const [name, field] of fields) {
@@ -290,10 +321,7 @@ function generateMessageInterface(
   const fields = Object.entries(message.fields);
 
   const lines: string[] = [];
-  const doc = generateJsDoc(
-    message.description ? [message.description] : [],
-    0,
-  );
+  const doc = generateJsDoc(descriptionToJsDocLines(message.description), 0);
   lines.push(`${doc}export interface ${interfaceName} {`);
   lines.push(`  type: ${JSON.stringify(message.name)};`);
 
@@ -510,8 +538,17 @@ function generateClientClass(
     lines.push("");
 
     const methodDoc: string[] = [];
-    if (event.description) methodDoc.push(event.description);
-    if (hasParams) methodDoc.push(`@param params - ${event.description}`);
+    if (event.description) {
+      methodDoc.push(...descriptionToJsDocLines(event.description));
+    }
+    if (hasParams && event.description) {
+      // `@param` tags are read inline at every call-site; keep them to
+      // the summary (first paragraph) so consumers don't see the full
+      // multi-paragraph body repeated next to their argument.
+      methodDoc.push(
+        `@param params - ${descriptionSummary(event.description)}`,
+      );
+    }
     lines.push(indent(generateJsDoc(methodDoc), 1));
 
     if (paramType) {
@@ -1428,4 +1465,7 @@ export const __testing__ = {
   formatVersionForModelConstant,
   sanitizeJsDocLine,
   enumValueToTs,
+  descriptionToJsDocLines,
+  descriptionSummary,
+  generateJsDoc,
 };

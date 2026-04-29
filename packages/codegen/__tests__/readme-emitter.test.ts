@@ -205,6 +205,43 @@ describe("README emission", () => {
     expect(md).not.toMatch(/parallel with session/);
   });
 
+  it("preserves paragraph breaks in multi-paragraph event descriptions", () => {
+    // Markdown renders `\n\n` natively as a paragraph boundary, so the
+    // README emitter must pass the description through verbatim without
+    // collapsing the blank line — otherwise the new multi-paragraph
+    // ModelMessage docstrings (REA-1801) would render as one squashed
+    // paragraph in the generated README.
+    const md = readmeFor({
+      events: [
+        {
+          name: "set_prompt",
+          description:
+            "Set the scene prompt.\n\nApplied on the next inference iteration.",
+          fields: {},
+        },
+      ],
+    });
+    expect(md).toContain(
+      "Set the scene prompt.\n\nApplied on the next inference iteration.",
+    );
+  });
+
+  it("preserves paragraph breaks in multi-paragraph message descriptions", () => {
+    const md = readmeFor({
+      messages: [
+        {
+          name: "generation_reset",
+          description:
+            "Emitted after `reset` clears session state.\n\nThe model is back in the waiting state.",
+          fields: {},
+        },
+      ],
+    });
+    expect(md).toContain(
+      "Emitted after `reset` clears session state.\n\nThe model is back in the waiting state.",
+    );
+  });
+
   it("cross-links backticked message names in event descriptions", () => {
     const md = readmeFor({
       events: [
