@@ -273,6 +273,10 @@ export class WebRTCTransportClient implements TransportClient {
     const requestBody: IceCandidatesRequest = {
       candidates,
       is_final,
+      client_info: {
+        sdk_version: REACTOR_SDK_VERSION,
+        sdk_type: REACTOR_SDK_TYPE,
+      },
     };
 
     const response = await fetch(`${this.transportBaseUrl}/ice_candidates`, {
@@ -287,14 +291,14 @@ export class WebRTCTransportClient implements TransportClient {
 
     await this.checkVersionMismatch(response);
 
-    if (response.status !== 200) {
+    if (response.status !== 202) {
       const errorText = await response.text();
       throw new Error(
         `Failed to send ICE candidates: ${response.status} ${errorText}`
       );
     }
 
-    console.debug("[WebRTCTransport] ICE candidates accepted (200)");
+    console.debug("[WebRTCTransport] ICE candidates accepted (202)");
     return;
   }
 
@@ -737,17 +741,17 @@ export class WebRTCTransportClient implements TransportClient {
     };
 
     this.peerConnection.onicecandidate = async (event) => {
-      const candidate = [];
+      const candidates: IceCandidate[] = [];
       if (event.candidate) {
-        candidate.push({
+        candidates.push({
           candidate: event.candidate.candidate,
-          mline_index: event.candidate.sdpMLineIndex ?? undefined,
-          mid: event.candidate.sdpMid ?? undefined,
+          sdp_mid: event.candidate.sdpMid ?? undefined,
+          sdp_mline_index: event.candidate.sdpMLineIndex ?? undefined,
         });
       }
       // No candidate means the ICE gathering is complete.
       const is_final = !Boolean(event.candidate);
-      await this.sendIceCandidates(candidate, is_final);
+      await this.sendIceCandidates(candidates, is_final);
     };
 
     this.peerConnection.onicecandidateerror = (event) => {

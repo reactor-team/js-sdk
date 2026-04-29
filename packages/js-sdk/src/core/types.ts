@@ -172,14 +172,15 @@ export const WebRTCSdpAnswerResponseSchema = z.object({
 
 export const IceCandidateSchema = z.object({
   candidate: z.string(),
-  mline_index: z.number().optional(),
-  mid: z.string().optional(),
+  sdp_mid: z.string().optional(),
+  sdp_mline_index: z.number().optional(),
 });
 
 // POST /sessions/{id}/transport/webrtc/ice_candidates — Request
 export const IceCandidatesRequestSchema = z.object({
   candidates: z.array(IceCandidateSchema),
   is_final: z.boolean(),
+  client_info: ClientInfoSchema.optional(),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
