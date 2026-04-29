@@ -296,6 +296,11 @@ export class WebRTCTransportClient implements TransportClient {
       },
     };
 
+    // ``priority: "high"`` is a Chromium/Safari hint that nudges the
+    // browser to schedule the POST ahead of other in-flight fetches.
+    // It does not skip the CORS preflight, but it shaves real wall
+    // time off the handshake when the page is busy issuing requests
+    // (it's a no-op on browsers that don't support the option).
     const response = await fetch(`${this.transportBaseUrl}/ice_candidates`, {
       method: "POST",
       headers: {
@@ -304,7 +309,8 @@ export class WebRTCTransportClient implements TransportClient {
       },
       body: JSON.stringify(requestBody),
       signal: this.signal,
-    });
+      priority: "high",
+    } as RequestInit);
 
     await this.checkVersionMismatch(response);
 
