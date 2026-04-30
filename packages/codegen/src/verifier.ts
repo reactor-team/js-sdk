@@ -596,9 +596,7 @@ class VerifyContext {
       if (!ok) continue;
 
       if (seenMessageNames.has(message.name)) {
-        this.fail(
-          `message name ${JSON.stringify(message.name)} is duplicated`,
-        );
+        this.fail(`message name ${JSON.stringify(message.name)} is duplicated`);
       }
       seenMessageNames.add(message.name);
 
@@ -712,7 +710,10 @@ class VerifyContext {
       ["connect", "built-in `connect()` on the client class"],
       ["disconnect", "built-in `disconnect()` on the client class"],
       ["onMessage", "built-in catch-all `onMessage()` listener"],
-      ["uploadFile", "built-in `uploadFile()` (when any event takes an upload reference)"],
+      [
+        "uploadFile",
+        "built-in `uploadFile()` (when any event takes an upload reference)",
+      ],
     ]);
 
     const claim = (name: string, source: string): void => {
@@ -783,7 +784,10 @@ class VerifyContext {
     }
     for (const message of schema.messages) {
       if (!STRICT_SNAKE_CASE_RE.test(message.name)) continue;
-      claim(`${toPascalCase(message.name)}Message`, `message "${message.name}"`);
+      claim(
+        `${toPascalCase(message.name)}Message`,
+        `message "${message.name}"`,
+      );
     }
     for (const track of schema.tracks) {
       if (!STRICT_SNAKE_CASE_RE.test(track.name)) continue;

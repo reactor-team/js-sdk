@@ -239,9 +239,7 @@ describe("verifySchema — model name shape", () => {
     // collapsed the two error messages would surface as a test
     // failure rather than as confusing user output.
     expect(problems[0]).toContain("canonical model name");
-    expect(problems[0]).toContain(
-      __testing__.STRICT_MODEL_NAME_RE.source,
-    );
+    expect(problems[0]).toContain(__testing__.STRICT_MODEL_NAME_RE.source);
   });
 });
 
@@ -281,26 +279,23 @@ describe("verifySchema — reserved identifier classes", () => {
     "constructor",
     "prototype",
     "valueof", // would not match as `valueOf` because snake_case is lowercase only — but `prototype`/`constructor` do.
-  ])(
-    "rejects %s as an event name (prototype-key reserved set)",
-    (reserved) => {
-      // `valueof` is fully lowercase and matches snake_case shape, but it's
-      // NOT in the dangerous-key set (which holds the camelCase form
-      // `valueOf`). It WILL however be rejected for being a reserved JS
-      // keyword? It isn't — it's just a method name. So we expect this
-      // particular case to actually pass. Adjust accordingly.
-      const schema = baseSchema({ events: [event(reserved)] });
-      if (
-        __testing__.DANGEROUS_PROPERTY_KEYS.has(reserved) ||
-        __testing__.JS_RESERVED_WORDS.has(reserved)
-      ) {
-        expect(() => verifySchema(schema)).toThrow(CodegenVerificationError);
-      } else {
-        // `valueof` is harmless (different from `valueOf`).
-        expect(() => verifySchema(schema)).not.toThrow();
-      }
-    },
-  );
+  ])("rejects %s as an event name (prototype-key reserved set)", (reserved) => {
+    // `valueof` is fully lowercase and matches snake_case shape, but it's
+    // NOT in the dangerous-key set (which holds the camelCase form
+    // `valueOf`). It WILL however be rejected for being a reserved JS
+    // keyword? It isn't — it's just a method name. So we expect this
+    // particular case to actually pass. Adjust accordingly.
+    const schema = baseSchema({ events: [event(reserved)] });
+    if (
+      __testing__.DANGEROUS_PROPERTY_KEYS.has(reserved) ||
+      __testing__.JS_RESERVED_WORDS.has(reserved)
+    ) {
+      expect(() => verifySchema(schema)).toThrow(CodegenVerificationError);
+    } else {
+      // `valueof` is harmless (different from `valueOf`).
+      expect(() => verifySchema(schema)).not.toThrow();
+    }
+  });
 
   it("rejects an event whose camelCase output shadows Object.prototype.toString", () => {
     // Input snake_case `to_string` → camelCase `toString` → would shadow
@@ -400,9 +395,10 @@ describe("verifySchema — field names", () => {
     // `__proto__` as an *own property* (see ECMA-404 + the JSON.parse
     // pop-back step). This is the exact shape an attacker-controlled
     // schema would land with after `loadSchema`.
-    const fields = JSON.parse(
-      '{"__proto__": {"type":"string"}}',
-    ) as Record<string, import("../src/types.js").FieldSchema>;
+    const fields = JSON.parse('{"__proto__": {"type":"string"}}') as Record<
+      string,
+      import("../src/types.js").FieldSchema
+    >;
     const schema = baseSchema({
       events: [event("set_prompt", fields)],
     });
@@ -785,9 +781,7 @@ describe("generateModelSdk integration", () => {
     // Generated TS prefix: split on both separators, capitalise.
     expect(src).toContain("export class MyCoolModelModel");
     expect(src).toContain("export interface MyCoolModelOptions");
-    expect(src).toContain(
-      "export interface MyCoolModelPromptAcceptedMessage",
-    );
+    expect(src).toContain("export interface MyCoolModelPromptAcceptedMessage");
     // MODEL_NAME constant preserves the original (raw) name verbatim —
     // it's a string literal, not an identifier.
     expect(src).toContain('export const MODEL_NAME = "my-cool-model"');
