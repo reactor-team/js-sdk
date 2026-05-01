@@ -5,11 +5,15 @@ export * from "./react/ReactorController";
 export * from "./react/WebcamStream";
 export * from "./react/hooks";
 export * from "./types";
-// Recording wire contract — types, schemas, error class.
+// Stateless recording primitives (helpers, types, schemas).
 export {
+  DEFAULT_PLAYLIST_POLL_SLACK_MS,
   RecordingError,
   RuntimeRecordingMessageType,
   clipFromPayload,
+  downloadClipAsFile,
+  fetchPlaylist,
+  parsePlaylist,
   rewriteUrlHost,
 } from "./utils/recording";
 export type {
@@ -17,6 +21,8 @@ export type {
   ClipKind,
   ClipReadyPayload,
   ClipFailedPayload,
+  DownloadClipOptions,
+  FetchPlaylistOptions,
   ParseClipOptions,
 } from "./utils/recording";
 // Stateful recording client + its host adapter.

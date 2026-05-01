@@ -11,9 +11,9 @@
  *
  * Created by `Reactor` in its constructor and lifetime-bound to it.
  * Reactor exposes thin delegations (`Reactor.requestClip`,
- * `Reactor.requestRecording`) so app code never touches the client
- * directly — but it's exported for advanced consumers and isolated
- * testing.
+ * `Reactor.requestRecording`, `Reactor.downloadClipAsFile`) so app
+ * code never touches the client directly — but it's exported for
+ * advanced consumers and isolated testing.
  */
 
 import type { ReactorStatus } from "../types";
@@ -23,7 +23,9 @@ import {
   RecordingError,
   RuntimeRecordingMessageType,
   clipFromPayload,
+  downloadClipAsFile as downloadClipAsFileFn,
   type Clip,
+  type DownloadClipOptions,
 } from "../utils/recording";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -164,6 +166,21 @@ export class RecordingClient {
       RuntimeRecordingMessageType.REQUEST_RECORDING,
       {}
     );
+  }
+
+  /**
+   * Streams the chunks referenced by `clip.playlistUrl`, byte-
+   * concatenates them into a fragmented-MP4 Blob, and triggers a
+   * native browser download. Pure delegation to the stateless
+   * helper — exposed here so callers can drive the whole feature
+   * off a single client object.
+   */
+  async downloadClipAsFile(
+    clip: Clip,
+    filename: string | null = "reactor-clip.mp4",
+    options?: DownloadClipOptions
+  ): Promise<Blob> {
+    return downloadClipAsFileFn(clip, filename, options);
   }
 
   /**

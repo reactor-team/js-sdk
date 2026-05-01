@@ -43,7 +43,7 @@ export type Options = z.input<typeof OptionsSchema>;
 export { FileRef } from "./FileRef";
 import { FileRef } from "./FileRef";
 import { RecordingClient } from "./RecordingClient";
-import type { Clip } from "../utils/recording";
+import type { Clip, DownloadClipOptions } from "../utils/recording";
 
 type EventHandler = (...args: any[]) => void;
 
@@ -309,6 +309,28 @@ export class Reactor {
    */
   async requestRecording(): Promise<Clip> {
     return this.recording.requestRecording();
+  }
+
+  /**
+   * Streams the chunks referenced by `clip.playlistUrl`,
+   * byte-concatenates them into a fragmented-MP4 Blob, and triggers a
+   * native browser download. Server-side cost is zero — the SDK uses
+   * the same presigned chunk URLs the player would.
+   *
+   * Pass `filename: null` to skip the download trigger and just
+   * receive the assembled `Blob` (useful for non-DOM consumers and
+   * tests).
+   *
+   * Note: production playlist URLs are short-lived (presigned chunks
+   * TTL is a few minutes). If the URL has expired, request a fresh
+   * clip via {@link requestClip} or {@link requestRecording}.
+   */
+  async downloadClipAsFile(
+    clip: Clip,
+    filename: string | null = "reactor-clip.mp4",
+    options?: DownloadClipOptions
+  ): Promise<Blob> {
+    return this.recording.downloadClipAsFile(clip, filename, options);
   }
 
   /**

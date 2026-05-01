@@ -1,11 +1,14 @@
 // Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   ClipReadyPayloadSchema,
   RecordingError,
   RuntimeRecordingMessageType,
   clipFromPayload,
+  downloadClipAsFile,
+  fetchPlaylist,
+  parsePlaylist,
   rewriteUrlHost,
 } from "../../src/utils/recording";
 
@@ -22,6 +25,18 @@ const SAMPLE_PAYLOAD = {
   playlist_url:
     "http://0.0.0.0:8080/clips?session_id=rec-123&start=120&end=150",
 };
+
+const SAMPLE_MANIFEST = `#EXTM3U
+#EXT-X-VERSION:7
+#EXT-X-TARGETDURATION:4
+#EXT-X-PLAYLIST-TYPE:VOD
+#EXT-X-MAP:URI="/clips/chunks/rec-123/init.mp4"
+#EXTINF:4.000,
+/clips/chunks/rec-123/chunk_00000.m4s
+#EXTINF:4.000,
+/clips/chunks/rec-123/chunk_00001.m4s
+#EXT-X-ENDLIST
+`;
 
 describe("RuntimeRecordingMessageType", () => {
   it("matches the runtime-side string values", () => {
@@ -105,5 +120,278 @@ describe("rewriteUrlHost", () => {
     expect(rewriteUrlHost("not a url", "http://localhost:9000")).toBe(
       "not a url"
     );
+  });
+});
+
+describe("parsePlaylist", () => {
+  it("extracts init segment and ordered media segments", () => {
+    const { initUrl, segmentUrls } = parsePlaylist(
+      SAMPLE_MANIFEST,
+      "http://localhost:8080/clips?session_id=rec-123&start=0&end=8"
+    );
+    expect(initUrl).toBe("http://localhost:8080/clips/chunks/rec-123/init.mp4");
+    expect(segmentUrls).toEqual([
+      "http://localhost:8080/clips/chunks/rec-123/chunk_00000.m4s",
+      "http://localhost:8080/clips/chunks/rec-123/chunk_00001.m4s",
+    ]);
+  });
+
+  it("preserves absolute chunk URLs verbatim", () => {
+    const manifest = `#EXTM3U
+#EXT-X-VERSION:7
+#EXT-X-MAP:URI="https://cdn.reactor.inc/init.mp4"
+#EXTINF:4.000,
+https://cdn.reactor.inc/chunk_00000.m4s
+#EXT-X-ENDLIST
+`;
+    const { initUrl, segmentUrls } = parsePlaylist(
+      manifest,
+      "http://localhost/clips?x=1"
+    );
+    expect(initUrl).toBe("https://cdn.reactor.inc/init.mp4");
+    expect(segmentUrls).toEqual(["https://cdn.reactor.inc/chunk_00000.m4s"]);
+  });
+
+  it("throws INVALID_PLAYLIST when EXT-X-MAP is missing", () => {
+    const broken = `#EXTM3U\n#EXTINF:4.000,\nchunk_00000.m4s\n`;
+    expect(() => parsePlaylist(broken, "http://localhost/clips")).toThrow(
+      RecordingError
+    );
+  });
+
+  it("throws INVALID_PLAYLIST when there are no segments", () => {
+    const broken = `#EXTM3U\n#EXT-X-MAP:URI="init.mp4"\n#EXT-X-ENDLIST\n`;
+    expect(() => parsePlaylist(broken, "http://localhost/clips")).toThrow(
+      RecordingError
+    );
+  });
+});
+
+describe("fetchPlaylist", () => {
+  let originalFetch: typeof fetch;
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it("returns the body on 200", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response(SAMPLE_MANIFEST, { status: 200 })) as any;
+    const body = await fetchPlaylist("http://localhost/clips?x=1");
+    expect(body).toBe(SAMPLE_MANIFEST);
+  });
+
+  it("retries on 202 then returns 200 (deadline-driven)", async () => {
+    let calls = 0;
+    globalThis.fetch = vi.fn().mockImplementation(() => {
+      calls++;
+      if (calls === 1) {
+        return Promise.resolve(
+          new Response(null, {
+            status: 202,
+            headers: { "Retry-After": "0" },
+          })
+        );
+      }
+      return Promise.resolve(new Response(SAMPLE_MANIFEST, { status: 200 }));
+    }) as any;
+
+    const body = await fetchPlaylist("http://localhost/clips?x=1", {
+      predictedReadyAtMs: Date.now() + 10_000,
+      minRetryDelayMs: 0,
+      maxRetryDelayMs: 0,
+    });
+    expect(body).toBe(SAMPLE_MANIFEST);
+    expect(calls).toBe(2);
+  });
+
+  it("retries on 202 then returns 200 (legacy maxRetries fallback)", async () => {
+    let calls = 0;
+    globalThis.fetch = vi.fn().mockImplementation(() => {
+      calls++;
+      if (calls === 1) {
+        return Promise.resolve(
+          new Response(null, {
+            status: 202,
+            headers: { "Retry-After": "0" },
+          })
+        );
+      }
+      return Promise.resolve(new Response(SAMPLE_MANIFEST, { status: 200 }));
+    }) as any;
+
+    const body = await fetchPlaylist("http://localhost/clips?x=1", {
+      minRetryDelayMs: 0,
+      maxRetryDelayMs: 0,
+    });
+    expect(body).toBe(SAMPLE_MANIFEST);
+    expect(calls).toBe(2);
+  });
+
+  it("throws CLIP_GONE on 410", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 410 })) as any;
+    await expect(
+      fetchPlaylist("http://localhost/clips?x=1")
+    ).rejects.toMatchObject({
+      code: "CLIP_GONE",
+    });
+  });
+
+  it("throws CLIP_GONE on 404", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 404 })) as any;
+    await expect(
+      fetchPlaylist("http://localhost/clips?x=1")
+    ).rejects.toMatchObject({
+      code: "CLIP_GONE",
+    });
+  });
+
+  it("gives the full slack window when polling starts after predictedReadyAtMs (late click)", async () => {
+    // Repro for the bug where reading the "ready in Ns" pill for a few
+    // seconds before clicking Download caused CLIP_NOT_READY on a
+    // clip that landed shortly after. The deadline must run from
+    // max(predicted, startedPollingAt), not from predicted alone.
+    let calls = 0;
+    globalThis.fetch = vi.fn().mockImplementation(() => {
+      calls++;
+      if (calls < 3) {
+        return Promise.resolve(
+          new Response(null, {
+            status: 202,
+            headers: { "Retry-After": "0" },
+          })
+        );
+      }
+      return Promise.resolve(new Response(SAMPLE_MANIFEST, { status: 200 }));
+    }) as any;
+
+    const body = await fetchPlaylist("http://localhost/clips?x=1", {
+      // Predicted time already 5s in the past — late click.
+      predictedReadyAtMs: Date.now() - 5_000,
+      slackMs: 1_000,
+      minRetryDelayMs: 0,
+      maxRetryDelayMs: 0,
+    });
+    expect(body).toBe(SAMPLE_MANIFEST);
+    expect(calls).toBe(3);
+  });
+
+  it("throws CLIP_NOT_READY when deadline passes with stuck 202", async () => {
+    let calls = 0;
+    globalThis.fetch = vi.fn().mockImplementation(() => {
+      calls++;
+      return Promise.resolve(
+        new Response(null, {
+          status: 202,
+          headers: { "Retry-After": "0" },
+        })
+      );
+    }) as any;
+
+    // Deadline already in the past → first poll returns 202, second loop
+    // sees Date.now() >= deadline and bails.
+    await expect(
+      fetchPlaylist("http://localhost/clips?x=1", {
+        predictedReadyAtMs: Date.now() - 10_000,
+        slackMs: 0,
+        minRetryDelayMs: 0,
+        maxRetryDelayMs: 0,
+      })
+    ).rejects.toMatchObject({ code: "CLIP_NOT_READY" });
+    expect(calls).toBeGreaterThan(0);
+  });
+
+  it("throws CLIP_NOT_READY when fallback maxRetries is exhausted", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(null, {
+        status: 202,
+        headers: { "Retry-After": "0" },
+      })
+    ) as any;
+    await expect(
+      fetchPlaylist("http://localhost/clips?x=1", {
+        maxRetries: 1,
+        minRetryDelayMs: 0,
+        maxRetryDelayMs: 0,
+      })
+    ).rejects.toMatchObject({ code: "CLIP_NOT_READY" });
+  });
+
+  it("throws PLAYLIST_FETCH_FAILED on other 4xx/5xx", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 500 })) as any;
+    await expect(
+      fetchPlaylist("http://localhost/clips?x=1")
+    ).rejects.toMatchObject({ code: "PLAYLIST_FETCH_FAILED" });
+  });
+});
+
+describe("downloadClipAsFile", () => {
+  const clip = clipFromPayload(SAMPLE_PAYLOAD, {
+    coordinatorBaseUrl: "http://localhost:8080",
+  });
+
+  it("fetches playlist + every chunk and assembles a Blob", async () => {
+    const initBytes = new Uint8Array([1, 2, 3, 4]);
+    const chunk0 = new Uint8Array([5, 6, 7, 8, 9, 10]);
+    const chunk1 = new Uint8Array([11, 12, 13]);
+
+    const mockFetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/clips?")) {
+        return Promise.resolve(new Response(SAMPLE_MANIFEST, { status: 200 }));
+      }
+      if (url.endsWith("/init.mp4")) {
+        return Promise.resolve(new Response(initBytes, { status: 200 }));
+      }
+      if (url.endsWith("/chunk_00000.m4s")) {
+        return Promise.resolve(new Response(chunk0, { status: 200 }));
+      }
+      if (url.endsWith("/chunk_00001.m4s")) {
+        return Promise.resolve(new Response(chunk1, { status: 200 }));
+      }
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+    globalThis.fetch = mockFetch as any;
+
+    const onProgress = vi.fn();
+    const blob = await downloadClipAsFile(clip, null, {
+      fetchImpl: mockFetch as any,
+      onProgress,
+    });
+    expect(blob).toBeInstanceOf(Blob);
+    expect(blob.size).toBe(
+      initBytes.byteLength + chunk0.byteLength + chunk1.byteLength
+    );
+    expect(onProgress).toHaveBeenCalledTimes(3);
+    expect(onProgress).toHaveBeenLastCalledWith(
+      expect.objectContaining({ fetched: 3, total: 3 })
+    );
+  });
+
+  it("rejects with CHUNK_FETCH_FAILED when a chunk 5xx's", async () => {
+    const mockFetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/clips?")) {
+        return Promise.resolve(new Response(SAMPLE_MANIFEST, { status: 200 }));
+      }
+      if (url.endsWith("/init.mp4")) {
+        return Promise.resolve(
+          new Response(new Uint8Array([1, 2]), { status: 200 })
+        );
+      }
+      return Promise.resolve(new Response(null, { status: 503 }));
+    });
+    globalThis.fetch = mockFetch as any;
+
+    await expect(
+      downloadClipAsFile(clip, null, { fetchImpl: mockFetch as any })
+    ).rejects.toMatchObject({ code: "CHUNK_FETCH_FAILED" });
   });
 });
