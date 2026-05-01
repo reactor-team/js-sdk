@@ -42,6 +42,8 @@ export type Options = z.input<typeof OptionsSchema>;
 
 export { FileRef } from "./FileRef";
 import { FileRef } from "./FileRef";
+import { RecordingClient } from "./RecordingClient";
+import type { Clip } from "../utils/recording";
 
 type EventHandler = (...args: any[]) => void;
 
@@ -63,6 +65,18 @@ export class Reactor {
   private presetTracks?: TrackCapability[];
   private sessionResponse?: SessionResponse;
 
+  /**
+   * Per-Reactor recording client. Owns the FIFO promise correlator
+   * for `requestClip` / `requestRecording` round-trips and the
+   * `downloadClipAsFile` helper. Subscribes to this Reactor's
+   * `runtimeMessage` and `statusChanged` events on construction.
+   *
+   * App code typically uses the convenience methods
+   * ({@link Reactor.requestClip} etc.) but advanced consumers can
+   * drive the feature directly off this field.
+   */
+  readonly recording: RecordingClient;
+
   constructor(options: Options) {
     const validatedOptions = OptionsSchema.parse(options);
     this.coordinatorUrl = validatedOptions.apiUrl;
@@ -74,6 +88,27 @@ export class Reactor {
     if (validatedOptions.modelTracks) {
       this.presetTracks = validatedOptions.modelTracks;
     }
+
+    // Recording client. Subscribes to `runtimeMessage` /
+    // `statusChanged` via the standard event-bus pattern (no direct
+    // method calls), so app code that listens to `runtimeMessage`
+    // continues to receive `clipReady` / `clipFailed` envelopes
+    // alongside the recording client's own correlator.
+    this.recording = new RecordingClient({
+      onRuntimeMessage: (handler) => {
+        this.on("runtimeMessage", handler);
+        return () => this.off("runtimeMessage", handler);
+      },
+      onStatusChanged: (handler) => {
+        this.on("statusChanged", handler);
+        return () => this.off("statusChanged", handler);
+      },
+      sendRuntimeCommand: (command, data) =>
+        this.sendCommand(command, data, "runtime"),
+      getStatus: () => this.status,
+      getLocalCoordinatorBaseUrl: () =>
+        this.local ? this.coordinatorUrl : undefined,
+    });
   }
 
   private eventListeners: Map<ReactorEvent, Set<EventHandler>> = new Map();
@@ -232,6 +267,48 @@ export class Reactor {
     });
 
     return new FileRef(slot.presigned_id, name, mimeType, size);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Recording — thin delegations to `this.recording` (RecordingClient).
+  // The recording subsystem owns its own state and lifecycle; these
+  // methods exist for API ergonomics so app code never needs to
+  // reach into `reactor.recording` for the common case.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Asks the runtime to mint a clip covering the last `durationSeconds`
+   * of the live session.
+   *
+   * Sends a `requestClip` runtime message and resolves with the
+   * matching `clipReady` payload (or rejects on `clipFailed`).
+   * `durationSeconds` is capped server-side at the model's
+   * `recording.clip_max_seconds` (default 5 minutes).
+   *
+   * The returned {@link Clip} carries a `playlistUrl` that can be handed
+   * directly to any HLS-capable video player. To save the clip as a
+   * file, pass it to {@link downloadClipAsFile}.
+   *
+   * Multiple concurrent requests are supported — responses are
+   * matched FIFO with outgoing requests.
+   *
+   * @throws {RecordingError} on invalid input, transport failure,
+   *   timeout, runtime-side `clipFailed`, or disconnect mid-request.
+   */
+  async requestClip(durationSeconds: number): Promise<Clip> {
+    return this.recording.requestClip(durationSeconds);
+  }
+
+  /**
+   * Asks the runtime to mint a clip covering the entire session up to
+   * "now" (the latest fully-uploaded chunk). Mechanically identical to
+   * {@link requestClip} with `start = 0`; only the resolved
+   * {@link Clip.kind} discriminator differs (`"recording"` vs `"snap"`).
+   *
+   * @throws {RecordingError} same conditions as {@link requestClip}.
+   */
+  async requestRecording(): Promise<Clip> {
+    return this.recording.requestRecording();
   }
 
   /**
@@ -462,6 +539,8 @@ export class Reactor {
       if (scope === "application") {
         this.emit("message", message);
       } else if (scope === "runtime") {
+        // Just emit — `RecordingClient` and any app-level
+        // `runtimeMessage` listeners are subscribers via `on()`.
         this.emit("runtimeMessage", message);
       }
     });
