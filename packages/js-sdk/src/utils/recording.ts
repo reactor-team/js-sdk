@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
 
 /**
- * Stateless wire-contract primitives for the Reactor recording feature.
+ * Stateless primitives for the Reactor recording feature.
  *
  * This module owns:
  * - Public-facing {@link Clip} type, {@link RecordingError} class, and
@@ -9,7 +9,11 @@
  * - Wire schemas (`ClipReadyPayloadSchema`, `ClipFailedPayloadSchema`)
  *   plus `clipFromPayload` to convert snake_case wire payloads into
  *   camelCase `Clip` objects.
- * - `rewriteUrlHost` for local-mode URL rewriting.
+ * - HTTP helpers `fetchPlaylist` (deadline-driven polling) and
+ *   `parsePlaylist` (HLS `.m3u8` parser).
+ * - The `downloadClipAsFile` helper that streams the referenced
+ *   fMP4 chunks and byte-concatenates them into a fragmented-MP4
+ *   Blob for browser download.
  *
  * Stateful pieces (FIFO promise correlator, in-flight request
  * lifecycle, integration with Reactor's event bus) live in the
@@ -207,5 +211,447 @@ export function rewriteUrlHost(target: string, base: string): string {
     return parsed.toString();
   } catch {
     return target;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HLS playlist fetching + parsing
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Internal — segments referenced by an HLS manifest, in playback order. */
+interface ParsedPlaylist {
+  initUrl: string;
+  segmentUrls: string[];
+}
+
+/**
+ * Default grace period after `predictedReadyAtMs` before
+ * {@link fetchPlaylist} gives up.  Applied from
+ * `max(predictedReadyAtMs, pollStart)` so late clicks still get the
+ * full window.
+ */
+export const DEFAULT_PLAYLIST_POLL_SLACK_MS = 15_000;
+
+export interface FetchPlaylistOptions {
+  /**
+   * Unix epoch (ms) when the runtime predicts the boundary chunk will
+   * be servable. Pass `clip.predictedReadyAtMs` here. When set, polling
+   * continues until `predictedReadyAtMs + slackMs`; once past, a
+   * stuck `202` produces `CLIP_NOT_READY` (assume runtime crashed).
+   */
+  predictedReadyAtMs?: number;
+  /** Grace period after `predictedReadyAtMs`. Default {@link DEFAULT_PLAYLIST_POLL_SLACK_MS}. */
+  slackMs?: number;
+  /**
+   * Hard cap on the per-poll wait. The server's `Retry-After` header is
+   * honored but clamped. Default 2000 ms keeps pending UI snappy.
+   */
+  maxRetryDelayMs?: number;
+  /** Floor on the per-poll wait so we don't hot-loop on cheap networks. Default 200 ms. */
+  minRetryDelayMs?: number;
+  /**
+   * Fallback retry count used when `predictedReadyAtMs` is omitted
+   * (e.g. someone calls `fetchPlaylist` directly with a saved URL,
+   * outside of a fresh `Clip`). Default 5.
+   */
+  maxRetries?: number;
+  /** Aborts in-flight fetches and the inter-poll sleep. */
+  signal?: AbortSignal;
+  /**
+   * Coordinator JWT.  When set, attached as `Authorization: Bearer
+   * <jwt>` on the manifest GET — the Coordinator hop.  In local mode
+   * (HttpRuntime), leave undefined.
+   */
+  jwt?: string;
+}
+
+/**
+ * Fetch the playlist URL, polling on `202 Accepted` (which the manifest
+ * endpoint returns while the boundary chunk is still uploading).
+ *
+ * Polling deadline is driven by `predictedReadyAtMs + slackMs` when a
+ * `Clip` was just minted by the runtime; without that field the
+ * function falls back to `maxRetries` attempts. Either way:
+ * - `200` → returns the manifest body.
+ * - `410` / `404` → throws `CLIP_GONE`.
+ * - `5xx`/other → throws `PLAYLIST_FETCH_FAILED` (no retry).
+ * - Past the deadline / retries with stuck `202` → throws
+ *   `CLIP_NOT_READY` (the runtime probably crashed mid-chunk).
+ */
+export async function fetchPlaylist(
+  playlistUrl: string,
+  options: FetchPlaylistOptions = {}
+): Promise<string> {
+  const slackMs = options.slackMs ?? DEFAULT_PLAYLIST_POLL_SLACK_MS;
+  const minDelay = Math.max(0, options.minRetryDelayMs ?? 200);
+  const maxDelay = Math.max(minDelay, options.maxRetryDelayMs ?? 2_000);
+  const fallbackMaxRetries = options.maxRetries ?? 5;
+
+  const hasDeadline = typeof options.predictedReadyAtMs === "number";
+  // Slack window starts from max(predictedReadyAtMs, now), so late
+  // clicks still get the full grace window.
+  const startedPollingAt = Date.now();
+  const deadlineMs = hasDeadline
+    ? Math.max(options.predictedReadyAtMs as number, startedPollingAt) + slackMs
+    : undefined;
+
+  const headers = options.jwt
+    ? { Authorization: `Bearer ${options.jwt}` }
+    : undefined;
+
+  let attempt = 0;
+  let lastStatus = 0;
+
+  while (true) {
+    let response: Response;
+    try {
+      response = await fetch(playlistUrl, {
+        signal: options.signal,
+        headers,
+      });
+    } catch (error) {
+      throw new RecordingError(
+        "PLAYLIST_FETCH_FAILED",
+        `Network error fetching playlist: ${(error as Error).message}`
+      );
+    }
+    lastStatus = response.status;
+
+    // Order matters: 202 is in the 2xx range so it would match
+    // ``response.ok`` if we didn't branch on it first.
+    if (response.status === 202) {
+      // Decide whether to keep polling.
+      if (hasDeadline) {
+        if (Date.now() >= (deadlineMs as number)) {
+          throw new RecordingError(
+            "CLIP_NOT_READY",
+            `Boundary chunk still pending after ${slackMs}ms grace (predicted ready ${new Date(
+              options.predictedReadyAtMs as number
+            ).toISOString()}). Runtime may have crashed mid-clip.`
+          );
+        }
+      } else if (attempt >= fallbackMaxRetries) {
+        throw new RecordingError(
+          "CLIP_NOT_READY",
+          `Manifest still pending after ${attempt + 1} attempts (last status ${lastStatus})`
+        );
+      }
+
+      const headerDelay = parseRetryAfter(
+        response.headers.get("Retry-After"),
+        minDelay
+      );
+      const delay = Math.min(maxDelay, Math.max(minDelay, headerDelay));
+      // Don't sleep past the deadline; clamp so the next loop sees it.
+      const clampedDelay = hasDeadline
+        ? Math.min(delay, Math.max(0, (deadlineMs as number) - Date.now()))
+        : delay;
+      await sleep(clampedDelay, options.signal);
+      attempt++;
+      continue;
+    }
+
+    if (response.status === 200) {
+      return await response.text();
+    }
+    if (response.status === 410) {
+      throw new RecordingError(
+        "CLIP_GONE",
+        "Clip is no longer available (chunks aged out or session unknown)"
+      );
+    }
+    if (response.status === 404) {
+      throw new RecordingError(
+        "CLIP_GONE",
+        "Session not found for clip playlist"
+      );
+    }
+    throw new RecordingError(
+      "PLAYLIST_FETCH_FAILED",
+      `Manifest endpoint returned HTTP ${response.status}`
+    );
+  }
+}
+
+/**
+ * Parse an HLS `.m3u8` body into the init segment URL plus the ordered
+ * list of media segment URLs. Resolves relative URLs against the
+ * playlist URL itself.
+ */
+export function parsePlaylist(
+  manifestBody: string,
+  playlistUrl: string
+): ParsedPlaylist {
+  let initUrl: string | undefined;
+  const segments: string[] = [];
+
+  const lines = manifestBody.split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    if (trimmed.startsWith("#EXT-X-MAP")) {
+      const match = trimmed.match(/URI="([^"]+)"/);
+      if (match) {
+        initUrl = resolveAgainst(match[1], playlistUrl);
+      }
+      continue;
+    }
+    if (trimmed.startsWith("#")) {
+      continue;
+    }
+    segments.push(resolveAgainst(trimmed, playlistUrl));
+  }
+
+  if (!initUrl) {
+    throw new RecordingError(
+      "INVALID_PLAYLIST",
+      "Playlist is missing an #EXT-X-MAP init segment URI"
+    );
+  }
+  if (segments.length === 0) {
+    throw new RecordingError(
+      "INVALID_PLAYLIST",
+      "Playlist contains no media segments"
+    );
+  }
+
+  return { initUrl, segmentUrls: segments };
+}
+
+/**
+ * Wrap an HLS manifest body in a `blob:` URL suitable for `<video src>`
+ * or `hls.js`.  Bypasses the "player can't set Authorization headers"
+ * problem: the manifest body is served from browser memory, and the
+ * chunk URLs inside are already-signed S3 GETs.
+ *
+ * Path-only / relative chunk URLs in the body are absolutized against
+ * ``playlistUrl`` first.  Without this rewrite the browser would
+ * resolve them against the ``blob:`` URL's effective base — the page's
+ * origin — and a local-dev frontend on (e.g.) port 3000 would issue
+ * chunk fetches against its own dev server instead of the
+ * HttpRuntime's ``/clips/chunks/...`` endpoint on port 8080.  In
+ * production / kind-cluster mode the manifest already carries absolute
+ * presigned S3 URLs and `resolveAgainst` is a no-op on them.
+ *
+ * Caller owns the returned URL — revoke it via `URL.revokeObjectURL`
+ * when playback tears down.  Browser-only; throws `INVALID_PLAYLIST`
+ * outside a DOM environment.
+ */
+export function createPlayableManifestUrl(
+  manifestBody: string,
+  playlistUrl: string
+): string {
+  if (
+    typeof Blob === "undefined" ||
+    typeof URL === "undefined" ||
+    typeof URL.createObjectURL !== "function"
+  ) {
+    throw new RecordingError(
+      "INVALID_PLAYLIST",
+      "createPlayableManifestUrl requires a browser environment with URL.createObjectURL"
+    );
+  }
+  const rewritten = absolutizeManifestUrls(manifestBody, playlistUrl);
+  const blob = new Blob([rewritten], {
+    type: "application/vnd.apple.mpegurl",
+  });
+  return URL.createObjectURL(blob);
+}
+
+/**
+ * Rewrite an HLS manifest body so every chunk URL is absolute.
+ *
+ * - ``#EXT-X-MAP:URI="<rel>"`` → ``URI="<abs>"`` via ``resolveAgainst``.
+ * - Each non-comment, non-empty line is treated as a media segment URL
+ *   and absolutized.
+ * - Lines that are already absolute (any URL with a scheme — e.g. an S3
+ *   presigned GET) pass through unchanged because ``new URL(target,
+ *   base)`` returns ``target`` verbatim when ``target`` is absolute.
+ * - All other directives (``#EXTM3U``, ``#EXTINF:...``,
+ *   ``#EXT-X-VERSION:...``, etc.) and blank lines are preserved as-is.
+ * - Original line endings are preserved (``\r\n`` vs ``\n``) so the
+ *   playable blob byte-matches the source on non-rewriting platforms.
+ */
+function absolutizeManifestUrls(
+  manifestBody: string,
+  playlistUrl: string
+): string {
+  // Preserve the source's line-ending style so the blob is byte-stable
+  // for absolute-only manifests (production path).
+  const eol = manifestBody.includes("\r\n") ? "\r\n" : "\n";
+  const lines = manifestBody.split(/\r?\n/);
+  const out: string[] = [];
+  for (const line of lines) {
+    if (line.startsWith("#EXT-X-MAP")) {
+      out.push(
+        line.replace(
+          /URI="([^"]+)"/,
+          (_, uri) => `URI="${resolveAgainst(uri, playlistUrl)}"`
+        )
+      );
+      continue;
+    }
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) {
+      out.push(line);
+      continue;
+    }
+    out.push(resolveAgainst(trimmed, playlistUrl));
+  }
+  return out.join(eol);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// downloadClipAsFile
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface DownloadClipOptions {
+  /**
+   * Coordinator JWT.  Attached on the manifest GET only; the chunks
+   * referenced inside the manifest are S3 presigned URLs and are
+   * fetched unauthenticated.
+   */
+  jwt?: string;
+  /** Forwarded to every request. Cancels both the playlist poll and any in-flight chunk fetches. */
+  signal?: AbortSignal;
+  /** Called after each chunk completes — useful for progress UI. */
+  onProgress?: (info: {
+    fetched: number;
+    total: number;
+    bytes: number;
+  }) => void;
+}
+
+/**
+ * Stream the chunks referenced by `clip.playlistUrl`, byte-concatenate
+ * them into a fragmented-MP4 Blob, and (when `filename` is non-null)
+ * trigger a browser-native `<a download>`.  Pass `filename: null` to
+ * skip the download trigger and just receive the Blob.
+ */
+export async function downloadClipAsFile(
+  clip: Clip,
+  filename: string | null = "reactor-clip.mp4",
+  options: DownloadClipOptions = {}
+): Promise<Blob> {
+  // Two distinct hops: the manifest GET hits the Coordinator (JWT
+  // required) and goes through `fetchPlaylist`; the chunks are S3
+  // presigned URLs carrying their own SigV4 query auth and are
+  // fetched directly with plain `fetch`.
+  const manifestBody = await fetchPlaylist(clip.playlistUrl, {
+    predictedReadyAtMs: clip.predictedReadyAtMs,
+    signal: options.signal,
+    jwt: options.jwt,
+  });
+  const { initUrl, segmentUrls } = parsePlaylist(
+    manifestBody,
+    clip.playlistUrl
+  );
+
+  const orderedUrls = [initUrl, ...segmentUrls];
+  const parts: BlobPart[] = [];
+  let bytes = 0;
+
+  for (let i = 0; i < orderedUrls.length; i++) {
+    const url = orderedUrls[i];
+    let response: Response;
+    try {
+      response = await fetch(url, { signal: options.signal });
+    } catch (error) {
+      throw new RecordingError(
+        "CHUNK_FETCH_FAILED",
+        `Network error fetching chunk ${i}: ${(error as Error).message}`
+      );
+    }
+    if (!response.ok) {
+      throw new RecordingError(
+        "CHUNK_FETCH_FAILED",
+        `Chunk ${i} returned HTTP ${response.status}`
+      );
+    }
+    const data = await response.arrayBuffer();
+    parts.push(data);
+    bytes += data.byteLength;
+    options.onProgress?.({
+      fetched: i + 1,
+      total: orderedUrls.length,
+      bytes,
+    });
+  }
+
+  const blob = new Blob(parts, { type: "video/mp4" });
+
+  if (filename === null) {
+    return blob;
+  }
+  if (
+    typeof document === "undefined" ||
+    typeof URL.createObjectURL !== "function"
+  ) {
+    throw new RecordingError(
+      "DOWNLOAD_UNSUPPORTED",
+      "downloadClipAsFile requires a DOM environment; pass filename=null to skip the download trigger"
+    );
+  }
+
+  triggerBrowserDownload(blob, filename);
+  return blob;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Internal helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+function resolveAgainst(target: string, base: string): string {
+  try {
+    return new URL(target, base).toString();
+  } catch {
+    return target;
+  }
+}
+
+function parseRetryAfter(header: string | null, fallbackMs: number): number {
+  if (!header) return fallbackMs;
+  const seconds = Number(header);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return seconds * 1000;
+  }
+  const dateMs = Date.parse(header);
+  if (!Number.isNaN(dateMs)) {
+    return Math.max(0, dateMs - Date.now());
+  }
+  return fallbackMs;
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+function triggerBrowserDownload(blob: Blob, filename: string): void {
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = filename;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } finally {
+    URL.revokeObjectURL(objectUrl);
   }
 }
