@@ -26,7 +26,7 @@ The codegen reads a model's OpenAPI schema (events, messages, tracks) and produc
 ```bash
 reactor-codegen \
   --schema schema.json \
-  --sdk-version 2.9.1 \
+  --sdk-version 2.9.2 \
   --output ./out/helios
 ```
 
@@ -92,7 +92,7 @@ Use `--standalone` when you want the typed client as a single `.ts` file inside 
 # Drop a typed Helios client into an existing project's src/ folder.
 reactor-codegen \
   --schema schema.json \
-  --sdk-version 2.9.1 \
+  --sdk-version 2.9.2 \
   --output ./src/helios.ts \
   --standalone
 ```
@@ -106,7 +106,7 @@ Pass `--react` to additionally emit a React entry point. In full-package mode th
 ```bash
 reactor-codegen \
   --schema schema.json \
-  --sdk-version 2.9.1 \
+  --sdk-version 2.9.2 \
   --output ./out/helios \
   --react
 ```
@@ -253,20 +253,20 @@ The generated `package.json` strips a leading `v` from the schema's `info.versio
 # Run codegen against the test schema (Helios)
 pnpm tsx src/cli.ts \
   --schema schema.json \
-  --sdk-version 2.9.1 \
+  --sdk-version 2.9.2 \
   --output .generated/helios
 
 # Dry-run to preview output without writing files
 pnpm tsx src/cli.ts \
   --schema schema.json \
-  --sdk-version 2.9.1 \
+  --sdk-version 2.9.2 \
   --output .generated/helios \
   --dry-run
 
 # With React hooks (adds src/react.ts + ./react subpath export)
 pnpm tsx src/cli.ts \
   --schema schema.json \
-  --sdk-version 2.9.1 \
+  --sdk-version 2.9.2 \
   --output .generated/helios \
   --react
 
@@ -310,7 +310,7 @@ const schema = parseSchema(rawSchema);
 const pkg = generateModelSdk({
   modelName: schema.modelName,
   modelVersion: schema.modelVersion,
-  sdkVersion: "2.9.1",
+  sdkVersion: "2.9.2",
   schema,
   outputDir: "./out/helios",
 });

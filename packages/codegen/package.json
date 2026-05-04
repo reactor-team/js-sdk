@@ -25,14 +25,14 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "codegen:test": "tsx src/cli.ts --schema schema.json --sdk-version 2.9.1 --output .generated/example"
+    "codegen:test": "tsx src/cli.ts --schema schema.json --sdk-version 2.9.2 --output .generated/example"
   },
   "keywords": [
     "reactor",
     "codegen",
     "sdk"
   ],
-  "defaultSdkVersion": "2.9.1",
+  "defaultSdkVersion": "2.9.2",
   "author": "Reactor Technologies, Inc.",
   "license": "MIT",
   "devDependencies": {
