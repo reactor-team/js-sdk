@@ -312,9 +312,19 @@ function resolveStandaloneOutputPath(output: string): string {
  *
  * The emitter's React file imports from `./index.js` and the main file
  * re-exports from `./react.js` (both emitter defaults, used for the
- * full-package layout). In standalone mode the filenames won't always
- * be `index` / `react`, so we rewrite both sides of the pair to point
- * at the chosen basenames — see runGenerate().
+ * full-package layout where `tsup` produces real `.js` artefacts).
+ * Standalone mode drops the source `.ts` files straight into the
+ * caller's project, so `runGenerate()` rewrites the cross-imports on
+ * both sides:
+ *
+ *   - The basename is swapped to whatever the caller chose (default
+ *     `index` / `index.react`).
+ *   - The `.js` extension is stripped — TS sources don't have a `.js`
+ *     sibling, and Node-style module resolution (the default in many
+ *     consumer tsconfigs and a stumbling block for Next.js / TS users)
+ *     refuses to resolve `./foo.js` to `./foo.ts`. Dropping the
+ *     extension lets the consumer's bundler resolve the sibling
+ *     `.ts` regardless of `moduleResolution` setting.
  */
 function resolveStandaloneReactPath(standaloneOutput: string): string {
   return standaloneOutput.replace(/\.ts$/, ".react.ts");
@@ -465,22 +475,24 @@ async function runGenerate(argv: string[]): Promise<void> {
     // `resolveStandaloneReactPath` always produces `<main>.react.ts`,
     // so in standalone mode the sibling's basename is never literally
     // `react` — we can unconditionally rewrite the main file's
-    // re-export path. The React-side back-import (`./index.js`) only
-    // needs rewriting when the main basename isn't already `index`.
+    // re-export path. The React-side back-import (`./index.js`) is
+    // also unconditionally rewritten so the `.js` extension gets
+    // stripped even when the main basename is the default `index`
+    // (see `resolveStandaloneReactPath` for why standalone never
+    // emits `.js`).
     const indexContent =
       args.react && reactBasename
         ? indexFile.content.replace(
             /export \* from "\.\/react\.js";/g,
-            `export * from "./${reactBasename}.js";`,
+            `export * from "./${reactBasename}";`,
           )
         : indexFile.content;
-    const reactContent =
-      reactFile && mainBasename !== "index"
-        ? reactFile.content.replace(
-            /from "\.\/index\.js"/g,
-            `from "./${mainBasename}.js"`,
-          )
-        : reactFile?.content;
+    const reactContent = reactFile
+      ? reactFile.content.replace(
+          /from "\.\/index\.js"/g,
+          `from "./${mainBasename}"`,
+        )
+      : undefined;
 
     if (args.dryRun) {
       console.log(`--- ${outputFile} ---`);

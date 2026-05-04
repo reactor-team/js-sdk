@@ -3,7 +3,8 @@
 import { describe, expect, it } from "vitest";
 
 import { generateModelSdk } from "../src/codegen.js";
-import { __testing__ } from "../src/emitter.js";
+import { generator, __testing__ } from "../src/emitter.js";
+import { CodegenVerificationError } from "../src/verifier.js";
 import type {
   EventSchema,
   FieldSchema,
@@ -41,6 +42,15 @@ describe("case helpers", () => {
     expect(toPascalCase("set_prompt")).toBe("SetPrompt");
     expect(toPascalCase("helios")).toBe("Helios");
     expect(toPascalCase("a_b_c_d")).toBe("ABCD");
+    // Hyphens split the same way as underscores so model names like
+    // `@reactor-models/my-cool-model` produce a valid TS prefix
+    // (`MyCoolModel`) without the caller having to massage the input.
+    expect(toPascalCase("my-cool-model")).toBe("MyCoolModel");
+    expect(toPascalCase("lingbot-v2")).toBe("LingbotV2");
+    // Mixed `-` and `_` in the same name resolves consistently — both
+    // separators feed into the same split.
+    expect(toPascalCase("my-cool_model")).toBe("MyCoolModel");
+    expect(toPascalCase("my_cool-model")).toBe("MyCoolModel");
   });
 
   it("converts snake_case to camelCase", () => {
@@ -1511,6 +1521,28 @@ describe("emitter — typed track helpers (REA-1791)", () => {
 // ---------------------------------------------------------------------------
 
 describe("emitter — injection defence (defense in depth)", () => {
+  // -------------------------------------------------------------------------
+  // The codegen has two security layers:
+  //
+  //   1. The verifier (src/verifier.ts) — runs in `generateModelSdk` before
+  //      the emitter and rejects any non-snake_case / reserved / colliding
+  //      name outright. This is what the public API exposes; a real
+  //      hostile schema never reaches the emitter through the public path.
+  //
+  //   2. The emitter's `JSON.stringify` escaping — every schema-sourced
+  //      string is rendered as a JS string literal via JSON.stringify,
+  //      which escapes quotes, backslashes, and control chars. This is
+  //      the "what if a name slipped past the verifier" defense.
+  //
+  // The two tests below exist to PIN the layered defense:
+  //   - The verifier *does* reject the hostile name through the public API.
+  //   - The emitter *still* escapes it safely when called directly
+  //     (bypassing the verifier — what would happen if a future emitter
+  //     change introduced a new schema-sourced sink that the verifier
+  //     didn't know about). Both layers are verified independently so a
+  //     regression in either is loud.
+  // -------------------------------------------------------------------------
+
   function hostileBase(overrides: Partial<ModelSchema> = {}): ModelSchema {
     return {
       modelName: "helios",
@@ -1523,43 +1555,69 @@ describe("emitter — injection defence (defense in depth)", () => {
   }
 
   it("escapes a hostile event name inside sendCommand(…) string literal", () => {
-    const pkg = generateModelSdk({
+    const schema = hostileBase({
+      events: [
+        {
+          name: 'set_prompt"; evil(); "',
+          description: "",
+          fields: {},
+        },
+      ],
+    });
+
+    // Layer 1: verifier rejects through the public API.
+    expect(() =>
+      generateModelSdk({
+        modelName: "helios",
+        modelVersion: "0.1.0",
+        sdkVersion: "2.9.1",
+        schema,
+        outputDir: "/tmp/ignored",
+      }),
+    ).toThrow(CodegenVerificationError);
+
+    // Layer 2: even if the verifier is bypassed (e.g. by a future
+    // refactor that inserts a new sink), the emitter still emits a
+    // safely-escaped JS string literal.
+    const pkg = generator.generate({
       modelName: "helios",
       modelVersion: "0.1.0",
       sdkVersion: "2.9.1",
-      schema: hostileBase({
-        events: [
-          {
-            name: 'set_prompt"; evil(); "',
-            description: "",
-            fields: {},
-          },
-        ],
-      }),
+      schema,
       outputDir: "/tmp/ignored",
     });
     const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
 
-    // With JSON.stringify, the `"` becomes `\"` inside the JS literal
-    // — the `sendCommand` call still receives exactly one string arg.
     expect(src).toContain('sendCommand("set_prompt\\"; evil(); \\"", {});');
     expect(src).not.toMatch(/sendCommand\("set_prompt"; evil\(\); ""/);
   });
 
   it("escapes a hostile message name in the discriminator literal", () => {
-    const pkg = generateModelSdk({
+    const schema = hostileBase({
+      messages: [
+        {
+          name: 'prompt_accepted"; evil()',
+          description: "",
+          fields: {},
+        },
+      ],
+    });
+
+    expect(() =>
+      generateModelSdk({
+        modelName: "helios",
+        modelVersion: "0.1.0",
+        sdkVersion: "2.9.1",
+        schema,
+        outputDir: "/tmp/ignored",
+      }),
+    ).toThrow(CodegenVerificationError);
+
+    const pkg = generator.generate({
       modelName: "helios",
       modelVersion: "0.1.0",
       sdkVersion: "2.9.1",
-      schema: hostileBase({
-        messages: [
-          {
-            name: 'prompt_accepted"; evil()',
-            description: "",
-            fields: {},
-          },
-        ],
-      }),
+      schema,
       outputDir: "/tmp/ignored",
     });
     const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
@@ -1652,20 +1710,33 @@ describe("emitter — injection defence (defense in depth)", () => {
     // Track-constant emission is re-authored in PR 4 (the schema→transport
     // direction translation). The escaping has to live on the PR 4 line,
     // not PR 3's, or the rebase would drop it. This test pins that the
-    // hardening survives the rewrite.
-    const pkg = generateModelSdk({
+    // hardening survives the rewrite — and that the verifier blocks it
+    // earlier through the public API.
+    const schema = hostileBase({
+      tracks: [
+        {
+          name: 'main_video"; evil()',
+          kind: "video",
+          direction: "out",
+        },
+      ],
+    });
+
+    expect(() =>
+      generateModelSdk({
+        modelName: "helios",
+        modelVersion: "0.1.0",
+        sdkVersion: "2.9.1",
+        schema,
+        outputDir: "/tmp/ignored",
+      }),
+    ).toThrow(CodegenVerificationError);
+
+    const pkg = generator.generate({
       modelName: "helios",
       modelVersion: "0.1.0",
       sdkVersion: "2.9.1",
-      schema: hostileBase({
-        tracks: [
-          {
-            name: 'main_video"; evil()',
-            kind: "video",
-            direction: "out",
-          },
-        ],
-      }),
+      schema,
       outputDir: "/tmp/ignored",
     });
     const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;

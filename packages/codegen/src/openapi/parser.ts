@@ -47,13 +47,27 @@ export function loadSchema(filePath: string): OpenApiSchema {
 // responsible for making them safe inside comment bodies.
 // ---------------------------------------------------------------------------
 
-/** Model name — must double as both an npm package segment and a TS class prefix. */
-const MODEL_NAME_RE = /^[a-z][a-z0-9_]*$/;
+/**
+ * Model name — must double as both an npm package segment and (after
+ * the emitter's PascalCase transform) a TS class prefix. npm package
+ * names commonly use hyphens (`@reactor-models/my-cool-model`), so
+ * model names are allowed `-` in addition to `_` here. The verifier
+ * (`src/verifier.ts`) tightens this to a canonical form (no leading /
+ * trailing / consecutive separators); this regex is the permissive
+ * ingress check that still excludes the obvious injection characters
+ * (quotes, slashes, whitespace, control chars, dots).
+ */
+const MODEL_NAME_RE = /^[a-z][a-z0-9_-]*$/;
 
 /**
  * Token name (events, messages, tracks, fields). Must be a valid JS
  * identifier start char followed by identifier chars — snake_case,
  * camelCase, PascalCase all work. No hyphens, dots, or whitespace.
+ *
+ * Hyphens are deliberately disallowed for non-model names: events /
+ * messages / tracks / fields all become JS identifiers (method names,
+ * object-destructure keys) downstream, and `foo-bar` isn't a valid
+ * identifier in either of those positions.
  */
 const TOKEN_NAME_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
