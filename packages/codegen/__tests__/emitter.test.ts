@@ -1795,29 +1795,40 @@ describe("emitter — lint-friendly React emission", () => {
     }).files.find((f) => f.path === "src/react.ts")!.content;
   }
 
-  it("Provider silences react/no-children-prop with a targeted eslint-disable comment", () => {
-    // `children` has to stay inside the createElement props object
-    // because @types/react's `createElement` overload requires the
-    // props arg to fully satisfy the component's prop type — and
-    // ReactorProviderProps declares `children: ReactNode` as required.
-    // The third-arg form (`createElement(C, props, children)`) compiles
-    // and runs fine but fails the overload typecheck on the props
-    // argument, so we can't use it.
+  it("Provider passes children as the third createElement argument, not as a prop key (react/no-children-prop)", () => {
+    // The buggy form embeds `children: children,` (or a bare
+    // `children,` shorthand) in the props object passed to
+    // `createElement(ReactorProvider, …)`; that's what
+    // `eslint-plugin-react`'s `react/no-children-prop` rule flags.
     //
-    // To avoid `eslint-plugin-react`'s `react/no-children-prop` rule
-    // firing in consumer projects, emit a single
-    // `eslint-disable-next-line` comment with a justification right
-    // above the children prop line. This silences the rule precisely
-    // on the offending line without disabling it project-wide.
+    // The canonical form passes `children` as the third positional
+    // argument to `createElement`. This compiles against @types/react
+    // because the SDK's `ReactorProviderProps` declares `children` as
+    // optional — see the comment in `ReactorProvider.tsx` — so the
+    // overload's second arg can omit it. If the SDK ever tightens
+    // `children` back to required, the emitter has to fall back to
+    // the in-props form with a targeted
+    // `eslint-disable-next-line react/no-children-prop` comment, and
+    // this test will catch the regression.
     const react = reactSourceWith({
       tracks: [{ name: "main_video", kind: "video", direction: "out" }],
     });
 
-    // Children stays in the props object (TS-required).
-    expect(react).toContain("children: children,");
-    // …with the targeted disable directive immediately above it.
+    // Buggy form (explicit `children: children` key inside the
+    // createElement props object) must be absent. We don't also
+    // pattern-match a bare `children,` shorthand because the
+    // function's destructuring parameter list legitimately contains
+    // exactly that line — the positive assertion below catches any
+    // accidental shorthand in the props object.
+    expect(react).not.toContain("children: children");
+    // No eslint-disable workaround anywhere in the file: the
+    // canonical form lints clean and shouldn't need one.
+    expect(react).not.toContain("eslint-disable-next-line");
+    // Canonical form: `createElement(ReactorProvider, { … }, children, );`.
+    // The trailing `}, children,` shape is the load-bearing part —
+    // intermediate spacing varies with the prop list length.
     expect(react).toMatch(
-      /\/\/ eslint-disable-next-line react\/no-children-prop[^\n]*\n\s+children: children,/,
+      /createElement\(\s*ReactorProvider,\s*\{[\s\S]*?\},\s*children,\s*\);/,
     );
   });
 

@@ -878,22 +878,24 @@ function generateProviderComponent(
   children,
 }: ${providerName}Props`;
 
-  // `children` has to live inside the props object passed to
-  // `createElement` — *not* as a third positional argument — because
-  // `@types/react`'s `createElement` overloads require the props arg
-  // to satisfy every required field of the component's prop type
-  // (`ReactorProviderProps` declares `children: ReactNode` as
-  // required). The variadic `...children: ReactNode[]` rest parameter
-  // is decoupled from the prop typecheck, so the third-arg form fails
-  // to compile even though it works fine at runtime.
+  // `children` is passed as `createElement`'s third positional
+  // argument rather than as a key inside the props object. Both forms
+  // are equivalent at runtime — React folds the variadic
+  // `...children: ReactNode[]` rest into the `children` prop — but
+  // `eslint-plugin-react`'s `react/no-children-prop` rule (in the
+  // recommended config and the Next.js shareable config) flags any
+  // `createElement` call that passes `children` as a prop key.
   //
-  // The required-children form clashes with `eslint-plugin-react`'s
-  // `react/no-children-prop` rule (recommended config; ships in the
-  // Next.js default). To stay both type-correct and lint-clean in
-  // consumer projects, we emit a targeted `eslint-disable-next-line`
-  // comment with a justification on the one offending line — anything
-  // broader would silence the rule for unrelated code, and the SDK
-  // type can't be relaxed without a separate API change.
+  // The third-arg form only compiles against @types/react's
+  // overloads when the component's prop type doesn't declare
+  // `children` as a required field — the overload's second arg is
+  // typed `Attributes & P | null`, so a required `children: ReactNode`
+  // forces every callsite to put `children` in the props object. The
+  // SDK's `ReactorProviderProps` declares `children?: ReactNode` for
+  // exactly this reason; if that's ever tightened back to required,
+  // this emitter has to fall back to the in-props form with a
+  // targeted `eslint-disable-next-line react/no-children-prop`
+  // comment. Pinned by a regression test in `emitter.test.ts`.
   const reactorProviderProps = [
     `      apiUrl: apiUrl,`,
     `      local: local,`,
@@ -905,8 +907,6 @@ function generateProviderComponent(
   reactorProviderProps.push(
     `      jwtToken: jwtToken,`,
     `      connectOptions: connectOptions,`,
-    `      // eslint-disable-next-line react/no-children-prop -- required by @types/react createElement overload`,
-    `      children: children,`,
   );
 
   return `export interface ${providerName}Props extends ${optionsType} {
@@ -916,9 +916,13 @@ function generateProviderComponent(
 }
 
 ${doc}export function ${providerName}(${providerProps}): ReactElement {
-  return createElement(ReactorProvider, {
+  return createElement(
+    ReactorProvider,
+    {
 ${reactorProviderProps.join("\n")}
-  });
+    },
+    children,
+  );
 }`;
 }
 
