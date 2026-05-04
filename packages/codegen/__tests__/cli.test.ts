@@ -389,16 +389,21 @@ describe("reactor-codegen CLI — --standalone --react", () => {
     const react = fs.readFileSync(reactFile, "utf-8");
 
     // Main file: re-export points at the chosen sibling basename, not
-    // the full-package default `./react.js`.
+    // the full-package default `./react.js`. Standalone mode strips
+    // the `.js` extension so the consumer's bundler resolves the
+    // sibling `.ts` source regardless of moduleResolution setting.
     expect(main).toContain('"use client";');
-    expect(main).toContain('export * from "./example.react.js";');
+    expect(main).toContain('export * from "./example.react";');
     expect(main).not.toContain('export * from "./react.js";');
+    expect(main).not.toContain('export * from "./example.react.js";');
     // Main file still has the plain-JS surface.
     expect(main).toContain("export class ExampleModel");
     expect(main).not.toContain("export function ExampleProvider(");
 
-    // React file: imports back from the chosen main basename.
-    expect(react).toContain('from "./example.js"');
+    // React file: imports back from the chosen main basename, also
+    // without the `.js` extension.
+    expect(react).toContain('from "./example"');
+    expect(react).not.toContain('from "./example.js"');
     expect(react).not.toContain('from "./index.js"');
     expect(react).toContain("export function ExampleProvider(");
     expect(react).toContain("export function useExample()");
@@ -427,12 +432,15 @@ describe("reactor-codegen CLI — --standalone --react", () => {
       path.join(outputDir, "index.react.ts"),
       "utf-8",
     );
-    // Main basename is still `index`, so the React file's back-import
-    // (`./index.js`) passes through unchanged. The sibling basename is
-    // `index.react`, so the main file's re-export gets rewritten from
-    // the emitter default `./react.js` to `./index.react.js`.
-    expect(main).toContain('export * from "./index.react.js";');
-    expect(react).toContain('from "./index.js"');
+    // Both sides of the cross-import get rewritten in standalone
+    // mode: the main file's re-export points at the sibling basename
+    // (`./index.react`), and the React file's back-import points at
+    // the main basename (`./index`). Both have the `.js` extension
+    // stripped so the consumer's bundler resolves the `.ts` source.
+    expect(main).toContain('export * from "./index.react";');
+    expect(main).not.toContain('export * from "./index.react.js";');
+    expect(react).toContain('from "./index"');
+    expect(react).not.toContain('from "./index.js"');
   });
 
   it("in --dry-run writes nothing and exits 0", () => {
