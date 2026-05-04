@@ -39,10 +39,9 @@ export function ReactorView({
   videoObjectFit = "contain",
   muted = true,
 }: ReactorViewProps) {
-  const { videoMediaTrack, audioMediaTrack, status } = useReactor((state) => ({
+  const { videoMediaTrack, audioMediaTrack } = useReactor((state) => ({
     videoMediaTrack: state.tracks[track] ?? null,
     audioMediaTrack: audioTrack ? (state.tracks[audioTrack] ?? null) : null,
-    status: state.status,
   }));
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -86,8 +85,6 @@ export function ReactorView({
     }
   }, [mediaStream]);
 
-  const showPlaceholder = !videoMediaTrack;
-
   return (
     <div
       style={{
@@ -105,33 +102,11 @@ export function ReactorView({
           width: "100%",
           height: "100%",
           objectFit: videoObjectFit,
-          display: showPlaceholder ? "none" : "block",
+          display: videoMediaTrack ? "block" : "none",
         }}
         muted={muted}
         playsInline
       />
-      {showPlaceholder && (
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            color: "#fff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "16px",
-            fontFamily: "monospace",
-            textAlign: "center",
-            padding: "20px",
-            boxSizing: "border-box",
-          }}
-        >
-          {status}
-        </div>
-      )}
     </div>
   );
 }
