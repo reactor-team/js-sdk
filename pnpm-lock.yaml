@@ -51,6 +51,9 @@ importers:
       react:
         specifier: ^17.0.0 || ^18.0.0 || ^19.0.0
         version: 19.2.4
+      sdp-transform:
+        specifier: ^3.0.0
+        version: 3.0.0
       simple-git:
         specifier: ^3.24.0
         version: 3.33.0
@@ -76,6 +79,9 @@ importers:
       '@types/react':
         specifier: ^18.2.8
         version: 18.3.28
+      '@types/sdp-transform':
+        specifier: ^2.15.0
+        version: 2.15.0
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
@@ -468,6 +474,9 @@ packages:
   '@types/react@18.3.28':
     resolution: {integrity: sha512-z9VXpC7MWrhfWipitjNdgCauoMLRdIILQsAEV+ZesIzBq/oUlxk0m3ApZuMFCXdnS4U7KrI+l3WRUEGQ8K1QKw==}
 
+  '@types/sdp-transform@2.15.0':
+    resolution: {integrity: sha512-ikIFF0EaYt/2XetIYYVeMj6SB52oVXFasJUXDzWHgzNJS5ep2Pbsu7f8f3Za+dEie8HQtt3Zr9mHYBpWT0XgxQ==}
+
   '@types/through@0.0.33':
     resolution: {integrity: sha512-HsJ+z3QuETzP3cswwtzt2vEIiHBk/dCcHGhbmG5X3ecnwFD/lPrMpliGXxSCg03L9AhrdwA4Oz/qfspkDW+xGQ==}
 
@@ -839,6 +848,10 @@ packages:
 
   safer-buffer@2.1.2:
     resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
+
+  sdp-transform@3.0.0:
+    resolution: {integrity: sha512-gfYVRGxjHkGF2NPeUWHw5u6T/KGFtS5/drPms73gaSuMaVHKCY3lpLnGDfswVQO0kddeePoti09AwhYP4zA8dQ==}
+    hasBin: true
 
   siginfo@2.0.0:
     resolution: {integrity: sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==}
@@ -1352,6 +1365,8 @@ snapshots:
       '@types/prop-types': 15.7.15
       csstype: 3.2.3
 
+  '@types/sdp-transform@2.15.0': {}
+
   '@types/through@0.0.33':
     dependencies:
       '@types/node': 20.19.37
@@ -1749,6 +1764,8 @@ snapshots:
   safe-buffer@5.2.1: {}
 
   safer-buffer@2.1.2: {}
+
+  sdp-transform@3.0.0: {}
 
   siginfo@2.0.0: {}
 

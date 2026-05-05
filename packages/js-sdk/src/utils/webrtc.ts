@@ -6,6 +6,8 @@
 
 import type { IceServersResponse } from "../core/types";
 import type { MessageScope, ConnectionStats } from "../types";
+import type { MediaDescription } from "sdp-transform";
+import { parse, parsePayloads, write } from "sdp-transform";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration
@@ -26,6 +28,389 @@ const FORCE_RELAY_MODE = false;
  * leave room for framing overhead.
  */
 const DEFAULT_MAX_MESSAGE_BYTES = 256 * 1024; // 256 KiB
+
+/** RTP dynamic payload type range (RFC 3551). */
+const DYNAMIC_PT_MIN = 96;
+const DYNAMIC_PT_MAX = 127;
+
+function isHevcRtpmapEncoding(name: string): boolean {
+  const u = name.toUpperCase();
+  return /^(H265|HEVC|HEV1|HVC1)/.test(u);
+}
+
+function isHevcMimeType(mimeType: string): boolean {
+  const t = mimeType.toLowerCase();
+  return (
+    t.includes("h265") ||
+    t.includes("hevc") ||
+    t.includes("hev1") ||
+    t.includes("hvc1")
+  );
+}
+
+/** Fields from RTCRtpCodecCapability used for setCodecPreferences. */
+type VideoCodecPreference = {
+  mimeType: string;
+  clockRate: number;
+  sdpFmtpLine?: string;
+  channels?: number;
+};
+
+function collectVideoCodecCapabilities(): VideoCodecPreference[] {
+  const seen = new Set<string>();
+  const out: VideoCodecPreference[] = [];
+  const add = (codecs: ReadonlyArray<VideoCodecPreference> | undefined) => {
+    if (!codecs) return;
+    for (const c of codecs) {
+      const key = `${c.mimeType}|${c.sdpFmtpLine ?? ""}|${c.clockRate}|${
+        c.channels ?? 0
+      }`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(c);
+    }
+  };
+  if (typeof RTCRtpSender !== "undefined" && RTCRtpSender.getCapabilities) {
+    add(RTCRtpSender.getCapabilities?.("video")?.codecs);
+  }
+  if (typeof RTCRtpReceiver !== "undefined" && RTCRtpReceiver.getCapabilities) {
+    add(RTCRtpReceiver.getCapabilities?.("video")?.codecs);
+  }
+  return out;
+}
+
+function transceiverIsVideo(t: RTCRtpTransceiver): boolean {
+  const extended = t as RTCRtpTransceiver & { kind?: string };
+  if (extended.kind === "video") return true;
+  if (extended.kind === "audio") return false;
+  return (
+    t.sender.track?.kind === "video" || t.receiver.track?.kind === "video"
+  );
+}
+
+/**
+ * Restricts all video transceivers to H.265/HEVC codecs only (no VP8/VP9/AV1 fallback).
+ * Throws if a video transceiver exists but the browser advertises no HEVC codec.
+ */
+function preferHevcOnlyVideoCodecs(pc: RTCPeerConnection): void {
+  if (typeof pc.getTransceivers !== "function") {
+    return;
+  }
+  const videoTransceivers = pc
+    .getTransceivers()
+    .filter((t) => transceiverIsVideo(t));
+  if (videoTransceivers.length === 0) {
+    return;
+  }
+  const hevc = collectVideoCodecCapabilities().filter((c) =>
+    isHevcMimeType(c.mimeType)
+  );
+  if (hevc.length === 0) {
+    throw new Error(
+      "No H.265/HEVC video codec available; cannot create HEVC-only offer"
+    );
+  }
+  for (const tx of videoTransceivers) {
+    if (typeof tx.setCodecPreferences === "function") {
+      tx.setCodecPreferences(
+        hevc as Parameters<RTCRtpTransceiver["setCodecPreferences"]>[0]
+      );
+    }
+  }
+}
+
+function parseFmtpApt(fmtpValue: string): number | null {
+  const apt = fmtpValue.match(/(?:^|;)apt=(\d+)/i);
+  if (!apt) return null;
+  return Number.parseInt(apt[1]!, 10);
+}
+
+function mediaMLinePayloadTypes(media: MediaDescription): number[] {
+  return parsePayloads(String(media.payloads ?? ""));
+}
+
+/**
+ * HEVC primary payload types plus rtx entries whose apt= references a kept HEVC PT.
+ * Returns null when the section has no HEVC rtpmap.
+ */
+function collectHevcVideoPayloadSet(
+  media: MediaDescription
+): Set<number> | null {
+  if (media.type !== "video") {
+    return null;
+  }
+  const rtpList = media.rtp ?? [];
+  const rtpmap = new Map<number, string>();
+  for (const r of rtpList) {
+    rtpmap.set(Number(r.payload), String(r.codec));
+  }
+  const hevcPts = new Set<number>();
+  for (const [pt, enc] of rtpmap) {
+    if (isHevcRtpmapEncoding(enc)) hevcPts.add(pt);
+  }
+  if (hevcPts.size === 0) {
+    return null;
+  }
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const before = hevcPts.size;
+    for (const f of media.fmtp ?? []) {
+      const pt = Number(f.payload);
+      const enc = rtpmap.get(pt);
+      if (!enc || enc.toLowerCase() !== "rtx") continue;
+      const apt = parseFmtpApt(f.config);
+      if (apt !== null && hevcPts.has(apt) && !hevcPts.has(pt)) {
+        hevcPts.add(pt);
+        changed = true;
+      }
+    }
+    if (hevcPts.size === before && !changed) break;
+  }
+  return hevcPts;
+}
+
+function videoSectionNeedsTransform(media: MediaDescription): boolean {
+  if (media.type !== "video") {
+    return false;
+  }
+  const mPts = mediaMLinePayloadTypes(media);
+  if (mPts.some((p) => p < DYNAMIC_PT_MIN || p > DYNAMIC_PT_MAX)) {
+    return true;
+  }
+  const hevcPts = collectHevcVideoPayloadSet(media);
+  if (!hevcPts) {
+    return false;
+  }
+  const orderedKeep = mPts.filter((p) => hevcPts.has(p));
+  return (
+    orderedKeep.length !== mPts.length || orderedKeep.length !== hevcPts.size
+  );
+}
+
+/**
+ * Keeps only H.265/HEVC payload types and rtx bound to them. No-op if no HEVC rtpmap.
+ */
+function stripNonHevcVideoMedia(media: MediaDescription): void {
+  if (media.type !== "video") {
+    return;
+  }
+  const hevcPts = collectHevcVideoPayloadSet(media);
+  if (!hevcPts) {
+    return;
+  }
+  const mPts = mediaMLinePayloadTypes(media);
+  const orderedKeep = mPts.filter((p) => hevcPts.has(p));
+  if (
+    orderedKeep.length === mPts.length &&
+    orderedKeep.length === hevcPts.size
+  ) {
+    return;
+  }
+  const drop = new Set(mPts.filter((p) => !hevcPts.has(p)));
+  media.payloads = orderedKeep.join(" ");
+  media.rtp = (media.rtp ?? []).filter((r) => hevcPts.has(Number(r.payload)));
+  media.fmtp = (media.fmtp ?? []).filter((f) => hevcPts.has(Number(f.payload)));
+  if (media.rtcpFb) {
+    media.rtcpFb = media.rtcpFb.filter((f) => {
+      if (f.payload === "*") return true;
+      return hevcPts.has(Number(f.payload));
+    });
+  }
+  if (media.rtcpFbTrrInt) {
+    media.rtcpFbTrrInt = media.rtcpFbTrrInt.filter((f) => {
+      if (f.payload === "*") return true;
+      return hevcPts.has(Number(f.payload));
+    });
+  }
+  if (media.imageattrs) {
+    media.imageattrs = media.imageattrs.filter((ia) => {
+      if (ia.pt === "*") return true;
+      return hevcPts.has(Number(ia.pt));
+    });
+  }
+  if (media.invalid) {
+    media.invalid = media.invalid.filter((inv) => {
+      const v = inv.value;
+      const rtpM = /^rtpmap:(\d+)/i.exec(v);
+      if (rtpM) return !drop.has(Number(rtpM[1]));
+      const fmtpM = /^fmtp:(\d+)/i.exec(v);
+      if (fmtpM) return !drop.has(Number(fmtpM[1]));
+      const rfbM = /^rtcp-fb:(\d+)/i.exec(v);
+      if (rfbM) return !drop.has(Number(rfbM[1]));
+      return true;
+    });
+  }
+}
+
+/**
+ * Picks `count` distinct payload types in [96, 127] that are not in `forbidden`.
+ */
+function allocateDynamicPayloadTypes(
+  count: number,
+  forbidden: ReadonlySet<number>
+): number[] {
+  if (count > DYNAMIC_PT_MAX - DYNAMIC_PT_MIN + 1) {
+    throw new Error(
+      "Too many video payload types to map into the dynamic PT range [96,127]"
+    );
+  }
+  const out: number[] = [];
+  for (
+    let p = DYNAMIC_PT_MIN;
+    p <= DYNAMIC_PT_MAX && out.length < count;
+    p++
+  ) {
+    if (!forbidden.has(p)) out.push(p);
+  }
+  if (out.length < count) {
+    throw new Error(
+      "Cannot allocate enough unique payload types in [96,127] without collision"
+    );
+  }
+  return out;
+}
+
+function remapFmtpConfigForPayloadMap(
+  config: string,
+  remap: Map<number, number>
+): string {
+  let s = config;
+  const pairs = [...remap.entries()].sort((a, b) => b[0] - a[0]);
+  for (const [oldP, newP] of pairs) {
+    if (oldP === newP) continue;
+    s = s.replace(
+      new RegExp(`apt=${oldP}([^0-9]|$)`, "g"),
+      `apt=${newP}$1`
+    );
+  }
+  return s;
+}
+
+/**
+ * Remaps video payload types into [96, 127], avoiding `forbidden`.
+ * No-op if every payload type is already in the dynamic range.
+ */
+function remapVideoPayloadTypesMedia(
+  media: MediaDescription,
+  forbidden: ReadonlySet<number>
+): void {
+  if (media.type !== "video") {
+    return;
+  }
+  const oldPts = mediaMLinePayloadTypes(media);
+  if (oldPts.length === 0) {
+    return;
+  }
+  if (
+    oldPts.every(
+      (p) => p >= DYNAMIC_PT_MIN && p <= DYNAMIC_PT_MAX
+    )
+  ) {
+    return;
+  }
+  const newPts = allocateDynamicPayloadTypes(oldPts.length, forbidden);
+  const remap = new Map<number, number>();
+  oldPts.forEach((p, i) => remap.set(p, newPts[i]!));
+
+  media.payloads = oldPts.map((p) => String(remap.get(p)!)).join(" ");
+
+  for (const r of media.rtp ?? []) {
+    const oldP = Number(r.payload);
+    const np = remap.get(oldP);
+    if (np !== undefined) r.payload = np;
+  }
+  for (const f of media.fmtp ?? []) {
+    const oldP = Number(f.payload);
+    const np = remap.get(oldP);
+    if (np !== undefined) {
+      f.payload = np;
+      f.config = remapFmtpConfigForPayloadMap(f.config, remap);
+    } else {
+      f.config = remapFmtpConfigForPayloadMap(f.config, remap);
+    }
+  }
+  for (const f of media.rtcpFb ?? []) {
+    if (f.payload === "*") continue;
+    const oldP = Number(f.payload);
+    const np = remap.get(oldP);
+    if (np !== undefined) f.payload = np;
+  }
+  for (const f of media.rtcpFbTrrInt ?? []) {
+    if (f.payload === "*") continue;
+    const oldP = Number(f.payload);
+    const np = remap.get(oldP);
+    if (np !== undefined) f.payload = np;
+  }
+  for (const ia of media.imageattrs ?? []) {
+    if (ia.pt === "*") continue;
+    const oldP = Number(ia.pt);
+    const np = remap.get(oldP);
+    if (np !== undefined) ia.pt = np;
+  }
+  for (const inv of media.invalid ?? []) {
+    let s = inv.value;
+    const pairs = [...remap.entries()].sort((a, b) => b[0] - a[0]);
+    for (const [oldP, newP] of pairs) {
+      if (oldP === newP) continue;
+      s = s.replace(
+        new RegExp(`^rtpmap:${oldP}([\\s/])`, "i"),
+        `rtpmap:${newP}$1`
+      );
+      s = s.replace(
+        new RegExp(`^fmtp:${oldP}(\\s)`, "i"),
+        `fmtp:${newP}$1`
+      );
+      s = s.replace(
+        new RegExp(`^rtcp-fb:${oldP}(\\s)`, "i"),
+        `rtcp-fb:${newP}$1`
+      );
+      s = s.replace(
+        new RegExp(`apt=${oldP}([^0-9]|$)`, "g"),
+        `apt=${newP}$1`
+      );
+    }
+    inv.value = s;
+  }
+}
+
+/**
+ * Post-processes an SDP offer: video is H.265/HEVC-only when HEVC rtpmaps are present,
+ * and video payload types are remapped into [96,127] when any would fall outside.
+ * Remapped values never collide with payload types already used on other m-lines
+ * (or on video m-lines processed earlier in document order).
+ *
+ * When no such change applies, returns the input string unchanged (avoids sdp-transform
+ * normalizing session fields such as an implicit `s=` line).
+ */
+export function transformOfferSdpHevcDynamicPts(sdp: string): string {
+  const session = parse(sdp);
+  if (!session.media.some(videoSectionNeedsTransform)) {
+    return sdp;
+  }
+
+  const forbidden = new Set<number>();
+  for (const media of session.media) {
+    if (media.type !== "video") {
+      for (const p of mediaMLinePayloadTypes(media)) {
+        forbidden.add(p);
+      }
+    }
+  }
+
+  for (const media of session.media) {
+    if (media.type !== "video") {
+      continue;
+    }
+    stripNonHevcVideoMedia(media);
+    remapVideoPayloadTypesMedia(media, forbidden);
+    for (const p of mediaMLinePayloadTypes(media)) {
+      forbidden.add(p);
+    }
+  }
+
+  return write(session);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Peer Connection Creation
@@ -62,8 +447,12 @@ export function createDataChannel(
  * @returns The SDP offer string with gathered ICE candidates.
  */
 export async function createOffer(pc: RTCPeerConnection): Promise<string> {
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
+  preferHevcOnlyVideoCodecs(pc);
+  const initial = await pc.createOffer();
+  const sdp = transformOfferSdpHevcDynamicPts(initial.sdp ?? "");
+  await pc.setLocalDescription(
+    new RTCSessionDescription({ type: initial.type, sdp })
+  );
   await waitForIceGathering(pc);
 
   const localDescription = pc.localDescription;
@@ -364,10 +753,13 @@ export function extractConnectionStats(
 
   let candidateType: string | undefined;
   if (localCandidateId) {
-    const localCandidate = report.get(localCandidateId);
-    if (localCandidate?.candidateType) {
-      candidateType = localCandidate.candidateType;
-    }
+    report.forEach((stat, id) => {
+      if (id === localCandidateId && stat.type === "local-candidate") {
+        const ct = (stat as RTCStats & { candidateType?: string })
+          .candidateType;
+        if (ct) candidateType = ct;
+      }
+    });
   }
 
   return {
