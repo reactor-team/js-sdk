@@ -18,7 +18,7 @@ import {
   transformIceServers,
   sendMessage,
   parseMessage,
-  extractConnectionStats,
+  createRTCStatsExtractor,
   isConnected,
   isClosed,
 } from "../../src/utils/webrtc";
@@ -479,15 +479,21 @@ describe("parseMessage()", () => {
 
 describe("extractConnectionStats() full report", () => {
   it("extracts all fields from a complete report", () => {
+    const baseTimestamp = 1777674503920;
     const entries = new Map<string, any>([
       [
         "cp1",
         {
           type: "candidate-pair",
+          timestamp: baseTimestamp,
           state: "succeeded",
+          nominated: true,
           currentRoundTripTime: 0.025,
           availableOutgoingBitrate: 1_000_000,
+          availableIncomingBitrate: 1_270_000,
           localCandidateId: "lc1",
+          bytesReceived: 1000000,
+          bytesSent: 1025000,
         },
       ],
       ["lc1", { type: "local-candidate", candidateType: "relay" }],
@@ -508,13 +514,17 @@ describe("extractConnectionStats() full report", () => {
       get: (k: string) => entries.get(k),
     } as unknown as RTCStatsReport;
 
+    const extractConnectionStats = createRTCStatsExtractor();
     const stats = extractConnectionStats(report);
     expect(stats.rtt).toBe(25);
     expect(stats.candidateType).toBe("relay");
     expect(stats.availableOutgoingBitrate).toBe(1_000_000);
+    expect(stats.availableIncomingBitrate).toBe(1_270_000);
     expect(stats.framesPerSecond).toBe(30);
     expect(stats.jitter).toBe(0.01);
     expect(stats.packetLossRatio).toBeCloseTo(0.01);
+    expect(stats.outgoingBitrate).toBeUndefined();
+    expect(stats.incomingBitrate).toBeUndefined();
   });
 });
 
@@ -525,10 +535,18 @@ describe("extractConnectionStats() empty report", () => {
       get: () => undefined,
     } as unknown as RTCStatsReport;
 
+    const extractConnectionStats = createRTCStatsExtractor();
     const stats = extractConnectionStats(report);
     expect(stats.rtt).toBeUndefined();
     expect(stats.candidateType).toBeUndefined();
     expect(stats.framesPerSecond).toBeUndefined();
+    expect(stats.outgoingBitrate).toBeUndefined();
+    expect(stats.incomingBitrate).toBeUndefined();
+    expect(stats.availableOutgoingBitrate).toBeUndefined();
+    expect(stats.availableIncomingBitrate).toBeUndefined();
+    expect(stats.packetLossRatio).toBeUndefined();
+    expect(stats.jitter).toBeUndefined();
+    expect(stats.connectionTimings).toBeUndefined();
     expect(stats.timestamp).toBeGreaterThan(0);
   });
 });

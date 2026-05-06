@@ -5,7 +5,7 @@ import {
   transformIceServers,
   sendMessage,
   parseMessage,
-  extractConnectionStats,
+  createRTCStatsExtractor,
   isConnected,
   isClosed,
 } from "../../src/utils/webrtc";
@@ -139,6 +139,7 @@ describe("extractConnectionStats()", () => {
         {
           type: "candidate-pair",
           state: "succeeded",
+          nominated: true,
           currentRoundTripTime: 0.025,
           availableOutgoingBitrate: 1_000_000,
           localCandidateId: "lc1",
@@ -163,9 +164,11 @@ describe("extractConnectionStats()", () => {
       get: (k: string) => entries.get(k),
     } as unknown as RTCStatsReport;
 
+    const extractConnectionStats = createRTCStatsExtractor();
     const stats = extractConnectionStats(report);
     expect(stats.rtt).toBe(25);
     expect(stats.candidateType).toBe("host");
+    expect(stats.availableIncomingBitrate).toBeUndefined;
     expect(stats.availableOutgoingBitrate).toBe(1_000_000);
     expect(stats.framesPerSecond).toBe(30);
     expect(stats.jitter).toBe(0.01);
@@ -179,9 +182,11 @@ describe("extractConnectionStats()", () => {
       get: () => undefined,
     } as unknown as RTCStatsReport;
 
+    const extractConnectionStats = createRTCStatsExtractor();
     const stats = extractConnectionStats(report);
     expect(stats.rtt).toBeUndefined();
     expect(stats.candidateType).toBeUndefined();
+    expect(stats.availableIncomingBitrate).toBeUndefined;
     expect(stats.framesPerSecond).toBeUndefined();
     expect(stats.timestamp).toBeGreaterThan(0);
   });
@@ -193,6 +198,7 @@ describe("extractConnectionStats()", () => {
         {
           type: "candidate-pair",
           state: "succeeded",
+          nominated: true,
           availableOutgoingBitrate: 500_000,
           localCandidateId: "lc1",
         },
@@ -204,6 +210,7 @@ describe("extractConnectionStats()", () => {
       get: (k: string) => entries.get(k),
     } as unknown as RTCStatsReport;
 
+    const extractConnectionStats = createRTCStatsExtractor();
     const stats = extractConnectionStats(report);
     expect(stats.rtt).toBeUndefined();
     expect(stats.availableOutgoingBitrate).toBe(500_000);
@@ -217,6 +224,7 @@ describe("extractConnectionStats()", () => {
         {
           type: "candidate-pair",
           state: "succeeded",
+          nominated: true,
           currentRoundTripTime: 0.05,
           localCandidateId: "lc-missing",
         },
@@ -227,9 +235,57 @@ describe("extractConnectionStats()", () => {
       get: () => undefined,
     } as unknown as RTCStatsReport;
 
+    const extractConnectionStats = createRTCStatsExtractor();
     const stats = extractConnectionStats(report);
     expect(stats.rtt).toBe(50);
     expect(stats.candidateType).toBeUndefined();
+  });
+
+  it("computes incomingBitrate and outgoingBitrate from candidate-pair counters between samples", () => {
+    const baseTimestamp = 1777674503920;
+    const makeReport = (
+      timestamp: number,
+      bytesReceived: number,
+      bytesSent: number
+    ) =>
+      ({
+        forEach: (cb: (v: any, k: string) => void) =>
+          new Map<string, any>([
+            [
+              "cp1",
+              {
+                type: "candidate-pair",
+                state: "succeeded",
+                nominated: true,
+                timestamp,
+                bytesReceived,
+                bytesSent,
+                localCandidateId: "lc1",
+              },
+            ],
+            ["lc1", { type: "local-candidate", candidateType: "host" }],
+          ]).forEach(cb),
+        get: (k: string) =>
+          k === "lc1"
+            ? { type: "local-candidate", candidateType: "host" }
+            : undefined,
+      }) as unknown as RTCStatsReport;
+
+    const extractConnectionStats = createRTCStatsExtractor();
+
+    const first = extractConnectionStats(
+      makeReport(baseTimestamp, 1000000, 1025000)
+    );
+    expect(first.incomingBitrate).toBeUndefined();
+    expect(first.outgoingBitrate).toBeUndefined();
+
+    // 1000 ms later: +2000 bytes received, +1000 bytes sent
+    const timeDiffMs = 1600;
+    const second = extractConnectionStats(
+      makeReport(baseTimestamp + timeDiffMs, 1500000, 1725000)
+    );
+    expect(second.incomingBitrate).toBe(2500000);
+    expect(second.outgoingBitrate).toBe(3500000);
   });
 });
 

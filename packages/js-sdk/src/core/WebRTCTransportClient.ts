@@ -593,11 +593,12 @@ export class WebRTCTransportClient implements TransportClient {
 
   private startStatsPolling(): void {
     this.stopStatsPolling();
+    const statsExtractor = webrtc.createRTCStatsExtractor();
     this.statsInterval = setInterval(async () => {
       if (!this.peerConnection) return;
       try {
         const report = await this.peerConnection.getStats();
-        this.stats = webrtc.extractConnectionStats(report);
+        this.stats = statsExtractor(report);
         this.emit("statsUpdate", this.stats);
       } catch {
         // Connection may be closing
