@@ -1,9 +1,11 @@
 // Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
 
 /**
- * SDP offer sanitization: remap selected codecs whose PTs fall outside [96,127] —
- * video: HEVC, VP8, VP9, H.264 (+ bound rtx); audio: Opus (+ bound rtx). Other codecs
- * are left on the offer; only reassigned PTs and references are updated.
+ * SDP offer sanitization:
+ * - Removes telephone-event codec entries from all m-sections.
+ * - Remaps selected codec PTs that fall outside [96,127] — video: HEVC, VP8, VP9, H.264;
+ *   audio: Opus. rtx entries are left at their original PTs; only apt= references are
+ *   updated to follow a relocated primary.
  */
 
 import type { MediaDescription } from "sdp-transform";
@@ -46,60 +48,26 @@ function collectRtpmap(media: MediaDescription): Map<number, string> {
 }
 
 /**
- * Expands `seed` with rtx payload types whose fmtp `apt=` references a PT already in the set.
- */
-function expandTrackedWithRtx(
-  media: MediaDescription,
-  rtpmap: Map<number, string>,
-  seed: Set<number>
-): void {
-  let changed = true;
-  while (changed) {
-    changed = false;
-    const before = seed.size;
-    for (const f of media.fmtp ?? []) {
-      const pt = Number(f.payload);
-      const enc = rtpmap.get(pt);
-      if (!enc || enc.toLowerCase() !== "rtx") continue;
-      const apt = parseFmtpApt(f.config);
-      if (apt !== null && seed.has(apt) && !seed.has(pt)) {
-        seed.add(pt);
-        changed = true;
-      }
-    }
-    if (seed.size === before && !changed) break;
-  }
-}
-
-/**
- * Video: HEVC, VP8, VP9, H.264 plus rtx for those primaries.
- * Audio: Opus plus rtx for Opus.
+ * Video: HEVC, VP8, VP9, H.264. Audio: Opus.
+ * rtx entries are intentionally excluded — they keep their original PTs and only
+ * have their apt= references updated when a primary is remapped.
  * Returns null when the section has no matching rtpmap.
  */
 function collectSanitizedCodecPayloadSet(
   media: MediaDescription
 ): Set<number> | null {
+  const rtpmap = collectRtpmap(media);
+  const tracked = new Set<number>();
   if (media.type === "video") {
-    const rtpmap = collectRtpmap(media);
-    const tracked = new Set<number>();
     for (const [pt, enc] of rtpmap) {
       if (isSanitizedVideoCodecRtpmapEncoding(enc)) tracked.add(pt);
     }
-    if (tracked.size === 0) return null;
-    expandTrackedWithRtx(media, rtpmap, tracked);
-    return tracked;
-  }
-  if (media.type === "audio") {
-    const rtpmap = collectRtpmap(media);
-    const tracked = new Set<number>();
+  } else if (media.type === "audio") {
     for (const [pt, enc] of rtpmap) {
       if (isOpusRtpmapEncoding(enc)) tracked.add(pt);
     }
-    if (tracked.size === 0) return null;
-    expandTrackedWithRtx(media, rtpmap, tracked);
-    return tracked;
   }
-  return null;
+  return tracked.size > 0 ? tracked : null;
 }
 
 function mediaSectionNeedsSanitizedPtRelocate(
@@ -112,28 +80,29 @@ function mediaSectionNeedsSanitizedPtRelocate(
   return [...pts].some((p) => p < DYNAMIC_PT_MIN || p > DYNAMIC_PT_MAX);
 }
 
+function codecRelocationPriority(enc: string | undefined): number {
+  const u = (enc ?? "").toUpperCase();
+  if (/^(H265|HEVC|HEV1|HVC1)/.test(u)) return 0;
+  if (/^H264(\/|$)/.test(u)) return 1;
+  if (/^VP9(\/|$)/.test(u)) return 2;
+  if (/^VP8(\/|$)/.test(u)) return 3;
+  if (/^OPUS(\/|$)/.test(u)) return 4;
+  return 5;
+}
+
 /**
- * Picks `count` distinct payload types in [96, 127] that are not in `forbidden`.
+ * Returns `relocate` sorted so higher-priority codecs come first (H265 > H264 > VP9 > VP8 >
+ * Opus). This ensures the most important codecs claim slots when the dynamic range is nearly full.
  */
-function allocateDynamicPayloadTypes(
-  count: number,
-  forbidden: ReadonlySet<number>
+function sortedRelocate(
+  relocate: number[],
+  rtpmap: Map<number, string>
 ): number[] {
-  if (count > DYNAMIC_PT_MAX - DYNAMIC_PT_MIN + 1) {
-    throw new Error(
-      "Too many video payload types to map into the dynamic PT range [96,127]"
-    );
-  }
-  const out: number[] = [];
-  for (let p = DYNAMIC_PT_MIN; p <= DYNAMIC_PT_MAX && out.length < count; p++) {
-    if (!forbidden.has(p)) out.push(p);
-  }
-  if (out.length < count) {
-    throw new Error(
-      "Cannot allocate enough unique payload types in [96,127] without collision"
-    );
-  }
-  return out;
+  return [...relocate].sort(
+    (a, b) =>
+      codecRelocationPriority(rtpmap.get(a)) -
+      codecRelocationPriority(rtpmap.get(b))
+  );
 }
 
 function remapFmtpConfigForPayloadMap(
@@ -221,7 +190,10 @@ function applyPayloadTypeRemap(
 
 /**
  * Remaps sanitized codec payload types (and rtx bound to them) into [96, 127],
- * avoiding `forbidden`. Other codecs on the same m-line are unchanged.
+ * avoiding `forbidden` and PTs already present in this m-line. Allocation is
+ * best-effort: when the dynamic range is nearly full, higher-priority codecs
+ * (H265 > H264 > VP9 > VP8 > Opus) are relocated first; any that cannot fit
+ * are left at their original payload type rather than throwing.
  */
 function remapSanitizedCodecPayloadTypesMedia(
   media: MediaDescription,
@@ -240,11 +212,67 @@ function remapSanitizedCodecPayloadTypesMedia(
   if (relocate.length === 0) {
     return;
   }
-  relocate.sort((a, b) => a - b);
-  const newPts = allocateDynamicPayloadTypes(relocate.length, forbidden);
+
+  const rtpmap = collectRtpmap(media);
+  const ordered = sortedRelocate(relocate, rtpmap);
+
+  // Forbidden = previous m-lines + this m-line's already-in-range PTs.
+  // Since relocate only contains PTs outside [96,127], those don't overlap.
+  const usedPts = new Set(forbidden);
+  for (const p of mediaMLinePayloadTypes(media)) {
+    if (p >= DYNAMIC_PT_MIN && p <= DYNAMIC_PT_MAX) usedPts.add(p);
+  }
+
   const remap = new Map<number, number>();
-  relocate.forEach((oldP, i) => remap.set(oldP, newPts[i]!));
+  let candidate = DYNAMIC_PT_MIN;
+  for (const oldPt of ordered) {
+    while (candidate <= DYNAMIC_PT_MAX && usedPts.has(candidate)) candidate++;
+    if (candidate > DYNAMIC_PT_MAX) break;
+    remap.set(oldPt, candidate);
+    usedPts.add(candidate);
+    candidate++;
+  }
+
+  if (remap.size === 0) {
+    return;
+  }
   applyPayloadTypeRemap(media, remap);
+}
+
+/**
+ * Removes all telephone-event codec entries (rtpmap, fmtp, rtcp-fb, and the PT from the
+ * m= payload list) from every m-section. Returns the input unchanged when no such entries
+ * are present.
+ */
+function stripTelephoneEvents(sdp: string): string {
+  const session = parse(sdp);
+  let changed = false;
+  for (const media of session.media) {
+    const telPts = new Set<number>();
+    for (const r of media.rtp ?? []) {
+      if (/^telephone-event$/i.test(String(r.codec))) telPts.add(Number(r.payload));
+    }
+    if (telPts.size === 0) continue;
+    changed = true;
+    media.rtp = (media.rtp ?? []).filter((r) => !telPts.has(Number(r.payload)));
+    media.payloads = mediaMLinePayloadTypes(media)
+      .filter((p) => !telPts.has(p))
+      .join(" ");
+    if (media.fmtp) {
+      media.fmtp = media.fmtp.filter((f) => !telPts.has(Number(f.payload)));
+    }
+    if (media.rtcpFb) {
+      media.rtcpFb = media.rtcpFb.filter(
+        (f) => f.payload === "*" || !telPts.has(Number(f.payload))
+      );
+    }
+    if (media.rtcpFbTrrInt) {
+      media.rtcpFbTrrInt = media.rtcpFbTrrInt.filter(
+        (f) => f.payload === "*" || !telPts.has(Number(f.payload))
+      );
+    }
+  }
+  return changed ? write(session) : sdp;
 }
 
 /**
@@ -272,19 +300,6 @@ function transformOfferSdpCodecDynamicPts(sdp: string): string {
   return write(session);
 }
 
-/**
- * Sanitizes an SDP offer string (delegates to {@link transformOfferSdpCodecDynamicPts}).
- *
- * When applicable:
- * - **Video — dynamic PT range:** HEVC, VP8, VP9, H.264, and rtx whose `apt=` references
- *   one of those primaries: payload numbers outside [96, 127] are reassigned; rtpmap,
- *   fmtp, rtcp-fb, imageattrs, and related `a=` lines are updated for those PTs only.
- * - **Audio — Opus:** Same for Opus and rtx bound to Opus.
- * - **Collision avoidance:** M-lines are visited in order; new PTs do not reuse numbers
- *   already present on earlier m-lines.
- *
- * If no m-line needs these changes, returns `sdp` unchanged (no parse/write round trip).
- */
 export function sanitize(sdp: string): string {
-  return transformOfferSdpCodecDynamicPts(sdp);
+  return transformOfferSdpCodecDynamicPts(stripTelephoneEvents(sdp));
 }
