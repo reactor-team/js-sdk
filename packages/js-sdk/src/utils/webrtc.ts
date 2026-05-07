@@ -76,37 +76,6 @@ function transceiverIsVideo(t: RTCRtpTransceiver): boolean {
   return t.sender.track?.kind === "video" || t.receiver.track?.kind === "video";
 }
 
-/**
- * Restricts all video transceivers to H.265/HEVC codecs only (no VP8/VP9/AV1 fallback).
- * Throws if a video transceiver exists but the browser advertises no HEVC codec.
- */
-function preferHevcOnlyVideoCodecs(pc: RTCPeerConnection): void {
-  if (typeof pc.getTransceivers !== "function") {
-    return;
-  }
-  const videoTransceivers = pc
-    .getTransceivers()
-    .filter((t) => transceiverIsVideo(t));
-  if (videoTransceivers.length === 0) {
-    return;
-  }
-  const hevc = collectVideoCodecCapabilities().filter((c) =>
-    isHevcMimeType(c.mimeType)
-  );
-  if (hevc.length === 0) {
-    throw new Error(
-      "No H.265/HEVC video codec available; cannot create HEVC-only offer"
-    );
-  }
-  for (const tx of videoTransceivers) {
-    if (typeof tx.setCodecPreferences === "function") {
-      tx.setCodecPreferences(
-        hevc as Parameters<RTCRtpTransceiver["setCodecPreferences"]>[0]
-      );
-    }
-  }
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Peer Connection Creation
 // ─────────────────────────────────────────────────────────────────────────────
@@ -142,7 +111,6 @@ export function createDataChannel(
  * @returns The SDP offer string with gathered ICE candidates.
  */
 export async function createOffer(pc: RTCPeerConnection): Promise<string> {
-  preferHevcOnlyVideoCodecs(pc);
   const initial = await pc.createOffer();
   const sdp = sanitize(initial.sdp ?? "");
   await pc.setLocalDescription(
