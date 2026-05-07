@@ -1,0 +1,240 @@
+# Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
+#
+# Per-model Buildkite check step — NOT a complete pipeline.
+# Consumed by .buildkite/sync-model-sdks.sh, which substitutes the
+# model-name placeholder below with the actual model name for each
+# entry in .buildkite/whitelist.json and uploads the joined result as
+# a dynamic pipeline.
+#
+# Two-phase flow. First the top-level dynamic pipeline emits one
+# `check-<MODEL>` step per whitelist entry (this template). On success,
+# the check step itself uploads a small follow-up pipeline containing
+# the `pack-<MODEL>` + `publish-<MODEL>` steps — but only when the
+# decision JSON says an update is needed. Skipping the follow-up
+# upload is how we "skip" pack/publish: there's nothing to run.
+#
+# We deliberately don't use `if: build.meta_data(...)` gates because
+# not every Buildkite agent version exposes `meta_data` as an
+# expression function. Dynamic upload is the canonical pattern and
+# works everywhere.
+#
+# Only whitelist-validated names (identifier regex per
+# packages/codegen/src/openapi/parser.ts) are ever substituted in, so
+# shell escaping inside the template body is not a concern. The inner
+# heredoc uses `<<'PIPELINE'` (single-quoted delimiter) so $VARs in
+# the uploaded pack/publish steps stay literal through the shell's
+# emit step — but that is NOT enough on its own, see the `$$VAR`
+# notes below.
+#
+# Buildkite variable interpolation runs at pipeline *upload* time
+# (both when this template is uploaded by the top-level
+# `generate-publish-pipeline` step, and when the check step uploads
+# its own follow-up pipeline). Any `$VAR` in `commands:` whose value
+# is not known at upload time is replaced with an empty string —
+# including runtime shell locals (`$NEEDED`, `$TARGET`) and secrets
+# that only exist at job runtime (`$NPM_AUTH_TOKEN`). To defer
+# expansion to the job's shell, we write `$$VAR` (Buildkite collapses
+# `$$` to a literal `$`, which then reaches the job as `$VAR`). This
+# is the canonical Buildkite escape, not a shell quirk.
+#
+# `mount-buildkite-agent: true` is mandatory on every step that calls
+# `buildkite-agent ...` — without it, the host-side agent binary isn't
+# mounted into the node:20 container and `buildkite-agent` isn't on
+# PATH.
+#
+# Shell compatibility: the Docker plugin runs the combined `commands:`
+# block with `/bin/sh -e -c`, and in `node:20` that is `dash`. dash
+# has no `set -o pipefail`, so the scripts below use `set -eu` only.
+# None of the commands we run rely on intermediate-pipe failure
+# propagation (the sole pipe is `cat <<'...' | buildkite-agent
+# pipeline upload`, whose last stage is what we care about — `set -e`
+# already aborts if that final stage fails).
+
+- key: "check-{{MODEL}}"
+  label: ":mag: Check {{MODEL}}"
+  commands:
+    - corepack enable
+    - pnpm install --frozen-lockfile
+    - pnpm --filter @reactor-team/codegen build
+    # `reactor-codegen update` does the whole check in one shot:
+    # fetch latest schema, generate the scaffold, query npm, write
+    # ./out/.update-decision.json. Exits 2 if npm's version is higher
+    # than the coordinator schema (regression guard); exits 0 otherwise
+    # with `publishNeeded` set to true/false in the decision file.
+    #
+    # `--react` emits the React bindings (Provider + hooks) alongside
+    # the plain-JS client. Kept in lockstep with the pack step below so
+    # the scaffold the version decision is taken against matches the
+    # one that actually ships to npm byte-for-byte.
+    - node packages/codegen/dist/cli.js update --coordinator-url "$COORDINATOR_URL" --model "{{MODEL}}" --output ./out --react
+    # If (and only if) the decision says publish is needed, upload a
+    # follow-up pipeline with the pack + publish steps. That upload
+    # IS the "flag" — no `if:` expression needed on the later steps.
+    - |
+      set -eu
+
+      # `$$VAR` escapes Buildkite pipeline-upload interpolation so the
+      # literal `$VAR` reaches the job's shell. `NEEDED` and `TARGET`
+      # are shell locals populated by the `node -p` calls below; they
+      # do not exist at upload time and would otherwise interpolate to
+      # the empty string (the classic "if [ \"\" != \"true\" ]" trap,
+      # which silently skips pack+publish).
+      NEEDED=$$(node -p 'require("./out/.update-decision.json").publishNeeded')
+      TARGET=$$(node -p 'require("./out/.update-decision.json").targetVersion')
+
+      if [ "$$NEEDED" != "true" ]; then
+        echo "No update needed for {{MODEL}} — npm is already at/ahead of the coordinator schema. Skipping pack + publish."
+        exit 0
+      fi
+
+      echo "Update needed for @reactor-models/{{MODEL}}@$$TARGET — uploading pack + publish follow-up pipeline."
+      # `--no-interpolation` is critical: without it, the nested upload
+      # runs Buildkite env interpolation a SECOND time on the YAML
+      # below. Secrets (NPM_AUTH_TOKEN) are only provisioned on the
+      # publish job, not on this check job, so a second interpolation
+      # pass gutted `$NPM_AUTH_TOKEN` to the empty string and caused
+      # `npm publish` to fail with ENEEDAUTH. Runtime shell vars
+      # (COORDINATOR_URL, DRY, NPM_AUTH_TOKEN) are already escaped with
+      # `$$` for the outer upload and must reach the publish job's
+      # shell as `$VAR` — the shell, not Buildkite, resolves them from
+      # the docker-propagated env at job runtime.
+      cat <<'PIPELINE' | buildkite-agent pipeline upload --no-interpolation
+      steps:
+        - key: "pack-{{MODEL}}"
+          label: ":package: Pack {{MODEL}}"
+          commands:
+            - corepack enable
+            - pnpm install --frozen-lockfile
+            - pnpm --filter @reactor-team/codegen build
+            - |
+              set -eu
+              # `$$COORDINATOR_URL` defers interpolation to the pack
+              # job's shell, which picks it up from the propagated
+              # Docker env (see `environment:` block below). Using a
+              # literal `$COORDINATOR_URL` here would bind to whatever
+              # value Buildkite had at upload time and lose the
+              # per-job override semantic.
+              #
+              # `--react` ships the Provider + hooks module
+              # (`dist/react.{js,mjs,d.ts}`) alongside the plain-JS
+              # client. Without it, consumers that
+              # `import { <Prefix>Provider } from "@reactor-models/<name>"`
+              # get a runtime `undefined` — the SDK publishes nothing
+              # React-shaped on npm despite the emitter fully supporting
+              # it. Must stay in lockstep with the `update` check step.
+              node packages/codegen/dist/cli.js \
+                --coordinator-url "$$COORDINATOR_URL" \
+                --model "{{MODEL}}" \
+                --output ./out \
+                --react
+              # npm pack resolves the tarball name from the generated
+              # package.json (`@reactor-models/<model>` →
+              # `reactor-models-<model>-<version>.tgz`). Dropping it at
+              # the repo root keeps artifact_paths a single glob.
+              cd ./out
+              npm pack --pack-destination ..
+          artifact_paths:
+            - "reactor-models-{{MODEL}}-*.tgz"
+          plugins:
+            - docker#v5.12.0:
+                image: "node:20"
+                propagate-environment: true
+                mount-buildkite-agent: true
+                environment:
+                  - "COREPACK_ENABLE_DOWNLOAD_PROMPT=0"
+                  - "COORDINATOR_URL"
+                  - "DRY"
+                  - "REACTOR_API_KEY"
+          secrets:
+            - REACTOR_API_KEY
+
+        - key: "publish-{{MODEL}}"
+          label: ":npm: Publish {{MODEL}}"
+          depends_on:
+            - "pack-{{MODEL}}"
+          commands:
+            - |
+              set -eu
+
+              # `$${DRY:-false}` and `$$NPM_AUTH_TOKEN` must be escaped
+              # for upload #1 (generate-publish-pipeline -> check). The
+              # nested `buildkite-agent pipeline upload --no-interpolation`
+              # above then passes the remaining `$VAR` forms through
+              # verbatim to the publish step, where the job's shell
+              # resolves them from the docker-propagated env at runtime.
+              # Without `--no-interpolation`, a second Buildkite pass
+              # would run in the check job (which has no access to
+              # `NPM_AUTH_TOKEN`), gut the reference to the empty
+              # string, and `npm publish` would 401 with ENEEDAUTH.
+              if [ "$${DRY:-false}" = "true" ]; then
+                echo "DRY=true — rehearsing @reactor-models/{{MODEL}} (npm publish --dry-run, nothing uploaded)"
+                # --dry-run validates the tarball + manifest against
+                # npm but never pushes a version, so this path works
+                # without NPM_AUTH_TOKEN.
+                npm publish reactor-models-{{MODEL}}-*.tgz --access public --dry-run
+              else
+                # Preflight: fail loudly if the secret never made it into
+                # the container's env. Without this, `npm set _authToken ""`
+                # succeeds silently and `npm publish` falls through to the
+                # interactive browser-auth flow ("Authenticate your
+                # account at: https://www.npmjs.com/auth/cli/..."), which
+                # hangs the job until it times out.
+                if [ -z "$${NPM_AUTH_TOKEN:-}" ]; then
+                  echo "NPM_AUTH_TOKEN is empty in the publish job — check that it is defined as a Buildkite cluster secret and scoped to this pipeline." >&2
+                  exit 1
+                fi
+                echo "publishing @reactor-models/{{MODEL}}"
+                # Write a project-local .npmrc with `printf` rather than
+                # `npm set`. `npm set` in npm 10 writes to the user-level
+                # config ($HOME/.npmrc), which we've seen get ignored in
+                # this container (suspected home-dir / precedence quirk —
+                # publish fell through to the interactive web-auth flow).
+                # A project .npmrc in $PWD is the highest-precedence file
+                # `npm publish` consults after CLI flags and env.
+                # `printf '%s\n'` is used instead of `echo` because the
+                # token value is not interpreted (safe against `=`, `:`,
+                # backslashes, etc. in the secret).
+                printf '//registry.npmjs.org/:_authToken=%s\n' "$$NPM_AUTH_TOKEN" > .npmrc
+                printf 'registry=https://registry.npmjs.org/\n' >> .npmrc
+                printf 'always-auth=true\n' >> .npmrc
+                # `whoami` is the canonical "is this token a valid npm
+                # credential?" probe. If this fails with ENEEDAUTH/401,
+                # the token itself is the problem (wrong type, expired,
+                # or lacks publish access to @reactor-models). If it
+                # prints a username but publish still prompts for web
+                # auth, the .npmrc isn't being read.
+                echo "verifying npm auth (npm whoami)..."
+                npm whoami --registry=https://registry.npmjs.org/
+                # Publish the exact tarball the pack step produced — no
+                # codegen re-run here, so the artifact uploaded to npm is
+                # byte-identical to the one archived on the Buildkite
+                # build page.
+                npm publish reactor-models-{{MODEL}}-*.tgz --access public
+              fi
+          plugins:
+            # Pull the tarball the pack step uploaded into CWD before publish.
+            - artifacts#v1.9.3:
+                download: "reactor-models-{{MODEL}}-*.tgz"
+            - docker#v5.12.0:
+                image: "node:20"
+                propagate-environment: true
+                mount-buildkite-agent: true
+                environment:
+                  - "COREPACK_ENABLE_DOWNLOAD_PROMPT=0"
+                  - "DRY"
+                  - "NPM_AUTH_TOKEN"
+          secrets:
+            - NPM_AUTH_TOKEN
+      PIPELINE
+  plugins:
+    - docker#v5.12.0:
+        image: "node:20"
+        propagate-environment: true
+        mount-buildkite-agent: true
+        environment:
+          - "COREPACK_ENABLE_DOWNLOAD_PROMPT=0"
+          - "COORDINATOR_URL"
+          - "DRY"
+          - "REACTOR_API_KEY"
+  secrets:
+    - REACTOR_API_KEY

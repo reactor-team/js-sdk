@@ -1,4 +1,71 @@
 # Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
+#
+# Single entry point for every Buildkite run on this repo.
+#
+# Two modes, mutually exclusive, gated on the `MODELS_SYNC` build env var:
+#
+#   MODELS_SYNC != "true" (default)
+#     → normal per-push CI: build, format, unit tests, integration tests.
+#
+#   MODELS_SYNC == "true"
+#     → skip the regular CI steps and generate+upload the dynamic
+#       per-model publish pipeline (walks .buildkite/whitelist.json,
+#       substitutes into .buildkite/publish-model-step.yml, hands the
+#       joined YAML to `buildkite-agent pipeline upload`). Wired to the
+#       hourly Buildkite schedule that sets `MODELS_SYNC=true` in its
+#       env block — ad-hoc invocations also work by passing the same
+#       env on the REST API trigger, a manual build, etc.
+#
+# The name is trigger-agnostic on purpose: whether the sync is kicked
+# off by an hourly cron, a webhook, or a manual "run now" click, the
+# semantics are the same ("reconcile npm with the coordinator"), so
+# the flag shouldn't be named after one specific trigger.
+#
+# Env vars a sync (or ad-hoc) build consumes:
+#
+#   MODELS_SYNC       "true" to enter the publish pipeline; anything
+#                     else (or unset) runs the normal per-push CI.
+#   DRY               "true" to rehearse the publish pipeline without
+#                     actually shipping to npm. `npm publish --dry-run`
+#                     replaces the real publish call end-to-end. Safe to
+#                     set on any trigger; does nothing when MODELS_SYNC
+#                     is off. Defaults to "false".
+#   COORDINATOR_URL   Coordinator the publish flow fetches schemas from.
+#                     Defaults to `https://api.reactor.inc` (set below).
+#                     Override on the schedule / REST trigger to point
+#                     at a dev/staging coordinator.
+#
+# Secrets the publish pipeline expects (both wired into the per-model
+# steps via Buildkite secrets — not used by the normal CI path):
+#
+#   REACTOR_API_KEY   Coordinator admin-scoped API key. Exchanged for a
+#                     JWT against POST /tokens once per CLI invocation,
+#                     then used to list models + fetch schemas. Required
+#                     for `check` and `pack`.
+#   NPM_AUTH_TOKEN    npm token with publish access to the
+#                     @reactor-models scope. Required only for `publish`
+#                     (not used when DRY=true).
+
+env:
+  # Default coordinator target for the models-sync publish flow. A
+  # scheduled run (or an ad-hoc REST trigger) can override this to
+  # point at a dev/staging coordinator.
+  COORDINATOR_URL: "https://api.reactor.inc"
+  #
+  # Deliberately NOT declared here:
+  #
+  #   MODELS_SYNC — trigger-scoped flag. The hourly Buildkite schedule
+  #                 sets this to "true" in its env block to enter the
+  #                 publish flow; every other trigger (per-push, manual
+  #                 build) leaves it unset and falls through to normal
+  #                 CI. Pipeline-level env in Buildkite OUTRANKS build-
+  #                 level env (incl. schedule / REST trigger env), so
+  #                 declaring `MODELS_SYNC: "false"` here would silently
+  #                 clobber what the schedule set. `build.env("MODELS_SYNC")`
+  #                 returns an empty string when the var is unset, which
+  #                 the `if: ... == "true"` gate below already handles.
+  #
+  #   DRY         — same reasoning. Opt-in per trigger when rehearsing.
 
 definitions:
   - &node_docker
@@ -10,7 +77,38 @@ definitions:
             - "COREPACK_ENABLE_DOWNLOAD_PROMPT=0"
 
 steps:
+  # ---------------------------------------------------------------------
+  # Models sync — scheduled runs only.
+  #
+  # One bootstrap step that generates + uploads a dynamic pipeline; the
+  # real work (check → pack → publish per model) lives in the uploaded
+  # steps. Docker image matches the rest of the pipeline so Node / pnpm
+  # / corepack versions stay consistent across both modes.
+  # ---------------------------------------------------------------------
+  - key: generate-publish-pipeline
+    label: ":gear: Generate per-model publish pipeline"
+    if: build.env("MODELS_SYNC") == "true"
+    # Runs on the bare agent (no docker wrapper) so `buildkite-agent
+    # pipeline upload` — which only exists on the agent host — is on
+    # PATH. The script's JSON parsing uses `jq`, which is a standard
+    # fixture on every Buildkite agent image we run. Per-model work
+    # below IS still containerised (Node version needs pinning there).
+    command: |
+      echo "Generating dynamic pipeline from .buildkite/whitelist.json..."
+      bash .buildkite/sync-model-sdks.sh > /tmp/dynamic-pipeline.yml
+      echo "Generated pipeline:"
+      cat /tmp/dynamic-pipeline.yml
+      buildkite-agent pipeline upload /tmp/dynamic-pipeline.yml
+
+  # ---------------------------------------------------------------------
+  # Normal per-push CI — everything below skips on models-sync runs so
+  # we don't waste an hourly schedule budget on lint + tests that
+  # already ran on the commit when it landed. Using group-level `if:`
+  # gates the whole group with one expression instead of repeating it
+  # per step.
+  # ---------------------------------------------------------------------
   - group: ":hammer: Build & Lint"
+    if: build.env("MODELS_SYNC") != "true"
     steps:
       - <<: *node_docker
         label: ":package: Build"
@@ -29,6 +127,7 @@ steps:
           - pnpm format:check
 
   - group: ":test_tube: Tests"
+    if: build.env("MODELS_SYNC") != "true"
     steps:
       - <<: *node_docker
         label: ":white_check_mark: Unit Tests"

@@ -708,7 +708,12 @@ export class WebRTCTransportClient implements TransportClient {
     };
 
     this.peerConnection.onicecandidateerror = (event) => {
-      console.warn("[WebRTCTransport] ICE candidate error:", event);
+      // ICE candidate errors are part of the normal WebRTC lifecycle:
+      // STUN/TURN servers frequently fail to allocate candidates
+      // (host blocked by NAT, server unreachable, auth not yet ready,
+      // etc.) without affecting the final connection.  Log at debug
+      // level so they don't drown out actionable warnings.
+      console.debug("[WebRTCTransport] ICE candidate error:", event);
     };
 
     this.peerConnection.ondatachannel = (event) => {
