@@ -6,6 +6,7 @@
 
 import type { IceServersResponse } from "../core/types";
 import type { MessageScope, ConnectionStats } from "../types";
+import { sanitize } from "./sdp";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration
@@ -26,6 +27,54 @@ const FORCE_RELAY_MODE = false;
  * leave room for framing overhead.
  */
 const DEFAULT_MAX_MESSAGE_BYTES = 256 * 1024; // 256 KiB
+
+function isHevcMimeType(mimeType: string): boolean {
+  const t = mimeType.toLowerCase();
+  return (
+    t.includes("h265") ||
+    t.includes("hevc") ||
+    t.includes("hev1") ||
+    t.includes("hvc1")
+  );
+}
+
+/** Fields from RTCRtpCodecCapability used for setCodecPreferences. */
+type VideoCodecPreference = {
+  mimeType: string;
+  clockRate: number;
+  sdpFmtpLine?: string;
+  channels?: number;
+};
+
+function collectVideoCodecCapabilities(): VideoCodecPreference[] {
+  const seen = new Set<string>();
+  const out: VideoCodecPreference[] = [];
+  const add = (codecs: ReadonlyArray<VideoCodecPreference> | undefined) => {
+    if (!codecs) return;
+    for (const c of codecs) {
+      const key = `${c.mimeType}|${c.sdpFmtpLine ?? ""}|${c.clockRate}|${
+        c.channels ?? 0
+      }`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(c);
+    }
+  };
+  if (typeof RTCRtpSender !== "undefined" && RTCRtpSender.getCapabilities) {
+    add(RTCRtpSender.getCapabilities?.("video")?.codecs);
+  }
+  if (typeof RTCRtpReceiver !== "undefined" && RTCRtpReceiver.getCapabilities) {
+    add(RTCRtpReceiver.getCapabilities?.("video")?.codecs);
+  }
+  return out;
+}
+
+function transceiverIsVideo(t: RTCRtpTransceiver): boolean {
+  const extended = t as RTCRtpTransceiver & { kind?: string };
+  if (extended.kind === "video") return true;
+  if (extended.kind === "audio") return false;
+  return t.sender.track?.kind === "video" || t.receiver.track?.kind === "video";
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Peer Connection Creation
@@ -62,8 +111,11 @@ export function createDataChannel(
  * @returns The SDP offer string with gathered ICE candidates.
  */
 export async function createOffer(pc: RTCPeerConnection): Promise<string> {
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
+  const initial = await pc.createOffer();
+  const sdp = sanitize(initial.sdp ?? "");
+  await pc.setLocalDescription(
+    new RTCSessionDescription({ type: initial.type, sdp })
+  );
   await waitForIceGathering(pc);
 
   const localDescription = pc.localDescription;
@@ -364,10 +416,13 @@ export function extractConnectionStats(
 
   let candidateType: string | undefined;
   if (localCandidateId) {
-    const localCandidate = report.get(localCandidateId);
-    if (localCandidate?.candidateType) {
-      candidateType = localCandidate.candidateType;
-    }
+    report.forEach((stat, id) => {
+      if (id === localCandidateId && stat.type === "local-candidate") {
+        const ct = (stat as RTCStats & { candidateType?: string })
+          .candidateType;
+        if (ct) candidateType = ct;
+      }
+    });
   }
 
   return {
