@@ -250,7 +250,8 @@ function stripTelephoneEvents(sdp: string): string {
   for (const media of session.media) {
     const telPts = new Set<number>();
     for (const r of media.rtp ?? []) {
-      if (/^telephone-event$/i.test(String(r.codec))) telPts.add(Number(r.payload));
+      if (/^telephone-event$/i.test(String(r.codec)))
+        telPts.add(Number(r.payload));
     }
     if (telPts.size === 0) continue;
     changed = true;

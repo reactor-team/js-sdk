@@ -440,7 +440,9 @@ describe("sanitize()", () => {
     // dynamic range after telephone-event at 110+126 freed those slots for mid:2
     expect(mLines[0]).toContain("102"); // H265 relocated to 102
     expect(out).toContain("a=rtpmap:102 H265/90000");
-    expect(out).toContain("a=fmtp:102 level-id=156;profile-id=1;tier-flag=0;tx-mode=SRST");
+    expect(out).toContain(
+      "a=fmtp:102 level-id=156;profile-id=1;tier-flag=0;tx-mode=SRST"
+    );
     expect(out).toContain("a=fmtp:50 apt=102"); // rtx apt= updated in mid:0
 
     // mid:2 (recvonly video): both H265 entries relocated — 49 → 106, 51 → 110
@@ -448,9 +450,13 @@ describe("sanitize()", () => {
     expect(mLines[2]).toContain("106"); // H265 profile-1
     expect(mLines[2]).toContain("110"); // H265 profile-2
     expect(out).toContain("a=rtpmap:106 H265/90000");
-    expect(out).toContain("a=fmtp:106 level-id=180;profile-id=1;tier-flag=0;tx-mode=SRST");
+    expect(out).toContain(
+      "a=fmtp:106 level-id=180;profile-id=1;tier-flag=0;tx-mode=SRST"
+    );
     expect(out).toContain("a=rtpmap:110 H265/90000");
-    expect(out).toContain("a=fmtp:110 level-id=180;profile-id=2;tier-flag=0;tx-mode=SRST");
+    expect(out).toContain(
+      "a=fmtp:110 level-id=180;profile-id=2;tier-flag=0;tx-mode=SRST"
+    );
     expect(out).toContain("a=fmtp:50 apt=106"); // rtx apt= updated in mid:2
     expect(out).toContain("a=fmtp:52 apt=110"); // rtx apt= updated in mid:2
   });
