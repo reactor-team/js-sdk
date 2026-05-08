@@ -4,12 +4,27 @@
  * SDP offer sanitization:
  * - Removes telephone-event codec entries from all m-sections.
  * - Remaps selected codec PTs that fall outside [96,127] — video: HEVC, VP8, VP9, H.264;
- *   audio: Opus. rtx entries are left at their original PTs; only apt= references are
- *   updated to follow a relocated primary.
+ *   audio: Opus. rtx entries stay at their original PTs; only apt= references are updated
+ *   when a primary is remapped.
+ * - After PT edits, RTP/SAVPF sections are normalized so rtpmap/fmtp/rtcp-fb (per PT) follow
+ *   the payload-type order on the `m=` line (Chrome-style interleaving), not grouped by line type.
+ * - Line breaks are preserved (`\r\n` vs `\n`) using `\r?\n` splits.
  */
 
 import type { MediaDescription } from "sdp-transform";
-import { parse, parsePayloads, write } from "sdp-transform";
+import { parse, parsePayloads } from "sdp-transform";
+
+function sdpLineSeparator(sdp: string): "\r\n" | "\n" {
+  return sdp.includes("\r\n") ? "\r\n" : "\n";
+}
+
+function splitSdpLines(sdp: string): string[] {
+  return sdp.split(/\r?\n/);
+}
+
+function joinSdpLines(lines: readonly string[], sep: "\r\n" | "\n"): string {
+  return lines.join(sep);
+}
 
 /** RTP dynamic payload type range (RFC 3551). */
 const DYNAMIC_PT_MIN = 96;
@@ -119,111 +134,39 @@ function remapFmtpConfigForPayloadMap(
 }
 
 /**
- * Applies a payload-type map on one audio or video m-section (`remap` may be partial).
- */
-function applyPayloadTypeRemap(
-  media: MediaDescription,
-  remap: Map<number, number>
-): void {
-  if (media.type !== "video" && media.type !== "audio") {
-    return;
-  }
-  const mPts = mediaMLinePayloadTypes(media);
-  if (mPts.length === 0 || remap.size === 0) {
-    return;
-  }
-
-  media.payloads = mPts.map((p) => String(remap.get(p) ?? p)).join(" ");
-
-  for (const r of media.rtp ?? []) {
-    const oldP = Number(r.payload);
-    const np = remap.get(oldP);
-    if (np !== undefined) r.payload = np;
-  }
-  for (const f of media.fmtp ?? []) {
-    const oldP = Number(f.payload);
-    const np = remap.get(oldP);
-    if (np !== undefined) {
-      f.payload = np;
-      f.config = remapFmtpConfigForPayloadMap(f.config, remap);
-    } else {
-      f.config = remapFmtpConfigForPayloadMap(f.config, remap);
-    }
-  }
-  for (const f of media.rtcpFb ?? []) {
-    if (f.payload === "*") continue;
-    const oldP = Number(f.payload);
-    const np = remap.get(oldP);
-    if (np !== undefined) f.payload = np;
-  }
-  for (const f of media.rtcpFbTrrInt ?? []) {
-    if (f.payload === "*") continue;
-    const oldP = Number(f.payload);
-    const np = remap.get(oldP);
-    if (np !== undefined) f.payload = np;
-  }
-  for (const ia of media.imageattrs ?? []) {
-    if (ia.pt === "*") continue;
-    const oldP = Number(ia.pt);
-    const np = remap.get(oldP);
-    if (np !== undefined) ia.pt = np;
-  }
-  for (const inv of media.invalid ?? []) {
-    let s = inv.value;
-    const pairs = [...remap.entries()].sort((a, b) => b[0] - a[0]);
-    for (const [oldP, newP] of pairs) {
-      if (oldP === newP) continue;
-      s = s.replace(
-        new RegExp(`^rtpmap:${oldP}([\\s/])`, "i"),
-        `rtpmap:${newP}$1`
-      );
-      s = s.replace(new RegExp(`^fmtp:${oldP}(\\s)`, "i"), `fmtp:${newP}$1`);
-      s = s.replace(
-        new RegExp(`^rtcp-fb:${oldP}(\\s)`, "i"),
-        `rtcp-fb:${newP}$1`
-      );
-      s = s.replace(new RegExp(`apt=${oldP}([^0-9]|$)`, "g"), `apt=${newP}$1`);
-    }
-    inv.value = s;
-  }
-}
-
-/**
  * Remaps sanitized codec payload types (and rtx bound to them) into [96, 127],
  * avoiding `forbidden` and PTs already present in this m-line. Allocation is
  * best-effort: when the dynamic range is nearly full, higher-priority codecs
  * (H265 > H264 > VP9 > VP8 > Opus) are relocated first; any that cannot fit
  * are left at their original payload type rather than throwing.
  */
-function remapSanitizedCodecPayloadTypesMedia(
+function computeCodecRemapForMedia(
   media: MediaDescription,
   forbidden: ReadonlySet<number>
-): void {
+): Map<number, number> {
+  const remap = new Map<number, number>();
   if (media.type !== "video" && media.type !== "audio") {
-    return;
+    return remap;
   }
   const tracked = collectSanitizedCodecPayloadSet(media);
   if (!tracked) {
-    return;
+    return remap;
   }
   const relocate = [...tracked].filter(
     (p) => p < DYNAMIC_PT_MIN || p > DYNAMIC_PT_MAX
   );
   if (relocate.length === 0) {
-    return;
+    return remap;
   }
 
   const rtpmap = collectRtpmap(media);
   const ordered = sortedRelocate(relocate, rtpmap);
 
-  // Forbidden = previous m-lines + this m-line's already-in-range PTs.
-  // Since relocate only contains PTs outside [96,127], those don't overlap.
   const usedPts = new Set(forbidden);
   for (const p of mediaMLinePayloadTypes(media)) {
     if (p >= DYNAMIC_PT_MIN && p <= DYNAMIC_PT_MAX) usedPts.add(p);
   }
 
-  const remap = new Map<number, number>();
   let candidate = DYNAMIC_PT_MIN;
   for (const oldPt of ordered) {
     while (candidate <= DYNAMIC_PT_MAX && usedPts.has(candidate)) candidate++;
@@ -233,74 +176,299 @@ function remapSanitizedCodecPayloadTypesMedia(
     candidate++;
   }
 
-  if (remap.size === 0) {
-    return;
+  return remap;
+}
+
+function rewriteRtpSavpfMPayloads(
+  mLine: string,
+  mapPt: (pt: number) => number
+): string {
+  if (!/\bRTP\/SAVPF\b/.test(mLine)) {
+    return mLine;
   }
-  applyPayloadTypeRemap(media, remap);
+  const tokens = mLine.split(/\s+/);
+  if (tokens.length < 4) {
+    return mLine;
+  }
+  const head = tokens.slice(0, 3).join(" ");
+  const tail = tokens
+    .slice(3)
+    .map((t) => (/^\d+$/.test(t) ? String(mapPt(Number(t))) : t));
+  return `${head} ${tail.join(" ")}`;
+}
+
+function payloadTypesFromSavpfMLine(mLine: string): number[] {
+  const m = /\bRTP\/SAVPF\s+(.+)$/i.exec(mLine);
+  return m ? parsePayloads(m[1]!.trim()) : [];
+}
+
+function payloadTypeFromPtBoundAttributeLine(line: string): number | null {
+  if (line.startsWith("a=rtpmap:")) {
+    const x = /^a=rtpmap:(\d+)/i.exec(line);
+    return x ? Number(x[1]) : null;
+  }
+  if (line.startsWith("a=fmtp:")) {
+    const x = /^a=fmtp:(\d+)/i.exec(line);
+    return x ? Number(x[1]) : null;
+  }
+  if (line.startsWith("a=rtcp-fb:")) {
+    const x = /^a=rtcp-fb:(\*|(\d+))/i.exec(line);
+    if (!x || x[1] === "*") return null;
+    return Number(x[2]);
+  }
+  if (line.startsWith("a=rtcp-fb-trr-int:")) {
+    const x = /^a=rtcp-fb-trr-int:(\*|(\d+))/i.exec(line);
+    if (!x || x[1] === "*") return null;
+    return Number(x[2]);
+  }
+  if (line.startsWith("a=imageattrs:")) {
+    const x = /^a=imageattrs:(\*|(\d+))/i.exec(line);
+    if (!x || x[1] === "*") return null;
+    return Number(x[2]);
+  }
+  return null;
+}
+
+function isPtBoundCodecAttributeLine(line: string): boolean {
+  return payloadTypeFromPtBoundAttributeLine(line) !== null;
 }
 
 /**
- * Removes all telephone-event codec entries (rtpmap, fmtp, rtcp-fb, and the PT from the
- * m= payload list) from every m-section. Returns the input unchanged when no such entries
- * are present.
+ * Within one RTP/SAVPF m-section, reorder rtpmap/fmtp/rtcp-fb lines so each payload type's
+ * attributes are contiguous and ordered by the `m=` payload list (same interleaving style as
+ * Chrome). Non-codec lines before/after the codec block stay fixed.
  */
-function stripTelephoneEvents(sdp: string): string {
+function reorderSingleRtpSavpfSection(sec: string[]): string[] {
+  const mLine = sec[0]!;
+  if (!/\bRTP\/SAVPF\b/.test(mLine)) {
+    return sec;
+  }
+  const body = sec.slice(1);
+  let first = -1;
+  let last = -1;
+  for (let j = 0; j < body.length; j++) {
+    if (isPtBoundCodecAttributeLine(body[j]!)) {
+      if (first === -1) first = j;
+      last = j;
+    }
+  }
+  if (first === -1) {
+    return sec;
+  }
+
+  const prefix = body.slice(0, first);
+  const codecLines = body.slice(first, last + 1);
+  const suffix = body.slice(last + 1);
+
+  const mPts = payloadTypesFromSavpfMLine(mLine);
+  const buckets = new Map<number, string[]>();
+  for (const line of codecLines) {
+    const pt = payloadTypeFromPtBoundAttributeLine(line);
+    if (pt === null) continue;
+    const arr = buckets.get(pt);
+    if (arr) arr.push(line);
+    else buckets.set(pt, [line]);
+  }
+
+  const seenOrder: number[] = [];
+  for (const line of codecLines) {
+    const pt = payloadTypeFromPtBoundAttributeLine(line);
+    if (pt !== null && !seenOrder.includes(pt)) seenOrder.push(pt);
+  }
+
+  const outCodec: string[] = [];
+  for (const pt of mPts) {
+    const arr = buckets.get(pt);
+    if (!arr) continue;
+    outCodec.push(...arr);
+    buckets.delete(pt);
+  }
+  for (const pt of seenOrder) {
+    const arr = buckets.get(pt);
+    if (!arr) continue;
+    outCodec.push(...arr);
+    buckets.delete(pt);
+  }
+  for (const arr of buckets.values()) {
+    outCodec.push(...arr);
+  }
+
+  return [mLine, ...prefix, ...outCodec, ...suffix];
+}
+
+function reorderCodecAttributes(sdp: string): string {
+  const sep = sdpLineSeparator(sdp);
+  const lines = splitSdpLines(sdp);
+  const out: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i]!;
+    if (!line.startsWith("m=")) {
+      out.push(line);
+      i++;
+      continue;
+    }
+    const mLine = line;
+    i++;
+    const rest: string[] = [];
+    while (i < lines.length && !lines[i]!.startsWith("m=")) {
+      rest.push(lines[i]!);
+      i++;
+    }
+    out.push(...reorderSingleRtpSavpfSection([mLine, ...rest]));
+  }
+  return joinSdpLines(out, sep);
+}
+
+function applyRemapToMediaAttributeLine(
+  line: string,
+  remap: Map<number, number>
+): string {
+  if (!line.startsWith("a=")) {
+    return line;
+  }
+
+  if (line.startsWith("a=rtpmap:")) {
+    const m = /^a=rtpmap:(\d+)/.exec(line);
+    if (!m) return line;
+    const pt = Number(m[1]);
+    const np = remap.get(pt) ?? pt;
+    return np === pt ? line : line.replace(/^a=rtpmap:\d+/, `a=rtpmap:${np}`);
+  }
+
+  if (line.startsWith("a=fmtp:")) {
+    const m = /^a=fmtp:(\d+)\s(.*)$/.exec(line);
+    if (!m) return line;
+    const pt = Number(m[1]);
+    const np = remap.get(pt) ?? pt;
+    const cfg = remapFmtpConfigForPayloadMap(m[2], remap);
+    return `a=fmtp:${np} ${cfg}`;
+  }
+
+  if (line.startsWith("a=rtcp-fb:")) {
+    const m = /^a=rtcp-fb:(\*|\d+)(\s.*)?$/.exec(line);
+    if (!m || m[1] === "*") return line;
+    const pt = Number(m[1]);
+    const np = remap.get(pt) ?? pt;
+    return np === pt ? line : `a=rtcp-fb:${np}${m[2] ?? ""}`;
+  }
+
+  if (line.startsWith("a=rtcp-fb-trr-int:")) {
+    const m = /^a=rtcp-fb-trr-int:(\*|\d+)(\s.*)?$/.exec(line);
+    if (!m || m[1] === "*") return line;
+    const pt = Number(m[1]);
+    const np = remap.get(pt) ?? pt;
+    return np === pt ? line : `a=rtcp-fb-trr-int:${np}${m[2] ?? ""}`;
+  }
+
+  if (line.startsWith("a=imageattrs:")) {
+    const m = /^a=imageattrs:(\*|\d+)(\s.*)?$/.exec(line);
+    if (!m || m[1] === "*") return line;
+    const pt = Number(m[1]);
+    const np = remap.get(pt) ?? pt;
+    return np === pt ? line : `a=imageattrs:${np}${m[2] ?? ""}`;
+  }
+
+  return line;
+}
+
+function stripTelephoneEventsPreserveOrder(sdp: string): string {
   const session = parse(sdp);
-  let changed = false;
-  for (const media of session.media) {
-    const telPts = new Set<number>();
+  const telPerSection = session.media.map((media) => {
+    const tel = new Set<number>();
     for (const r of media.rtp ?? []) {
-      if (/^telephone-event$/i.test(String(r.codec)))
-        telPts.add(Number(r.payload));
+      if (/^telephone-event$/i.test(String(r.codec))) {
+        tel.add(Number(r.payload));
+      }
     }
-    if (telPts.size === 0) continue;
-    changed = true;
-    media.rtp = (media.rtp ?? []).filter((r) => !telPts.has(Number(r.payload)));
-    media.payloads = mediaMLinePayloadTypes(media)
-      .filter((p) => !telPts.has(p))
-      .join(" ");
-    if (media.fmtp) {
-      media.fmtp = media.fmtp.filter((f) => !telPts.has(Number(f.payload)));
-    }
-    if (media.rtcpFb) {
-      media.rtcpFb = media.rtcpFb.filter(
-        (f) => f.payload === "*" || !telPts.has(Number(f.payload))
-      );
-    }
-    if (media.rtcpFbTrrInt) {
-      media.rtcpFbTrrInt = media.rtcpFbTrrInt.filter(
-        (f) => f.payload === "*" || !telPts.has(Number(f.payload))
-      );
-    }
+    return tel;
+  });
+  if (!telPerSection.some((s) => s.size > 0)) {
+    return sdp;
   }
-  return changed ? write(session) : sdp;
+
+  const sep = sdpLineSeparator(sdp);
+  const lines = splitSdpLines(sdp);
+  let secIdx = -1;
+  const out: string[] = [];
+  for (const line of lines) {
+    if (line.startsWith("m=")) {
+      secIdx++;
+      const drop = telPerSection[secIdx];
+      if (!drop || drop.size === 0 || !/\bRTP\/SAVPF\b/.test(line)) {
+        out.push(line);
+        continue;
+      }
+      const tokens = line.split(/\s+/);
+      const head = tokens.slice(0, 3).join(" ");
+      const nums = tokens
+        .slice(3)
+        .filter((t) => /^\d+$/.test(t))
+        .map(Number)
+        .filter((p) => !drop.has(p));
+      out.push(`${head} ${nums.join(" ")}`);
+      continue;
+    }
+    if (secIdx >= 0) {
+      const drop = telPerSection[secIdx];
+      if (drop && drop.size > 0) {
+        const rtp = /^a=rtpmap:(\d+)\s/i.exec(line);
+        if (rtp && drop.has(Number(rtp[1]))) continue;
+        const fmtp = /^a=fmtp:(\d+)\s/i.exec(line);
+        if (fmtp && drop.has(Number(fmtp[1]))) continue;
+        const rfb = /^a=rtcp-fb:(\d+)\s/i.exec(line);
+        if (rfb && drop.has(Number(rfb[1]))) continue;
+        const trr = /^a=rtcp-fb-trr-int:(\d+)\s/i.exec(line);
+        if (trr && drop.has(Number(trr[1]))) continue;
+      }
+    }
+    out.push(line);
+  }
+  return joinSdpLines(out, sep);
 }
 
-/**
- * Post-processes an SDP offer: selected codec payload types outside [96,127] are remapped
- * into the dynamic range. M-sections are processed in document order; new PTs avoid
- * collision with payload types already used on earlier m-lines.
- *
- * When no such change applies, returns the input string unchanged (avoids sdp-transform
- * normalizing session fields such as an implicit `s=` line).
- */
 function transformOfferSdpCodecDynamicPts(sdp: string): string {
   const session = parse(sdp);
   if (!session.media.some(mediaSectionNeedsSanitizedPtRelocate)) {
     return sdp;
   }
 
+  const remaps: Map<number, number>[] = [];
   const forbidden = new Set<number>();
   for (const media of session.media) {
-    remapSanitizedCodecPayloadTypesMedia(media, forbidden);
+    const R = computeCodecRemapForMedia(media, forbidden);
+    remaps.push(R);
     for (const p of mediaMLinePayloadTypes(media)) {
-      forbidden.add(p);
+      forbidden.add(R.get(p) ?? p);
     }
   }
 
-  return write(session);
+  const sep = sdpLineSeparator(sdp);
+  const lines = splitSdpLines(sdp);
+  let secIdx = -1;
+  const out: string[] = [];
+  for (let line of lines) {
+    if (line.startsWith("m=")) {
+      secIdx++;
+      const R = remaps[secIdx]!;
+      if (R.size > 0 && /\bRTP\/SAVPF\b/.test(line)) {
+        line = rewriteRtpSavpfMPayloads(line, (p) => R.get(p) ?? p);
+      }
+      out.push(line);
+      continue;
+    }
+    const R = secIdx >= 0 ? remaps[secIdx]! : null;
+    if (!R || R.size === 0) {
+      out.push(line);
+      continue;
+    }
+    out.push(applyRemapToMediaAttributeLine(line, R));
+  }
+  return joinSdpLines(out, sep);
 }
 
 export function sanitize(sdp: string): string {
-  return transformOfferSdpCodecDynamicPts(stripTelephoneEvents(sdp));
+  const stripped = stripTelephoneEventsPreserveOrder(sdp);
+  const remapped = transformOfferSdpCodecDynamicPts(stripped);
+  return reorderCodecAttributes(remapped);
 }

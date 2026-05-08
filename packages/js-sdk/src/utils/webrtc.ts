@@ -28,54 +28,6 @@ const FORCE_RELAY_MODE = false;
  */
 const DEFAULT_MAX_MESSAGE_BYTES = 256 * 1024; // 256 KiB
 
-function isHevcMimeType(mimeType: string): boolean {
-  const t = mimeType.toLowerCase();
-  return (
-    t.includes("h265") ||
-    t.includes("hevc") ||
-    t.includes("hev1") ||
-    t.includes("hvc1")
-  );
-}
-
-/** Fields from RTCRtpCodecCapability used for setCodecPreferences. */
-type VideoCodecPreference = {
-  mimeType: string;
-  clockRate: number;
-  sdpFmtpLine?: string;
-  channels?: number;
-};
-
-function collectVideoCodecCapabilities(): VideoCodecPreference[] {
-  const seen = new Set<string>();
-  const out: VideoCodecPreference[] = [];
-  const add = (codecs: ReadonlyArray<VideoCodecPreference> | undefined) => {
-    if (!codecs) return;
-    for (const c of codecs) {
-      const key = `${c.mimeType}|${c.sdpFmtpLine ?? ""}|${c.clockRate}|${
-        c.channels ?? 0
-      }`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push(c);
-    }
-  };
-  if (typeof RTCRtpSender !== "undefined" && RTCRtpSender.getCapabilities) {
-    add(RTCRtpSender.getCapabilities?.("video")?.codecs);
-  }
-  if (typeof RTCRtpReceiver !== "undefined" && RTCRtpReceiver.getCapabilities) {
-    add(RTCRtpReceiver.getCapabilities?.("video")?.codecs);
-  }
-  return out;
-}
-
-function transceiverIsVideo(t: RTCRtpTransceiver): boolean {
-  const extended = t as RTCRtpTransceiver & { kind?: string };
-  if (extended.kind === "video") return true;
-  if (extended.kind === "audio") return false;
-  return t.sender.track?.kind === "video" || t.receiver.track?.kind === "video";
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Peer Connection Creation
 // ─────────────────────────────────────────────────────────────────────────────
