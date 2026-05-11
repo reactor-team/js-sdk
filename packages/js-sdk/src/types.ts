@@ -87,8 +87,14 @@ export interface ConnectionStats {
   rtt?: number;
   /** ICE candidate type: "host", "srflx", "prflx", or "relay" (TURN) */
   candidateType?: string;
+  /** Estimated available incoming bitrate in bits/second */
+  availableIncomingBitrate?: number;
   /** Estimated available outgoing bitrate in bits/second */
   availableOutgoingBitrate?: number;
+  /** Real-time Incoming bitrate in bits/second */
+  incomingBitrate?: number;
+  /** Real-time Outgoing bitrate in bits/second */
+  outgoingBitrate?: number;
   /** Received video frames per second */
   framesPerSecond?: number;
   /** Ratio of packets lost (0-1) */

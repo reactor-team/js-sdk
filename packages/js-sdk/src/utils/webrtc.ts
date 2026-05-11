@@ -4,7 +4,7 @@
  * Stateless WebRTC utility functions for SDP exchange and peer connection management.
  */
 
-import type { IceServersResponse } from "../core/types";
+import type { IceServer, IceServersResponse } from "../core/types";
 import type { MessageScope, ConnectionStats } from "../types";
 import { sanitize } from "./sdp";
 
@@ -136,7 +136,7 @@ export function getLocalDescription(pc: RTCPeerConnection): string | undefined {
 export function transformIceServers(
   response: IceServersResponse
 ): RTCIceServer[] {
-  return response.ice_servers.map((server) => {
+  return response.ice_servers.map((server: IceServer) => {
     const rtcServer: RTCIceServer = {
       urls: server.uris,
     };
@@ -324,66 +324,112 @@ export function closePeerConnection(pc: RTCPeerConnection): void {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Extracts ConnectionStats from an RTCStatsReport.
- * Reads candidate-pair, local-candidate, and inbound-rtp (video) reports.
+ * Creates a function with a captured closure over a set of working variables which are
+ * used to compute connection stats from aggregate counters over the sample interval.
+ *
+ * @returns A function that extracts connection stats from an RTCStatsReport.
  */
-export function extractConnectionStats(
-  report: RTCStatsReport
-): ConnectionStats {
-  let rtt: number | undefined;
-  let availableOutgoingBitrate: number | undefined;
-  let localCandidateId: string | undefined;
-  let framesPerSecond: number | undefined;
-  let jitter: number | undefined;
-  let packetLossRatio: number | undefined;
 
-  report.forEach((stat) => {
-    if (stat.type === "candidate-pair" && stat.state === "succeeded") {
-      if (stat.currentRoundTripTime !== undefined) {
-        rtt = stat.currentRoundTripTime * 1000;
-      }
-      if (stat.availableOutgoingBitrate !== undefined) {
-        availableOutgoingBitrate = stat.availableOutgoingBitrate;
-      }
-      localCandidateId = stat.localCandidateId;
-    }
+type RTCStatsExtractor = (report: RTCStatsReport) => ConnectionStats;
 
-    if (stat.type === "inbound-rtp" && stat.kind === "video") {
-      if (stat.framesPerSecond !== undefined) {
-        framesPerSecond = stat.framesPerSecond;
-      }
-      if (stat.jitter !== undefined) {
-        jitter = stat.jitter;
-      }
+export function createRTCStatsExtractor(): RTCStatsExtractor {
+  let lastBytesReceived: number | undefined;
+  let lastBytesSent: number | undefined;
+  let lastCandPairTimestamp: number | undefined;
+
+  return (report: RTCStatsReport) => {
+    let candPairId: string | undefined;
+    let rtt: number | undefined;
+    let availableOutgoingBitrate: number | undefined;
+    let availableIncomingBitrate: number | undefined;
+    let incomingBitrate: number | undefined;
+    let outgoingBitrate: number | undefined;
+    let videoInboundRtpId: string | undefined;
+    let framesPerSecond: number | undefined;
+    let jitter: number | undefined;
+    let packetLossRatio: number | undefined;
+    let candidateType: string | undefined;
+
+    report.forEach((stat) => {
       if (
-        stat.packetsReceived !== undefined &&
-        stat.packetsLost !== undefined &&
-        stat.packetsReceived + stat.packetsLost > 0
+        candPairId === undefined &&
+        stat.type === "candidate-pair" &&
+        stat.state === "succeeded" &&
+        stat.nominated
       ) {
-        packetLossRatio =
-          stat.packetsLost / (stat.packetsReceived + stat.packetsLost);
+        // Extract stats from the first successful candidate-pair found.
+        candPairId = stat.id;
+        if (stat.currentRoundTripTime !== undefined) {
+          rtt = stat.currentRoundTripTime * 1000;
+        }
+        if (stat.availableOutgoingBitrate !== undefined) {
+          availableOutgoingBitrate = stat.availableOutgoingBitrate;
+        }
+        if (stat.availableIncomingBitrate != undefined) {
+          availableIncomingBitrate = stat.availableIncomingBitrate;
+        }
+        const localCandidate = report.get(stat.localCandidateId);
+        if (localCandidate?.candidateType) {
+          candidateType = localCandidate.candidateType;
+        }
+        const timeDiff: number =
+          lastCandPairTimestamp !== undefined
+            ? stat.timestamp - lastCandPairTimestamp
+            : 0;
+        if (stat.bytesReceived !== undefined) {
+          if (lastBytesReceived !== undefined && timeDiff > 0) {
+            incomingBitrate =
+              (((stat.bytesReceived - lastBytesReceived) * 8) / timeDiff) *
+              1000; /* Bits/Second */
+          }
+          lastBytesReceived = stat.bytesReceived;
+        }
+        if (stat.bytesSent !== undefined) {
+          if (lastBytesSent !== undefined && timeDiff > 0) {
+            outgoingBitrate =
+              (((stat.bytesSent - lastBytesSent) * 8) / timeDiff) *
+              1000; /* Bits/Second */
+          }
+          lastBytesSent = stat.bytesSent;
+        }
+        lastCandPairTimestamp = stat.timestamp;
       }
-    }
-  });
 
-  let candidateType: string | undefined;
-  if (localCandidateId) {
-    report.forEach((stat, id) => {
-      if (id === localCandidateId && stat.type === "local-candidate") {
-        const ct = (stat as RTCStats & { candidateType?: string })
-          .candidateType;
-        if (ct) candidateType = ct;
+      // If there is more than one video stream the stats will be from the first one encountered.
+      if (
+        videoInboundRtpId === undefined &&
+        stat.type === "inbound-rtp" &&
+        stat.kind === "video"
+      ) {
+        videoInboundRtpId = stat.id;
+        if (stat.framesPerSecond !== undefined) {
+          framesPerSecond = stat.framesPerSecond;
+        }
+        if (stat.jitter !== undefined) {
+          jitter = stat.jitter;
+        }
+        if (
+          stat.packetsReceived !== undefined &&
+          stat.packetsLost !== undefined &&
+          stat.packetsReceived + stat.packetsLost > 0
+        ) {
+          packetLossRatio =
+            stat.packetsLost / (stat.packetsReceived + stat.packetsLost);
+        }
       }
     });
-  }
 
-  return {
-    rtt,
-    candidateType,
-    availableOutgoingBitrate,
-    framesPerSecond,
-    packetLossRatio,
-    jitter,
-    timestamp: Date.now(),
+    return {
+      rtt,
+      candidateType,
+      availableIncomingBitrate,
+      availableOutgoingBitrate,
+      incomingBitrate,
+      outgoingBitrate,
+      framesPerSecond,
+      packetLossRatio,
+      jitter,
+      timestamp: Date.now(),
+    };
   };
 }
