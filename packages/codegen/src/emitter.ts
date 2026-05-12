@@ -878,11 +878,24 @@ function generateProviderComponent(
   children,
 }: ${providerName}Props`;
 
-  // `children` is part of ReactorProviderProps's required shape in @types/react
-  // under strict checks, so we must pass it *inside* the props object to
-  // `createElement` — not as a trailing variadic argument. The trailing-arg
-  // form ends up with children: undefined from TS's perspective, which
-  // fails to typecheck against the provider's declared prop type.
+  // `children` is passed as `createElement`'s third positional
+  // argument rather than as a key inside the props object. Both forms
+  // are equivalent at runtime — React folds the variadic
+  // `...children: ReactNode[]` rest into the `children` prop — but
+  // `eslint-plugin-react`'s `react/no-children-prop` rule (in the
+  // recommended config and the Next.js shareable config) flags any
+  // `createElement` call that passes `children` as a prop key.
+  //
+  // The third-arg form only compiles against @types/react's
+  // overloads when the component's prop type doesn't declare
+  // `children` as a required field — the overload's second arg is
+  // typed `Attributes & P | null`, so a required `children: ReactNode`
+  // forces every callsite to put `children` in the props object. The
+  // SDK's `ReactorProviderProps` declares `children?: ReactNode` for
+  // exactly this reason; if that's ever tightened back to required,
+  // this emitter has to fall back to the in-props form with a
+  // targeted `eslint-disable-next-line react/no-children-prop`
+  // comment. Pinned by a regression test in `emitter.test.ts`.
   const reactorProviderProps = [
     `      apiUrl: apiUrl,`,
     `      local: local,`,
@@ -894,7 +907,6 @@ function generateProviderComponent(
   reactorProviderProps.push(
     `      jwtToken: jwtToken,`,
     `      connectOptions: connectOptions,`,
-    `      children: children,`,
   );
 
   return `export interface ${providerName}Props extends ${optionsType} {
@@ -904,9 +916,13 @@ function generateProviderComponent(
 }
 
 ${doc}export function ${providerName}(${providerProps}): ReactElement {
-  return createElement(ReactorProvider, {
+  return createElement(
+    ReactorProvider,
+    {
 ${reactorProviderProps.join("\n")}
-  });
+    },
+    children,
+  );
 }`;
 }
 
@@ -1135,12 +1151,22 @@ function generateTrackComponents(
 ): string {
   const parts: string[] = [];
 
+  // Each `<Prefix><Track>View>` exposes its props type as a `type` alias
+  // rather than an empty `interface … extends …Props {}`. The two forms
+  // are structurally identical, but `@typescript-eslint/no-empty-object-type`
+  // (and the older `no-empty-interface`) fire on the empty-extension
+  // form — both rules ship in `typescript-eslint`'s recommended config
+  // and the Next.js default. Type aliases sidestep the rule and stay
+  // mergeable downstream via intersections, which is the only
+  // ergonomics consumers lose by giving up declaration merging here
+  // (and consumers wrapping a generated component pretty much never
+  // need declaration merging on its props type).
   for (const track of recvVideo) {
     const pascal = toPascalCase(track.name);
     const componentName = `${modelPrefix}${pascal}View`;
     const propsName = `${componentName}Props`;
     parts.push(
-      `export interface ${propsName} extends Omit<ReactorViewProps, "track"> {}
+      `export type ${propsName} = Omit<ReactorViewProps, "track">;
 
 ${generateJsDoc(
   [
@@ -1165,7 +1191,7 @@ ${generateJsDoc(
     const componentName = `${modelPrefix}${pascal}View`;
     const propsName = `${componentName}Props`;
     parts.push(
-      `export interface ${propsName} extends Omit<WebcamStreamProps, "track"> {}
+      `export type ${propsName} = Omit<WebcamStreamProps, "track">;
 
 ${generateJsDoc(
   [

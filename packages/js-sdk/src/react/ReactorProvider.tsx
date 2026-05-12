@@ -22,10 +22,22 @@ export interface ReactorConnectOptions extends ConnectOptions {
 }
 
 // Provider props
+//
+// `children` is declared optional even though a render-less Provider
+// makes no sense at runtime — React always supplies the slot via JSX
+// (`<ReactorProvider>…</ReactorProvider>`) or the third positional
+// argument to `createElement`, but @types/react's `createElement`
+// overloads gate the *second* argument on the props type alone:
+// when `children` is required, callers can't use the third-arg form
+// even though it works fine at runtime. Relaxing to optional lets
+// generated codegen output (and any other programmatic caller) pass
+// children positionally without falling back to an
+// `eslint-disable-next-line react/no-children-prop` workaround in
+// downstream consumer projects.
 interface ReactorProviderProps extends ReactorInitializationProps {
   connectOptions?: ReactorConnectOptions;
   jwtToken?: string;
-  children: ReactNode;
+  children?: ReactNode;
 }
 
 // tsx component

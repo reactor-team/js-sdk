@@ -1443,13 +1443,16 @@ describe("emitter — typed track helpers (REA-1791)", () => {
     );
     expect(react).toContain("export function HeliosMainVideoView(");
     expect(react).toContain('track: "main_video"');
+    // Props are emitted as `type` aliases rather than empty
+    // `interface … extends …` declarations — see the lint-friendly
+    // emission test below for why.
     expect(react).toContain(
-      'export interface HeliosMainVideoViewProps extends Omit<ReactorViewProps, "track"> {}',
+      'export type HeliosMainVideoViewProps = Omit<ReactorViewProps, "track">;',
     );
     expect(react).toContain("export function HeliosWebcamView(");
     expect(react).toContain('track: "webcam"');
     expect(react).toContain(
-      'export interface HeliosWebcamViewProps extends Omit<WebcamStreamProps, "track"> {}',
+      'export type HeliosWebcamViewProps = Omit<WebcamStreamProps, "track">;',
     );
   });
 
@@ -1748,5 +1751,106 @@ describe("emitter — injection defence (defense in depth)", () => {
     // the expected clean form for well-formed tracks.
     expect(src).toContain('kind: "video"');
     expect(src).toContain('direction: "recvonly"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Lint-friendly emission.
+//
+// Generated React files are dropped into consumer projects whose lint
+// configs we don't control — most commonly Next.js's default and the
+// `eslint-plugin-react` / `typescript-eslint` recommended sets. Two
+// rules in those configs flag patterns the emitter used to produce:
+//
+//   - `react/no-children-prop` — fires when `children` is passed as a
+//     prop key inside `createElement(Comp, { children: … })` instead of
+//     as the third positional argument.
+//   - `@typescript-eslint/no-empty-object-type` (and the older
+//     `no-empty-interface`) — fires on empty
+//     `interface Foo extends Bar {}` declarations because they're
+//     structurally identical to a plain `type Foo = Bar` alias.
+//
+// These tests pin the lint-clean output shapes so a future emitter
+// refactor can't silently re-introduce either pattern. They are
+// deliberately phrased as "no" assertions on the buggy form plus a
+// positive assertion on the canonical form, to fail fast either way.
+// ---------------------------------------------------------------------------
+
+describe("emitter — lint-friendly React emission", () => {
+  function reactSourceWith(overrides: Partial<ModelSchema>): string {
+    return generateModelSdk({
+      modelName: "helios",
+      modelVersion: "0.1.0",
+      sdkVersion: "2.9.1",
+      schema: {
+        modelName: "helios",
+        modelVersion: "0.1.0",
+        events: [],
+        messages: [],
+        tracks: [],
+        ...overrides,
+      },
+      outputDir: "/tmp/ignored",
+      react: true,
+    }).files.find((f) => f.path === "src/react.ts")!.content;
+  }
+
+  it("Provider passes children as the third createElement argument, not as a prop key (react/no-children-prop)", () => {
+    // The buggy form embeds `children: children,` (or a bare
+    // `children,` shorthand) in the props object passed to
+    // `createElement(ReactorProvider, …)`; that's what
+    // `eslint-plugin-react`'s `react/no-children-prop` rule flags.
+    //
+    // The canonical form passes `children` as the third positional
+    // argument to `createElement`. This compiles against @types/react
+    // because the SDK's `ReactorProviderProps` declares `children` as
+    // optional — see the comment in `ReactorProvider.tsx` — so the
+    // overload's second arg can omit it. If the SDK ever tightens
+    // `children` back to required, the emitter has to fall back to
+    // the in-props form with a targeted
+    // `eslint-disable-next-line react/no-children-prop` comment, and
+    // this test will catch the regression.
+    const react = reactSourceWith({
+      tracks: [{ name: "main_video", kind: "video", direction: "out" }],
+    });
+
+    // Buggy form (explicit `children: children` key inside the
+    // createElement props object) must be absent. We don't also
+    // pattern-match a bare `children,` shorthand because the
+    // function's destructuring parameter list legitimately contains
+    // exactly that line — the positive assertion below catches any
+    // accidental shorthand in the props object.
+    expect(react).not.toContain("children: children");
+    // No eslint-disable workaround anywhere in the file: the
+    // canonical form lints clean and shouldn't need one.
+    expect(react).not.toContain("eslint-disable-next-line");
+    // Canonical form: `createElement(ReactorProvider, { … }, children, );`.
+    // The trailing `}, children,` shape is the load-bearing part —
+    // intermediate spacing varies with the prop list length.
+    expect(react).toMatch(
+      /createElement\(\s*ReactorProvider,\s*\{[\s\S]*?\},\s*children,\s*\);/,
+    );
+  });
+
+  it("track view props are emitted as `type` aliases, not empty `interface … extends …` declarations (@typescript-eslint/no-empty-object-type)", () => {
+    const react = reactSourceWith({
+      tracks: [
+        { name: "main_video", kind: "video", direction: "out" },
+        { name: "webcam", kind: "video", direction: "in" },
+      ],
+    });
+
+    // Buggy form: empty interface extension. The structural identity
+    // with the parent type makes this an obvious lint candidate.
+    expect(react).not.toMatch(
+      /export interface \w+Props extends Omit<\w+Props, "track"> \{\}/,
+    );
+    // Canonical form: `type X = Omit<...>;`. Both directions covered.
+    expect(react).toContain(
+      'export type HeliosMainVideoViewProps = Omit<ReactorViewProps, "track">;',
+    );
+    expect(react).toContain(
+      'export type HeliosWebcamViewProps = Omit<WebcamStreamProps, "track">;',
+    );
   });
 });
