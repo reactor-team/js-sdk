@@ -129,11 +129,15 @@ function showUsage(): void {
   console.log(chalk.cyan("\n⚛️ Create Reactor App\n"));
   console.log(chalk.white("Usage:"));
   console.log(
-    chalk.white("  create-reactor-app [project-name] --model=<name> [options]\n")
+    chalk.white(
+      "  create-reactor-app [project-name] --model=<name> [options]\n"
+    )
   );
   console.log(chalk.white("Arguments:"));
   console.log(
-    chalk.white("  project-name  Name of the project to create (prompted if omitted)\n")
+    chalk.white(
+      "  project-name  Name of the project to create (prompted if omitted)\n"
+    )
   );
   console.log(chalk.white("Options:"));
   console.log(
@@ -201,9 +205,7 @@ async function main(): Promise<void> {
 
   // Require --model; if missing, print known + repo folders and exit
   if (!argModel) {
-    console.error(
-      chalk.red("\n❌ No model specified. Use --model=<name>.\n")
-    );
+    console.error(chalk.red("\n❌ No model specified. Use --model=<name>.\n"));
     console.log(chalk.white("Available models:"));
     console.log(chalk.white(formatAvailableModels(templates)));
     console.log();

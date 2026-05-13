@@ -24,17 +24,17 @@ The model argument is required. If you omit the project name, you will be prompt
 
 **Arguments:**
 
-| Argument        | Description                                                 |
-| --------------- | ----------------------------------------------------------- |
-| `project-name`  | Name of the project to create (prompted if omitted)         |
+| Argument       | Description                                         |
+| -------------- | --------------------------------------------------- |
+| `project-name` | Name of the project to create (prompted if omitted) |
 
 **Options:**
 
-| Option          | Description                                              |
-| --------------- | -------------------------------------------------------- |
-| `--model`, `-m` | Model to scaffold a project for (required)               |
-| `--token`, `-t` | GitHub token for private repository access (optional)    |
-| `--help`, `-h`  | Show help message                                        |
+| Option          | Description                                           |
+| --------------- | ----------------------------------------------------- |
+| `--model`, `-m` | Model to scaffold a project for (required)            |
+| `--token`, `-t` | GitHub token for private repository access (optional) |
+| `--help`, `-h`  | Show help message                                     |
 
 **Examples:**
 
@@ -56,10 +56,10 @@ npx create-reactor-app my-app --model=helios --token ghp_xxxxxxxxxxxx
 
 Templates live in the public [`reactor-team/reactor-experiments`](https://github.com/reactor-team/reactor-experiments) repository. The CLI ships with a small alias map so common model names resolve to their template folder:
 
-| `--model` value     | Template folder         |
-| ------------------- | ----------------------- |
-| `helios`            | `helios-interactive`    |
-| `film-director`     | `film-director`         |
+| `--model` value | Template folder      |
+| --------------- | -------------------- |
+| `helios`        | `helios-interactive` |
+| `film-director` | `film-director`      |
 
 If you pass a model name that is not in the map, the CLI will look for a folder of that exact name in the templates repo. If neither resolves, it prints the available mappings and folders and exits.
 
