@@ -342,19 +342,45 @@ const unsub = helios.onChunkComplete((msg) => {
   console.log(`Chunk ${msg.chunk_index}: ${msg.frames_emitted} frames`);
 });
 
-// File uploads
+// File uploads — inherited from Reactor
 const ref = await helios.uploadFile(imageBlob);
 await helios.setImage({ image: ref });
+
+// Connection events — inherited from Reactor (`on`/`off`/`emit`/`getStats`/…
+// are all directly callable on the model instance)
+helios.on("statusChanged", (status) => {
+  /* ... */
+});
 
 // Options (optional)
 const heliosLocal = new HeliosModel({ local: true });
 const heliosCustom = new HeliosModel({ apiUrl: "https://custom.api.com" });
-
-// Access the underlying Reactor instance for advanced use
-helios.reactor.on("statusChanged", (status) => {
-  /* ... */
-});
 ```
+
+### Inheritance from `Reactor`
+
+The generated `<Prefix>Model` class **extends `Reactor` directly** rather than wrapping it. Every public method on the SDK's `Reactor` class — `connect`, `disconnect`, `reconnect`, `sendCommand`, `uploadFile`, `publishTrack`, `unpublishTrack`, `on`/`off`/`emit`, the `get*` accessors — is reachable on the model instance with no codegen wrapper involved. Future additions to the SDK (such as the recording client's `requestClip` / `requestRecording` / `downloadClipAsFile`) flow into every generated `<Prefix>Model` the moment downstream packages re-pin to a `js-sdk` version that ships them; no codegen PR or regeneration is required for the _surface_ to expand (only for the typed sugar on top to grow, when new events/messages are added to the model's schema).
+
+For backwards compatibility with code written against the previous composition shape, a deprecated `get reactor(): this` accessor is emitted:
+
+```typescript
+helios.reactor.on("statusChanged", handler); // still works, marked @deprecated
+helios.on("statusChanged", handler); // preferred — directly on the instance
+```
+
+The accessor returns `this` so subclass-only methods (`helios.setPrompt(...)`, etc.) remain reachable through it. It will be removed in a future major version of the generated packages.
+
+#### Maintaining the inheritance contract
+
+The verifier needs to know which method names are reserved so a schema can't declare an event whose camelCase form silently shadows an inherited Reactor method (e.g. an event literally called `send_command`). Rather than maintain a hand-edited list, the verifier **parses `@reactor-team/js-sdk`'s `dist/index.d.ts` at module-load time** and extracts every non-`private`/`protected` method declared on the `Reactor` class — see `loadReactorPublicMethodsFromDts` in [`src/verifier.ts`](src/verifier.ts).
+
+Consequences:
+
+- **Adding a public method to `Reactor`** in the SDK requires zero codegen changes. The next codegen run that resolves to a newer `js-sdk` install picks up the new surface automatically.
+- **The only knob is `defaultSdkVersion`** in this package's `package.json` — it controls which `js-sdk` release generated packages pin to in their `dependencies["@reactor-team/js-sdk"]`. The codegen package itself depends on `@reactor-team/js-sdk` (`workspace:*` in this repo, rewritten to the concrete version on publish) so the d.ts is always reachable at runtime.
+- **TS-private methods are skipped** — the d.ts emission preserves the `private` keyword, and the loader's regex explicitly excludes those, so internal helpers (`setStatus`, `setupTransportHandlers`, …) don't appear as reserved names. They're runtime-reachable on `Reactor.prototype` but not part of the inheritable type surface.
+
+The d.ts shape is uniformly formatted by tsup (4-space class-body indent, visibility keywords preserved); the loader's regex is anchored to that. If a future tsup/api-extractor change alters that shape, the loader's internal floor check ("must find at least `connect`, `disconnect`, `sendCommand`") trips at codegen startup with a pointed error rather than silently shipping an under-protected verifier.
 
 ### Parallel SDP preparation
 

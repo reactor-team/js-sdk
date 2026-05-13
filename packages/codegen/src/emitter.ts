@@ -490,7 +490,6 @@ function generateClientClass(
 ): string {
   const className = `${modelPrefix}Model`;
   const optionsType = `${modelPrefix}Options`;
-  const needsFileRef = events.some(hasUploadRefParam);
   const hasTracks = tracks.length > 0;
 
   const lines: string[] = [];
@@ -498,33 +497,49 @@ function generateClientClass(
   const classDoc = [
     `Strongly-typed client for the ${modelPrefix} model.`,
     "",
-    "Creates a Reactor connection with the model name pre-configured.",
-    "Provides typed methods for every event and typed message listeners.",
+    `Extends {@link Reactor} with the model name (and modelTracks) baked into the`,
+    `constructor, so every public method on Reactor — \`connect\`, \`disconnect\`,`,
+    "`sendCommand`, `on`/`off`, `getStats`, `publishTrack`/`unpublishTrack`,",
+    "etc. — is reachable directly on the instance. The schema-derived sugar",
+    "below adds typed wrappers for every declared event, message, and track.",
   ];
   lines.push(generateJsDoc(classDoc, 0));
-  lines.push(`export class ${className} {`);
-  lines.push(`  readonly reactor: Reactor;`);
-  lines.push("");
+  // `extends Reactor` makes every public Reactor method part of the
+  // subclass's surface for free — including new methods on future
+  // `@reactor-team/js-sdk` releases (e.g. the recording stack). The
+  // verifier's `RESERVED_CLASS_METHODS` set is kept in lockstep with
+  // Reactor's prototype keys (parity test in `verifier.test.ts`) so a
+  // schema event whose camelCase shadows an inherited method is
+  // rejected before it can produce a duplicate-member compile error.
+  lines.push(`export class ${className} extends Reactor {`);
   lines.push(`  constructor(options?: ${optionsType}) {`);
   if (hasTracks) {
-    lines.push(`    this.reactor = new Reactor({`);
+    lines.push(`    super({`);
     lines.push(`      ...options,`);
     lines.push(`      modelName: MODEL_NAME,`);
     lines.push(`      modelTracks: [...${modelPrefix}Tracks],`);
     lines.push(`    });`);
   } else {
-    lines.push(
-      `    this.reactor = new Reactor({ ...options, modelName: MODEL_NAME });`,
-    );
+    lines.push(`    super({ ...options, modelName: MODEL_NAME });`);
   }
   lines.push(`  }`);
   lines.push("");
-  lines.push(`  async connect(jwtToken?: string): Promise<void> {`);
-  lines.push(`    await this.reactor.connect(jwtToken);`);
-  lines.push(`  }`);
-  lines.push("");
-  lines.push(`  async disconnect(): Promise<void> {`);
-  lines.push(`    await this.reactor.disconnect();`);
+  // Backwards-compat alias for the previous composition-based shape
+  // (`model.reactor.X(...)`). Returns `this` so call sites that read
+  // `helios.reactor.on(...)`, `helios.reactor.getStats()`, etc. keep
+  // working without forcing every downstream consumer to migrate in
+  // lockstep with this codegen change. Typed as `this` (not `Reactor`)
+  // so subclass methods stay reachable through the alias.
+  lines.push(
+    indent(
+      generateJsDoc([
+        `@deprecated The model client now extends \`Reactor\` directly — call methods on \`this\` instead. This accessor returns \`this\` for backwards compatibility and will be removed in a future major release.`,
+      ]),
+      1,
+    ),
+  );
+  lines.push(`  get reactor(): this {`);
+  lines.push(`    return this;`);
   lines.push(`  }`);
 
   for (const event of events) {
@@ -556,12 +571,12 @@ function generateClientClass(
         `  async ${methodName}(params: ${paramType}): Promise<void> {`,
       );
       lines.push(
-        `    await this.reactor.sendCommand(${JSON.stringify(event.name)}, params);`,
+        `    await this.sendCommand(${JSON.stringify(event.name)}, params);`,
       );
     } else {
       lines.push(`  async ${methodName}(): Promise<void> {`);
       lines.push(
-        `    await this.reactor.sendCommand(${JSON.stringify(event.name)}, {});`,
+        `    await this.sendCommand(${JSON.stringify(event.name)}, {});`,
       );
     }
     lines.push(`  }`);
@@ -581,8 +596,8 @@ function generateClientClass(
     lines.push(`    const wrappedHandler = (raw: unknown) => {`);
     lines.push(`      handler(_unwrapMessage<${modelPrefix}Message>(raw));`);
     lines.push(`    };`);
-    lines.push(`    this.reactor.on("message", wrappedHandler);`);
-    lines.push(`    return () => this.reactor.off("message", wrappedHandler);`);
+    lines.push(`    this.on("message", wrappedHandler);`);
+    lines.push(`    return () => this.off("message", wrappedHandler);`);
     lines.push(`  }`);
 
     for (const message of messages) {
@@ -610,20 +625,15 @@ function generateClientClass(
     }
   }
 
-  if (needsFileRef) {
-    lines.push("");
-    const uploadDoc = [
-      "Upload a file and get a FileRef for use in events.",
-      "@param file - File or Blob to upload",
-      "@param options - Optional name override",
-    ];
-    lines.push(indent(generateJsDoc(uploadDoc), 1));
-    lines.push(
-      `  async uploadFile(file: File | Blob, options?: { name?: string }): Promise<FileRef> {`,
-    );
-    lines.push(`    return this.reactor.uploadFile(file, options);`);
-    lines.push(`  }`);
-  }
+  // Note: `uploadFile` is inherited from `Reactor` directly — every
+  // generated class gets it via `extends Reactor` without a typed
+  // wrapper here. Earlier revisions of this emitter emitted a thin
+  // passthrough so the method only appeared when the schema declared
+  // an upload-reference event; with inheritance that conditional is
+  // moot (the method always exists on the base class). The
+  // `<Prefix>Options` type and `FileRef` re-export are still gated on
+  // `needsFileRef` because they're authored at the generated-package
+  // level, not inherited.
 
   // Typed track helpers — one publish/unpublish pair per sendonly track
   // and one `on<Name>` subscription per recvonly track. Keeps the
@@ -631,10 +641,10 @@ function generateClientClass(
   // messages ({model}.onFoo(...)) so consumers never hand-write a
   // track name as a string literal.
   //
-  // The generic `reactor.publishTrack(name, ...)` /
-  // `reactor.on("trackReceived", ...)` APIs remain reachable through
-  // `{model}.reactor` for callers that need to pass a dynamic name —
-  // this generator only emits per-schema sugar.
+  // The generic `publishTrack(name, ...)` / `on("trackReceived", ...)`
+  // APIs remain reachable directly on `this` (inherited from Reactor)
+  // for callers that need to pass a dynamic name — this generator only
+  // emits per-schema sugar.
   for (const track of sendonlyTracks(tracks)) {
     const pascal = toPascalCase(track.name);
     const kindNote = track.kind === "audio" ? " audio" : " video";
@@ -655,7 +665,7 @@ function generateClientClass(
       `  async publish${pascal}(track: MediaStreamTrack): Promise<void> {`,
     );
     lines.push(
-      `    await this.reactor.publishTrack(${JSON.stringify(track.name)}, track);`,
+      `    await this.publishTrack(${JSON.stringify(track.name)}, track);`,
     );
     lines.push(`  }`);
 
@@ -671,9 +681,7 @@ function generateClientClass(
       ),
     );
     lines.push(`  async unpublish${pascal}(): Promise<void> {`);
-    lines.push(
-      `    await this.reactor.unpublishTrack(${JSON.stringify(track.name)});`,
-    );
+    lines.push(`    await this.unpublishTrack(${JSON.stringify(track.name)});`);
     lines.push(`  }`);
   }
 
@@ -702,8 +710,8 @@ function generateClientClass(
       `      if (name === ${JSON.stringify(track.name)}) handler(t, s);`,
     );
     lines.push(`    };`);
-    lines.push(`    this.reactor.on("trackReceived", wrapped);`);
-    lines.push(`    return () => this.reactor.off("trackReceived", wrapped);`);
+    lines.push(`    this.on("trackReceived", wrapped);`);
+    lines.push(`    return () => this.off("trackReceived", wrapped);`);
     lines.push(`  }`);
   }
 
