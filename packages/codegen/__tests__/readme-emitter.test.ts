@@ -94,6 +94,70 @@ describe("README emission", () => {
     // invariant that {{ ... }} object literals survive substitution.
   });
 
+  it("advertises React 19's `use()` pattern for the token promise (REA-2219)", () => {
+    // The template documents a single canonical token-fetch pattern,
+    // aligned with the public docs at https://docs.reactor.inc:
+    //
+    //     async function getToken() {
+    //       const r = await fetch("/api/reactor/token", { method: "POST" });
+    //       const { jwt } = await r.json();
+    //       return jwt;
+    //     }
+    //     const tokenPromise = getToken();
+    //
+    //     export default function App() {
+    //       const token = use(tokenPromise);
+    //       return <Provider jwtToken={token}>…</Provider>;
+    //     }
+    //
+    // This:
+    //   - removes the `useEffect` + `useState` + null-check dance
+    //     consumers were copy-pasting from the old template
+    //   - leans on the consumer's existing Suspense boundary (Next.js
+    //     app dir / React Router data router / framework default)
+    //     rather than wiring one inside our snippet
+    //   - is the contemporary React 19 idiom for sync data
+    //
+    // A regression to the old `useEffect` pattern would silently break
+    // the contract — both branches of the docs (Authenticate +
+    // Connect) need to stay aligned, so we pin both.
+    const md = readmeFor();
+
+    // Imports: just `use` from "react", not `useEffect`/`useState`.
+    expect(md).toContain('import { use } from "react";');
+
+    // No `useEffect` / `useState` in the emitted CODE BLOCKS — the
+    // prose note above the examples is allowed to reference them as
+    // the React 18 fallback path, but a code-block occurrence would
+    // mean the old pattern crept back into the canonical example.
+    // Extract every fenced code block and assert on those, not the
+    // whole document.
+    const codeBlocks = [...md.matchAll(/```[a-z]*\n([\s\S]*?)```/g)].map(
+      (m) => m[1],
+    );
+    expect(codeBlocks.length).toBeGreaterThan(0);
+    for (const block of codeBlocks) {
+      expect(block).not.toContain("useEffect");
+      expect(block).not.toContain("useState");
+    }
+
+    // The promise comes from an `async function getToken()` helper at
+    // module scope; the canonical fetch call stays
+    // `/api/reactor/token` (matches the Next.js route handler above).
+    expect(md).toContain("async function getToken() {");
+    expect(md).toContain('fetch("/api/reactor/token", { method: "POST" })');
+    expect(md).toContain("const tokenPromise = getToken();");
+
+    // `use(tokenPromise)` is read inside the component body and the
+    // result is bound to `token`.
+    expect(md).toContain("const token = use(tokenPromise);");
+
+    // The note above the examples calls out the React 19 requirement
+    // and points React 18 users back at the older pattern.
+    expect(md).toMatch(/React 19/);
+    expect(md).toMatch(/React 18/);
+  });
+
   it("renders one section per event with a param table + JS/React snippets", () => {
     const md = readmeFor({
       events: [
