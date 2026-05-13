@@ -9,6 +9,7 @@ import type {
   TrackSchema,
 } from "./types.js";
 import { generateReadme } from "./readme-emitter.js";
+import { loadReactorStoreFieldsFromDts } from "./sdk-surface.js";
 
 // ---------------------------------------------------------------------------
 // String helpers
@@ -466,20 +467,30 @@ function generateTrackTypes(
 // ---------------------------------------------------------------------------
 
 function generateOptionsType(modelPrefix: string): string {
-  const lines: string[] = [];
-  lines.push(
+  // Derived from Reactor's own constructor parameter type rather than
+  // a hand-rolled `{ apiUrl?, local? }` literal, so any future option
+  // the SDK adds to `Reactor`'s constructor flows through to
+  // `<Prefix>Model`'s constructor signature with no codegen edit.
+  // `modelName` and `modelTracks` are always supplied by this class
+  // (we bake them in via `super(...)`), so they're stripped from the
+  // user-facing options surface.
+  return (
     generateJsDoc(
       [
         `Options for creating a ${modelPrefix}Model (model name is set automatically).`,
+        "",
+        "Derived from `Reactor`'s own constructor options with `modelName`",
+        "and `modelTracks` removed — those are supplied by this class.",
+        "Any new option the SDK adds appears here automatically on the",
+        "next `defaultSdkVersion` bump.",
       ],
       0,
-    ),
+    ) +
+    `export type ${modelPrefix}Options = Omit<\n` +
+    `  ConstructorParameters<typeof Reactor>[0],\n` +
+    `  "modelName" | "modelTracks"\n` +
+    `>;`
   );
-  lines.push(`export interface ${modelPrefix}Options {`);
-  lines.push(`  apiUrl?: string;`);
-  lines.push(`  local?: boolean;`);
-  lines.push("}");
-  return lines.join("\n");
 }
 
 function generateClientClass(
@@ -781,11 +792,32 @@ function generateReactHooksForMessages(
 function generateUseModelHook(
   modelPrefix: string,
   events: EventSchema[],
+  storeFields: ReadonlySet<string>,
 ): string {
   const hookName = `use${modelPrefix}`;
-  const needsFileRef = events.some(hasUploadRefParam);
 
-  const methods: string[] = [];
+  // One `useReactor((s) => s.X)` selector per non-internal field on
+  // the SDK's `ReactorStore` (d.ts-derived in `verifier.ts` and
+  // threaded through here). Fine-grained selectors preserve Zustand's
+  // shallow re-render scoping — consumers only re-render when the
+  // specific store field they read changes — vs. a single
+  // `(s) => s` selector which would re-render on every store update.
+  //
+  // The schema-derived typed event methods (and `sendCommand`-bound
+  // wrappers) are layered ON TOP of the store fields in the returned
+  // object literal, so an event named `connect` (rejected by the
+  // verifier) would shadow the inherited store selector and produce
+  // a duplicate-key compile error — the verifier rejects pre-emit so
+  // the failure surfaces as a schema problem.
+  const sortedStoreFields = [...storeFields].sort();
+  const selectorLines = sortedStoreFields.map(
+    (name) => `  const ${name} = useReactor((s) => s.${name});`,
+  );
+
+  // Schema-derived typed event methods. Each one re-emits the
+  // sendCommand call against the matching event name, bound to the
+  // store's `sendCommand` field captured above.
+  const typedMethodLines: string[] = [];
   for (const event of events) {
     const methodName = toCamelCase(event.name);
     const fields = Object.entries(event.fields);
@@ -794,66 +826,55 @@ function generateUseModelHook(
       : undefined;
 
     if (paramType) {
-      methods.push(
+      typedMethodLines.push(
         `    ${methodName}: (params: ${paramType}): Promise<void> =>
       sendCommand(${JSON.stringify(event.name)}, params),`,
       );
     } else {
-      methods.push(
+      typedMethodLines.push(
         `    ${methodName}: (): Promise<void> =>
       sendCommand(${JSON.stringify(event.name)}, {}),`,
       );
     }
   }
 
-  if (needsFileRef) {
-    methods.push(
-      `    uploadFile: (
-      file: File | Blob,
-      options?: { name?: string },
-    ): Promise<FileRef> => uploadFile(file, options),`,
-    );
-  }
+  // Return-object construction. The store fields are spread first via
+  // shorthand identifiers; the typed event methods then layer on top.
+  // Sorting the field list keeps the emitted source deterministic
+  // across regenerations even if the d.ts loader's underlying Set
+  // iteration order shifts.
+  const returnBody = [
+    ...sortedStoreFields.map((name) => `    ${name},`),
+    ...typedMethodLines,
+  ].join("\n");
 
   const doc = generateJsDoc(
     [
       `Access the ${modelPrefix} model as typed commands bound to the nearest`,
-      `{@link ${modelPrefix}Provider}. Re-renders when \`status\` changes.`,
+      `{@link ${modelPrefix}Provider}.`,
       "",
-      "Returns the full action surface — connection `status`, `connect` /",
-      "`disconnect` for manual lifecycle control, one method per model event" +
-        (needsFileRef ? ", and `uploadFile` for upload-reference params" : "") +
-        ".",
+      "Returns the full action surface — every public field on the SDK's",
+      "`ReactorStore` (`status`, `sessionId`, `connect`, `disconnect`,",
+      "`sendCommand`, `uploadFile`, `publish`, `unpublish`, `reconnect`,",
+      "…) is exposed automatically, alongside one typed method per",
+      "model event.",
       "",
-      "`connect` / `disconnect` are pulled off the store so consumers using",
-      `\`<${modelPrefix}Provider>\` with \`autoConnect: false\` (or manual reconnect`,
-      "flows) don't have to reach for the raw `useReactor` hook themselves,",
-      "which in turn would force `@reactor-team/js-sdk` to be a direct",
-      "dependency instead of a transitive one through this package.",
+      "Fields are pulled off the store one at a time so Zustand's",
+      "shallow-equality selector keeps each subscription scoped — a",
+      "component reading only `status` doesn't re-render when",
+      "`sessionExpiration` changes. Future SDK releases that add new",
+      "store fields flow into this hook on the next codegen run with no",
+      "hand-edit (the field list is derived from `js-sdk`'s d.ts via",
+      "`loadReactorStoreFieldsFromDts` in `sdk-surface.ts`).",
     ],
     0,
   );
 
-  // `connect` / `disconnect` are pulled off the store so consumers using
-  // `<Prefix>Provider` with `autoConnect: false` (or any manual reconnect
-  // flow) don't have to reach for `useReactor` themselves. Function
-  // identities are stable across renders because they're Zustand actions.
   return `${doc}export function ${hookName}() {
-  const sendCommand = useReactor((s) => s.sendCommand);${
-    needsFileRef
-      ? `
-  const uploadFile = useReactor((s) => s.uploadFile);`
-      : ""
-  }
-  const connect = useReactor((s) => s.connect);
-  const disconnect = useReactor((s) => s.disconnect);
-  const status = useReactor((s) => s.status);
+${selectorLines.join("\n")}
 
   return {
-    status,
-    connect,
-    disconnect,
-${methods.join("\n")}
+${returnBody}
   };
 }`;
 }
@@ -863,7 +884,6 @@ function generateProviderComponent(
   hasTracks: boolean,
 ): string {
   const providerName = `${modelPrefix}Provider`;
-  const optionsType = `${modelPrefix}Options`;
 
   const doc = generateJsDoc(
     [
@@ -878,13 +898,24 @@ function generateProviderComponent(
     0,
   );
 
-  const providerProps = `{
-  apiUrl,
-  local,
-  jwtToken,
-  connectOptions,
-  children,
-}: ${providerName}Props`;
+  // Props type derived from `ReactorProvider` itself — every prop the
+  // SDK supports flows through automatically, minus the two we own
+  // (`modelName`, `modelTracks`). When `ReactorProvider` gains a new
+  // prop on a future SDK release, consumers of `<Prefix>Provider`
+  // get access to it on the next `defaultSdkVersion` bump without
+  // any codegen edit. `Parameters<typeof ReactorProvider>[0]` works
+  // even when the SDK's `ReactorProviderProps` interface itself isn't
+  // exported (TS extracts the resolved structural type from the
+  // function signature).
+  const propsDoc = generateJsDoc(
+    [
+      `Props for the {@link ${providerName}} component.`,
+      "",
+      "Derived from `ReactorProvider`'s own props, with `modelName` and",
+      "`modelTracks` stripped — those are supplied by this provider.",
+    ],
+    0,
+  );
 
   // `children` is passed as `createElement`'s third positional
   // argument rather than as a key inside the props object. Both forms
@@ -896,38 +927,34 @@ function generateProviderComponent(
   //
   // The third-arg form only compiles against @types/react's
   // overloads when the component's prop type doesn't declare
-  // `children` as a required field — the overload's second arg is
-  // typed `Attributes & P | null`, so a required `children: ReactNode`
-  // forces every callsite to put `children` in the props object. The
-  // SDK's `ReactorProviderProps` declares `children?: ReactNode` for
-  // exactly this reason; if that's ever tightened back to required,
-  // this emitter has to fall back to the in-props form with a
-  // targeted `eslint-disable-next-line react/no-children-prop`
-  // comment. Pinned by a regression test in `emitter.test.ts`.
-  const reactorProviderProps = [
-    `      apiUrl: apiUrl,`,
-    `      local: local,`,
-    `      modelName: MODEL_NAME,`,
-  ];
-  if (hasTracks) {
-    reactorProviderProps.push(`      modelTracks: [...${modelPrefix}Tracks],`);
-  }
-  reactorProviderProps.push(
-    `      jwtToken: jwtToken,`,
-    `      connectOptions: connectOptions,`,
-  );
+  // `children` as a required field. The SDK's `ReactorProviderProps`
+  // declares `children?: ReactNode` (since js-sdk 2.9.3); if that's
+  // ever tightened back to required, this emitter has to fall back to
+  // the in-props form with a targeted `eslint-disable-next-line
+  // react/no-children-prop` comment. Pinned by a regression test in
+  // `emitter.test.ts`.
+  //
+  // Everything other than `children` is forwarded via `...rest`
+  // spread, so a future `ReactorProvider` prop addition reaches
+  // through without renaming each field by hand.
+  const tracksProp = hasTracks
+    ? `\n      modelTracks: [...${modelPrefix}Tracks],`
+    : "";
 
-  return `export interface ${providerName}Props extends ${optionsType} {
-  jwtToken?: string;
-  connectOptions?: ReactorConnectOptions;
-  children: ReactNode;
-}
+  return `${propsDoc}export type ${providerName}Props = Omit<
+  Parameters<typeof ReactorProvider>[0],
+  "modelName" | "modelTracks"
+>;
 
-${doc}export function ${providerName}(${providerProps}): ReactElement {
+${doc}export function ${providerName}({
+  children,
+  ...rest
+}: ${providerName}Props): ReactElement {
   return createElement(
     ReactorProvider,
     {
-${reactorProviderProps.join("\n")}
+      ...rest,
+      modelName: MODEL_NAME,${tracksProp}
     },
     children,
   );
@@ -973,7 +1000,6 @@ function generateReactFile(options: CodegenOptions): string {
   const emitsTrackHook = recv.length > 0;
   const emitsViewComponents = recvVideo.length > 0;
   const emitsPublisherComponents = sendVideo.length > 0;
-  const needsFileRef = events.some(hasUploadRefParam);
 
   const sections: string[] = [];
 
@@ -990,19 +1016,23 @@ function generateReactFile(options: CodegenOptions): string {
   sections.push("");
 
   // React imports. `createElement` lets us stay in `.ts` (no JSX).
-  sections.push(
-    `import { createElement, type ReactElement, type ReactNode } from "react";`,
-  );
+  // `ReactNode` is no longer named in the emitted source — the
+  // `<Prefix>ProviderProps` type derives from `ReactorProvider`'s
+  // own props, so `children` lives inside that resolved type and we
+  // don't need a separate alias here.
+  sections.push(`import { createElement, type ReactElement } from "react";`);
 
   // SDK imports. We only import what the emitted surface actually uses so
-  // tree-shaking in the consumer project stays tight.
+  // tree-shaking in the consumer project stays tight. `Parameters<typeof
+  // ReactorProvider>[0]` (used by the derived props type) needs the
+  // value-level `ReactorProvider` in scope, which we already import.
+  // `ReactorConnectOptions` / `FileRef` are no longer named directly
+  // here — they flow through the derived prop / store-field types.
   const sdkImports = [
     "ReactorProvider",
     "useReactor",
     ...(messages.length > 0 ? ["useReactorMessage"] : []),
-    "type ReactorConnectOptions",
   ];
-  if (needsFileRef) sdkImports.push("type FileRef");
   if (emitsViewComponents)
     sdkImports.push("ReactorView", "type ReactorViewProps");
   if (emitsPublisherComponents)
@@ -1055,8 +1085,14 @@ function generateReactFile(options: CodegenOptions): string {
   sections.push(generateProviderComponent(modelPrefix, hasTracks));
   sections.push("");
 
-  // use<Prefix>() hook.
-  sections.push(generateUseModelHook(modelPrefix, events));
+  // use<Prefix>() hook. Store-field selectors are derived from the
+  // installed js-sdk's d.ts (same source of truth as the verifier's
+  // RESERVED_HOOK_FIELDS), so a future SDK release that adds a field
+  // to `ReactorState` / `ReactorActions` shows up here on the next
+  // codegen run with no hand-edit.
+  sections.push(
+    generateUseModelHook(modelPrefix, events, loadReactorStoreFieldsFromDts()),
+  );
 
   // Per-message hooks.
   if (messages.length > 0) {

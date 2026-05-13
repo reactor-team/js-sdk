@@ -1076,7 +1076,12 @@ describe("React emission — on via react: true", () => {
   it("Provider omits modelTracks for schemas without tracks", () => {
     const react = reactSource({ tracks: [] });
     expect(react).toContain("export function HeliosProvider(");
-    expect(react).not.toContain("modelTracks");
+    // The class-level JSDoc on the Provider references `modelTracks`
+    // generically — we're asserting the *prop emit* is absent, not
+    // the doc text. Look for the actual `modelTracks: [...XTracks]`
+    // line that only appears when `hasTracks` is true.
+    expect(react).not.toContain("modelTracks: [...");
+    expect(react).not.toContain("HeliosTracks");
   });
 
   it("emits a useHelios() hook with a typed method per event", () => {
@@ -1092,6 +1097,9 @@ describe("React emission — on via react: true", () => {
     });
 
     expect(react).toContain("export function useHelios()");
+    // Store-field selector for sendCommand is derived from the SDK's
+    // `ReactorActions` interface in the d.ts; every typed event method
+    // below it calls the captured `sendCommand` directly.
     expect(react).toContain(
       "const sendCommand = useReactor((s) => s.sendCommand);",
     );
@@ -1102,6 +1110,66 @@ describe("React emission — on via react: true", () => {
     expect(react).toContain("start: (): Promise<void>");
     expect(react).toContain('sendCommand("start", {})');
     expect(react).toContain("status,");
+  });
+
+  it("derives the full store surface — every public field on ReactorState/ReactorActions appears as a selector", () => {
+    // This pins the d.ts-derivation contract. The list below is a
+    // *snapshot* of what `ReactorState & ReactorActions` exposes on
+    // the currently-pinned `defaultSdkVersion`. New fields the SDK
+    // adds will fail this test — at which point the fix is to extend
+    // the expected list to match the new shape (and rely on the
+    // verifier's floor check to confirm the canonical fields are
+    // still present).
+    //
+    // The point isn't to gold-master the entire surface forever; it's
+    // to make a deliberate decision the day the SDK widens the
+    // contract.
+    const react = reactSource({
+      events: [{ name: "start", description: "", fields: {} }],
+    });
+    for (const field of [
+      // ReactorState
+      "status",
+      "sessionId",
+      "sessionExpiration",
+      "lastError",
+      "tracks",
+      "jwtToken",
+      // ReactorActions
+      "connect",
+      "disconnect",
+      "reconnect",
+      "sendCommand",
+      "uploadFile",
+      "publish",
+      "unpublish",
+    ]) {
+      expect(react).toContain(
+        `const ${field} = useReactor((s) => s.${field});`,
+      );
+    }
+    // None of the schema-derived methods should accidentally shadow
+    // a store selector — that's the verifier's job, but pinning the
+    // observable effect here documents the invariant.
+    expect(react).not.toContain("connect: (");
+    expect(react).not.toContain("disconnect: (");
+  });
+
+  it("emits `<Prefix>Options` and `<Prefix>ProviderProps` as type aliases derived from Reactor / ReactorProvider", () => {
+    // The old shape was a hand-rolled `interface` per type. Type
+    // aliases let us project from the SDK's own types via
+    // `Omit<Parameters<typeof X>[0], ...>`, so new SDK constructor
+    // options / provider props flow through without a codegen edit.
+    const react = reactSource({
+      tracks: [{ name: "main", kind: "video", direction: "out" }],
+    });
+    expect(react).toContain("export type HeliosProviderProps = Omit<");
+    expect(react).toContain("Parameters<typeof ReactorProvider>[0]");
+    expect(react).toContain(`"modelName" | "modelTracks"`);
+    // Provider body uses `{ children, ...rest }` spread, not named
+    // forwarding — the rest spread is what guarantees future
+    // ReactorProvider props pass through without a codegen edit.
+    expect(react).toContain("...rest");
   });
 
   it("exposes connect + disconnect on useHelios() so consumers don't need @reactor-team/js-sdk directly", () => {
@@ -1124,7 +1192,14 @@ describe("React emission — on via react: true", () => {
     expect(react).toMatch(/return\s*\{[\s\S]*\bdisconnect,[\s\S]*\}/);
   });
 
-  it("exposes uploadFile only when events use upload references", () => {
+  it("exposes uploadFile on useHelios() unconditionally — it's a store field", () => {
+    // Old behaviour: the codegen emitted a typed `uploadFile` wrapper
+    // ONLY when an event took an upload-reference param. That gated
+    // the SDK's actual `uploadFile` action behind a schema feature
+    // it has no logical dependency on. The new shape derives store
+    // selectors from the SDK's d.ts (`ReactorActions`), so
+    // `uploadFile` — like every other store action — is always
+    // reachable on `useHelios()` regardless of schema content.
     const withUpload = reactSource({
       events: [
         {
@@ -1140,12 +1215,19 @@ describe("React emission — on via react: true", () => {
       events: [{ name: "start", description: "", fields: {} }],
     });
 
-    expect(withUpload).toContain(
-      "const uploadFile = useReactor((s) => s.uploadFile);",
-    );
-    expect(withUpload).toContain("uploadFile: (");
-    expect(withUpload).toContain("type FileRef");
-    expect(withoutUpload).not.toContain("s.uploadFile");
+    for (const src of [withUpload, withoutUpload]) {
+      expect(src).toContain(
+        "const uploadFile = useReactor((s) => s.uploadFile);",
+      );
+      // Both source files include `uploadFile` shorthand in the return
+      // object, but match it with a comma boundary so the assertion
+      // doesn't accidentally also match a typed wrapper line.
+      expect(src).toMatch(/uploadFile,/);
+    }
+    // The React file no longer names `FileRef` — events that take a
+    // FileRef get their `<Prefix><Event>Params` interface emitted in
+    // `index.ts` and the hook just passes it through `sendCommand(...)`.
+    expect(withUpload).not.toContain("type FileRef");
     expect(withoutUpload).not.toContain("type FileRef");
   });
 
