@@ -327,7 +327,9 @@ function resolveStandaloneOutputPath(output: string): string {
  *     `.ts` regardless of `moduleResolution` setting.
  */
 function resolveStandaloneReactPath(standaloneOutput: string): string {
-  return standaloneOutput.replace(/\.ts$/, ".react.ts");
+  // The React sibling is a `.tsx` file (real JSX), not `.ts`. Strip
+  // the main file's `.ts` extension and append `.react.tsx`.
+  return standaloneOutput.replace(/\.ts$/, ".react.tsx");
 }
 
 /**
@@ -440,63 +442,61 @@ async function runGenerate(argv: string[]): Promise<void> {
   });
 
   if (args.standalone) {
-    // Standalone mode is intentionally narrow: pluck only the source files
-    // off the generated package and drop them at --output. Skipping the
-    // package scaffold (package.json, tsup.config.ts, tsconfig.json) keeps
-    // the emitter as the single source of truth for what a typed client
+    // Standalone mode is intentionally narrow: pluck only the source
+    // files off the generated package and drop them at --output.
+    // Skipping the package scaffold (package.json, tsup.config.ts,
+    // tsconfig.json, the `src/index.ts` re-export hub) keeps the
+    // emitter as the single source of truth for what a typed client
     // looks like — we never diverge the "drop-in .ts" from the "full
     // package" output.
     //
-    // With --react we also emit the sibling React file. The emitter's
-    // default cross-imports use the full-package filenames
-    // (`./index.js`, `./react.js`); in standalone mode the chosen
-    // basename can be anything, so both sides of the pair are rewritten
-    // to the sibling's actual basename before writing.
-    const indexFile = pkg.files.find((f) => f.path === "src/index.ts");
-    if (!indexFile) {
-      // Defensive: the emitter always emits src/index.ts first; if that
-      // ever changes, fail loudly rather than silently write an empty file.
+    // The "core" file (`src/core.ts` in the package) IS the standalone
+    // file's content — the package-mode re-export hub is unnecessary
+    // when the consumer controls the import path themselves.
+    //
+    // With --react we also emit the sibling React file. The
+    // emitter's default cross-import uses the package-mode path
+    // `./core.js`; in standalone mode the chosen basename can be
+    // anything, so we rewrite the import to point at the actual
+    // sibling.
+    const coreFile = pkg.files.find((f) => f.path === "src/core.ts");
+    if (!coreFile) {
+      // Defensive: the emitter always emits src/core.ts; if that
+      // ever changes, fail loudly rather than silently write an
+      // empty file.
       throw new Error(
-        "Internal error: generated package is missing src/index.ts",
+        "Internal error: generated package is missing src/core.ts",
       );
     }
 
     const outputFile = path.resolve(resolveStandaloneOutputPath(args.output));
     const reactFile = args.react
-      ? pkg.files.find((f) => f.path === "src/react.ts")
+      ? pkg.files.find((f) => f.path === "src/react.tsx")
       : undefined;
     const reactOutputFile = args.react
       ? resolveStandaloneReactPath(outputFile)
       : undefined;
     const mainBasename = path.basename(outputFile).replace(/\.ts$/, "");
-    const reactBasename = reactOutputFile
-      ? path.basename(reactOutputFile).replace(/\.ts$/, "")
-      : undefined;
-    // `resolveStandaloneReactPath` always produces `<main>.react.ts`,
-    // so in standalone mode the sibling's basename is never literally
-    // `react` — we can unconditionally rewrite the main file's
-    // re-export path. The React-side back-import (`./index.js`) is
-    // also unconditionally rewritten so the `.js` extension gets
-    // stripped even when the main basename is the default `index`
-    // (see `resolveStandaloneReactPath` for why standalone never
-    // emits `.js`).
-    const indexContent =
-      args.react && reactBasename
-        ? indexFile.content.replace(
-            /export \* from "\.\/react\.js";/g,
-            `export * from "./${reactBasename}";`,
-          )
-        : indexFile.content;
+
+    // The main standalone file is the core content verbatim — no
+    // rewriting needed, since the core file never imports from a
+    // sibling (only from `@reactor-team/js-sdk`). The React file,
+    // when present, imports from `./core.js` in package mode; in
+    // standalone we rewrite that to point at the actual main file's
+    // basename. Dropping the `.js` extension lets the consumer's
+    // bundler resolve the sibling `.ts` regardless of `moduleResolution`
+    // setting (see `resolveStandaloneReactPath` for the same logic).
+    const mainContent = coreFile.content;
     const reactContent = reactFile
       ? reactFile.content.replace(
-          /from "\.\/index\.js"/g,
+          /from "\.\/core\.js"/g,
           `from "./${mainBasename}"`,
         )
       : undefined;
 
     if (args.dryRun) {
       console.log(`--- ${outputFile} ---`);
-      console.log(indexContent);
+      console.log(mainContent);
       console.log();
       if (reactContent && reactOutputFile) {
         console.log(`--- ${reactOutputFile} ---`);
@@ -508,7 +508,7 @@ async function runGenerate(argv: string[]): Promise<void> {
     }
 
     fs.mkdirSync(path.dirname(outputFile), { recursive: true });
-    fs.writeFileSync(outputFile, indexContent, "utf-8");
+    fs.writeFileSync(outputFile, mainContent, "utf-8");
     console.log(`Generated standalone source at ${outputFile}`);
     if (reactContent && reactOutputFile) {
       fs.writeFileSync(reactOutputFile, reactContent, "utf-8");
@@ -524,12 +524,12 @@ async function runGenerate(argv: string[]): Promise<void> {
         `  react >=18 is required (the hooks file imports from "react")`,
       );
     }
-    console.log(
-      `  Import the Model class` +
-        (args.react ? ", Provider, and hooks " : " ") +
-        `from ${outputFile}` +
-        (args.react ? " — the main file re-exports the React bindings" : ""),
-    );
+    if (args.react && reactOutputFile) {
+      console.log(`  Import the Model class from ${outputFile}`);
+      console.log(`  Import the Provider and hooks from ${reactOutputFile}`);
+    } else {
+      console.log(`  Import the Model class from ${outputFile}`);
+    }
     return;
   }
 

@@ -769,7 +769,7 @@ describe("generateModelSdk integration", () => {
       outputDir: "./out",
     });
 
-    const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    const src = pkg.files.find((f) => f.path === "src/core.ts")!.content;
     // The zero-width char is stripped before reaching the emitter.
     expect(src).not.toContain("\u200B");
   });
@@ -796,7 +796,7 @@ describe("generateModelSdk integration", () => {
       outputDir: "./out",
     });
 
-    const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    const src = pkg.files.find((f) => f.path === "src/core.ts")!.content;
     const pkgJson = JSON.parse(
       pkg.files.find((f) => f.path === "package.json")!.content,
     );

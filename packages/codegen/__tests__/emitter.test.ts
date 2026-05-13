@@ -548,6 +548,7 @@ describe("generateModelSdk", () => {
     expect(pkg.files.map((f) => f.path).sort()).toEqual([
       "README.md",
       "package.json",
+      "src/core.ts",
       "src/index.ts",
       "tsconfig.json",
       "tsup.config.ts",
@@ -596,9 +597,9 @@ describe("generateModelSdk", () => {
       outputDir: "/tmp/ignored",
     });
 
-    const withSrc = withUpload.files.find((f) => f.path === "src/index.ts")!;
+    const withSrc = withUpload.files.find((f) => f.path === "src/core.ts")!;
     const withoutSrc = withoutUpload.files.find(
-      (f) => f.path === "src/index.ts",
+      (f) => f.path === "src/core.ts",
     )!;
 
     expect(withSrc.content).toContain(
@@ -639,7 +640,7 @@ describe("generateModelSdk", () => {
       outputDir: "/tmp/ignored",
     });
 
-    const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    const src = pkg.files.find((f) => f.path === "src/core.ts")!.content;
     expect(src).toContain(
       "async schedulePrompt(params: HeliosSchedulePromptParams)",
     );
@@ -662,7 +663,7 @@ describe("generateModelSdk", () => {
       outputDir: "/tmp/ignored",
     });
 
-    const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    const src = pkg.files.find((f) => f.path === "src/core.ts")!.content;
     expect(src).toContain(
       "onMessage(handler: (message: HeliosMessage) => void)",
     );
@@ -684,7 +685,7 @@ describe("generateModelSdk", () => {
       schema: schema({ modelName: "waypoint", modelVersion: "v0.0.0" }),
       outputDir: "/tmp/ignored",
     });
-    const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    const src = pkg.files.find((f) => f.path === "src/core.ts")!.content;
     expect(src).toContain("// Model: waypoint v0.0.0");
     expect(src).not.toContain("vv0.0.0");
     expect(src).toContain('export const MODEL_VERSION = "v0.0.0" as const;');
@@ -698,7 +699,7 @@ describe("generateModelSdk", () => {
       schema: schema({ modelVersion: "1.2.3" }),
       outputDir: "/tmp/ignored",
     });
-    const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    const src = pkg.files.find((f) => f.path === "src/core.ts")!.content;
     expect(src).toContain("// Model: helios v1.2.3");
     expect(src).toContain('export const MODEL_VERSION = "1.2.3" as const;');
   });
@@ -720,7 +721,7 @@ describe("generateModelSdk", () => {
     );
     expect(pkgJson.version).toBe("0.0.0");
 
-    const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    const src = pkg.files.find((f) => f.path === "src/core.ts")!.content;
     expect(src).toContain('export const MODEL_VERSION = "v0.0.0" as const;');
   });
 
@@ -757,7 +758,7 @@ describe("generateModelSdk", () => {
       outputDir: "/tmp/ignored",
     });
 
-    const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    const src = pkg.files.find((f) => f.path === "src/core.ts")!.content;
     expect(src).toContain("// Model: helios v0.8.3");
     expect(src).not.toContain("g404f6950");
     expect(src).toContain('export const MODEL_VERSION = "v0.8.3" as const;');
@@ -783,7 +784,7 @@ describe("generateModelSdk", () => {
       outputDir: "/tmp/ignored",
     });
 
-    const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    const src = pkg.files.find((f) => f.path === "src/core.ts")!.content;
     expect(src).toContain("modelTracks: [...HeliosTracks]");
     expect(src).toContain("export const HeliosTracks = [");
     expect(src).toContain('direction: "recvonly"');
@@ -798,7 +799,7 @@ describe("generateModelSdk", () => {
       outputDir: "/tmp/ignored",
     });
 
-    const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    const src = pkg.files.find((f) => f.path === "src/core.ts")!.content;
     // Look for the property-emit form (`modelTracks: [...HeliosTracks]`)
     // and the tracks constant array, both of which are guarded on
     // `hasTracks`. We intentionally do NOT match the bare word
@@ -864,7 +865,7 @@ describe("emitter — inheritance shape", () => {
       }),
       outputDir: "/tmp/ignored",
     });
-    return pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    return pkg.files.find((f) => f.path === "src/core.ts")!.content;
   }
 
   it("emits `extends Reactor` on the class header", () => {
@@ -951,15 +952,15 @@ describe("React emission — off by default", () => {
       outputDir: "/tmp/ignored",
     });
     // No sibling React file, and no re-export hook in the main file.
-    expect(pkg.files.find((f) => f.path === "src/react.ts")).toBeUndefined();
-    const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    expect(pkg.files.find((f) => f.path === "src/react.tsx")).toBeUndefined();
+    const src = pkg.files.find((f) => f.path === "src/core.ts")!.content;
     expect(src).not.toContain('"use client";');
     expect(src).not.toContain('from "react"');
     expect(src).not.toContain("ReactorProvider");
     expect(src).not.toContain('export * from "./react.js"');
   });
 
-  it("package.json exports only the package root", () => {
+  it("package.json exposes the root entry plus a /core subpath (no /react without --react)", () => {
     const pkg = generateModelSdk({
       modelName: "helios",
       modelVersion: "0.1.0",
@@ -976,11 +977,17 @@ describe("React emission — off by default", () => {
         import: "./dist/index.mjs",
         require: "./dist/index.js",
       },
+      "./core": {
+        types: "./dist/core.d.ts",
+        import: "./dist/core.mjs",
+        require: "./dist/core.js",
+      },
     });
+    expect(pkgJson.exports["./react"]).toBeUndefined();
     expect(pkgJson.peerDependencies).toBeUndefined();
   });
 
-  it("tsup entry list has a single entry", () => {
+  it("tsup entry list has two entries (index + core) without --react", () => {
     const pkg = generateModelSdk({
       modelName: "helios",
       modelVersion: "0.1.0",
@@ -989,17 +996,34 @@ describe("React emission — off by default", () => {
       outputDir: "/tmp/ignored",
     });
     const tsup = pkg.files.find((f) => f.path === "tsup.config.ts")!.content;
-    expect(tsup).toContain('entry: ["src/index.ts"]');
-    expect(tsup).not.toContain("src/react.ts");
+    expect(tsup).toContain('entry: ["src/index.ts", "src/core.ts"]');
+    expect(tsup).not.toContain("src/react.tsx");
+  });
+
+  it("tsconfig.json does not set `jsx` when --react is off", () => {
+    const pkg = generateModelSdk({
+      modelName: "helios",
+      modelVersion: "0.1.0",
+      sdkVersion: "2.9.1",
+      schema: schema(),
+      outputDir: "/tmp/ignored",
+    });
+    const tsconfig = JSON.parse(
+      pkg.files.find((f) => f.path === "tsconfig.json")!.content,
+    );
+    expect(tsconfig.compilerOptions.jsx).toBeUndefined();
   });
 });
 
 // ---------------------------------------------------------------------------
 // React emission — on via `react: true`
 //
-// `src/react.ts` ships as a sibling of `src/index.ts`; the main file
-// re-exports everything from it so the public surface stays a single
-// root import. Package.json only exposes `.` — no `/react` subpath.
+// Layout: `src/index.ts` (re-export hub), `src/core.ts` (imperative),
+// `src/react.tsx` (JSX Provider + hooks + track components). The
+// `"use client"` directive lives only on `react.tsx` — neither
+// `index.ts` nor `core.ts` carries it, so RSC consumers importing
+// from `@reactor-models/<name>/core` aren't dragged into a client
+// boundary.
 // ---------------------------------------------------------------------------
 
 describe("React emission — on via react: true", () => {
@@ -1015,7 +1039,12 @@ describe("React emission — on via react: true", () => {
   }
 
   function reactSource(overrides?: Partial<ModelSchema>): string {
-    return reactPkg(overrides).files.find((f) => f.path === "src/react.ts")!
+    return reactPkg(overrides).files.find((f) => f.path === "src/react.tsx")!
+      .content;
+  }
+
+  function coreSource(overrides?: Partial<ModelSchema>): string {
+    return reactPkg(overrides).files.find((f) => f.path === "src/core.ts")!
       .content;
   }
 
@@ -1024,9 +1053,9 @@ describe("React emission — on via react: true", () => {
       .content;
   }
 
-  it("emits src/react.ts with the usual header + use-client directive", () => {
+  it("emits src/react.tsx with the usual header + use-client directive", () => {
     const pkg = reactPkg();
-    const react = pkg.files.find((f) => f.path === "src/react.ts");
+    const react = pkg.files.find((f) => f.path === "src/react.tsx");
     expect(react).toBeDefined();
     expect(react!.content).toContain('"use client";');
     expect(react!.content).toContain(
@@ -1034,34 +1063,36 @@ describe("React emission — on via react: true", () => {
     );
   });
 
-  it("re-exports everything from ./react.js at the bottom of src/index.ts", () => {
-    const src = indexSource();
-    expect(src).toContain('export * from "./react.js";');
-    // The re-export must appear *after* every value declaration — the
-    // circular `react.ts → index.ts` imports (MODEL_NAME, tracks, …)
-    // depend on those bindings being initialised first.
-    const reExportIdx = src.indexOf('export * from "./react.js";');
-    const classIdx = src.indexOf("export class HeliosModel");
-    expect(classIdx).toBeGreaterThan(-1);
-    expect(reExportIdx).toBeGreaterThan(classIdx);
+  it("index.ts re-exports both core and react in that order", () => {
+    const idx = indexSource();
+    expect(idx).toContain('export * from "./core.js";');
+    expect(idx).toContain('export * from "./react.js";');
+    // Core comes first so the React file's back-imports (types from
+    // `./core.js`) resolve to fully-initialised bindings.
+    const coreIdx = idx.indexOf('export * from "./core.js";');
+    const reactIdx = idx.indexOf('export * from "./react.js";');
+    expect(coreIdx).toBeGreaterThan(-1);
+    expect(reactIdx).toBeGreaterThan(coreIdx);
   });
 
-  it("puts a single use-client directive at the top of src/index.ts", () => {
-    const src = indexSource();
-    // Directive must sit in the module prologue, before any imports,
-    // or React/Next.js will ignore it.
-    const directiveIdx = src.indexOf('"use client";');
-    const firstImportIdx = src.indexOf("import ");
-    expect(directiveIdx).toBeGreaterThan(-1);
-    expect(firstImportIdx).toBeGreaterThan(directiveIdx);
-    expect(src.split('"use client";').length - 1).toBe(1);
+  it("puts `use client` only on react.tsx — never on index.ts or core.ts", () => {
+    // The directive must scope the client boundary to the React
+    // module only. Putting it on `index.ts` or `core.ts` would force
+    // every RSC importing from `@reactor-models/<name>` or
+    // `@reactor-models/<name>/core` into a client component.
+    expect(reactSource()).toContain('"use client";');
+    expect(coreSource()).not.toContain('"use client";');
+    expect(indexSource()).not.toContain('"use client";');
   });
 
-  it("src/react.ts uses createElement (never JSX, so file can stay .ts)", () => {
+  it("src/react.tsx emits real JSX (file is .tsx, no createElement)", () => {
     const react = reactSource();
-    expect(react).toContain("createElement(");
-    // No JSX angle brackets in the emitted component bodies.
-    expect(react).not.toMatch(/return\s+</);
+    // No `createElement(` calls — the emitter writes `<Tag ... />`.
+    expect(react).not.toContain("createElement(");
+    // Inside the emitted Provider / track components, the body
+    // returns a JSX expression — the closing `>` of an opening tag
+    // appears.
+    expect(react).toMatch(/return\s+\(?\s*<\w/);
   });
 
   it("emits a <Prefix>Provider that bakes in modelName and modelTracks", () => {
@@ -1069,8 +1100,11 @@ describe("React emission — on via react: true", () => {
       tracks: [{ name: "main", kind: "video", direction: "out" }],
     });
     expect(react).toContain("export function HeliosProvider(");
-    expect(react).toContain("modelName: MODEL_NAME");
-    expect(react).toContain("modelTracks: [...HeliosTracks]");
+    // JSX form: `modelName={MODEL_NAME}` and `modelTracks={[...HeliosTracks]}`
+    // — `{...}` is JSX's expression-container syntax for non-string
+    // prop values.
+    expect(react).toContain("modelName={MODEL_NAME}");
+    expect(react).toContain("modelTracks={[...HeliosTracks]}");
   });
 
   it("Provider omits modelTracks for schemas without tracks", () => {
@@ -1078,9 +1112,9 @@ describe("React emission — on via react: true", () => {
     expect(react).toContain("export function HeliosProvider(");
     // The class-level JSDoc on the Provider references `modelTracks`
     // generically — we're asserting the *prop emit* is absent, not
-    // the doc text. Look for the actual `modelTracks: [...XTracks]`
-    // line that only appears when `hasTracks` is true.
-    expect(react).not.toContain("modelTracks: [...");
+    // the doc text. Look for the actual JSX `modelTracks={[...XTracks]}`
+    // attribute that only appears when `hasTracks` is true.
+    expect(react).not.toContain("modelTracks={[...");
     expect(react).not.toContain("HeliosTracks");
   });
 
@@ -1262,33 +1296,40 @@ describe("React emission — on via react: true", () => {
     expect(react).not.toContain("useHeliosMessage(");
   });
 
-  it("src/react.ts pulls generated constants and types from ./index.js", () => {
+  it("src/react.tsx pulls generated constants and types from ./core.js", () => {
     const react = reactSource({
       events: [{ name: "set_prompt", description: "", fields: {} }],
       messages: [{ name: "prompt_accepted", description: "", fields: {} }],
       tracks: [{ name: "main", kind: "video", direction: "out" }],
     });
-    expect(react).toContain('} from "./index.js";');
+    expect(react).toContain('} from "./core.js";');
     expect(react).toContain("MODEL_NAME");
     expect(react).toContain("HeliosTracks");
     expect(react).toContain("type HeliosOptions");
     expect(react).toContain("type HeliosMessage");
   });
 
-  it("package.json exposes a single root entry + declares react peer dep + hook keywords", () => {
+  it("package.json exposes root + /core + /react subpath exports, declares react peer dep + hook keywords", () => {
     const pkg = reactPkg();
     const pkgJson = JSON.parse(
       pkg.files.find((f) => f.path === "package.json")!.content,
     );
 
-    // Only the root export — the `./react` subpath is intentionally
-    // absent; consumers reach the hooks through the re-export in
-    // `src/index.ts`.
     expect(pkgJson.exports).toEqual({
       ".": {
         types: "./dist/index.d.ts",
         import: "./dist/index.mjs",
         require: "./dist/index.js",
+      },
+      "./core": {
+        types: "./dist/core.d.ts",
+        import: "./dist/core.mjs",
+        require: "./dist/core.js",
+      },
+      "./react": {
+        types: "./dist/react.d.ts",
+        import: "./dist/react.mjs",
+        require: "./dist/react.js",
       },
     });
     expect(pkgJson.peerDependencies).toEqual({ react: ">=18" });
@@ -1298,14 +1339,20 @@ describe("React emission — on via react: true", () => {
     expect(pkgJson.keywords).toContain("hooks");
   });
 
-  it("tsup.config.ts keeps a single entry — bundler follows the re-export", () => {
+  it("tsup.config.ts has three entries when --react: index, core, react", () => {
     const tsup = reactPkg().files.find(
       (f) => f.path === "tsup.config.ts",
     )!.content;
-    // Only `src/index.ts` is compiled; tsup follows `export * from
-    // "./react.js"` to bundle the React file into the same output.
-    expect(tsup).toContain('entry: ["src/index.ts"]');
-    expect(tsup).not.toContain("src/react.ts");
+    expect(tsup).toContain(
+      'entry: ["src/index.ts", "src/core.ts", "src/react.tsx"]',
+    );
+  });
+
+  it("tsconfig.json sets `jsx: react-jsx` when --react is on", () => {
+    const tsconfig = JSON.parse(
+      reactPkg().files.find((f) => f.path === "tsconfig.json")!.content,
+    );
+    expect(tsconfig.compilerOptions.jsx).toBe("react-jsx");
   });
 
   it("the React file stays deterministic for a given input", () => {
@@ -1367,27 +1414,23 @@ describe("emitter — message envelope unwrap (REA-1581 follow-up)", () => {
     });
   }
 
-  it("emits the `_unwrapMessage` helper in src/index.ts when the schema has messages", () => {
-    const src = buildPkg().files.find(
-      (f) => f.path === "src/index.ts",
-    )!.content;
+  it("emits the `_unwrapMessage` helper in src/core.ts when the schema has messages", () => {
+    const src = buildPkg().files.find((f) => f.path === "src/core.ts")!.content;
     expect(src).toContain("function _unwrapMessage<T>(raw: unknown): T {");
     // The helper re-applies `type` after the spread so a payload that
     // happens to carry a `type` field cannot shadow the discriminator.
     expect(src).toContain("...env.data, type: env.type");
   });
 
-  it("omits the `_unwrapMessage` helper in src/index.ts when the schema has no messages (no dead code)", () => {
+  it("omits the `_unwrapMessage` helper in src/core.ts when the schema has no messages (no dead code)", () => {
     const src = buildPkg({ messages: [] }).files.find(
-      (f) => f.path === "src/index.ts",
+      (f) => f.path === "src/core.ts",
     )!.content;
     expect(src).not.toContain("_unwrapMessage");
   });
 
   it("uses `_unwrapMessage` inside the class's onMessage wrapper instead of a naked cast", () => {
-    const src = buildPkg().files.find(
-      (f) => f.path === "src/index.ts",
-    )!.content;
+    const src = buildPkg().files.find((f) => f.path === "src/core.ts")!.content;
     expect(src).toContain("handler(_unwrapMessage<HeliosMessage>(raw));");
     // Guard against the old buggy pattern creeping back.
     expect(src).not.toContain("handler(raw as HeliosMessage);");
@@ -1396,7 +1439,7 @@ describe("emitter — message envelope unwrap (REA-1581 follow-up)", () => {
   it("on<Name> helpers inherit the unwrap via this.onMessage", () => {
     const src = buildPkg({
       messages: [{ name: "state", description: "", fields: {} }],
-    }).files.find((f) => f.path === "src/index.ts")!.content;
+    }).files.find((f) => f.path === "src/core.ts")!.content;
     // `onState` calls `this.onMessage(...)` which already unwraps, so
     // `msg.type` here is the post-unwrap discriminator, not a raw
     // envelope field.
@@ -1404,23 +1447,23 @@ describe("emitter — message envelope unwrap (REA-1581 follow-up)", () => {
     expect(src).toContain('if (msg.type === "state") handler(msg as');
   });
 
-  it("emits the `_unwrapMessage` helper in src/react.ts when the schema has messages", () => {
+  it("emits the `_unwrapMessage` helper in src/react.tsx when the schema has messages", () => {
     const react = buildPkg({}, true).files.find(
-      (f) => f.path === "src/react.ts",
+      (f) => f.path === "src/react.tsx",
     )!.content;
     expect(react).toContain("function _unwrapMessage<T>(raw: unknown): T {");
   });
 
-  it("omits the `_unwrapMessage` helper in src/react.ts when there are no messages", () => {
+  it("omits the `_unwrapMessage` helper in src/react.tsx when there are no messages", () => {
     const react = buildPkg({ messages: [] }, true).files.find(
-      (f) => f.path === "src/react.ts",
+      (f) => f.path === "src/react.tsx",
     )!.content;
     expect(react).not.toContain("_unwrapMessage");
   });
 
   it("React catch-all useHeliosMessage unwraps before handing to the handler", () => {
     const react = buildPkg({}, true).files.find(
-      (f) => f.path === "src/react.ts",
+      (f) => f.path === "src/react.tsx",
     )!.content;
     expect(react).toContain(
       "handler(_unwrapMessage<HeliosMessage>(msg)),\n  );",
@@ -1435,7 +1478,7 @@ describe("emitter — message envelope unwrap (REA-1581 follow-up)", () => {
         messages: [{ name: "state", description: "", fields: {} }],
       },
       true,
-    ).files.find((f) => f.path === "src/react.ts")!.content;
+    ).files.find((f) => f.path === "src/react.tsx")!.content;
     expect(react).toContain("const m = _unwrapMessage<HeliosMessage>(msg);");
     expect(react).toContain('if (m.type === "state") {');
     // The prior buggy form compared against the raw envelope.
@@ -1535,9 +1578,9 @@ describe("emitter — typed track helpers (REA-1791)", () => {
     react = false,
   ): { index: string; react?: string } {
     const pkg = pkgWith(tracks, react);
-    const index = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    const index = pkg.files.find((f) => f.path === "src/core.ts")!.content;
     const reactFile = react
-      ? pkg.files.find((f) => f.path === "src/react.ts")!.content
+      ? pkg.files.find((f) => f.path === "src/react.tsx")!.content
       : undefined;
     return { index, react: reactFile };
   }
@@ -1641,7 +1684,9 @@ describe("emitter — typed track helpers (REA-1791)", () => {
       true,
     );
     expect(react).toContain("export function HeliosMainVideoView(");
-    expect(react).toContain('track: "main_video"');
+    // JSX prop: `track="main_video"` (string literals use double quotes,
+    // no braces around the expression).
+    expect(react).toContain('track="main_video"');
     // Props are emitted as `type` aliases rather than empty
     // `interface … extends …` declarations — see the lint-friendly
     // emission test below for why.
@@ -1649,7 +1694,7 @@ describe("emitter — typed track helpers (REA-1791)", () => {
       'export type HeliosMainVideoViewProps = Omit<ReactorViewProps, "track">;',
     );
     expect(react).toContain("export function HeliosWebcamView(");
-    expect(react).toContain('track: "webcam"');
+    expect(react).toContain('track="webcam"');
     expect(react).toContain(
       'export type HeliosWebcamViewProps = Omit<WebcamStreamProps, "track">;',
     );
@@ -1788,7 +1833,7 @@ describe("emitter — injection defence (defense in depth)", () => {
       schema,
       outputDir: "/tmp/ignored",
     });
-    const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    const src = pkg.files.find((f) => f.path === "src/core.ts")!.content;
 
     expect(src).toContain('sendCommand("set_prompt\\"; evil(); \\"", {});');
     expect(src).not.toMatch(/sendCommand\("set_prompt"; evil\(\); ""/);
@@ -1822,7 +1867,7 @@ describe("emitter — injection defence (defense in depth)", () => {
       schema,
       outputDir: "/tmp/ignored",
     });
-    const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    const src = pkg.files.find((f) => f.path === "src/core.ts")!.content;
 
     // Both sinks — `type: "…";` in the interface and `msg.type === "…"`
     // in the per-message listener — must emit an escaped literal.
@@ -1843,7 +1888,7 @@ describe("emitter — injection defence (defense in depth)", () => {
       }),
       outputDir: "/tmp/ignored",
     });
-    const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    const src = pkg.files.find((f) => f.path === "src/core.ts")!.content;
 
     expect(src).toContain(
       'export const MODEL_VERSION = "1.0.0\\"; globalThis.pwned = true; \\"" as const;',
@@ -1877,7 +1922,7 @@ describe("emitter — injection defence (defense in depth)", () => {
       }),
       outputDir: "/tmp/ignored",
     });
-    const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    const src = pkg.files.find((f) => f.path === "src/core.ts")!.content;
 
     expect(src).toContain("*\\/ await fetch('attacker');");
     expect(src).not.toContain("*/ await fetch('attacker');");
@@ -1899,7 +1944,7 @@ describe("emitter — injection defence (defense in depth)", () => {
       }),
       outputDir: "/tmp/ignored",
     });
-    const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    const src = pkg.files.find((f) => f.path === "src/core.ts")!.content;
 
     // The smuggled `import` must stay inside the JSDoc body where
     // sanitizeJsDocLine collapsed it next to `first line`; it must not
@@ -1941,7 +1986,7 @@ describe("emitter — injection defence (defense in depth)", () => {
       schema,
       outputDir: "/tmp/ignored",
     });
-    const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
+    const src = pkg.files.find((f) => f.path === "src/core.ts")!.content;
 
     expect(src).toContain('name: "main_video\\"; evil()"');
     expect(src).not.toMatch(/name: "main_video"; evil\(\)"/);
@@ -1962,8 +2007,8 @@ describe("emitter — injection defence (defense in depth)", () => {
 // rules in those configs flag patterns the emitter used to produce:
 //
 //   - `react/no-children-prop` — fires when `children` is passed as a
-//     prop key inside `createElement(Comp, { children: … })` instead of
-//     as the third positional argument.
+//     prop key inside the JSX opening tag (`<Comp children={...}>`)
+//     instead of as JSX body content.
 //   - `@typescript-eslint/no-empty-object-type` (and the older
 //     `no-empty-interface`) — fires on empty
 //     `interface Foo extends Bar {}` declarations because they're
@@ -1991,43 +2036,36 @@ describe("emitter — lint-friendly React emission", () => {
       },
       outputDir: "/tmp/ignored",
       react: true,
-    }).files.find((f) => f.path === "src/react.ts")!.content;
+    }).files.find((f) => f.path === "src/react.tsx")!.content;
   }
 
-  it("Provider passes children as the third createElement argument, not as a prop key (react/no-children-prop)", () => {
-    // The buggy form embeds `children: children,` (or a bare
-    // `children,` shorthand) in the props object passed to
-    // `createElement(ReactorProvider, …)`; that's what
+  it("Provider passes children inside the JSX body, not as a prop key (react/no-children-prop)", () => {
+    // The buggy form embeds `children={children}` (or a bare
+    // `children` shorthand) inside the JSX opening tag; that's what
     // `eslint-plugin-react`'s `react/no-children-prop` rule flags.
     //
-    // The canonical form passes `children` as the third positional
-    // argument to `createElement`. This compiles against @types/react
-    // because the SDK's `ReactorProviderProps` declares `children` as
-    // optional — see the comment in `ReactorProvider.tsx` — so the
-    // overload's second arg can omit it. If the SDK ever tightens
-    // `children` back to required, the emitter has to fall back to
-    // the in-props form with a targeted
-    // `eslint-disable-next-line react/no-children-prop` comment, and
-    // this test will catch the regression.
+    // The canonical form puts children BETWEEN the opening and
+    // closing tags so React's implicit children-prop folding fills
+    // them in — same runtime behaviour, lint-clean. The negative
+    // assertions below pin the absence of both buggy spellings; the
+    // positive assertion confirms the canonical shape.
     const react = reactSourceWith({
       tracks: [{ name: "main_video", kind: "video", direction: "out" }],
     });
 
-    // Buggy form (explicit `children: children` key inside the
-    // createElement props object) must be absent. We don't also
-    // pattern-match a bare `children,` shorthand because the
-    // function's destructuring parameter list legitimately contains
-    // exactly that line — the positive assertion below catches any
-    // accidental shorthand in the props object.
-    expect(react).not.toContain("children: children");
+    expect(react).not.toContain("children={children}");
     // No eslint-disable workaround anywhere in the file: the
     // canonical form lints clean and shouldn't need one.
     expect(react).not.toContain("eslint-disable-next-line");
-    // Canonical form: `createElement(ReactorProvider, { … }, children, );`.
-    // The trailing `}, children,` shape is the load-bearing part —
-    // intermediate spacing varies with the prop list length.
+    // The file should also have ZERO createElement calls now — JSX
+    // is used throughout.
+    expect(react).not.toContain("createElement(");
+    // Canonical JSX form: the `<ReactorProvider …>` open tag closes
+    // with `>`, `{children}` appears in the body, and `</ReactorProvider>`
+    // closes it. The multi-line match tolerates the prop list
+    // wrapping over multiple lines.
     expect(react).toMatch(
-      /createElement\(\s*ReactorProvider,\s*\{[\s\S]*?\},\s*children,\s*\);/,
+      /<ReactorProvider[\s\S]*?>\s*\{children\}\s*<\/ReactorProvider>/,
     );
   });
 

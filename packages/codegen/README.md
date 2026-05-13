@@ -8,11 +8,23 @@ Code generator that turns a model's OpenAPI schema into a strongly-typed npm pac
 
 ```
 schema.json ──▶ codegen ──▶ @reactor-models/helios (npm package)
-                              ├── src/index.ts      (typed client)
-                              ├── package.json
+                              ├── src/index.ts      (re-export hub)
+                              ├── src/core.ts       (typed client + types)
+                              ├── src/react.tsx     (Provider + hooks, with --react)
+                              ├── package.json      (subpath exports for /core, /react)
                               ├── tsconfig.json
                               └── dist/             (built output)
 ```
+
+The package is structured as a three-file split (with `--react`) so consumers can pick their import scope:
+
+```typescript
+import { HeliosModel, HeliosProvider } from "@reactor-models/helios"; // everything
+import { HeliosModel } from "@reactor-models/helios/core"; // React-free
+import { HeliosProvider, useHelios } from "@reactor-models/helios/react"; // React-only
+```
+
+The `"use client"` directive is scoped to `react.tsx` only — RSC consumers importing from `/core` aren't dragged into a client boundary.
 
 The codegen reads a model's OpenAPI schema (events, messages, tracks) and produces a TypeScript package with:
 
@@ -99,11 +111,11 @@ reactor-codegen \
   --standalone
 ```
 
-The emitted `.ts` file is byte-identical to the `src/index.ts` produced by the full-package mode — it still imports `Reactor` (and `FileRef` when needed) from `@reactor-team/js-sdk`, so make sure `@reactor-team/js-sdk` is already a dependency of the host project.
+The emitted `.ts` file is the same content as the full-package mode's `src/core.ts` (the imperative + types surface) — it imports `Reactor` (and `FileRef` when needed) from `@reactor-team/js-sdk`, so make sure `@reactor-team/js-sdk` is already a dependency of the host project. Standalone mode collapses the package-mode `index.ts` re-export hub into the single output file (the consumer controls the import path themselves, so the hop is unnecessary).
 
 ### React output (`--react`)
 
-Pass `--react` to additionally emit a React entry point. The provider, hooks, and track components are emitted in `src/react.ts` and re-exported from `src/index.ts`, so consumers import everything from the package root — there is no `/react` subpath:
+Pass `--react` to additionally emit a React entry point. In package mode the React layer lands in its own `src/react.tsx` (real JSX, not `createElement` calls) and gets its own subpath export at `<pkg>/react`. The `src/index.ts` re-export hub re-exports both `./core.js` and `./react.js`, so consumers using the package root keep working unchanged:
 
 ```bash
 reactor-codegen \
@@ -115,12 +127,14 @@ reactor-codegen \
 
 Generated shape:
 
-| Mode                     | Files                                                                                                                                                                                                                           | Import path                                                                |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| full package + `--react` | `src/index.ts` (re-exports `./react.js`) + `src/react.ts` + package scaffold (`react` peer dep, `react`/`@types/react` dev deps, `"use client"` directive at root). Single root entry in `package.json` `exports` — no subpath. | `@reactor-models/<name>` (single import path for both plain JS and React)  |
-| `--standalone --react`   | `<base>.ts` + `<base>.react.ts` (no package scaffold). Cross-imports between the two files are rewired to the chosen basename.                                                                                                  | relative imports; the React file imports from `./<base>.js` and vice versa |
+| Mode                     | Files                                                                                                                                                                                                                                           | Import paths                                                                                                                     |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| full package + `--react` | `src/index.ts` (re-exports both), `src/core.ts` (class + types), `src/react.tsx` (Provider + hooks + JSX components), plus the usual package scaffold (`react` peer dep, `jsx: "react-jsx"` tsconfig, three subpath exports in `package.json`). | `@reactor-models/<name>` (everything) / `@reactor-models/<name>/core` (React-free) / `@reactor-models/<name>/react` (React-only) |
+| `--standalone --react`   | `<base>.ts` (core content; no re-export hub) + `<base>.react.tsx` (React layer). The React file's cross-import is rewired to point at the chosen main basename without a `.js` extension.                                                       | relative imports; the React file imports from `./<base>` and vice versa                                                          |
 
-The React file declares `"use client"` (Next.js RSC compat), uses `React.createElement` (no JSX in the emitted file, so it stays `.ts`), and exposes:
+The `"use client"` directive lives only on `react.tsx`. Neither `index.ts` nor `core.ts` carries it, so RSC consumers importing from `@reactor-models/<name>/core` aren't dragged into a client boundary.
+
+The React file uses real JSX (file is `.tsx`, generated tsconfig sets `jsx: "react-jsx"` for the new transform) and exposes:
 
 - **`<Prefix>Provider`** — wraps `ReactorProvider` with `modelName: MODEL_NAME` and (when the schema declares tracks) `modelTracks: [...<Prefix>Tracks]` pre-configured. Accepts `apiUrl`, `local`, `jwtToken`, and `connectOptions` props.
 - **`use<Prefix>()`** — typed commands bound to the nearest provider: one method per model event (camelCase) plus `status`, `connect`, `disconnect`, and (when any event takes an upload reference) `uploadFile`.

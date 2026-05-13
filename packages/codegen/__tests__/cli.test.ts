@@ -155,6 +155,7 @@ describe("reactor-codegen CLI — --no-build write", () => {
 
     const expected = [
       "src/index.ts",
+      "src/core.ts",
       "package.json",
       "tsup.config.ts",
       "tsconfig.json",
@@ -164,12 +165,17 @@ describe("reactor-codegen CLI — --no-build write", () => {
       expect(fs.existsSync(path.join(outputDir, rel))).toBe(true);
     }
 
-    // The generated client must wire `modelTracks` (the committed dummy
-    // fixture declares one track) — this is the user-visible contract for PR 4.
-    const src = fs.readFileSync(path.join(outputDir, "src/index.ts"), "utf-8");
-    expect(src).toContain("modelTracks: [...ExampleTracks]");
-    expect(src).toContain("ExampleTracks = [");
-    expect(src).toContain('direction: "recvonly"');
+    // index.ts is the re-export hub.
+    const idx = fs.readFileSync(path.join(outputDir, "src/index.ts"), "utf-8");
+    expect(idx).toContain('export * from "./core.js";');
+
+    // The generated class lives in src/core.ts — that's where the
+    // `modelTracks` wiring lands. The fixture declares one track,
+    // exercising the hasTracks branch.
+    const core = fs.readFileSync(path.join(outputDir, "src/core.ts"), "utf-8");
+    expect(core).toContain("modelTracks: [...ExampleTracks]");
+    expect(core).toContain("ExampleTracks = [");
+    expect(core).toContain('direction: "recvonly"');
   });
 });
 
@@ -270,7 +276,7 @@ describe("reactor-codegen CLI — --react (full package)", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("emits src/react.ts, re-exports it from src/index.ts, and keeps one root export", () => {
+  it("emits src/react.tsx + src/core.ts + src/index.ts with /core and /react subpath exports", () => {
     const outputDir = path.join(tmpDir, "example");
     const result = runCli([
       "--schema",
@@ -287,7 +293,8 @@ describe("reactor-codegen CLI — --react (full package)", () => {
 
     for (const rel of [
       "src/index.ts",
-      "src/react.ts",
+      "src/core.ts",
+      "src/react.tsx",
       "package.json",
       "tsup.config.ts",
       "tsconfig.json",
@@ -296,37 +303,55 @@ describe("reactor-codegen CLI — --react (full package)", () => {
       expect(fs.existsSync(path.join(outputDir, rel))).toBe(true);
     }
 
-    // Provider + hooks live in src/react.ts (not duplicated in
-    // src/index.ts), and src/index.ts re-exports them so the public
-    // surface is a single root import.
     const index = fs.readFileSync(
       path.join(outputDir, "src/index.ts"),
       "utf-8",
     );
+    const core = fs.readFileSync(path.join(outputDir, "src/core.ts"), "utf-8");
     const react = fs.readFileSync(
-      path.join(outputDir, "src/react.ts"),
+      path.join(outputDir, "src/react.tsx"),
       "utf-8",
     );
-    expect(index).toContain('"use client";');
+    // index.ts is the re-export hub: NO use-client (that's scoped to
+    // the react file only) and NO declarations of its own.
+    expect(index).not.toContain('"use client";');
+    expect(index).toContain('export * from "./core.js";');
     expect(index).toContain('export * from "./react.js";');
     expect(index).not.toContain("export function ExampleProvider(");
+    expect(index).not.toContain("export class ExampleModel");
+    // Class lives in core.ts; no React imports here.
+    expect(core).toContain("export class ExampleModel");
+    expect(core).not.toContain('"use client";');
+    expect(core).not.toContain('from "react"');
+    // React file: use-client + JSX + back-import from ./core.js.
+    expect(react).toContain('"use client";');
     expect(react).toContain("export function ExampleProvider(");
     expect(react).toContain("export function useExample()");
     expect(react).toContain("export function useExampleMessage(");
+    expect(react).toContain('from "./core.js"');
 
     const pkgJson = JSON.parse(
       fs.readFileSync(path.join(outputDir, "package.json"), "utf-8"),
     );
-    // Exactly one export path — no `./react` subpath, ever.
-    expect(Object.keys(pkgJson.exports)).toEqual(["."]);
+    expect(Object.keys(pkgJson.exports).sort()).toEqual([
+      ".",
+      "./core",
+      "./react",
+    ]);
     expect(pkgJson.peerDependencies).toEqual({ react: ">=18" });
 
     const tsup = fs.readFileSync(
       path.join(outputDir, "tsup.config.ts"),
       "utf-8",
     );
-    expect(tsup).toContain('entry: ["src/index.ts"]');
-    expect(tsup).not.toContain("src/react.ts");
+    expect(tsup).toContain(
+      'entry: ["src/index.ts", "src/core.ts", "src/react.tsx"]',
+    );
+
+    const tsconfig = JSON.parse(
+      fs.readFileSync(path.join(outputDir, "tsconfig.json"), "utf-8"),
+    );
+    expect(tsconfig.compilerOptions.jsx).toBe("react-jsx");
   });
 
   it("--dry-run exits 0 and writes nothing", () => {
@@ -362,9 +387,9 @@ describe("reactor-codegen CLI — --standalone --react", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("writes <base>.ts + <base>.react.ts and wires up the cross-imports", () => {
+  it("writes <base>.ts (core) + <base>.react.tsx with cross-imports rewired", () => {
     const outputFile = path.join(tmpDir, "src", "example.ts");
-    const reactFile = path.join(tmpDir, "src", "example.react.ts");
+    const reactFile = path.join(tmpDir, "src", "example.react.tsx");
     const result = runCli([
       "--schema",
       SCHEMA_PATH,
@@ -381,35 +406,35 @@ describe("reactor-codegen CLI — --standalone --react", () => {
     expect(fs.existsSync(outputFile)).toBe(true);
     expect(fs.existsSync(reactFile)).toBe(true);
     expect(fs.readdirSync(path.dirname(outputFile)).sort()).toEqual([
-      "example.react.ts",
+      "example.react.tsx",
       "example.ts",
     ]);
 
     const main = fs.readFileSync(outputFile, "utf-8");
     const react = fs.readFileSync(reactFile, "utf-8");
 
-    // Main file: re-export points at the chosen sibling basename, not
-    // the full-package default `./react.js`. Standalone mode strips
-    // the `.js` extension so the consumer's bundler resolves the
-    // sibling `.ts` source regardless of moduleResolution setting.
-    expect(main).toContain('"use client";');
-    expect(main).toContain('export * from "./example.react";');
-    expect(main).not.toContain('export * from "./react.js";');
-    expect(main).not.toContain('export * from "./example.react.js";');
-    // Main file still has the plain-JS surface.
+    // Main file is the core content verbatim — no use-client (that's
+    // scoped to the React file), no Provider, just the class + types.
+    expect(main).not.toContain('"use client";');
     expect(main).toContain("export class ExampleModel");
     expect(main).not.toContain("export function ExampleProvider(");
+    // No re-export hub in standalone mode — there's no separate
+    // core/index split, so nothing to re-export from.
+    expect(main).not.toContain('export * from "./');
 
-    // React file: imports back from the chosen main basename, also
-    // without the `.js` extension.
+    // React file: imports back from the chosen main basename, without
+    // the `.js` extension so the consumer's bundler resolves the
+    // sibling `.ts` regardless of moduleResolution setting.
+    expect(react).toContain('"use client";');
     expect(react).toContain('from "./example"');
     expect(react).not.toContain('from "./example.js"');
+    expect(react).not.toContain('from "./core.js"');
     expect(react).not.toContain('from "./index.js"');
     expect(react).toContain("export function ExampleProvider(");
     expect(react).toContain("export function useExample()");
   });
 
-  it("with --output as a directory, writes index.ts + index.react.ts", () => {
+  it("with --output as a directory, writes index.ts + index.react.tsx", () => {
     const outputDir = path.join(tmpDir, "src");
     const result = runCli([
       "--schema",
@@ -424,23 +449,24 @@ describe("reactor-codegen CLI — --standalone --react", () => {
 
     expect(result.status).toBe(0);
     expect(fs.readdirSync(outputDir).sort()).toEqual([
-      "index.react.ts",
+      "index.react.tsx",
       "index.ts",
     ]);
     const main = fs.readFileSync(path.join(outputDir, "index.ts"), "utf-8");
     const react = fs.readFileSync(
-      path.join(outputDir, "index.react.ts"),
+      path.join(outputDir, "index.react.tsx"),
       "utf-8",
     );
-    // Both sides of the cross-import get rewritten in standalone
-    // mode: the main file's re-export points at the sibling basename
-    // (`./index.react`), and the React file's back-import points at
-    // the main basename (`./index`). Both have the `.js` extension
-    // stripped so the consumer's bundler resolves the `.ts` source.
-    expect(main).toContain('export * from "./index.react";');
-    expect(main).not.toContain('export * from "./index.react.js";');
+    // Main file is the core content (no re-export hub in standalone
+    // mode). React file's back-import points at the main basename
+    // (`./index`), with the `.js` extension stripped so the
+    // consumer's bundler resolves the `.ts` source regardless of
+    // moduleResolution setting.
+    expect(main).not.toContain('export * from "./');
+    expect(main).toContain("export class ExampleModel");
     expect(react).toContain('from "./index"');
     expect(react).not.toContain('from "./index.js"');
+    expect(react).not.toContain('from "./core.js"');
   });
 
   it("in --dry-run writes nothing and exits 0", () => {
