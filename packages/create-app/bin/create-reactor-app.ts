@@ -10,7 +10,26 @@ const REPO_OWNER = "reactor-team";
 const REPO_NAME = "reactor-experiments";
 const REPO_URL = `github.com/${REPO_OWNER}/${REPO_NAME}.git`;
 const EXAMPLES_PATH = "";
-const DEFAULT_TEMPLATE = "helios-interactive";
+
+// Maps a Reactor model name to its folder in the templates repo.
+// If a name is not present here, it is used as the folder name directly.
+const MODEL_MAP: Record<string, string> = {
+  helios: "helios-interactive",
+  "film-director": "film-director",
+};
+
+function resolveTemplateFolder(name: string): string {
+  return MODEL_MAP[name] ?? name;
+}
+
+function formatAvailableModels(repoTemplates: string[]): string {
+  const known = Object.keys(MODEL_MAP).sort();
+  const folders = [...repoTemplates].sort();
+  return [
+    `  Known models:    ${known.length > 0 ? known.join(", ") : "(none)"}`,
+    `  Repo folders:    ${folders.length > 0 ? folders.join(", ") : "(none)"}`,
+  ].join("\n");
+}
 
 function getAuthenticatedRepoUrl(token: string): string {
   return `https://${token}@${REPO_URL}`;
@@ -71,13 +90,13 @@ async function promptForToken(): Promise<string | undefined> {
 
 function parseArgs(args: string[]): {
   projectName?: string;
-  template?: string;
+  model?: string;
   token?: string;
   help: boolean;
 } {
   const result: {
     projectName?: string;
-    template?: string;
+    model?: string;
     token?: string;
     help: boolean;
   } = { help: false };
@@ -91,40 +110,45 @@ function parseArgs(args: string[]): {
       result.token = args[++i];
     } else if (arg.startsWith("--token=")) {
       result.token = arg.split("=")[1];
+    } else if (arg === "--model" || arg === "-m") {
+      result.model = args[++i];
+    } else if (arg.startsWith("--model=")) {
+      result.model = arg.slice("--model=".length);
     } else if (!arg.startsWith("-")) {
       positionalArgs.push(arg);
     }
   }
 
   result.projectName = positionalArgs[0];
-  result.template = positionalArgs[1];
 
   return result;
 }
 
 function showUsage(): void {
+  const known = Object.keys(MODEL_MAP).sort().join(", ") || "(none)";
   console.log(chalk.cyan("\n⚛️ Create Reactor App\n"));
   console.log(chalk.white("Usage:"));
   console.log(
-    chalk.white("  create-reactor-app [project-name] [template] [options]\n")
+    chalk.white("  create-reactor-app [project-name] --model=<name> [options]\n")
   );
   console.log(chalk.white("Arguments:"));
-  console.log(chalk.white("  project-name  Name of the project to create"));
   console.log(
-    chalk.white(
-      "  template      Template to use (longlive, matrix-2, mk64, etc.)\n"
-    )
+    chalk.white("  project-name  Name of the project to create (prompted if omitted)\n")
   );
   console.log(chalk.white("Options:"));
+  console.log(
+    chalk.white("  --model, -m   Model to scaffold a project for (required)")
+  );
   console.log(
     chalk.white("  --token, -t   GitHub token for private repository access")
   );
   console.log(chalk.white("  --help, -h    Show this help message\n"));
-  console.log(
-    chalk.white(
-      "If arguments are not provided, you will be prompted interactively.\n"
-    )
-  );
+  console.log(chalk.white("Known models:"));
+  console.log(chalk.white(`  ${known}\n`));
+  console.log(chalk.white("Examples:"));
+  console.log(chalk.white("  create-reactor-app my-app --model=helios"));
+  console.log(chalk.white("  create-reactor-app --model=helios my-app"));
+  console.log(chalk.white("  create-reactor-app --model=helios\n"));
 }
 
 async function main(): Promise<void> {
@@ -133,7 +157,7 @@ async function main(): Promise<void> {
   // Parse command line arguments
   const {
     projectName: argProjectName,
-    template: argTemplate,
+    model: argModel,
     token: argToken,
     help,
   } = parseArgs(args);
@@ -175,10 +199,30 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Validate template argument if provided
-  if (argTemplate && !templates.includes(argTemplate)) {
-    console.error(chalk.red(`Template "${argTemplate}" is not available.`));
-    console.log(chalk.white("Available templates:"), templates.join(", "));
+  // Require --model; if missing, print known + repo folders and exit
+  if (!argModel) {
+    console.error(
+      chalk.red("\n❌ No model specified. Use --model=<name>.\n")
+    );
+    console.log(chalk.white("Available models:"));
+    console.log(chalk.white(formatAvailableModels(templates)));
+    console.log();
+    process.exit(1);
+  }
+
+  // Resolve folder via mapping (fallback: model name itself)
+  const template = resolveTemplateFolder(argModel);
+
+  // Validate the resolved folder exists in the repo
+  if (!templates.includes(template)) {
+    console.error(
+      chalk.red(
+        `\n❌ Model "${argModel}" not found (resolved to folder "${template}").\n`
+      )
+    );
+    console.log(chalk.white("Available models:"));
+    console.log(chalk.white(formatAvailableModels(templates)));
+    console.log();
     process.exit(1);
   }
 
@@ -215,14 +259,8 @@ async function main(): Promise<void> {
     }
   }
 
-  if (!argTemplate) {
-    answers.template = DEFAULT_TEMPLATE;
-    console.log(chalk.green(`Using default template "${DEFAULT_TEMPLATE}"`));
-  }
-
   // Use provided arguments or prompted answers
   const projectName = argProjectName || answers.projectName;
-  const template = argTemplate || answers.template;
   const dest = path.resolve(process.cwd(), projectName);
 
   if (fs.existsSync(dest)) {
@@ -230,7 +268,9 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  console.log(chalk.green(`\nCloning template "${template}"...\n`));
+  console.log(
+    chalk.green(`\nCloning model "${argModel}" (folder: ${template})...\n`)
+  );
 
   const git = simpleGit();
 
@@ -303,7 +343,7 @@ async function main(): Promise<void> {
 
   console.log(
     chalk.green(
-      `\n✅ Project "${projectName}" created successfully using "${template}" template!\n`
+      `\n✅ Project "${projectName}" created successfully using model "${argModel}"!\n`
     )
   );
   console.log(chalk.cyan("Next steps:"));
