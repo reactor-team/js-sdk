@@ -71,7 +71,7 @@ describe("reactor-codegen CLI — argument validation", () => {
           "utf-8",
         ),
       );
-      expect(pkgJson.dependencies["@reactor-team/js-sdk"]).toBe("^2.9.2");
+      expect(pkgJson.dependencies["@reactor-team/js-sdk"]).toBe("^2.9.3");
     } finally {
       fs.rmSync(outputDir, { recursive: true, force: true });
     }
