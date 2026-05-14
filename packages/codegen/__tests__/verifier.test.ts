@@ -803,7 +803,9 @@ describe("generateModelSdk integration", () => {
 
     // Generated TS prefix: split on both separators, capitalise.
     expect(src).toContain("export class MyCoolModelModel");
-    expect(src).toContain("export interface MyCoolModelOptions");
+    // `<Prefix>Options` is now a derived type alias, not a hand-rolled
+    // interface — the prefix derivation is what's load-bearing here.
+    expect(src).toContain("export type MyCoolModelOptions");
     expect(src).toContain("export interface MyCoolModelPromptAcceptedMessage");
     // MODEL_NAME constant preserves the original (raw) name verbatim —
     // it's a string literal, not an identifier.
@@ -872,5 +874,54 @@ describe("RESERVED_CLASS_METHODS — d.ts-derived surface", () => {
     ]) {
       expect(reserved.has(name)).toBe(false);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// React hook contract: `RESERVED_HOOK_FIELDS` mirrors what the codegen
+// emitter writes into `use<Prefix>()`'s return literal. Both are
+// d.ts-derived from `ReactorState & ReactorActions` via the shared
+// `loadReactorStoreFieldsFromDts` loader, so a future SDK release that
+// adds an action (e.g. recording's `requestClip`) lights up both the
+// rejection rule AND the emitted selector with no codegen edit.
+// ---------------------------------------------------------------------------
+
+describe("RESERVED_HOOK_FIELDS — d.ts-derived store surface", () => {
+  it("includes the canonical store state + action fields", () => {
+    const reserved = __testing__.RESERVED_HOOK_FIELDS;
+    // ReactorState fields:
+    for (const name of [
+      "status",
+      "sessionId",
+      "sessionExpiration",
+      "lastError",
+      "tracks",
+      "jwtToken",
+    ]) {
+      expect(reserved.has(name)).toBe(true);
+    }
+    // ReactorActions fields:
+    for (const name of [
+      "connect",
+      "disconnect",
+      "reconnect",
+      "sendCommand",
+      "uploadFile",
+      "publish",
+      "unpublish",
+    ]) {
+      expect(reserved.has(name)).toBe(true);
+    }
+  });
+
+  it("excludes the `internal` back-channel field", () => {
+    // `ReactorInternalState` exposes the underlying `Reactor` handle
+    // for the SDK's own React layer. Consumer code reading
+    // `useReactor((s) => s.internal.reactor)` is escaping the
+    // hook abstraction — we deliberately don't surface `internal`
+    // through `use<Prefix>()` and don't reserve the name for
+    // schema-collision purposes either (the field shape is
+    // intentionally hidden from the public hook contract).
+    expect(__testing__.RESERVED_HOOK_FIELDS.has("internal")).toBe(false);
   });
 });

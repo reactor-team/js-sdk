@@ -1,7 +1,5 @@
 // Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
 
-import * as fs from "node:fs";
-import * as path from "node:path";
 import type {
   EventSchema,
   FieldSchema,
@@ -10,6 +8,10 @@ import type {
   TrackSchema,
 } from "./types.js";
 import { toCamelCase, toPascalCase } from "./emitter.js";
+import {
+  loadReactorPublicMethodsFromDts,
+  loadReactorStoreFieldsFromDts,
+} from "./sdk-surface.js";
 
 // ---------------------------------------------------------------------------
 // Verifier — second-line defence between the parser/IR ingest and the emitter.
@@ -432,84 +434,9 @@ const RESERVED_CLASS_METHODS: Set<string> = (() => {
   return set;
 })();
 
-/**
- * Read the installed `@reactor-team/js-sdk` package's bundled
- * `index.d.ts` and extract the names of every non-private method
- * declared on the `Reactor` class. This is the source of truth for
- * what the verifier needs to reject as a schema-side collision.
- *
- * Why parse the d.ts (and not, say, `Object.getOwnPropertyNames(
- * Reactor.prototype)`):
- *
- *   - The prototype walk includes TS-`private` methods, which survive
- *     compilation because TS visibility is compile-time only. Those
- *     methods are NOT inheritable in the type system, so a schema
- *     event of the same name cannot collide with them.
- *   - The d.ts emission, on the other hand, preserves the `private`
- *     keyword (e.g. `private setStatus;`), so a single regex sweep
- *     gives us exactly the type-visible public surface — which is
- *     what `extends Reactor` actually exposes to a subclass author.
- *
- * The loader runs once at module load (the IIFE that populates
- * {@link RESERVED_CLASS_METHODS} above). If `js-sdk` is missing or
- * the d.ts cannot be parsed, the loader throws — that's a hard
- * dependency failure and we'd rather fail loud at codegen startup
- * than emit an under-protected verifier that silently accepts
- * shadowing schemas.
- */
-function loadReactorPublicMethodsFromDts(): Set<string> {
-  // `require.resolve` locates the package's main entry; the d.ts ships
-  // alongside it under `dist/index.d.ts` (tsup config in js-sdk). Walk
-  // up one level to reach the d.ts. Works in both pnpm-workspace mode
-  // (symlinked source build) and published-npm mode (real tarball).
-  const sdkEntry = require.resolve("@reactor-team/js-sdk");
-  const dtsPath = path.join(path.dirname(sdkEntry), "index.d.ts");
-  const dts = fs.readFileSync(dtsPath, "utf-8");
-
-  // Find the `declare class Reactor` block. The trailing `^}` anchors
-  // on a top-level `}` (no indentation) so a nested object literal in
-  // a method signature doesn't terminate the match early.
-  const classMatch = dts.match(/declare class Reactor\b[^{]*\{([\s\S]*?)^\}/m);
-  if (!classMatch) {
-    throw new Error(
-      "Codegen verifier: could not locate `declare class Reactor` block in " +
-        `${dtsPath}. The d.ts format may have changed; update the regex in ` +
-        "`loadReactorPublicMethodsFromDts` and the matching docstring.",
-    );
-  }
-  const body = classMatch[1];
-
-  // Method declarations at the class's 4-space indent. Negative
-  // lookahead skips `private ` / `protected ` members (those don't
-  // form part of the inheritable surface). We require `(` or `<`
-  // immediately after the name so the regex doesn't accidentally
-  // match property declarations like `readonly recording:
-  // RecordingClient;` — properties land in
-  // {@link RESERVED_CLASS_PROPERTIES} via a separate code path if
-  // ever needed.
-  const methodRe = /^ {4}(?!private |protected )([a-zA-Z_$][\w$]*)\s*[(<]/gm;
-  const out = new Set<string>();
-  for (const match of body.matchAll(methodRe)) {
-    const name = match[1];
-    if (name !== "constructor") out.add(name);
-  }
-
-  // Sanity floor: the loader must find AT LEAST the canonical lifecycle
-  // surface. A zero-result parse almost certainly means the d.ts shape
-  // has changed in a way the regex doesn't tolerate; surfacing that
-  // here is more useful than silently shipping an under-protected
-  // verifier set.
-  for (const required of ["connect", "disconnect", "sendCommand"]) {
-    if (!out.has(required)) {
-      throw new Error(
-        `Codegen verifier: d.ts parse of ${dtsPath} did not find the ` +
-          `\`${required}\` method on the Reactor class. The d.ts shape may ` +
-          "have changed; update `loadReactorPublicMethodsFromDts`.",
-      );
-    }
-  }
-  return out;
-}
+// The d.ts loader implementations live in `./sdk-surface.ts` so the
+// same parse can feed the emitter's React hook generation. Verifier
+// and emitter share one source of truth and one disk read.
 
 /**
  * Properties on the `<Prefix>Model` instance. `reactor` is the
@@ -524,14 +451,16 @@ const RESERVED_CLASS_PROPERTIES = new Set<string>(["reactor"]);
  * camelCase transform matches one of these would land twice in the
  * returned object literal and either compile-error or silently
  * override the built-in.
+ *
+ * Auto-derived from the installed `@reactor-team/js-sdk`'s d.ts via
+ * the shared `loadReactorStoreFieldsFromDts` loader, so any new field
+ * on `ReactorState` / `ReactorActions` (e.g. a future
+ * `requestClip: (s: number) => Promise<Clip>` on actions) flows in
+ * without a hand-edit here AND simultaneously gets emitted as a
+ * selector by `generateUseModelHook` in `emitter.ts` — single source
+ * of truth.
  */
-const RESERVED_HOOK_FIELDS = new Set<string>([
-  "connect",
-  "disconnect",
-  "sendCommand",
-  "status",
-  "uploadFile",
-]);
+const RESERVED_HOOK_FIELDS: Set<string> = loadReactorStoreFieldsFromDts();
 
 /**
  * Field names reserved inside a *message* schema only. `type` is the

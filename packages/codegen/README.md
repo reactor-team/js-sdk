@@ -370,17 +370,33 @@ helios.on("statusChanged", handler); // preferred — directly on the instance
 
 The accessor returns `this` so subclass-only methods (`helios.setPrompt(...)`, etc.) remain reachable through it. It will be removed in a future major version of the generated packages.
 
-#### Maintaining the inheritance contract
+#### Maintaining the inheritance / hook / provider contract
 
-The verifier needs to know which method names are reserved so a schema can't declare an event whose camelCase form silently shadows an inherited Reactor method (e.g. an event literally called `send_command`). Rather than maintain a hand-edited list, the verifier **parses `@reactor-team/js-sdk`'s `dist/index.d.ts` at module-load time** and extracts every non-`private`/`protected` method declared on the `Reactor` class — see `loadReactorPublicMethodsFromDts` in [`src/verifier.ts`](src/verifier.ts).
+Three pieces of the codegen output mirror the SDK's surface:
+
+1. **Generated class `<Prefix>Model extends Reactor`** — every public method on the SDK's `Reactor` class is reachable on the instance.
+2. **Generated hook `use<Prefix>()`** — exposes every public field on the SDK's `ReactorStore` (`ReactorState & ReactorActions`) as a Zustand selector, alongside one typed method per model event.
+3. **Generated provider `<Prefix>Provider`** — accepts every prop `ReactorProvider` does (minus `modelName` / `modelTracks`, which it bakes in) and forwards them via `...rest` spread.
+
+Rather than maintain hand-edited lists of "what's on the SDK", all three derive from the **installed `@reactor-team/js-sdk`'s `dist/index.d.ts` at codegen runtime** (see [`src/sdk-surface.ts`](src/sdk-surface.ts)):
+
+| Codegen output                                                                                          | Source of truth                                                                                                                                                                                                                 | Loader                            |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `RESERVED_CLASS_METHODS` in verifier (rejects schemas that would shadow a class method)                 | `declare class Reactor { ... }` block in d.ts                                                                                                                                                                                   | `loadReactorPublicMethodsFromDts` |
+| `RESERVED_HOOK_FIELDS` in verifier (rejects schemas that would shadow a store field on the hook return) | `interface ReactorState { ... }` + `interface ReactorActions { ... }` blocks in d.ts                                                                                                                                            | `loadReactorStoreFieldsFromDts`   |
+| `use<Prefix>()` selectors in emitter                                                                    | Same two interfaces as above (same loader)                                                                                                                                                                                      | `loadReactorStoreFieldsFromDts`   |
+| `<Prefix>Options` / `<Prefix>ProviderProps` in emitter                                                  | `Reactor` / `ReactorProvider` function signatures, projected via `ConstructorParameters<typeof Reactor>[0]` / `Parameters<typeof ReactorProvider>[0]` in the emitted TS source — resolved by the consumer's TypeScript compiler | (type-level; no runtime loader)   |
 
 Consequences:
 
-- **Adding a public method to `Reactor`** in the SDK requires zero codegen changes. The next codegen run that resolves to a newer `js-sdk` install picks up the new surface automatically.
-- **The only knob is `defaultSdkVersion`** in this package's `package.json` — it controls which `js-sdk` release generated packages pin to in their `dependencies["@reactor-team/js-sdk"]`. The codegen package itself depends on `@reactor-team/js-sdk` (`workspace:*` in this repo, rewritten to the concrete version on publish) so the d.ts is always reachable at runtime.
-- **TS-private methods are skipped** — the d.ts emission preserves the `private` keyword, and the loader's regex explicitly excludes those, so internal helpers (`setStatus`, `setupTransportHandlers`, …) don't appear as reserved names. They're runtime-reachable on `Reactor.prototype` but not part of the inheritable type surface.
+- **Adding a public method to `Reactor`** in the SDK requires zero codegen changes. The class-side inheritance flow picks it up on the next install, and the verifier's reserved set widens automatically.
+- **Adding a field to `ReactorState` or `ReactorActions`** in the SDK requires zero codegen changes. The hook emits a new selector for it, the return object includes it, and the verifier's hook reserved set widens automatically — all on the next install.
+- **Adding a prop to `ReactorProvider`** requires zero codegen changes. The derived `<Prefix>ProviderProps` widens via the TS `Parameters<typeof ReactorProvider>[0]` projection, and the `...rest` spread inside the provider body forwards it through.
+- **The only knob is `defaultSdkVersion`** in this package's `package.json` — it controls which `js-sdk` release generated packages pin to. The codegen package itself depends on `@reactor-team/js-sdk` (`workspace:*` in this repo, rewritten to the concrete version on publish) so the d.ts is always reachable at runtime.
+- **TS-private methods are skipped** — the d.ts emission preserves the `private` keyword, and the class loader's regex explicitly excludes those, so internal helpers (`setStatus`, `setupTransportHandlers`, …) don't appear as reserved names. They're runtime-reachable on `Reactor.prototype` but not part of the inheritable type surface.
+- **The `internal` field on `ReactorStore` is skipped** — it exposes the underlying `Reactor` handle for the SDK's own React layer, not for consumer code reading through `useReactor`.
 
-The d.ts shape is uniformly formatted by tsup (4-space class-body indent, visibility keywords preserved); the loader's regex is anchored to that. If a future tsup/api-extractor change alters that shape, the loader's internal floor check ("must find at least `connect`, `disconnect`, `sendCommand`") trips at codegen startup with a pointed error rather than silently shipping an under-protected verifier.
+The d.ts shape is uniformly formatted by tsup (4-space class-body / interface-body indent, visibility keywords preserved on class members, identifier-clean interface names). Each loader has an internal floor check ("must find at least `connect`, `disconnect`, `sendCommand`") that trips at codegen startup with a pointed error if a future tsup / api-extractor change alters that shape — preferable to silently shipping an under-protected verifier or an empty hook.
 
 ### Parallel SDP preparation
 
