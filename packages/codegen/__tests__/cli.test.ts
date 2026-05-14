@@ -76,6 +76,30 @@ describe("reactor-codegen CLI — argument validation", () => {
       fs.rmSync(outputDir, { recursive: true, force: true });
     }
   });
+
+  it("keeps `defaultSdkVersion` in lockstep with the runtime `@reactor-team/js-sdk` dep", () => {
+    // The codegen reads `@reactor-team/js-sdk`'s d.ts at run time to
+    // derive `RESERVED_CLASS_METHODS` + `RESERVED_HOOK_FIELDS`, and it
+    // ALSO emits that same SDK version into every generated package's
+    // `dependencies["@reactor-team/js-sdk"]` (via `defaultSdkVersion`).
+    // Those two numbers MUST match — otherwise the d.ts the codegen
+    // parses is for one SDK version while the consumer projects pin a
+    // different one, and the generated typed surface drifts from the
+    // actual SDK shape downstream packages compile against.
+    //
+    // To make a single one-line PR the way to bump the SDK target,
+    // pin both knobs to the same number here. A version skew shows up
+    // as a hard failure in CI rather than a silent drift.
+    const pkgJsonPath = path.resolve(__dirname, "..", "package.json");
+    const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, "utf-8"));
+    const defaultSdkVersion = pkgJson.defaultSdkVersion as string;
+    const runtimeDep = pkgJson.dependencies["@reactor-team/js-sdk"] as string;
+
+    // The runtime dep is a semver range (`^X.Y.Z`); strip the range
+    // prefix and compare the underlying version.
+    const runtimeVersion = runtimeDep.replace(/^[\^~]/, "");
+    expect(runtimeVersion).toBe(defaultSdkVersion);
+  });
 });
 
 // ---------------------------------------------------------------------------
