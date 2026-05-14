@@ -13,6 +13,10 @@ importers:
         version: 3.8.1
 
   packages/codegen:
+    dependencies:
+      '@reactor-team/js-sdk':
+        specifier: workspace:*
+        version: link:../js-sdk
     devDependencies:
       '@types/node':
         specifier: ^20.0.0

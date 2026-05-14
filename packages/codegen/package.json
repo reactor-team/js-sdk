@@ -35,6 +35,9 @@
   "defaultSdkVersion": "2.9.3",
   "author": "Reactor Technologies, Inc.",
   "license": "MIT",
+  "dependencies": {
+    "@reactor-team/js-sdk": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "tsup": "^8.5.0",

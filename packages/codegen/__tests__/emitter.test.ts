@@ -604,10 +604,14 @@ describe("generateModelSdk", () => {
     expect(withSrc.content).toContain(
       'import { Reactor, FileRef } from "@reactor-team/js-sdk";',
     );
-    expect(withSrc.content).toContain("async uploadFile(");
     // Re-export FileRef so consumers can type `const ref: FileRef = ...`
     // without pulling in a second import from `@reactor-team/js-sdk`.
     expect(withSrc.content).toContain("export { FileRef };");
+    // `uploadFile` is now inherited from `Reactor` (the generated
+    // class is `extends Reactor`), so the subclass body must NOT
+    // emit a typed wrapper — that would be a duplicate-method TS
+    // compile error.
+    expect(withSrc.content).not.toContain("async uploadFile(");
     expect(withoutSrc.content).toContain(
       'import { Reactor } from "@reactor-team/js-sdk";',
     );
@@ -639,11 +643,9 @@ describe("generateModelSdk", () => {
     expect(src).toContain(
       "async schedulePrompt(params: HeliosSchedulePromptParams)",
     );
-    expect(src).toContain(
-      'await this.reactor.sendCommand("schedule_prompt", params);',
-    );
+    expect(src).toContain('await this.sendCommand("schedule_prompt", params);');
     expect(src).toContain("async start():");
-    expect(src).toContain('await this.reactor.sendCommand("start", {});');
+    expect(src).toContain('await this.sendCommand("start", {});');
   });
 
   it("wires per-message listener helpers onto the discriminated union", () => {
@@ -797,11 +799,20 @@ describe("generateModelSdk", () => {
     });
 
     const src = pkg.files.find((f) => f.path === "src/index.ts")!.content;
-    expect(src).not.toContain("modelTracks");
-    expect(src).not.toContain("HeliosTracks");
-    expect(src).toContain(
-      "this.reactor = new Reactor({ ...options, modelName: MODEL_NAME });",
-    );
+    // Look for the property-emit form (`modelTracks: [...HeliosTracks]`)
+    // and the tracks constant array, both of which are guarded on
+    // `hasTracks`. We intentionally do NOT match the bare word
+    // `modelTracks` — the class-level JSDoc references it as part of
+    // documenting the constructor shape, and that doc text is present
+    // on every generated class regardless of whether the schema
+    // declares any tracks.
+    expect(src).not.toContain("modelTracks: [");
+    expect(src).not.toContain("export const HeliosTracks = [");
+    // No-tracks path keeps the constructor on a single line; the
+    // `extends Reactor` + `super(...)` shape is otherwise identical
+    // to the tracks-declared path (just without `modelTracks`).
+    expect(src).toContain("export class HeliosModel extends Reactor {");
+    expect(src).toContain("super({ ...options, modelName: MODEL_NAME });");
   });
 
   it("is deterministic for a given input (same output twice)", () => {
@@ -818,6 +829,111 @@ describe("generateModelSdk", () => {
     const a = generateModelSdk(opts);
     const b = generateModelSdk(opts);
     expect(a).toEqual(b);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Inheritance shape: the generated `<Prefix>Model` extends `Reactor`
+// directly (rather than composing one) so every public method on
+// `Reactor` is reachable on the subclass without a hand-rolled
+// passthrough in this emitter. Pins:
+//   - `extends Reactor` in the class header
+//   - `super(...)` (not `this.reactor = new Reactor(...)`) in the
+//     constructor body — tracks-on path and no-tracks path both
+//   - the deprecated `get reactor(): this` backwards-compat accessor
+//     so existing call sites of `helios.reactor.X(...)` keep working
+//   - the absence of hand-rolled `connect` / `disconnect` /
+//     `uploadFile` passthrough methods (which would shadow the
+//     inherited versions and produce TS compile errors on overrides)
+// ---------------------------------------------------------------------------
+
+describe("emitter — inheritance shape", () => {
+  function indexOf(opts: {
+    events?: EventSchema[];
+    messages?: MessageSchema[];
+    tracks?: TrackSchema[];
+  }) {
+    const pkg = generateModelSdk({
+      modelName: "helios",
+      modelVersion: "0.1.0",
+      sdkVersion: "2.9.3",
+      schema: schema({
+        events: opts.events ?? [],
+        messages: opts.messages ?? [],
+        tracks: opts.tracks ?? [],
+      }),
+      outputDir: "/tmp/ignored",
+    });
+    return pkg.files.find((f) => f.path === "src/index.ts")!.content;
+  }
+
+  it("emits `extends Reactor` on the class header", () => {
+    const src = indexOf({});
+    expect(src).toContain("export class HeliosModel extends Reactor {");
+  });
+
+  it("calls `super(...)` (no `new Reactor(...)`) in the constructor body", () => {
+    const noTracks = indexOf({});
+    expect(noTracks).toContain("super({ ...options, modelName: MODEL_NAME });");
+    // The old composition form must be fully gone — no `new Reactor(...)`
+    // anywhere in the generated source.
+    expect(noTracks).not.toContain("new Reactor(");
+    expect(noTracks).not.toContain("readonly reactor:");
+    expect(noTracks).not.toContain("this.reactor =");
+
+    const withTracks = indexOf({
+      tracks: [{ name: "main_video", kind: "video", direction: "out" }],
+    });
+    expect(withTracks).toContain("super({");
+    expect(withTracks).toContain("modelName: MODEL_NAME,");
+    expect(withTracks).toContain("modelTracks: [...HeliosTracks],");
+    expect(withTracks).not.toContain("new Reactor(");
+  });
+
+  it("emits a deprecated `get reactor(): this` backwards-compat accessor", () => {
+    const src = indexOf({});
+    expect(src).toContain("get reactor(): this {");
+    expect(src).toContain("return this;");
+    // The accessor must carry an `@deprecated` JSDoc tag so IDE
+    // tooling strikes through call sites and lint rules can flag uses.
+    const reactorIdx = src.indexOf("get reactor(): this");
+    expect(reactorIdx).toBeGreaterThan(-1);
+    const docWindow = src.slice(Math.max(0, reactorIdx - 400), reactorIdx);
+    expect(docWindow).toContain("@deprecated");
+  });
+
+  it("does not emit hand-rolled `connect` / `disconnect` passthroughs (inherited from Reactor)", () => {
+    const src = indexOf({});
+    expect(src).not.toContain("async connect(jwtToken");
+    expect(src).not.toContain("async disconnect():");
+  });
+
+  it("inherits `sendCommand` — typed event methods call `this.sendCommand(...)`", () => {
+    const src = indexOf({
+      events: [
+        {
+          name: "set_prompt",
+          description: "",
+          fields: { prompt: { type: "string" } },
+        },
+      ],
+    });
+    expect(src).toContain('await this.sendCommand("set_prompt", params);');
+    // The old `this.reactor.sendCommand` form must be gone.
+    expect(src).not.toContain("this.reactor.sendCommand");
+  });
+
+  it("inherits `on` / `off` — onMessage and recvonly-track helpers call `this.on(...)` / `this.off(...)`", () => {
+    const src = indexOf({
+      messages: [{ name: "prompt_accepted", description: "", fields: {} }],
+      tracks: [{ name: "main_video", kind: "video", direction: "out" }],
+    });
+    expect(src).toContain('this.on("message", wrappedHandler);');
+    expect(src).toContain('this.off("message", wrappedHandler);');
+    expect(src).toContain('this.on("trackReceived", wrapped);');
+    expect(src).toContain('this.off("trackReceived", wrapped);');
+    expect(src).not.toContain("this.reactor.on(");
+    expect(src).not.toContain("this.reactor.off(");
   });
 });
 
@@ -1381,11 +1497,9 @@ describe("emitter — typed track helpers (REA-1791)", () => {
       { name: "webcam", kind: "video", direction: "in" },
     ]);
     expect(index).toContain("async publishWebcam(track: MediaStreamTrack)");
-    expect(index).toContain(
-      'await this.reactor.publishTrack("webcam", track);',
-    );
+    expect(index).toContain('await this.publishTrack("webcam", track);');
     expect(index).toContain("async unpublishWebcam(): Promise<void>");
-    expect(index).toContain('await this.reactor.unpublishTrack("webcam");');
+    expect(index).toContain('await this.unpublishTrack("webcam");');
   });
 
   it("emits an `on<Name>` subscription per recvonly track, filtering by name internally", () => {
@@ -1397,17 +1511,20 @@ describe("emitter — typed track helpers (REA-1791)", () => {
       "const wrapped = (name: string, t: MediaStreamTrack, s: MediaStream) => {",
     );
     expect(index).toContain('if (name === "main_video") handler(t, s);');
-    expect(index).toContain('this.reactor.on("trackReceived", wrapped);');
-    expect(index).toContain(
-      'return () => this.reactor.off("trackReceived", wrapped);',
-    );
+    expect(index).toContain('this.on("trackReceived", wrapped);');
+    expect(index).toContain('return () => this.off("trackReceived", wrapped);');
   });
 
   it("does not emit any track methods when the schema has no tracks", () => {
     const { index } = sourceOf([]);
-    expect(index).not.toContain("publishTrack");
-    expect(index).not.toContain("unpublishTrack");
-    expect(index).not.toContain('this.reactor.on("trackReceived"');
+    // `publishTrack` / `unpublishTrack` are inherited from Reactor on
+    // every generated class — we're checking that the schema-derived
+    // sugar (`publish<Name>` / `unpublish<Name>` typed wrappers) is
+    // absent, not the inherited base methods. Match the call-site
+    // strings that only show up inside the schema-derived sugar.
+    expect(index).not.toContain('await this.publishTrack("');
+    expect(index).not.toContain('await this.unpublishTrack("');
+    expect(index).not.toContain('this.on("trackReceived"');
   });
 
   // ---- React hook ------------------------------------------------------

@@ -1,5 +1,7 @@
 // Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
 
+import * as fs from "node:fs";
+import * as path from "node:path";
 import type {
   EventSchema,
   FieldSchema,
@@ -47,11 +49,15 @@ import { toCamelCase, toPascalCase } from "./emitter.js";
 //   2. RESERVED identifiers — names that, after case transformation,
 //      would collide with the JS prototype chain (`__proto__`,
 //      `constructor`, `toString`, `toJSON`, …), with JS reserved words
-//      (`default`, `let`, `null`, `void`, …), with the class scaffold's
-//      own built-in methods (`connect`, `disconnect`, `onMessage`,
-//      `uploadFile`) or properties (`reactor`), with the React hook's
-//      reserved fields (`status`, `connect`, `disconnect`, `uploadFile`,
-//      `sendCommand`), or with the message discriminator field (`type`).
+//      (`default`, `let`, `null`, `void`, …), with methods inherited
+//      from `Reactor` (the generated class extends it — the list is
+//      **auto-derived** from the installed `@reactor-team/js-sdk`'s
+//      `dist/index.d.ts` at module load time, so any new public method
+//      on a future js-sdk release flows through with no hand-edit
+//      here), the scaffold's catch-all `onMessage`, the deprecated
+//      `reactor` getter, the React hook's reserved fields (`status`,
+//      `connect`, `disconnect`, `uploadFile`, `sendCommand`), or the
+//      message discriminator field (`type`).
 //
 //   3. SURFACE COLLISION detection — every public symbol the emitter
 //      would write is computed up front and de-duplicated across
@@ -395,17 +401,115 @@ const DANGEROUS_PROPERTY_KEYS = new Set<string>([
 ]);
 
 /**
- * Methods the emitter unconditionally writes onto `<Prefix>Model`. An
- * event whose camelCase transform matches one of these would emit a
- * duplicate method on the generated class — TS compile error if both
- * are typed identically, silent override if not.
+ * Methods reachable on `<Prefix>Model` — either inherited from
+ * {@link Reactor} (every public method on its prototype, since the
+ * generated class is `extends Reactor`) or unconditionally written by
+ * the emitter scaffold (`onMessage` when the schema declares messages).
+ *
+ * An event/message/track whose camelCase / `on<Pascal>` transform
+ * matches one of these names would either shadow an inherited method
+ * (silent override at runtime) or compile-error on duplicate-method
+ * declaration. The verifier rejects both up front.
+ *
+ * The Reactor portion is **derived automatically** from the installed
+ * `@reactor-team/js-sdk` package's `index.d.ts` at module-load time
+ * (see {@link loadReactorPublicMethodsFromDts}). No hand-maintained
+ * mirror — any public method `js-sdk` declares is picked up on the
+ * next `defaultSdkVersion` bump, including future additions (e.g. the
+ * recording stack's `requestClip` / `requestRecording` /
+ * `downloadClipAsFile`).
+ *
+ * Only the scaffold-only `onMessage` name has to be added explicitly,
+ * because it's not declared on Reactor itself but is unconditionally
+ * emitted by the codegen onto every subclass that has messages.
  */
-const RESERVED_CLASS_METHODS = new Set<string>([
-  "connect",
-  "disconnect",
-  "onMessage",
-  "uploadFile",
-]);
+const RESERVED_CLASS_METHODS: Set<string> = (() => {
+  const set = loadReactorPublicMethodsFromDts();
+  // Scaffold-only: the emitter writes a typed `onMessage` wrapper onto
+  // the subclass when the schema declares at least one message. It's
+  // NOT on Reactor.prototype, so the d.ts loader doesn't see it.
+  set.add("onMessage");
+  return set;
+})();
+
+/**
+ * Read the installed `@reactor-team/js-sdk` package's bundled
+ * `index.d.ts` and extract the names of every non-private method
+ * declared on the `Reactor` class. This is the source of truth for
+ * what the verifier needs to reject as a schema-side collision.
+ *
+ * Why parse the d.ts (and not, say, `Object.getOwnPropertyNames(
+ * Reactor.prototype)`):
+ *
+ *   - The prototype walk includes TS-`private` methods, which survive
+ *     compilation because TS visibility is compile-time only. Those
+ *     methods are NOT inheritable in the type system, so a schema
+ *     event of the same name cannot collide with them.
+ *   - The d.ts emission, on the other hand, preserves the `private`
+ *     keyword (e.g. `private setStatus;`), so a single regex sweep
+ *     gives us exactly the type-visible public surface — which is
+ *     what `extends Reactor` actually exposes to a subclass author.
+ *
+ * The loader runs once at module load (the IIFE that populates
+ * {@link RESERVED_CLASS_METHODS} above). If `js-sdk` is missing or
+ * the d.ts cannot be parsed, the loader throws — that's a hard
+ * dependency failure and we'd rather fail loud at codegen startup
+ * than emit an under-protected verifier that silently accepts
+ * shadowing schemas.
+ */
+function loadReactorPublicMethodsFromDts(): Set<string> {
+  // `require.resolve` locates the package's main entry; the d.ts ships
+  // alongside it under `dist/index.d.ts` (tsup config in js-sdk). Walk
+  // up one level to reach the d.ts. Works in both pnpm-workspace mode
+  // (symlinked source build) and published-npm mode (real tarball).
+  const sdkEntry = require.resolve("@reactor-team/js-sdk");
+  const dtsPath = path.join(path.dirname(sdkEntry), "index.d.ts");
+  const dts = fs.readFileSync(dtsPath, "utf-8");
+
+  // Find the `declare class Reactor` block. The trailing `^}` anchors
+  // on a top-level `}` (no indentation) so a nested object literal in
+  // a method signature doesn't terminate the match early.
+  const classMatch = dts.match(/declare class Reactor\b[^{]*\{([\s\S]*?)^\}/m);
+  if (!classMatch) {
+    throw new Error(
+      "Codegen verifier: could not locate `declare class Reactor` block in " +
+        `${dtsPath}. The d.ts format may have changed; update the regex in ` +
+        "`loadReactorPublicMethodsFromDts` and the matching docstring.",
+    );
+  }
+  const body = classMatch[1];
+
+  // Method declarations at the class's 4-space indent. Negative
+  // lookahead skips `private ` / `protected ` members (those don't
+  // form part of the inheritable surface). We require `(` or `<`
+  // immediately after the name so the regex doesn't accidentally
+  // match property declarations like `readonly recording:
+  // RecordingClient;` — properties land in
+  // {@link RESERVED_CLASS_PROPERTIES} via a separate code path if
+  // ever needed.
+  const methodRe = /^ {4}(?!private |protected )([a-zA-Z_$][\w$]*)\s*[(<]/gm;
+  const out = new Set<string>();
+  for (const match of body.matchAll(methodRe)) {
+    const name = match[1];
+    if (name !== "constructor") out.add(name);
+  }
+
+  // Sanity floor: the loader must find AT LEAST the canonical lifecycle
+  // surface. A zero-result parse almost certainly means the d.ts shape
+  // has changed in a way the regex doesn't tolerate; surfacing that
+  // here is more useful than silently shipping an under-protected
+  // verifier set.
+  for (const required of ["connect", "disconnect", "sendCommand"]) {
+    if (!out.has(required)) {
+      throw new Error(
+        `Codegen verifier: d.ts parse of ${dtsPath} did not find the ` +
+          `\`${required}\` method on the Reactor class. The d.ts shape may ` +
+          "have changed; update `loadReactorPublicMethodsFromDts`.",
+      );
+    }
+  }
+  return out;
+}
 
 /**
  * Properties on the `<Prefix>Model` instance. `reactor` is the
@@ -567,7 +671,7 @@ class VerifyContext {
         this.fail(
           `event ${JSON.stringify(event.name)} would emit method ` +
             `\`${camel}()\`, shadowing the built-in \`${camel}()\` on the ` +
-            `generated client class`,
+            `generated client class (inherited from Reactor or built into the scaffold)`,
         );
       }
       if (RESERVED_CLASS_PROPERTIES.has(camel)) {
@@ -703,18 +807,28 @@ class VerifyContext {
   }
 
   private checkClassMethodCollisions(schema: ModelSchema): void {
-    // The class scaffold already declares these unconditionally — they
-    // count as the "first source" so an event/message/track that would
+    // The class scaffold inherits every Reactor public method (via
+    // `extends Reactor` in the emitter output) and unconditionally
+    // writes `onMessage` when the schema has messages. They count as
+    // the "first source" so an event / message / track that would
     // emit a duplicate is reported with both sides of the conflict.
-    const claims = new Map<string, string>([
-      ["connect", "built-in `connect()` on the client class"],
-      ["disconnect", "built-in `disconnect()` on the client class"],
-      ["onMessage", "built-in catch-all `onMessage()` listener"],
-      [
-        "uploadFile",
-        "built-in `uploadFile()` (when any event takes an upload reference)",
-      ],
-    ]);
+    //
+    // The Reactor-side claims are seeded from the SAME d.ts-derived
+    // set the rule-level check uses — so when js-sdk grows a method
+    // (e.g. recording adds `requestClip`), both the rejection and the
+    // error message flow through automatically without a second list
+    // to maintain.
+    const claims = new Map<string, string>();
+    for (const name of RESERVED_CLASS_METHODS) {
+      if (name === "onMessage") {
+        claims.set(name, "built-in catch-all `onMessage()` listener");
+      } else {
+        claims.set(
+          name,
+          `inherited \`${name}()\` from \`Reactor\` (base class)`,
+        );
+      }
+    }
 
     const claim = (name: string, source: string): void => {
       const prior = claims.get(name);

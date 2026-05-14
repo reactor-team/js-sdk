@@ -322,8 +322,30 @@ describe("verifySchema — reserved identifier classes", () => {
     expect(__testing__.DANGEROUS_PROPERTY_KEYS.has("toJSON")).toBe(true);
   });
 
-  it.each(["connect", "disconnect", "on_message", "upload_file"])(
-    "rejects event %s — shadows a built-in client class method",
+  // The rejection cases are *derived* from `RESERVED_CLASS_METHODS`
+  // (which is itself d.ts-derived in the verifier) by reversing the
+  // codegen's `toCamelCase` transform. This means a future js-sdk
+  // release that adds e.g. `requestClip` to the inheritable surface
+  // automatically lights up a `request_clip` rejection test on the
+  // next `defaultSdkVersion` bump — no hand-edited mirror list.
+  //
+  // The camel-to-snake reversal is the inverse of `toCamelCase` (lower
+  // the first char, then `_<lower>` for every uppercase letter). It's
+  // unambiguous for the snake_case → camelCase shapes the verifier
+  // accepts (no consecutive uppercase letters in any Reactor method
+  // name), so the round-trip is faithful.
+  const camelToSnake = (s: string): string =>
+    s.replace(/([A-Z])/g, (_, c) => `_${(c as string).toLowerCase()}`);
+  const reservedAsSnakeCase = [...__testing__.RESERVED_CLASS_METHODS]
+    .map(camelToSnake)
+    // The verifier's `STRICT_SNAKE_CASE_RE` requires segments of `+`,
+    // not `*`, after a leading `_`. Defensive filter (no current name
+    // produces an invalid shape; this just future-proofs).
+    .filter((s) => /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/.test(s))
+    .sort();
+
+  it.each(reservedAsSnakeCase)(
+    "rejects event %s — shadows a built-in or inherited client method",
     (badName) => {
       const schema = baseSchema({ events: [event(badName)] });
 
@@ -338,7 +360,8 @@ describe("verifySchema — reserved identifier classes", () => {
           (p) =>
             p.includes("shadowing the built-in") ||
             p.includes("class method") ||
-            p.includes("emitted twice"),
+            p.includes("emitted twice") ||
+            p.includes("inherited"),
         ),
       ).toBe(true);
     },
@@ -787,5 +810,67 @@ describe("generateModelSdk integration", () => {
     expect(src).toContain('export const MODEL_NAME = "my-cool-model"');
     // npm package name keeps the hyphenated form (npm convention).
     expect(pkgJson.name).toBe("@reactor-models/my-cool-model");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Inheritance contract: the verifier auto-derives the Reactor public
+// surface from `@reactor-team/js-sdk`'s installed `index.d.ts` at
+// module load time (see `loadReactorPublicMethodsFromDts` in
+// `verifier.ts`). This means future `js-sdk` releases that add new
+// public methods (e.g. the recording stack adds `requestClip`,
+// `requestRecording`, `downloadClipAsFile`) flow into the verifier
+// automatically on the next `defaultSdkVersion` bump — no hand-edited
+// reserved list and no parity test to keep updated.
+//
+// The tests below sanity-check that the loader actually found a
+// reasonable surface (so a future tsup d.ts format change can't
+// silently produce an empty set), not that the set contains every
+// method — that's what the loader's own internal floor check is for.
+// ---------------------------------------------------------------------------
+
+describe("RESERVED_CLASS_METHODS — d.ts-derived surface", () => {
+  it("includes the canonical Reactor lifecycle + IO methods", () => {
+    const reserved = __testing__.RESERVED_CLASS_METHODS;
+    // Spot-check across the major method groups:
+    //   - lifecycle: connect / disconnect / reconnect
+    //   - commands: sendCommand / uploadFile / publishTrack
+    //   - events: on / off / emit
+    //   - getters: at least getStats
+    //   - scaffold: onMessage (NOT on Reactor; added by codegen)
+    for (const name of [
+      "connect",
+      "disconnect",
+      "reconnect",
+      "sendCommand",
+      "uploadFile",
+      "publishTrack",
+      "unpublishTrack",
+      "on",
+      "off",
+      "emit",
+      "getStats",
+      "onMessage",
+    ]) {
+      expect(reserved.has(name)).toBe(true);
+    }
+  });
+
+  it("does not include TS-private methods (e.g. setStatus, setupTransportHandlers)", () => {
+    // The d.ts loader filters by the `private` keyword that tsup
+    // preserves in the emitted declarations. TS-private methods would
+    // be runtime-reachable on Reactor.prototype but are not part of
+    // the inheritable type surface, so claiming them in the verifier
+    // would reject schemas the type system would otherwise accept.
+    const reserved = __testing__.RESERVED_CLASS_METHODS;
+    for (const name of [
+      "setStatus",
+      "setSessionId",
+      "setupTransportHandlers",
+      "createError",
+      "finalizeConnectionTimings",
+    ]) {
+      expect(reserved.has(name)).toBe(false);
+    }
   });
 });
