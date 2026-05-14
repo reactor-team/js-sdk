@@ -24,7 +24,7 @@ import { {{MODEL_PREFIX}}Model } from "@reactor-models/{{MODEL_NAME}}";
 import { {{MODEL_PREFIX}}Provider, use{{MODEL_PREFIX}} } from "@reactor-models/{{MODEL_NAME}}";
 ```
 
-React 18 or later is required when using the provider and hooks.
+React 18 or later is required when using the provider and hooks. The token-loading examples below use [React 19's `use()`](https://react.dev/reference/react/use); on React 18, fetch the JWT in a `useEffect` and pass it to the provider once it resolves.
 
 ---
 
@@ -56,23 +56,23 @@ Call the `/api/reactor/token` route above from a client component and pass the r
 
 ```tsx
 "use client";
-import { useEffect, useState } from "react";
+
+import { use } from "react";
 import { {{MODEL_PREFIX}}Provider } from "@reactor-models/{{MODEL_NAME}}";
 import { ReactorView } from "@reactor-team/js-sdk";
 
+async function getToken() {
+  const r = await fetch("/api/reactor/token", { method: "POST" });
+  const { jwt } = await r.json();
+  return jwt;
+}
+
+const tokenPromise = getToken();
+
 export default function App() {
-  const [jwt, setJwt] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch("/api/reactor/token", { method: "POST" })
-      .then((r) => r.json())
-      .then((d) => setJwt(d.jwt));
-  }, []);
-
-  if (!jwt) return null;
-
+  const token = use(tokenPromise);
   return (
-    <{{MODEL_PREFIX}}Provider jwtToken={jwt} connectOptions={{ autoConnect: true }}>
+    <{{MODEL_PREFIX}}Provider jwtToken={token} connectOptions={{ autoConnect: true }}>
       <ReactorView className="w-full aspect-video" />
     </{{MODEL_PREFIX}}Provider>
   );
@@ -94,12 +94,21 @@ await {{MODEL_NAME}}.connect(jwt);
 
 ### React
 
-The provider takes the JWT as a prop; fetch it from the same `/api/reactor/token` route the Authenticate example mints.
+The provider takes the JWT as a prop; fetch it from the same `/api/reactor/token` route the Authenticate example mints:
 
 ```tsx
 "use client";
-import { useEffect, useState } from "react";
+
+import { use } from "react";
 import { {{MODEL_PREFIX}}Provider, use{{MODEL_PREFIX}} } from "@reactor-models/{{MODEL_NAME}}";
+
+async function getToken() {
+  const r = await fetch("/api/reactor/token", { method: "POST" });
+  const { jwt } = await r.json();
+  return jwt;
+}
+
+const tokenPromise = getToken();
 
 function Controller() {
   const { status } = use{{MODEL_PREFIX}}();
@@ -107,18 +116,9 @@ function Controller() {
 }
 
 export default function App() {
-  const [jwt, setJwt] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch("/api/reactor/token", { method: "POST" })
-      .then((r) => r.json())
-      .then((d) => setJwt(d.jwt));
-  }, []);
-
-  if (!jwt) return null;
-
+  const token = use(tokenPromise);
   return (
-    <{{MODEL_PREFIX}}Provider jwtToken={jwt}>
+    <{{MODEL_PREFIX}}Provider jwtToken={token}>
       <Controller />
     </{{MODEL_PREFIX}}Provider>
   );
