@@ -36,7 +36,7 @@
   "author": "Reactor Technologies, Inc.",
   "license": "MIT",
   "dependencies": {
-    "@reactor-team/js-sdk": "workspace:*"
+    "@reactor-team/js-sdk": "^2.9.3"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
