@@ -736,18 +736,23 @@ function generateClientClass(
 //
 // Design choices, in case you're reviewing and wondering:
 //
-//   - We use `React.createElement` rather than JSX so the emitter stays a
-//     pure string builder with no JSX-escaping concerns and the generated
-//     file can stay `.ts` (not `.tsx`). tsup/TS handle this fine.
+//   - We emit real JSX (file is `.tsx`). The Provider and per-track
+//     wrapper components use `<Tag {...spread} prop={value} />` syntax;
+//     children flow as the JSX body, never as a prop key, so the
+//     `react/no-children-prop` lint stays clean automatically.
 //
 //   - The provider is a thin wrapper around `ReactorProvider` that bakes in
 //     `modelName: MODEL_NAME` and `modelTracks: [...<Prefix>Tracks]`, so
-//     consumers never have to wire those up themselves.
+//     consumers never have to wire those up themselves. Everything else
+//     (props from `ReactorProvider`'s own signature) is forwarded via
+//     `{...rest}` spread.
 //
-//   - The `use<Prefix>()` hook exposes typed `sendCommand`-bound methods
-//     (one per event), plus `status`, and — when any event takes an upload
-//     reference — `uploadFile`. It selects state from the store via
-//     `useReactor` so it re-renders on `status` changes.
+//   - The `use<Prefix>()` hook emits one `useReactor((s) => s.X)`
+//     selector per field on the SDK's `ReactorStore` (derived from
+//     `js-sdk`'s d.ts via `loadReactorStoreFieldsFromDts`), then
+//     layers schema-derived typed event methods on top. New SDK
+//     store fields flow through automatically on the next
+//     `defaultSdkVersion` bump.
 //
 //   - Per-message hooks (`use<Prefix><Msg>`) filter by the discriminator
 //     (`type: "..."`) inside `useReactorMessage` and hand the handler the
@@ -917,28 +922,14 @@ function generateProviderComponent(
     0,
   );
 
-  // `children` is passed as `createElement`'s third positional
-  // argument rather than as a key inside the props object. Both forms
-  // are equivalent at runtime — React folds the variadic
-  // `...children: ReactNode[]` rest into the `children` prop — but
-  // `eslint-plugin-react`'s `react/no-children-prop` rule (in the
-  // recommended config and the Next.js shareable config) flags any
-  // `createElement` call that passes `children` as a prop key.
-  //
-  // The third-arg form only compiles against @types/react's
-  // overloads when the component's prop type doesn't declare
-  // `children` as a required field. The SDK's `ReactorProviderProps`
-  // declares `children?: ReactNode` (since js-sdk 2.9.3); if that's
-  // ever tightened back to required, this emitter has to fall back to
-  // the in-props form with a targeted `eslint-disable-next-line
-  // react/no-children-prop` comment. Pinned by a regression test in
-  // `emitter.test.ts`.
-  //
-  // Everything other than `children` is forwarded via `...rest`
-  // spread, so a future `ReactorProvider` prop addition reaches
-  // through without renaming each field by hand.
-  const tracksProp = hasTracks
-    ? `\n      modelTracks: [...${modelPrefix}Tracks],`
+  // JSX form: pass `children` between the open/close tags so React's
+  // implicit `children` prop folding fills it in, and the
+  // `react/no-children-prop` lint stays clean automatically. The
+  // `{...rest}` spread is the bit that future-proofs forwarding —
+  // any new prop `ReactorProvider` gains flows through without
+  // renaming each field here.
+  const tracksAttr = hasTracks
+    ? `\n      modelTracks={[...${modelPrefix}Tracks]}`
     : "";
 
   return `${propsDoc}export type ${providerName}Props = Omit<
@@ -950,13 +941,13 @@ ${doc}export function ${providerName}({
   children,
   ...rest
 }: ${providerName}Props): ReactElement {
-  return createElement(
-    ReactorProvider,
-    {
-      ...rest,
-      modelName: MODEL_NAME,${tracksProp}
-    },
-    children,
+  return (
+    <ReactorProvider
+      {...rest}
+      modelName={MODEL_NAME}${tracksAttr}
+    >
+      {children}
+    </ReactorProvider>
   );
 }`;
 }
@@ -1015,12 +1006,12 @@ function generateReactFile(options: CodegenOptions): string {
   sections.push(`"use client";`);
   sections.push("");
 
-  // React imports. `createElement` lets us stay in `.ts` (no JSX).
-  // `ReactNode` is no longer named in the emitted source — the
-  // `<Prefix>ProviderProps` type derives from `ReactorProvider`'s
-  // own props, so `children` lives inside that resolved type and we
-  // don't need a separate alias here.
-  sections.push(`import { createElement, type ReactElement } from "react";`);
+  // React imports. The file is `.tsx` so we emit real JSX, not
+  // `createElement` calls. `ReactElement` is still imported as the
+  // return type of the Provider + per-track wrapper components, so
+  // the emitted source stays explicit about its return shape without
+  // relying on JSX namespace defaults.
+  sections.push(`import { type ReactElement } from "react";`);
 
   // SDK imports. We only import what the emitted surface actually uses so
   // tree-shaking in the consumer project stays tight. `Parameters<typeof
@@ -1041,9 +1032,9 @@ function generateReactFile(options: CodegenOptions): string {
     `import {\n  ${sdkImports.join(",\n  ")},\n} from "@reactor-team/js-sdk";`,
   );
 
-  // Pull the generated constants and types from the sibling index.ts.
-  // The `.js` extension is required for Node's ESM resolver and matches
-  // what tsup produces.
+  // Pull the generated constants and types from the sibling core.ts.
+  // The `.js` extension is required for Node's ESM resolver and
+  // matches what tsup produces.
   const localImports: string[] = ["MODEL_NAME"];
   if (hasTracks) localImports.push(`${modelPrefix}Tracks`);
   localImports.push(`type ${modelPrefix}Options`);
@@ -1065,7 +1056,7 @@ function generateReactFile(options: CodegenOptions): string {
     localImports.push(`type ${modelPrefix}RecvTrackName`);
   }
   sections.push(
-    `import {\n  ${localImports.join(",\n  ")},\n} from "./index.js";`,
+    `import {\n  ${localImports.join(",\n  ")},\n} from "./core.js";`,
   );
   sections.push("");
 
@@ -1222,10 +1213,7 @@ ${generateJsDoc(
 )}export function ${componentName}(
   props: ${propsName},
 ): ReactElement {
-  return createElement(ReactorView, {
-    ...props,
-    track: ${JSON.stringify(track.name)},
-  });
+  return <ReactorView {...props} track=${JSON.stringify(track.name)} />;
 }`,
     );
   }
@@ -1247,10 +1235,7 @@ ${generateJsDoc(
 )}export function ${componentName}(
   props: ${propsName},
 ): ReactElement {
-  return createElement(WebcamStream, {
-    ...props,
-    track: ${JSON.stringify(track.name)},
-  });
+  return <WebcamStream {...props} track=${JSON.stringify(track.name)} />;
 }`,
     );
   }
@@ -1260,15 +1245,86 @@ ${generateJsDoc(
 
 // ---------------------------------------------------------------------------
 // Full source file assembly
+//
+// The generated package is structured as:
+//
+//   src/index.ts   — re-export hub (`export * from "./core.js"` and,
+//                    when --react, also `export * from "./react.js"`).
+//                    No `"use client"`; that directive sits on the
+//                    `react.tsx` file where it belongs so RSC consumers
+//                    importing from `<pkg>/core` aren't dragged into a
+//                    client boundary.
+//
+//   src/core.ts    — types, constants, generated `<Prefix>Model`
+//                    class, `_unwrapMessage` helper. No React. Always
+//                    emitted.
+//
+//   src/react.tsx  — `<Prefix>Provider`, `use<Prefix>()`, message
+//                    hooks, track hooks, track-component wrappers.
+//                    Real JSX. Emitted only when --react.
+//
+// In standalone mode the index hub collapses (`<base>.ts` IS the core
+// content) and the React file, when emitted, lives at
+// `<base>.react.tsx` next to it.
 // ---------------------------------------------------------------------------
 
-function generateSourceFile(options: CodegenOptions): string {
+/**
+ * Emit `src/index.ts` — a thin re-export hub.
+ *
+ * Always re-exports the core; when `--react` is on, also re-exports
+ * the React layer. Consumers using `@reactor-models/<name>` keep
+ * working unchanged; consumers who want React-free bundle scope can
+ * import from `@reactor-models/<name>/core` directly (subpath export
+ * wired in `generatePackageJson`).
+ *
+ * No `"use client"` here. The directive lives on `react.tsx` so the
+ * RSC boundary is scoped to the React module only.
+ */
+function generateIndexFile(options: CodegenOptions): string {
+  const { schema } = options;
+  const withReact = !!options.react;
+
+  const sections: string[] = [];
+
+  sections.push(
+    `// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.`,
+  );
+  sections.push("");
+  sections.push(`// Auto-generated by @reactor-team/codegen — DO NOT EDIT`);
+  sections.push(
+    `// Model: ${schema.modelName} ${formatVersionForHeader(schema.modelVersion)}`,
+  );
+  sections.push("");
+  sections.push(`export * from "./core.js";`);
+  if (withReact) {
+    sections.push(`export * from "./react.js";`);
+  }
+  sections.push("");
+  return sections.join("\n");
+}
+
+/**
+ * Emit `src/core.ts` — the imperative + type surface of the generated
+ * package. Contains the SDK imports, `MODEL_NAME` / `MODEL_VERSION`
+ * constants, track constants + types, event param interfaces,
+ * message interfaces + discriminated union, `<Prefix>Options` derived
+ * type, the `_unwrapMessage` helper (when messages exist), and the
+ * generated `<Prefix>Model extends Reactor` class.
+ *
+ * Never references React. Safe to import from server components and
+ * non-React environments.
+ *
+ * Also used as the body of standalone-mode emissions — in
+ * `--standalone` the consumer's single `<base>.ts` file is exactly
+ * this content (the index re-export hub is unnecessary when the
+ * consumer controls the import path).
+ */
+function generateCoreFile(options: CodegenOptions): string {
   const { schema } = options;
   const modelPrefix = toPascalCase(schema.modelName);
   const events = schema.events;
   const messages = schema.messages;
   const tracks = schema.tracks;
-  const withReact = !!options.react;
 
   const needsFileRef = events.some(hasUploadRefParam);
 
@@ -1283,20 +1339,6 @@ function generateSourceFile(options: CodegenOptions): string {
     `// Model: ${schema.modelName} ${formatVersionForHeader(schema.modelVersion)}`,
   );
   sections.push("");
-
-  // `"use client";` goes at the very top of `src/index.ts` when React
-  // output is on, because the file re-exports from `./react.js` below
-  // — i.e. the bundled `dist/index.js` contains the Provider + hooks,
-  // so the whole module is a client-only boundary in the React Server
-  // Components world. The plain-JS `Reactor` client below already only
-  // runs in the browser (WebRTC doesn't exist server-side), so nothing
-  // legitimate is lost by marking it client-only; consumers can still
-  // import `MODEL_NAME` / types / the `Model` class from server
-  // components via Next.js's client-reference passthrough.
-  if (withReact) {
-    sections.push(`"use client";`);
-    sections.push("");
-  }
 
   const imports = ["Reactor"];
   if (needsFileRef) imports.push("FileRef");
@@ -1364,16 +1406,6 @@ function generateSourceFile(options: CodegenOptions): string {
   sections.push("");
   sections.push(generateClientClass(modelPrefix, events, messages, tracks));
 
-  // Re-export everything the React file defines so consumers only ever
-  // import from `@reactor-models/<name>` — no `/react` subpath. The
-  // re-export must come *after* every value declaration above, so the
-  // circular `react.ts → index.ts` imports (for `MODEL_NAME`,
-  // `<Prefix>Tracks`, etc.) resolve to fully-initialised bindings.
-  if (withReact) {
-    sections.push("");
-    sections.push(`export * from "./react.js";`);
-  }
-
   sections.push("");
   return sections.join("\n");
 }
@@ -1383,16 +1415,37 @@ function generateSourceFile(options: CodegenOptions): string {
 // ---------------------------------------------------------------------------
 
 function generatePackageJson(options: CodegenOptions): string {
-  // Single entry at the package root — the Provider + hooks (when
-  // `options.react`) live in `src/index.ts` alongside the plain-JS
-  // client, so consumers never need a `/react` subpath.
+  // Three entries when --react: the root combined entry plus two
+  // subpath entries (`/core` and `/react`) so consumers can opt out
+  // of React in environments that don't want it (server-side
+  // scripts, RSC, bundle-size-sensitive client builds). The root
+  // entry re-exports both via `src/index.ts` so existing
+  // `import { ... } from "@reactor-models/<name>"` call sites keep
+  // working unchanged.
+  //
+  // Without --react there's only `core.ts` to ship, but we still
+  // expose `/core` as a subpath alias of the root entry — the
+  // codegen output shape (and consumer mental model) stays uniform
+  // across the --react toggle.
   const exports: Record<string, Record<string, string>> = {
     ".": {
       types: "./dist/index.d.ts",
       import: "./dist/index.mjs",
       require: "./dist/index.js",
     },
+    "./core": {
+      types: "./dist/core.d.ts",
+      import: "./dist/core.mjs",
+      require: "./dist/core.js",
+    },
   };
+  if (options.react) {
+    exports["./react"] = {
+      types: "./dist/react.d.ts",
+      import: "./dist/react.mjs",
+      require: "./dist/react.js",
+    };
+  }
 
   // React is only a peer dependency when React emission is on. We list it
   // here (not `dependencies`) so consumers resolve to their own React
@@ -1438,11 +1491,19 @@ function generatePackageJson(options: CodegenOptions): string {
   return JSON.stringify(pkg, null, 2) + "\n";
 }
 
-function generateTsupConfig(_options: CodegenOptions): string {
+function generateTsupConfig(options: CodegenOptions): string {
+  // Two entries by default (`index.ts` + `core.ts`) so the
+  // `@reactor-models/<name>/core` subpath export resolves to a real
+  // built artifact, not a re-export hop through `index.js`. With
+  // --react the third entry (`react.tsx`) is added; tsup picks up
+  // `.tsx` and emits both CJS and ESM bundles with JSX compiled.
+  const entries = [`"src/index.ts"`, `"src/core.ts"`];
+  if (options.react) entries.push(`"src/react.tsx"`);
+
   return `import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/index.ts"],
+  entry: [${entries.join(", ")}],
   format: ["cjs", "esm"],
   dts: true,
   sourcemap: true,
@@ -1451,20 +1512,30 @@ export default defineConfig({
 `;
 }
 
-function generateTsConfig(): string {
+function generateTsConfig(options: CodegenOptions): string {
+  // `jsx: "react-jsx"` is added only when --react is on so the
+  // generated `react.tsx` compiles. The new JSX transform (React 17+)
+  // means consumers don't need to `import React` at the top of the
+  // file — the runtime helpers are injected by the compiler. Without
+  // --react there's no `.tsx` in `rootDir`, so the `jsx` field stays
+  // absent for a tidy tsconfig.
+  const compilerOptions: Record<string, unknown> = {
+    target: "ES2022",
+    module: "ESNext",
+    moduleResolution: "bundler",
+    strict: true,
+    esModuleInterop: true,
+    skipLibCheck: true,
+    forceConsistentCasingInFileNames: true,
+    outDir: "dist",
+    rootDir: "src",
+    declaration: true,
+  };
+  if (options.react) {
+    compilerOptions.jsx = "react-jsx";
+  }
   const config = {
-    compilerOptions: {
-      target: "ES2022",
-      module: "ESNext",
-      moduleResolution: "bundler",
-      strict: true,
-      esModuleInterop: true,
-      skipLibCheck: true,
-      forceConsistentCasingInFileNames: true,
-      outDir: "dist",
-      rootDir: "src",
-      declaration: true,
-    },
+    compilerOptions,
     include: ["src"],
     exclude: ["node_modules", "dist"],
   };
@@ -1485,25 +1556,33 @@ function generateTsConfig(): string {
 
 export const generator = {
   generate(options: CodegenOptions): GeneratedPackage {
-    const files = [
-      { path: "src/index.ts", content: generateSourceFile(options) },
+    // Package layout:
+    //   - `src/index.ts`  — thin re-export hub. Always.
+    //   - `src/core.ts`   — types + class + constants. Always.
+    //   - `src/react.tsx` — Provider + hooks + JSX track components.
+    //                       Only when `options.react`.
+    //
+    // The re-export hub + per-file subpath exports in package.json
+    // let consumers pick their import scope: `@reactor-models/<name>`
+    // for everything, `/core` for React-free bundle scope,
+    // `/react` for React-only isolation.
+    const files: GeneratedPackage["files"] = [
+      { path: "src/index.ts", content: generateIndexFile(options) },
+      { path: "src/core.ts", content: generateCoreFile(options) },
       { path: "package.json", content: generatePackageJson(options) },
       { path: "tsup.config.ts", content: generateTsupConfig(options) },
-      { path: "tsconfig.json", content: generateTsConfig() },
+      { path: "tsconfig.json", content: generateTsConfig(options) },
       // README sits at the package root, not under `src/`, per npm
       // convention. `package.json`'s `files` array already lists it, so
       // `npm pack` picks it up automatically.
       { path: "README.md", content: generateReadme(options) },
     ];
 
-    // When React output is on, emit `src/react.ts` as a sibling of
-    // `src/index.ts`. The main file re-exports everything from it, so
-    // the public surface is still a single root import — the split is
-    // purely a source-layout concern. Slotted right after `src/index.ts`
-    // for readable dry-run output.
+    // `src/react.tsx` slotted between `core.ts` and `package.json`
+    // for readable dry-run output (source files grouped together).
     if (options.react) {
-      files.splice(1, 0, {
-        path: "src/react.ts",
+      files.splice(2, 0, {
+        path: "src/react.tsx",
         content: generateReactFile(options),
       });
     }
