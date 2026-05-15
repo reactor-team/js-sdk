@@ -16,7 +16,12 @@ import {
   RecordingError,
   RuntimeRecordingMessageType,
   clipFromPayload,
+  createPlayableManifestUrl,
+  downloadClipAsFile as downloadClipAsFileFn,
+  fetchPlaylist as fetchPlaylistFn,
   type Clip,
+  type DownloadClipOptions,
+  type FetchPlaylistOptions,
 } from "../utils/recording";
 
 /** Default per-request timeout for `clipReady` / `clipFailed`. */
@@ -142,6 +147,56 @@ export class RecordingClient {
       RuntimeRecordingMessageType.REQUEST_RECORDING,
       {}
     );
+  }
+
+  /**
+   * Poll `/clips` and return the raw manifest body.  Same polling
+   * semantics as the bare {@link fetchPlaylist} helper; the caller is
+   * responsible for supplying the Coordinator JWT via `options.jwt`
+   * (origin-scoped to `clip.playlistUrl`).  In local mode against the
+   * HttpRuntime, `options.jwt` should be omitted.
+   */
+  async fetchPlaylist(
+    clip: Clip,
+    options: FetchPlaylistOptions = {}
+  ): Promise<string> {
+    return fetchPlaylistFn(clip.playlistUrl, {
+      predictedReadyAtMs: clip.predictedReadyAtMs,
+      ...options,
+    });
+  }
+
+  /**
+   * Fetch the manifest and return a `blob:` URL suitable for
+   * `<video src>` / `hls.js`.  The player reads the manifest from
+   * browser memory; chunk URLs inside are presigned S3 GETs.
+   *
+   * Caller owns the returned URL — revoke it via `URL.revokeObjectURL`
+   * when playback tears down.  Pass `options.jwt` for production
+   * `/clips` (the Coordinator hop) — see {@link FetchPlaylistOptions}.
+   */
+  async getPlayableManifestUrl(
+    clip: Clip,
+    options: FetchPlaylistOptions = {}
+  ): Promise<string> {
+    const body = await this.fetchPlaylist(clip, options);
+    // clip.playlistUrl is the absolute base needed to resolve any
+    // path-only chunk URLs in the manifest body (local HttpRuntime
+    // emits relative chunks; production S3 presigned URLs are
+    // already absolute and pass through untouched).
+    return createPlayableManifestUrl(body, clip.playlistUrl);
+  }
+
+  /**
+   * Thin delegation to {@link downloadClipAsFile}.  Caller must pass
+   * `options.jwt` in production — see {@link DownloadClipOptions}.
+   */
+  async downloadClipAsFile(
+    clip: Clip,
+    filename: string | null = "reactor-clip.mp4",
+    options?: DownloadClipOptions
+  ): Promise<Blob> {
+    return downloadClipAsFileFn(clip, filename, options);
   }
 
   /**

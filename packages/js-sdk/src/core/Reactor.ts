@@ -43,7 +43,7 @@ export type Options = z.input<typeof OptionsSchema>;
 export { FileRef } from "./FileRef";
 import { FileRef } from "./FileRef";
 import { RecordingClient } from "./RecordingClient";
-import type { Clip } from "../utils/recording";
+import type { Clip, DownloadClipOptions } from "../utils/recording";
 
 type EventHandler = (...args: any[]) => void;
 
@@ -274,6 +274,20 @@ export class Reactor {
    */
   async requestRecording(): Promise<Clip> {
     return this.recording.requestRecording();
+  }
+
+  /**
+   * Stream the chunks referenced by `clip.playlistUrl` and trigger a
+   * native browser download of the assembled fragmented-MP4 Blob.
+   * Pass `filename: null` to skip the download trigger and receive
+   * the Blob (useful for non-DOM consumers and tests).
+   */
+  async downloadClipAsFile(
+    clip: Clip,
+    filename: string | null = "reactor-clip.mp4",
+    options?: DownloadClipOptions
+  ): Promise<Blob> {
+    return this.recording.downloadClipAsFile(clip, filename, options);
   }
 
   /**
