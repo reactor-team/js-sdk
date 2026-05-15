@@ -70,6 +70,19 @@ export interface ClipPlayerProps {
    * fetched without an ``Authorization`` header in either case.
    */
   getJwt?: () => string | Promise<string>;
+  /**
+   * Override the grace period beyond ``clip.predictedReadyAtMs``
+   * before the SDK gives up polling the ``/clips`` manifest endpoint
+   * with ``CLIP_NOT_READY``.  Defaults to
+   * {@link DEFAULT_PLAYLIST_POLL_SLACK_MS} (15 s) — enough for snap
+   * clips, but long-running session recordings may legitimately need
+   * a minute or more for the final boundary chunk to finish encoding
+   * + uploading, in which case pass a larger value (e.g. ``120_000``
+   * for two-minute grace).  Forwarded directly to
+   * {@link fetchPlaylist}'s ``slackMs`` option — see that helper for
+   * the polling semantics.
+   */
+  slackMs?: number;
   /** Play automatically once the manifest is attached. Default ``true``. */
   autoPlay?: boolean;
   /**
@@ -91,6 +104,7 @@ type Phase =
 export function ClipPlayer({
   clip,
   getJwt,
+  slackMs,
   autoPlay = true,
   muted = true,
   className,
@@ -109,9 +123,11 @@ export function ClipPlayer({
   // inside the effect without forcing it to re-run.
   const getJwtRef = useRef(getJwt);
   const autoPlayRef = useRef(autoPlay);
+  const slackMsRef = useRef(slackMs);
   useEffect(() => {
     getJwtRef.current = getJwt;
     autoPlayRef.current = autoPlay;
+    slackMsRef.current = slackMs;
   });
 
   // Playback pipeline: fetch manifest (with optional JWT) → wrap in
@@ -201,6 +217,7 @@ export function ClipPlayer({
         if (cancelled) return;
         const body = await fetchPlaylist(clip.playlistUrl, {
           predictedReadyAtMs: clip.predictedReadyAtMs,
+          slackMs: slackMsRef.current,
           jwt,
           signal: abort.signal,
         });
