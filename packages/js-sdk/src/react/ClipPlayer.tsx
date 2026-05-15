@@ -197,9 +197,7 @@ export function ClipPlayer({
     const setup = async () => {
       try {
         setPhase({ kind: "waiting" });
-        const jwt = getJwtRef.current
-          ? await getJwtRef.current()
-          : undefined;
+        const jwt = getJwtRef.current ? await getJwtRef.current() : undefined;
         if (cancelled) return;
         const body = await fetchPlaylist(clip.playlistUrl, {
           predictedReadyAtMs: clip.predictedReadyAtMs,
@@ -214,10 +212,7 @@ export function ClipPlayer({
         if (cancelled) return;
         // `AbortError` from teardown is expected — don't paint it as
         // a failure to the user.
-        if (
-          err instanceof DOMException &&
-          err.name === "AbortError"
-        ) {
+        if (err instanceof DOMException && err.name === "AbortError") {
           return;
         }
         const message =

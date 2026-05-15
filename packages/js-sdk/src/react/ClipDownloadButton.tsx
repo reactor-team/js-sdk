@@ -3,10 +3,7 @@
 
 import React from "react";
 import type { Clip } from "../utils/recording";
-import {
-  useClipDownload,
-  type ClipDownloadState,
-} from "./useClipDownload";
+import { useClipDownload, type ClipDownloadState } from "./useClipDownload";
 
 /**
  * Standalone download button for a captured {@link Clip}.
@@ -58,9 +55,7 @@ export interface ClipDownloadButtonProps {
    * - **`(state) => ReactNode`** — state-aware render function;
    *   use for custom progress strings, spinners, etc.
    */
-  children?:
-    | React.ReactNode
-    | ((state: ClipDownloadState) => React.ReactNode);
+  children?: React.ReactNode | ((state: ClipDownloadState) => React.ReactNode);
   /** Forwarded to the underlying ``<button>``. */
   className?: string;
   /** Forwarded to the underlying ``<button>`` — merges *after* the defaults so each property overrides. */

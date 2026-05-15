@@ -109,7 +109,9 @@ export function useClipDownload(
   // This is the same pattern the SDK uses elsewhere (see
   // useReactorMessage in hooks.ts).
   const clipRef = useRef(clip);
-  const filenameRef = useRef<string | null>(options.filename ?? "reactor-clip.mp4");
+  const filenameRef = useRef<string | null>(
+    options.filename ?? "reactor-clip.mp4"
+  );
   const getJwtRef = useRef(options.getJwt);
   useEffect(() => {
     clipRef.current = clip;
@@ -128,9 +130,7 @@ export function useClipDownload(
     inFlightRef.current = true;
     setState({ kind: "downloading", fetched: 0, total: 0 });
     try {
-      const jwt = getJwtRef.current
-        ? await getJwtRef.current()
-        : undefined;
+      const jwt = getJwtRef.current ? await getJwtRef.current() : undefined;
       const blob = await downloadClipAsFile(
         clipRef.current,
         filenameRef.current,
