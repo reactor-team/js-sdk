@@ -499,8 +499,8 @@ describe("downloadClipAsFile", () => {
     });
     globalThis.fetch = mockFetch as any;
 
-    await expect(
-      downloadClipAsFile(clip, null)
-    ).rejects.toMatchObject({ code: "CHUNK_FETCH_FAILED" });
+    await expect(downloadClipAsFile(clip, null)).rejects.toMatchObject({
+      code: "CHUNK_FETCH_FAILED",
+    });
   });
 });
