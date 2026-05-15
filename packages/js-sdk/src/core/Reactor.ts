@@ -42,6 +42,8 @@ export type Options = z.input<typeof OptionsSchema>;
 
 export { FileRef } from "./FileRef";
 import { FileRef } from "./FileRef";
+import { RecordingClient } from "./RecordingClient";
+import type { Clip } from "../utils/recording";
 
 type EventHandler = (...args: any[]) => void;
 
@@ -63,6 +65,9 @@ export class Reactor {
   private presetTracks?: TrackCapability[];
   private sessionResponse?: SessionResponse;
 
+  /** Per-Reactor recording client. See {@link RecordingClient}. */
+  readonly recording: RecordingClient;
+
   constructor(options: Options) {
     const validatedOptions = OptionsSchema.parse(options);
     this.coordinatorUrl = validatedOptions.apiUrl;
@@ -74,6 +79,21 @@ export class Reactor {
     if (validatedOptions.modelTracks) {
       this.presetTracks = validatedOptions.modelTracks;
     }
+
+    this.recording = new RecordingClient({
+      onRuntimeMessage: (handler) => {
+        this.on("runtimeMessage", handler);
+        return () => this.off("runtimeMessage", handler);
+      },
+      onStatusChanged: (handler) => {
+        this.on("statusChanged", handler);
+        return () => this.off("statusChanged", handler);
+      },
+      sendRuntimeCommand: (command, data) =>
+        this.sendCommand(command, data, "runtime"),
+      getStatus: () => this.status,
+      getCoordinatorBaseUrl: () => this.coordinatorUrl,
+    });
   }
 
   private eventListeners: Map<ReactorEvent, Set<EventHandler>> = new Map();
@@ -232,6 +252,28 @@ export class Reactor {
     });
 
     return new FileRef(slot.presigned_id, name, mimeType, size);
+  }
+
+  /**
+   * Request a clip covering the last `durationSeconds` of the live
+   * session. Capped server-side at `recording.clip_max_seconds`
+   * (default 5 minutes). Resolves with a {@link Clip} whose
+   * `playlistUrl` can be handed to any HLS-capable player.
+   *
+   * @throws {RecordingError} on invalid input, transport failure,
+   *   timeout, runtime-side `clipFailed`, or disconnect mid-request.
+   */
+  async requestClip(durationSeconds: number): Promise<Clip> {
+    return this.recording.requestClip(durationSeconds);
+  }
+
+  /**
+   * Request a clip covering the entire session up to "now". Same
+   * mechanics as {@link requestClip} with `start = 0`; only the
+   * resolved {@link Clip.kind} discriminator differs.
+   */
+  async requestRecording(): Promise<Clip> {
+    return this.recording.requestRecording();
   }
 
   /**
@@ -462,6 +504,8 @@ export class Reactor {
       if (scope === "application") {
         this.emit("message", message);
       } else if (scope === "runtime") {
+        // Just emit — `RecordingClient` and any app-level
+        // `runtimeMessage` listeners are subscribers via `on()`.
         this.emit("runtimeMessage", message);
       }
     });
