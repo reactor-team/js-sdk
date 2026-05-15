@@ -3,6 +3,9 @@ export * from "./react/ReactorProvider";
 export * from "./react/ReactorView";
 export * from "./react/ReactorController";
 export * from "./react/WebcamStream";
+export * from "./react/ClipPlayer";
+export * from "./react/ClipDownloadButton";
+export * from "./react/useClipDownload";
 export * from "./react/hooks";
 export * from "./types";
 // Stateless recording primitives (helpers, types, schemas).
