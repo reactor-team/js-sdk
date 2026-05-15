@@ -61,27 +61,12 @@ importers:
 
   packages/js-sdk:
     dependencies:
-      '@bufbuild/protobuf':
-        specifier: ^2.0.0
-        version: 2.11.0
-      chalk:
-        specifier: ^5.3.0
-        version: 5.6.2
-      inquirer:
-        specifier: ^9.3.0
-        version: 9.3.8(@types/node@20.19.37)
       react:
         specifier: ^17.0.0 || ^18.0.0 || ^19.0.0
         version: 19.2.4
       sdp-transform:
         specifier: ^3.0.0
         version: 3.0.0
-      simple-git:
-        specifier: ^3.24.0
-        version: 3.33.0
-      ws:
-        specifier: ^8.18.3
-        version: 8.20.0
       zod:
         specifier: ^4.0.5
         version: 4.3.6
@@ -92,21 +77,12 @@ importers:
       '@roamhq/wrtc':
         specifier: ^0.8.0
         version: 0.8.0
-      '@types/inquirer':
-        specifier: ^9.0.9
-        version: 9.0.9
       '@types/node':
         specifier: ^20
         version: 20.19.37
       '@types/react':
         specifier: ^18.2.8
         version: 18.3.28
-      '@types/sdp-transform':
-        specifier: ^2.15.0
-        version: 2.15.0
-      '@types/ws':
-        specifier: ^8.18.1
-        version: 8.18.1
       hls.js:
         specifier: ^1.6.0
         version: 1.6.16
@@ -490,9 +466,6 @@ packages:
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
 
-  '@types/inquirer@9.0.9':
-    resolution: {integrity: sha512-/mWx5136gts2Z2e5izdoRCo46lPp5TMs9R15GTSsgg/XnZyxDWVqoVU3R9lWnccKpqwsJLvRoxbCjoJtZB7DSw==}
-
   '@types/node@20.19.37':
     resolution: {integrity: sha512-8kzdPJ3FsNsVIurqBs7oodNnCEVbni9yUEkaHbgptDACOPW04jimGagZ51E6+lXUwJjgnBw+hyko/lkFWCldqw==}
 
@@ -504,15 +477,6 @@ packages:
 
   '@types/react@18.3.28':
     resolution: {integrity: sha512-z9VXpC7MWrhfWipitjNdgCauoMLRdIILQsAEV+ZesIzBq/oUlxk0m3ApZuMFCXdnS4U7KrI+l3WRUEGQ8K1QKw==}
-
-  '@types/sdp-transform@2.15.0':
-    resolution: {integrity: sha512-ikIFF0EaYt/2XetIYYVeMj6SB52oVXFasJUXDzWHgzNJS5ep2Pbsu7f8f3Za+dEie8HQtt3Zr9mHYBpWT0XgxQ==}
-
-  '@types/through@0.0.33':
-    resolution: {integrity: sha512-HsJ+z3QuETzP3cswwtzt2vEIiHBk/dCcHGhbmG5X3ecnwFD/lPrMpliGXxSCg03L9AhrdwA4Oz/qfspkDW+xGQ==}
-
-  '@types/ws@8.18.1':
-    resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
 
   '@vitest/expect@3.2.4':
     resolution: {integrity: sha512-Io0yyORnB6sikFlt8QW5K7slY4OjqNX9jmJQ02QDda8lyM6B5oNgVWoSoKPac8/kgnCUzuHQKrSLtu/uOqqrig==}
@@ -1407,11 +1371,6 @@ snapshots:
 
   '@types/estree@1.0.8': {}
 
-  '@types/inquirer@9.0.9':
-    dependencies:
-      '@types/through': 0.0.33
-      rxjs: 7.8.2
-
   '@types/node@20.19.37':
     dependencies:
       undici-types: 6.21.0
@@ -1426,16 +1385,6 @@ snapshots:
     dependencies:
       '@types/prop-types': 15.7.15
       csstype: 3.2.3
-
-  '@types/sdp-transform@2.15.0': {}
-
-  '@types/through@0.0.33':
-    dependencies:
-      '@types/node': 20.19.37
-
-  '@types/ws@8.18.1':
-    dependencies:
-      '@types/node': 20.19.37
 
   '@vitest/expect@3.2.4':
     dependencies:
