@@ -43,7 +43,7 @@ The model argument is required. If you omit the project name, you will be prompt
 npx create-reactor-app my-app --model=helios
 
 # Flag first, project name after
-npx create-reactor-app --model=helios my-app
+npx create-reactor-app --model=lingbot my-app
 
 # Project name omitted — you will be prompted for it
 npx create-reactor-app --model=helios
@@ -54,14 +54,11 @@ npx create-reactor-app my-app --model=helios --token ghp_xxxxxxxxxxxx
 
 ### Available Models
 
-Templates live in the public [`reactor-team/reactor-experiments`](https://github.com/reactor-team/reactor-experiments) repository. The CLI ships with a small alias map so common model names resolve to their template folder:
+Templates live in the [`reactor-team/reactor-experiments`](https://github.com/reactor-team/reactor-experiments) repository. By default the model name maps 1:1 to a top-level folder of the same name (e.g. `--model=helios` clones the `helios/` folder).
 
-| `--model` value | Template folder      |
-| --------------- | -------------------- |
-| `helios`        | `helios-interactive` |
-| `film-director` | `film-director`      |
+The CLI also supports an optional alias map (`MODEL_MAP` in `bin/create-reactor-app.ts`) for cases where the public model name needs to differ from the folder name. It is empty by default — add an entry only when you want a name → folder rename.
 
-If you pass a model name that is not in the map, the CLI will look for a folder of that exact name in the templates repo. If neither resolves, it prints the available mappings and folders and exits.
+Run the CLI without `--model` to see the list of available models in the templates repo. The output lists explicit aliases first (with the resolved folder shown after `→`) and then any remaining unmapped folders.
 
 ### Private Repository Access
 

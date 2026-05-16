@@ -11,24 +11,42 @@ const REPO_NAME = "reactor-experiments";
 const REPO_URL = `github.com/${REPO_OWNER}/${REPO_NAME}.git`;
 const EXAMPLES_PATH = "";
 
-// Maps a Reactor model name to its folder in the templates repo.
-// If a name is not present here, it is used as the folder name directly.
-const MODEL_MAP: Record<string, string> = {
-  helios: "helios-interactive",
-  "film-director": "film-director",
-};
+// Aliases for cases where a model's public name differs from its template
+// folder in the repo. Leave empty when names map 1:1 to folders.
+const MODEL_MAP: Record<string, string> = {};
 
 function resolveTemplateFolder(name: string): string {
   return MODEL_MAP[name] ?? name;
 }
 
 function formatAvailableModels(repoTemplates: string[]): string {
-  const known = Object.keys(MODEL_MAP).sort();
-  const folders = [...repoTemplates].sort();
-  return [
-    `  Known models:    ${known.length > 0 ? known.join(", ") : "(none)"}`,
-    `  Repo folders:    ${folders.length > 0 ? folders.join(", ") : "(none)"}`,
-  ].join("\n");
+  const lines: string[] = [];
+
+  // Section 1: explicit name → folder aliases, with the resolved folder
+  // shown in a lighter, italic style.
+  const mappings = Object.entries(MODEL_MAP).sort(([a], [b]) =>
+    a.localeCompare(b)
+  );
+  for (const [name, folder] of mappings) {
+    if (repoTemplates.includes(folder)) {
+      lines.push(`  ${name}${chalk.dim.italic(` → ${folder}`)}`);
+    }
+  }
+
+  // Section 2: remaining folders that aren't already covered by an alias.
+  const mappedTargets = new Set(Object.values(MODEL_MAP));
+  const remaining = repoTemplates
+    .filter((folder) => !mappedTargets.has(folder))
+    .sort();
+  for (const folder of remaining) {
+    lines.push(`  ${folder}`);
+  }
+
+  if (lines.length === 0) {
+    lines.push("  (none)");
+  }
+
+  return lines.join("\n");
 }
 
 function getAuthenticatedRepoUrl(token: string): string {
@@ -125,7 +143,6 @@ function parseArgs(args: string[]): {
 }
 
 function showUsage(): void {
-  const known = Object.keys(MODEL_MAP).sort().join(", ") || "(none)";
   console.log(chalk.cyan("\n⚛️ Create Reactor App\n"));
   console.log(chalk.white("Usage:"));
   console.log(
@@ -147,11 +164,12 @@ function showUsage(): void {
     chalk.white("  --token, -t   GitHub token for private repository access")
   );
   console.log(chalk.white("  --help, -h    Show this help message\n"));
-  console.log(chalk.white("Known models:"));
-  console.log(chalk.white(`  ${known}\n`));
+  console.log(
+    chalk.white("Run without --model to see the list of available models.\n")
+  );
   console.log(chalk.white("Examples:"));
   console.log(chalk.white("  create-reactor-app my-app --model=helios"));
-  console.log(chalk.white("  create-reactor-app --model=helios my-app"));
+  console.log(chalk.white("  create-reactor-app --model=lingbot my-app"));
   console.log(chalk.white("  create-reactor-app --model=helios\n"));
 }
 
@@ -203,11 +221,11 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Require --model; if missing, print known + repo folders and exit
+  // Require --model; if missing, print available models and exit
   if (!argModel) {
     console.error(chalk.red("\n❌ No model specified. Use --model=<name>.\n"));
     console.log(chalk.white("Available models:"));
-    console.log(chalk.white(formatAvailableModels(templates)));
+    console.log(formatAvailableModels(templates));
     console.log();
     process.exit(1);
   }
@@ -217,13 +235,13 @@ async function main(): Promise<void> {
 
   // Validate the resolved folder exists in the repo
   if (!templates.includes(template)) {
+    const resolvedHint =
+      template !== argModel ? ` (resolved to folder "${template}")` : "";
     console.error(
-      chalk.red(
-        `\n❌ Model "${argModel}" not found (resolved to folder "${template}").\n`
-      )
+      chalk.red(`\n❌ Model "${argModel}" not found${resolvedHint}.\n`)
     );
     console.log(chalk.white("Available models:"));
-    console.log(chalk.white(formatAvailableModels(templates)));
+    console.log(formatAvailableModels(templates));
     console.log();
     process.exit(1);
   }
@@ -270,9 +288,8 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  console.log(
-    chalk.green(`\nCloning model "${argModel}" (folder: ${template})...\n`)
-  );
+  const cloneSuffix = template !== argModel ? ` (folder: ${template})` : "";
+  console.log(chalk.green(`\nCloning model "${argModel}"${cloneSuffix}...\n`));
 
   const git = simpleGit();
 
