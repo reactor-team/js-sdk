@@ -15,8 +15,8 @@ importers:
   packages/codegen:
     dependencies:
       '@reactor-team/js-sdk':
-        specifier: ^2.9.3
-        version: 2.9.3(@types/node@20.19.37)(react@19.2.4)(zustand@5.0.12(@types/react@18.3.28)(react@19.2.4))
+        specifier: ^2.10.0
+        version: 2.10.0(hls.js@1.6.16)(react@19.2.4)(zustand@5.0.12(@types/react@18.3.28)(react@19.2.4))
     devDependencies:
       '@types/node':
         specifier: ^20.0.0
@@ -292,14 +292,19 @@ packages:
   '@kwsites/promise-deferred@1.1.1':
     resolution: {integrity: sha512-GaHYm+c0O9MjZRu0ongGBRbinu8gVAMd2UZjji6jVmqKtZluZnptXGWhz1E8j8D2HJ3f/yMxKAUC0b+57wncIw==}
 
-  '@reactor-team/js-sdk@2.7.0':
-    resolution: {integrity: sha512-hDvWCef3PqHe9lQqBYar/1h4eqO3tqqkf8g3n74NQf8YMtuccwuUvjErJ2KdSfmAqLhW/fychg8atSe3MS1glA==}
+  '@reactor-team/js-sdk@2.10.0':
+    resolution: {integrity: sha512-kJd+n82bsisz1k/yz0AkzvusJ2gpFn8BmvCvQPhEFj3m2NvtTTL4I9CbVZDd7gcDwGSLmoGf2Gl+SYHomDg5Qg==}
+    engines: {node: '>=18'}
     peerDependencies:
+      hls.js: ^1.6.0
       react: ^17.0.0 || ^18.0.0 || ^19.0.0
       zustand: ^5.0.6
+    peerDependenciesMeta:
+      hls.js:
+        optional: true
 
-  '@reactor-team/js-sdk@2.9.3':
-    resolution: {integrity: sha512-pso2mGwzRginJs7j5zRE+CLtESRc6VRR4GBQIzbGoESNRJkNFvYW+zfJAIRhF8t009xtpYSb6jRu6pJYz1SkuQ==}
+  '@reactor-team/js-sdk@2.7.0':
+    resolution: {integrity: sha512-hDvWCef3PqHe9lQqBYar/1h4eqO3tqqkf8g3n74NQf8YMtuccwuUvjErJ2KdSfmAqLhW/fychg8atSe3MS1glA==}
     peerDependencies:
       react: ^17.0.0 || ^18.0.0 || ^19.0.0
       zustand: ^5.0.6
@@ -1192,13 +1197,6 @@ snapshots:
   '@esbuild/win32-x64@0.27.4':
     optional: true
 
-  '@inquirer/external-editor@1.0.3(@types/node@20.19.37)':
-    dependencies:
-      chardet: 2.1.1
-      iconv-lite: 0.7.2
-    optionalDependencies:
-      '@types/node': 20.19.37
-
   '@inquirer/external-editor@1.0.3(@types/node@22.19.15)':
     dependencies:
       chardet: 2.1.1
@@ -1230,29 +1228,21 @@ snapshots:
 
   '@kwsites/promise-deferred@1.1.1': {}
 
+  '@reactor-team/js-sdk@2.10.0(hls.js@1.6.16)(react@19.2.4)(zustand@5.0.12(@types/react@18.3.28)(react@19.2.4))':
+    dependencies:
+      react: 19.2.4
+      sdp-transform: 3.0.0
+      zod: 4.3.6
+      zustand: 5.0.12(@types/react@18.3.28)(react@19.2.4)
+    optionalDependencies:
+      hls.js: 1.6.16
+
   '@reactor-team/js-sdk@2.7.0(@types/node@22.19.15)(react@19.2.4)(zustand@5.0.12(@types/react@18.3.28)(react@19.2.4))':
     dependencies:
       '@bufbuild/protobuf': 2.11.0
       chalk: 5.6.2
       inquirer: 9.3.8(@types/node@22.19.15)
       react: 19.2.4
-      simple-git: 3.33.0
-      ws: 8.20.0
-      zod: 4.3.6
-      zustand: 5.0.12(@types/react@18.3.28)(react@19.2.4)
-    transitivePeerDependencies:
-      - '@types/node'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-
-  '@reactor-team/js-sdk@2.9.3(@types/node@20.19.37)(react@19.2.4)(zustand@5.0.12(@types/react@18.3.28)(react@19.2.4))':
-    dependencies:
-      '@bufbuild/protobuf': 2.11.0
-      chalk: 5.6.2
-      inquirer: 9.3.8(@types/node@20.19.37)
-      react: 19.2.4
-      sdp-transform: 3.0.0
       simple-git: 3.33.0
       ws: 8.20.0
       zod: 4.3.6
@@ -1593,23 +1583,6 @@ snapshots:
   ieee754@1.2.1: {}
 
   inherits@2.0.4: {}
-
-  inquirer@9.3.8(@types/node@20.19.37):
-    dependencies:
-      '@inquirer/external-editor': 1.0.3(@types/node@20.19.37)
-      '@inquirer/figures': 1.0.15
-      ansi-escapes: 4.3.2
-      cli-width: 4.1.0
-      mute-stream: 1.0.0
-      ora: 5.4.1
-      run-async: 3.0.0
-      rxjs: 7.8.2
-      string-width: 4.2.3
-      strip-ansi: 6.0.1
-      wrap-ansi: 6.2.0
-      yoctocolors-cjs: 2.1.3
-    transitivePeerDependencies:
-      - '@types/node'
 
   inquirer@9.3.8(@types/node@22.19.15):
     dependencies:
