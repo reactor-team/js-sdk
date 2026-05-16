@@ -1,26 +1,10 @@
 # @reactor-team/js-sdk
 
-The official JavaScript/TypeScript SDK for [Reactor](https://reactor.inc) — the developer platform for building real-time, interactive AI video applications.
+The official JavaScript/TypeScript SDK for [Reactor](https://reactor.inc), the developer platform for real-time world models.
 
-Use it to connect your frontend to a Reactor session over WebRTC, stream video (and optional audio) to and from a real-time model, send typed control events, and record clips of the live stream.
+In a few lines of code you can connect a browser or Node app to a Reactor session over WebRTC, render live model video at 30–60 FPS, send typed commands to steer what generates, and receive structured messages back. The SDK ships a React API (`ReactorProvider`, `ReactorView`, `useReactor`, …) for browser apps, and an imperative `Reactor` class for everything else.
 
 Full reference and guides live at **[docs.reactor.inc](https://docs.reactor.inc)**.
-
----
-
-## Install
-
-```bash
-pnpm add @reactor-team/js-sdk
-```
-
-`react` and `zustand` are peer dependencies. `hls.js` is an optional peer dependency, used only by the `<ClipPlayer />` component on browsers without native HLS support (Chrome, Firefox, Edge):
-
-```bash
-pnpm add hls.js
-```
-
-Safari and iOS play HLS natively and do not need it.
 
 ---
 
@@ -33,7 +17,7 @@ pnpm create reactor-app my-app
 cd my-app && pnpm install && pnpm dev
 ```
 
-To wire it up by hand, exchange your API key for a JWT in a server route, then mount `<ReactorProvider>` in the client:
+Or wire it up by hand. Exchange your API key for a short-lived JWT on the server, then mount `<ReactorProvider>` in the client:
 
 ```ts
 // app/api/token/route.ts
@@ -55,18 +39,18 @@ export async function POST() {
 import { use } from "react";
 import { ReactorProvider, ReactorView } from "@reactor-team/js-sdk";
 
-async function getToken() {
-  const r = await fetch("/api/token", { method: "POST" });
-  const { jwt } = await r.json();
-  return jwt;
-}
-
-const tokenPromise = getToken();
+const tokenPromise = fetch("/api/token", { method: "POST" })
+  .then((r) => r.json())
+  .then(({ jwt }) => jwt);
 
 export default function App() {
   const token = use(tokenPromise);
   return (
-    <ReactorProvider modelName="your-model-name" jwtToken={token}>
+    <ReactorProvider
+      modelName="your-model-name"
+      jwtToken={token}
+      connectOptions={{ autoConnect: true }}
+    >
       <ReactorView className="w-full aspect-video" />
     </ReactorProvider>
   );
@@ -77,9 +61,91 @@ See the [Quickstart](https://docs.reactor.inc/quickstart) and [Authentication](h
 
 ---
 
-## Vanilla TypeScript
+## React API
 
-For non-React apps — Electron shells, game engines, custom frameworks — use the `Reactor` class directly:
+`<ReactorProvider>` owns the connection. Components, hooks, and the recording surfaces all read state and methods from its context. Don't call `connect()` unless `autoConnect` is `false`; the provider can manage it for you.
+
+### Display video
+
+`<ReactorView>` binds to the model's `main_video` track and manages the underlying `<video>` element. Most models expose a single video output and you can drop it in unchanged:
+
+```tsx
+<ReactorView className="w-full aspect-video" videoObjectFit="cover" />
+```
+
+To play model audio alongside the video, set `audioTrack` to the track name declared by the model. To attach the stream to your own `<video>` element instead, read `tracks[name]` from `useReactor()`.
+
+### Send commands
+
+Commands are the model's typed RPC surface (`set_prompt`, `set_image`, and any custom events declared in the model schema). The full catalog is in the [Model API Reference](https://docs.reactor.inc/model-api-reference/overview).
+
+```tsx
+import { useReactor } from "@reactor-team/js-sdk";
+
+function PromptInput() {
+  const { status, sendCommand } = useReactor((s) => ({
+    status: s.status,
+    sendCommand: s.sendCommand,
+  }));
+
+  return (
+    <button
+      disabled={status !== "ready"}
+      onClick={() => sendCommand("set_prompt", { prompt: "a forest at dawn" })}
+    >
+      Set prompt
+    </button>
+  );
+}
+```
+
+### Publish webcam input
+
+For video-to-video models, drop `<WebcamStream>` inside the provider and name the track the model expects. The component handles `getUserMedia`, lifecycle, and cleanup:
+
+```tsx
+<ReactorProvider modelName="your-model-name" jwtToken={token}>
+  <ReactorView className="w-full aspect-video" />
+  <WebcamStream track="webcam" className="w-48 aspect-video" />
+</ReactorProvider>
+```
+
+### Receive messages
+
+Models emit structured messages back to your app, such as progress updates, state snapshots, or custom model events. Subscribe with `useReactorMessage`:
+
+```tsx
+import { useReactorMessage } from "@reactor-team/js-sdk";
+
+function FrameCounter() {
+  const [frame, setFrame] = useState(0);
+  useReactorMessage((msg) => {
+    if (msg.type === "state") setFrame(msg.data.current_frame);
+  });
+  return <div>Frame: {frame}</div>;
+}
+```
+
+### Error handling
+
+`useReactor((s) => s.lastError)` exposes the most recent `ReactorError`. Recoverable errors can be retried via `s.reconnect()`. Full code catalog: [`ReactorError`](https://docs.reactor.inc/api-reference/types#reactorerror).
+
+### Upload files
+
+Bind an `<input type="file">` to the model with `uploadFile` and then pass the returned [`FileRef`](https://docs.reactor.inc/api-reference/types#fileref) into any command:
+
+```tsx
+const { uploadFile, sendCommand } = useReactor((s) => s);
+
+const ref = await uploadFile(file);
+await sendCommand("set_image", { image: ref });
+```
+
+---
+
+## Imperative API
+
+For non-React apps such as Electron shells, game engines, or Node scripts, use the `Reactor` class directly. It exposes the same surface as the React store, without the React glue:
 
 ```ts
 import { Reactor } from "@reactor-team/js-sdk";
@@ -95,6 +161,8 @@ reactor.on("message", (msg) => console.log("model:", msg));
 
 await reactor.connect();
 
+await reactor.sendCommand("set_prompt", { prompt: "a forest at dawn" });
+
 const stream = reactor.getMediaStream("main_video");
 videoEl.srcObject = stream;
 ```
@@ -103,63 +171,53 @@ videoEl.srcObject = stream;
 
 ## Recording
 
-Snap the last N seconds or capture the full session, then play it back and offer a download:
+Sessions are recorded as they stream. Ask the runtime for the last `N` seconds with `requestClip`, or the full session so far with `requestRecording`. Both resolve to a `Clip` value that you can pass to `<ClipPlayer>` for preview, or to `<ClipDownloadButton>` to save as MP4.
 
 ```tsx
-import {
-  ClipPlayer,
-  ClipDownloadButton,
-  useReactor,
-} from "@reactor-team/js-sdk";
+import { ClipPlayer, ClipDownloadButton } from "@reactor-team/js-sdk";
 import type { Clip } from "@reactor-team/js-sdk";
 
-function Snap({ jwt }: { jwt: string }) {
-  const { reactor } = useReactor((s) => ({ reactor: s.internal.reactor }));
-  const [clip, setClip] = useState<Clip | null>(null);
-
-  return clip ? (
+function ClipModal({ clip, jwt }: { clip: Clip; jwt: string }) {
+  return (
     <>
       <ClipPlayer clip={clip} getJwt={() => jwt} />
       <ClipDownloadButton clip={clip} getJwt={() => jwt} />
     </>
-  ) : (
-    <button onClick={async () => setClip(await reactor.requestClip(10))}>
-      Save last 10s
-    </button>
   );
 }
 ```
 
-Full walkthrough: [Recordings](https://docs.reactor.inc/concepts/recordings).
+Capture a clip from anywhere inside the provider:
 
----
-
-## API at a glance
-
-| Surface                                                                                                                  | Import                 |
-| ------------------------------------------------------------------------------------------------------------------------ | ---------------------- |
-| `Reactor` — imperative class                                                                                             | `@reactor-team/js-sdk` |
-| `<ReactorProvider>`, `<ReactorView>`, `<ReactorController>`, `<WebcamStream>`                                            | React components       |
-| `useReactor`, `useReactorMessage`, `useReactorInternalMessage`, `useStats`                                               | React hooks            |
-| `<ClipPlayer>`, `<ClipDownloadButton>`, `useClipDownload`                                                                | Recording UI           |
-| `RecordingClient`, `RecordingError`, `fetchPlaylist`, `parsePlaylist`, `downloadClipAsFile`, `createPlayableManifestUrl` | Recording primitives   |
-
-Full prop tables, event signatures, and error codes are documented at [docs.reactor.inc](https://docs.reactor.inc).
-
-For models with a published typed SDK, prefer [`@reactor-models/<name>`](https://www.npmjs.com/org/reactor-models) — it re-exports everything here and adds typed events, messages, and hooks for one specific model.
-
----
-
-## Local development
-
-```bash
-pnpm install
-pnpm build      # tsup → dist/index.{js,mjs,d.ts}
-pnpm test       # vitest, full suite
-pnpm dev        # tsup --watch
+```tsx
+const reactor = useReactor((s) => s.internal.reactor);
+const clip = await reactor.requestClip(10); // last 10 s
 ```
 
-Tests run against a real Node WebRTC stack via `@roamhq/wrtc`; the integration suite spins up an in-process Coordinator stub. No external services required.
+`<ClipPlayer>` uses native HLS on Safari/iOS; install `hls.js` to support Chrome, Firefox, and Edge:
+
+```bash
+pnpm add hls.js
+```
+
+Full walkthrough, error codes, and the headless `useClipDownload` hook: [Recordings](https://docs.reactor.inc/concepts/recordings).
+
+---
+
+## Typed model SDKs
+
+For models with a published typed SDK, prefer [`@reactor-models/<name>`](https://www.npmjs.com/org/reactor-models). It re-exports everything here and adds typed commands, messages, and hooks for one specific model. Use this base SDK when the model doesn't have a typed package yet, or when you want to stay model-agnostic.
+
+---
+
+## API surface
+
+| Surface                                                                                                                          | Where it lives                                                              |
+| -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `Reactor`                                                                                                                        | [Reactor class](https://docs.reactor.inc/api-reference/reactor-class)       |
+| `<ReactorProvider>`, `<ReactorView>`, `<WebcamStream>`, `<ReactorController>`                                                    | [React components](https://docs.reactor.inc/api-reference/react-components) |
+| `useReactor`, `useReactorMessage`, `useStats`                                                                                    | [React hooks](https://docs.reactor.inc/api-reference/react-hooks)           |
+| `<ClipPlayer>`, `<ClipDownloadButton>`, `useClipDownload`, `RecordingClient`, `RecordingError`, `fetchPlaylist`, `parsePlaylist` | [Recordings](https://docs.reactor.inc/concepts/recordings)                  |
 
 ---
 
