@@ -106,7 +106,11 @@ videoEl.srcObject = stream;
 Snap the last N seconds or capture the full session, then play it back and offer a download:
 
 ```tsx
-import { ClipPlayer, ClipDownloadButton, useReactor } from "@reactor-team/js-sdk";
+import {
+  ClipPlayer,
+  ClipDownloadButton,
+  useReactor,
+} from "@reactor-team/js-sdk";
 import type { Clip } from "@reactor-team/js-sdk";
 
 function Snap({ jwt }: { jwt: string }) {
@@ -132,13 +136,13 @@ Full walkthrough: [Recordings](https://docs.reactor.inc/concepts/recordings).
 
 ## API at a glance
 
-| Surface | Import |
-|---|---|
-| `Reactor` — imperative class | `@reactor-team/js-sdk` |
-| `<ReactorProvider>`, `<ReactorView>`, `<ReactorController>`, `<WebcamStream>` | React components |
-| `useReactor`, `useReactorMessage`, `useReactorInternalMessage`, `useStats` | React hooks |
-| `<ClipPlayer>`, `<ClipDownloadButton>`, `useClipDownload` | Recording UI |
-| `RecordingClient`, `RecordingError`, `fetchPlaylist`, `parsePlaylist`, `downloadClipAsFile`, `createPlayableManifestUrl` | Recording primitives |
+| Surface                                                                                                                  | Import                 |
+| ------------------------------------------------------------------------------------------------------------------------ | ---------------------- |
+| `Reactor` — imperative class                                                                                             | `@reactor-team/js-sdk` |
+| `<ReactorProvider>`, `<ReactorView>`, `<ReactorController>`, `<WebcamStream>`                                            | React components       |
+| `useReactor`, `useReactorMessage`, `useReactorInternalMessage`, `useStats`                                               | React hooks            |
+| `<ClipPlayer>`, `<ClipDownloadButton>`, `useClipDownload`                                                                | Recording UI           |
+| `RecordingClient`, `RecordingError`, `fetchPlaylist`, `parsePlaylist`, `downloadClipAsFile`, `createPlayableManifestUrl` | Recording primitives   |
 
 Full prop tables, event signatures, and error codes are documented at [docs.reactor.inc](https://docs.reactor.inc).
 
