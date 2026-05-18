@@ -4,6 +4,20 @@
 
 ---
 
+## Get started
+
+Scaffold a starter app for **{{MODEL_PREFIX}}** with [`create-reactor-app`](https://www.npmjs.com/package/create-reactor-app):
+
+```shell
+npx create-reactor-app my-app --model={{MODEL_NAME}}
+```
+
+```shell
+pnpm dlx create-reactor-app my-app --model={{MODEL_NAME}}
+```
+
+---
+
 ## Install
 
 ```shell
