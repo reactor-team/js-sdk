@@ -1,9 +1,6 @@
 # Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
 #
-# Per-push CI for the public js-sdk monorepo (@reactor-team/js-sdk, create-reactor-app).
-#
-# Model SDK publishing (reactor-codegen, @reactor-models/*) lives in the private
-# js-sdk-codegen repo: https://github.com/reactor-team/js-sdk-codegen
+# Per-push CI: @reactor-team/js-sdk and create-reactor-app.
 
 env: {}
 
