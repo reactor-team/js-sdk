@@ -1,6 +1,3 @@
-// Copyright (c) 2024-2026 Reactor Technologies, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 /**
  * Internal types for the Reactor SDK.
  *

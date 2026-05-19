@@ -1,6 +1,3 @@
-// Copyright (c) 2024-2026 Reactor Technologies, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { LocalCoordinatorClient } from "../../src/core/LocalCoordinatorClient";
 import {

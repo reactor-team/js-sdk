@@ -1,6 +1,3 @@
-// Copyright (c) 2024-2026 Reactor Technologies, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 /**
  * Stateless WebRTC utility functions for SDP exchange and peer connection management.
  */

@@ -1,6 +1,3 @@
-// Copyright (c) 2024-2026 Reactor Technologies, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 export type ReactorStatus =
   | "disconnected" // Not connected to anything
   | "connecting" // Establishing connection to coordinator

@@ -1,7 +1,4 @@
 #!/usr/bin/env node
-// Copyright (c) 2024-2026 Reactor Technologies, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 import inquirer from "inquirer";
 import { execSync } from "child_process";
 import simpleGit from "simple-git";

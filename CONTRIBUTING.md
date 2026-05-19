@@ -101,23 +101,18 @@ A CI check verifies that every commit on a pull request carries a valid
 `Signed-off-by` trailer. PRs without sign-off are blocked from merging until
 every commit has been amended to include the trailer.
 
-## File headers
+## Licensing of contributions
 
-Every TypeScript or TSX source file in `packages/js-sdk` and
-`packages/create-app` must start with the following two-line header (after a
-shebang, if any):
+There are no per-file copyright headers in this repo. The root
+[`LICENSE`](./LICENSE) and [`NOTICE`](./NOTICE) cover the whole tree, and
+each published `package.json` declares `"license": "Apache-2.0"`. New files
+do not need any copyright or SPDX comment. Your `Signed-off-by` trailer on
+each commit (see DCO above) is the only attestation we need from you, and
+you keep copyright of your own contributions under the Apache 2.0 grant.
 
-```ts
-// Copyright (c) 2024-2026 Reactor Technologies, Inc.
-// SPDX-License-Identifier: Apache-2.0
-```
-
-The `check-license-headers.sh` script enforces this in CI. Run it locally
-before pushing:
-
-```sh
-./scripts/check-license-headers.sh
-```
+A small CI check (`./scripts/check-license.sh`) verifies that the root
+`LICENSE` / `NOTICE` and the published `package.json` SPDX fields stay
+intact — run it locally if you've touched any of those.
 
 ## Development workflow
 

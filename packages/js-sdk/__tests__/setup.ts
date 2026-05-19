@@ -1,6 +1,3 @@
-// Copyright (c) 2024-2026 Reactor Technologies, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 // Polyfill browser WebRTC globals for Node.js so integration tests can
 // exercise the SDK against production without a browser.  Unit tests
 // override these with vi.stubGlobal() as needed.
