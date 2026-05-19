@@ -1,3 +1,6 @@
+// Copyright (c) 2024-2026 Reactor Technologies, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 export * from "./core/Reactor";
 export * from "./react/ReactorProvider";
 export * from "./react/ReactorView";

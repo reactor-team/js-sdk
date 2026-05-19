@@ -5,11 +5,17 @@
     "create-reactor-app": "dist/bin/create-reactor-app.js"
   },
   "author": "Reactor Technologies, Inc.",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/reactor-team/js-sdk.git"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
   "packageManager": "pnpm@10.12.1",
   "dependencies": {
     "@reactor-team/js-sdk": "^2.2.2",
@@ -23,6 +29,8 @@
     "@types/node": "^22.8.1"
   },
   "scripts": {
+    "prepack": "cp ../../LICENSE ../../NOTICE .",
+    "postpack": "rm -f LICENSE NOTICE",
     "build": "tsup",
     "install-cli": "tsup && pnpm link --global && echo '\n✅ create-reactor-app linked globally. Run it with:\n\n  create-reactor-app\n'"
   }

@@ -1,4 +1,5 @@
-// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
+// Copyright (c) 2024-2026 Reactor Technologies, Inc.
+// SPDX-License-Identifier: Apache-2.0
 
 /**
  * Tests for {@link RecordingClient} in isolation, against a fake

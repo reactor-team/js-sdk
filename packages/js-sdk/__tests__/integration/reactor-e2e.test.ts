@@ -1,4 +1,5 @@
-// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
+// Copyright (c) 2024-2026 Reactor Technologies, Inc.
+// SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect, afterEach } from "vitest";
 import { Reactor, DEFAULT_BASE_URL } from "../../src/core/Reactor";

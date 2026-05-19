@@ -1,3 +1,6 @@
+// Copyright (c) 2024-2026 Reactor Technologies, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { useReactorStore } from "./ReactorProvider";
 import type { ReactorStore } from "../core/store";
 import type { ConnectionStats } from "../types";

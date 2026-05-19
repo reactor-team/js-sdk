@@ -8,3 +8,8 @@ dist/
 CLAUDE.md
 next-env.d.ts
 tsconfig.tsbuildinfo
+
+# Per-package LICENSE/NOTICE are copied in by `prepack` from the repo root.
+# Keep only the canonical copies at the repo root in version control.
+packages/*/LICENSE
+packages/*/NOTICE
