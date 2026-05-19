@@ -38,6 +38,13 @@ steps:
         commands:
           - ./scripts/check-license-headers.sh
 
+      - <<: *node_docker
+        label: ":lock: Secret Scan"
+        commands:
+          - corepack enable
+          - pnpm install --frozen-lockfile
+          - pnpm lint:secrets
+
   - group: ":test_tube: Tests"
     steps:
       - <<: *node_docker
