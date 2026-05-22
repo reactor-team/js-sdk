@@ -1,6 +1,13 @@
 "use client";
 
-import { ReactNode, useContext, useEffect, useRef, useState } from "react";
+import {
+  ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   createReactorStore,
   initReactorStore,
@@ -62,7 +69,39 @@ export function ReactorProvider({
   getJwt,
   ...props
 }: ReactorProviderProps) {
-  const jwtSource: JwtSource | undefined = getJwt ?? jwtToken;
+  // Auto-stabilize the `getJwt` resolver via ref. Without this, an
+  // inline `getJwt={async () => …}` on every parent render gives the
+  // provider a new function identity, the effect below treats it
+  // as "auth source changed", tears the store down, and disconnects
+  // the live session — a footgun we'd otherwise be asking every
+  // consumer to defuse with `useCallback`. Same idiom React's
+  // `useEffectEvent` codifies, and what we already use internally
+  // in `useClipDownload` / `ClipPlayer` to absorb resolver identity
+  // churn there. The ref is read at request time so the latest
+  // resolver — and any state it closes over (Clerk session, account
+  // ID, etc.) — is on the wire for every Coordinator HTTP hop.
+  const getJwtRef = useRef<JwtResolver | undefined>(getJwt);
+  useEffect(() => {
+    getJwtRef.current = getJwt;
+  });
+  // Only re-memoize when the resolver transitions between defined
+  // and undefined (sign-in / sign-out). Pure identity changes are
+  // absorbed by `getJwtRef`.
+  const hasGetJwt = getJwt !== undefined;
+  const stableGetJwt = useMemo<JwtResolver | undefined>(() => {
+    if (!hasGetJwt) return undefined;
+    return async () => {
+      const r = getJwtRef.current;
+      return r ? await r() : "";
+    };
+  }, [hasGetJwt]);
+
+  // Static-string `jwtToken` keeps its legacy semantics: changing
+  // the string identity means "different auth source" (e.g. tenant
+  // switch) and intentionally tears the session down. Consumers who
+  // need to rotate a short-lived token should use `getJwt` — which
+  // is now both the recommended path and the foolproof one.
+  const jwtSource: JwtSource | undefined = stableGetJwt ?? jwtToken;
 
   // Stable Reactor instance
   const storeRef = useRef<ReactorStoreApi | undefined>(undefined);
