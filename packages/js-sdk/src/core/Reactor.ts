@@ -9,6 +9,7 @@ import {
   type ConnectionTimings,
   isAbortError,
 } from "../types";
+import { type JwtSource } from "./auth";
 import { CoordinatorClient } from "./CoordinatorClient";
 import { LocalCoordinatorClient } from "./LocalCoordinatorClient";
 import { type TransportClient, type TransportStatus } from "./TransportClient";
@@ -379,8 +380,14 @@ export class Reactor {
   /**
    * Connects to the coordinator, creates a session, then establishes
    * the transport using server-declared capabilities.
+   *
+   * `jwtToken` accepts either a static token string or a
+   * {@link JwtSource} resolver. The resolver form is required when
+   * the token is short-lived (e.g. Clerk session JWTs default to
+   * ~60s) — see REA-2512. A string is wrapped into a constant
+   * resolver and behaves identically to the pre-resolver SDK.
    */
-  async connect(jwtToken?: string, options?: ConnectOptions): Promise<void> {
+  async connect(jwtToken?: JwtSource, options?: ConnectOptions): Promise<void> {
     console.debug("[Reactor] Connecting, status:", this.status);
 
     if (jwtToken == undefined && !this.local) {

@@ -32,7 +32,11 @@ export class LocalCoordinatorClient extends CoordinatorClient {
     });
   }
 
-  protected override getHeaders(): HeadersInit {
+  // The local runtime serves auth-free endpoints, so we override
+  // getHeaders() to strip the Authorization line that the base class
+  // would otherwise emit for the "local" sentinel jwt. Async to match
+  // the base class signature.
+  protected override async getHeaders(): Promise<Record<string, string>> {
     return {
       [API_VERSION_HEADER]: String(REACTOR_API_VERSION),
       [API_ACCEPT_VERSION_HEADER]: String(REACTOR_API_VERSION),
@@ -53,7 +57,7 @@ export class LocalCoordinatorClient extends CoordinatorClient {
     const response = await fetch(`${this.baseUrl}/start_session`, {
       method: "POST",
       headers: {
-        ...this.getHeaders(),
+        ...(await this.getHeaders()),
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -116,7 +120,7 @@ export class LocalCoordinatorClient extends CoordinatorClient {
     try {
       await fetch(`${this.baseUrl}/stop_session`, {
         method: "POST",
-        headers: this.getHeaders(),
+        headers: await this.getHeaders(),
         signal: this.signal,
       });
     } catch (error) {

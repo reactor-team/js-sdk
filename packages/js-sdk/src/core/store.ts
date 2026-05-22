@@ -5,6 +5,7 @@ import type {
   MessageScope,
   ConnectOptions,
 } from "../types";
+import { type JwtSource } from "./auth";
 import { Reactor, type Options as ReactorOptions } from "./Reactor";
 import { FileRef } from "./FileRef";
 import { create } from "zustand/react";
@@ -24,12 +25,20 @@ export interface ReactorState {
   lastError?: ReactorError;
   sessionId?: string;
   sessionExpiration?: number;
-  jwtToken?: string;
+  /**
+   * Token source for Coordinator HTTP calls. Stored as the union so
+   * callers that pass a resolver via `<ReactorProvider getJwt={…} />`
+   * (the recommended path for short-lived tokens — REA-2512) and
+   * legacy callers that pass a static string both flow through the
+   * same field. Selecting `s.jwtToken` will return whichever shape
+   * the consumer originally supplied.
+   */
+  jwtToken?: JwtSource;
 }
 
 export interface ReactorActions {
   sendCommand(command: string, data: any, scope?: MessageScope): Promise<void>;
-  connect(jwtToken?: string, options?: ConnectOptions): Promise<void>;
+  connect(jwtToken?: JwtSource, options?: ConnectOptions): Promise<void>;
   disconnect(recoverable?: boolean): Promise<void>;
   publish(name: string, track: MediaStreamTrack): Promise<void>;
   unpublish(name: string): Promise<void>;
@@ -67,7 +76,12 @@ export const defaultInitState: ReactorState = {
 };
 
 export interface ReactorInitializationProps extends ReactorOptions {
-  jwtToken?: string;
+  /**
+   * Token source for the underlying {@link Reactor}. See
+   * {@link ReactorState.jwtToken}: prefer the resolver form when
+   * the token is short-lived (REA-2512).
+   */
+  jwtToken?: JwtSource;
 }
 
 export const initReactorStore = (
@@ -170,7 +184,7 @@ export const createReactorStore = (
           throw error;
         }
       },
-      connect: async (jwtToken?: string, options?: ConnectOptions) => {
+      connect: async (jwtToken?: JwtSource, options?: ConnectOptions) => {
         if (jwtToken === undefined) {
           // If no JWT Token, it might have been passed in the constructor props. So read from it.
           jwtToken = get().jwtToken;

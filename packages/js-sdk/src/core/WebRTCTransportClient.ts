@@ -15,6 +15,7 @@ import type {
 } from "./TransportClient";
 import type { MessageScope, ConnectionStats } from "../types";
 import { AbortError } from "../types";
+import { type JwtResolver, normalizeJwtSource } from "./auth";
 import {
   type TrackCapability,
   type TrackMappingEntry,
@@ -105,7 +106,11 @@ export class WebRTCTransportClient implements TransportClient {
 
   private readonly baseUrl: string;
   private readonly sessionId: string;
-  private readonly jwtToken: string;
+  // String inputs get wrapped into a constant resolver in the
+  // constructor so the request path is shape-agnostic and short-lived
+  // tokens (Clerk session JWTs, default ~60s lifetime — REA-2512)
+  // can be refreshed lazily before each signaling fetch.
+  private readonly resolveJwt: JwtResolver;
   webrtcVersion: string;
   private readonly maxPollAttempts: number;
   private abortController: AbortController;
@@ -113,7 +118,7 @@ export class WebRTCTransportClient implements TransportClient {
   constructor(config: WebRTCTransportConfig) {
     this.baseUrl = config.baseUrl;
     this.sessionId = config.sessionId;
-    this.jwtToken = config.jwtToken;
+    this.resolveJwt = normalizeJwtSource(config.jwtToken);
     this.webrtcVersion = config.webrtcVersion ?? REACTOR_WEBRTC_VERSION;
     this.maxPollAttempts = config.maxPollAttempts ?? DEFAULT_MAX_POLL_ATTEMPTS;
     this.abortController = new AbortController();
@@ -150,11 +155,19 @@ export class WebRTCTransportClient implements TransportClient {
     return `${this.baseUrl}/sessions/${this.sessionId}/transport/webrtc`;
   }
 
-  private getHeaders(): HeadersInit {
-    return {
-      Authorization: `Bearer ${this.jwtToken}`,
+  // Async because the JWT resolver may need a network hop when the
+  // upstream cache is near expiry. Empty resolver returns suppress
+  // the Authorization header entirely (parity with
+  // LocalCoordinatorClient's auth-free signaling path).
+  private async getHeaders(): Promise<Record<string, string>> {
+    const headers: Record<string, string> = {
       [WEBRTC_VERSION_HEADER]: this.webrtcVersion,
     };
+    const jwt = await this.resolveJwt();
+    if (jwt) {
+      headers.Authorization = `Bearer ${jwt}`;
+    }
+    return headers;
   }
 
   private async checkVersionMismatch(response: Response): Promise<void> {
@@ -203,7 +216,7 @@ export class WebRTCTransportClient implements TransportClient {
 
     const response = await fetch(`${this.transportBaseUrl}/ice_servers`, {
       method: "GET",
-      headers: this.getHeaders(),
+      headers: await this.getHeaders(),
       signal: this.signal,
     });
 
@@ -243,7 +256,7 @@ export class WebRTCTransportClient implements TransportClient {
     const response = await fetch(`${this.transportBaseUrl}/sdp_params`, {
       method,
       headers: {
-        ...this.getHeaders(),
+        ...(await this.getHeaders()),
         "Content-Type": "application/json",
       },
       body: JSON.stringify(requestBody),
@@ -287,7 +300,7 @@ export class WebRTCTransportClient implements TransportClient {
 
       const response = await fetch(`${this.transportBaseUrl}/sdp_params`, {
         method: "GET",
-        headers: this.getHeaders(),
+        headers: await this.getHeaders(),
         signal: this.signal,
       });
 

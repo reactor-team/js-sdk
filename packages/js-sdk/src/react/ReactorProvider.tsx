@@ -11,6 +11,7 @@ import {
 } from "../core/store";
 import { useStore } from "zustand";
 import type { ConnectOptions } from "../types";
+import type { JwtResolver, JwtSource } from "../core/auth";
 
 /**
  * Options for the React provider's connect behavior.
@@ -34,9 +35,28 @@ export interface ReactorConnectOptions extends ConnectOptions {
 // children positionally without falling back to an
 // `eslint-disable-next-line react/no-children-prop` workaround in
 // downstream consumer projects.
-interface ReactorProviderProps extends ReactorInitializationProps {
+interface ReactorProviderProps extends Omit<
+  ReactorInitializationProps,
+  "jwtToken"
+> {
   connectOptions?: ReactorConnectOptions;
+  /**
+   * Static JWT token. Use this when you already hold a long-lived
+   * SDK JWT (e.g. minted via `/tokens`) and don't need refresh.
+   *
+   * For short-lived tokens (Clerk session JWTs default to ~60s,
+   * custom backends with sub-minute TTLs, etc.) use {@link getJwt}
+   * instead — passing a stale string here will make every
+   * Coordinator HTTP hop 401 once the token expires. See REA-2512.
+   */
   jwtToken?: string;
+  /**
+   * Lazy JWT resolver. The SDK calls this immediately before each
+   * Coordinator HTTP request so a fresh token is always on the
+   * wire. Preferred over {@link jwtToken} for short-lived auth
+   * flows. If both are provided, `getJwt` wins.
+   */
+  getJwt?: JwtResolver;
   children?: ReactNode;
 }
 
@@ -45,8 +65,14 @@ export function ReactorProvider({
   children,
   connectOptions,
   jwtToken,
+  getJwt,
   ...props
 }: ReactorProviderProps) {
+  // Reconcile the two token-shape props down to a single
+  // JwtSource for the store. `getJwt` wins when both are supplied
+  // — the resolver subsumes the static form.
+  const jwtSource: JwtSource | undefined = getJwt ?? jwtToken;
+
   // Stable Reactor instance
   const storeRef = useRef<ReactorStoreApi | undefined>(undefined);
   const firstRender = useRef(true);
@@ -60,7 +86,7 @@ export function ReactorProvider({
     storeRef.current = createReactorStore(
       initReactorStore({
         ...props,
-        jwtToken,
+        jwtToken: jwtSource,
       })
     );
     console.debug("[ReactorProvider] Reactor store created successfully");
@@ -99,14 +125,14 @@ export function ReactorProvider({
       if (
         autoConnect &&
         current.getState().status === "disconnected" &&
-        jwtToken
+        jwtSource
       ) {
         console.debug(
           "[ReactorProvider] Starting autoconnect in first render..."
         );
         current
           .getState()
-          .connect(jwtToken, pollingOptions)
+          .connect(jwtSource, pollingOptions)
           .then(() => {
             console.debug(
               "[ReactorProvider] Autoconnect successful in first render"
@@ -146,7 +172,7 @@ export function ReactorProvider({
         apiUrl,
         modelName,
         local,
-        jwtToken,
+        jwtToken: jwtSource,
       } satisfies ReactorInitializationProps)
     );
 
@@ -162,12 +188,12 @@ export function ReactorProvider({
     if (
       autoConnect &&
       current.getState().status === "disconnected" &&
-      jwtToken
+      jwtSource
     ) {
       console.debug("[ReactorProvider] Starting autoconnect...");
       current
         .getState()
-        .connect(jwtToken, pollingOptions)
+        .connect(jwtSource, pollingOptions)
         .then(() => {
           console.debug("[ReactorProvider] Autoconnect successful");
         })
@@ -190,7 +216,11 @@ export function ReactorProvider({
           console.error("[ReactorProvider] Failed to disconnect:", error);
         });
     };
-  }, [apiUrl, modelName, autoConnect, local, jwtToken, maxAttempts]);
+    // The effect intentionally keys on the unified `jwtSource`
+    // identity so a getJwt resolver swap re-runs the provider tear
+    // down/setup path the same way a string change would have.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiUrl, modelName, autoConnect, local, jwtSource, maxAttempts]);
 
   return (
     <ReactorContext.Provider value={storeRef.current}>

@@ -8,6 +8,7 @@
  */
 
 import type { TrackCapability, ConnectionStats, MessageScope } from "../types";
+import type { JwtSource } from "./auth";
 import type { WebRTCTransportTimings } from "./WebRTCTransportClient";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,7 +40,14 @@ type EventHandler = (...args: any[]) => void;
 export interface TransportClientConfig {
   baseUrl: string;
   sessionId: string;
-  jwtToken: string;
+  /**
+   * Either a static JWT string or a resolver invoked immediately
+   * before each transport-signaling HTTP request. See
+   * {@link JwtSource} and REA-2512 for why short-lived tokens
+   * (Clerk, custom backends with sub-minute TTLs) need the resolver
+   * form.
+   */
+  jwtToken: JwtSource;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
