@@ -55,18 +55,29 @@ describe("WebRTCTransportClient connection timings", () => {
 
   beforeEach(() => {
     mockPC = createMockPeerConnection();
-    vi.stubGlobal("RTCPeerConnection", vi.fn().mockReturnValue(mockPC));
+    vi.stubGlobal(
+      "RTCPeerConnection",
+      vi.fn(function (this: any) {
+        return mockPC;
+      })
+    );
     vi.stubGlobal(
       "RTCSessionDescription",
-      vi.fn().mockImplementation((d: any) => d)
+      vi.fn(function (this: any, d: any) {
+        return d;
+      })
     );
     vi.stubGlobal(
       "RTCIceCandidate",
-      vi.fn().mockImplementation((c: any) => c)
+      vi.fn(function (this: any, c: any) {
+        return c;
+      })
     );
     vi.stubGlobal(
       "MediaStream",
-      vi.fn().mockImplementation(() => ({ getTracks: () => [] }))
+      vi.fn(function (this: any) {
+        return { getTracks: () => [] };
+      })
     );
     vi.stubGlobal("fetch", mockFetch);
     mockFetch.mockReset();
