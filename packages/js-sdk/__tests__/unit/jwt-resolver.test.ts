@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { CoordinatorClient } from "../../src/core/CoordinatorClient";
+import { Reactor } from "../../src/core/Reactor";
 import { WebRTCTransportClient } from "../../src/core/WebRTCTransportClient";
 import { normalizeJwtSource, type JwtResolver } from "../../src/core/auth";
+import { AbortError } from "../../src/types";
 import {
   REACTOR_WEBRTC_VERSION,
   WEBRTC_VERSION_HEADER,
@@ -278,5 +280,99 @@ describe("WebRTCTransportClient with JWT resolver", () => {
     const headers = mockFetch.mock.calls[0][1].headers;
     expect(headers).not.toHaveProperty("Authorization");
     expect(headers[WEBRTC_VERSION_HEADER]).toBe(REACTOR_WEBRTC_VERSION);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Reactor.getJwtResolver() exposes the resolver so off-session surfaces
+// (clip-download toast, ClipPlayer / ClipDownloadButton / useClipDownload
+// rendered inside `<ReactorProvider>`) can pick it up without re-threading
+// the prop. The React-side fallback wiring itself isn't exercised by
+// this suite (no @testing-library/react) — these tests cover the
+// underlying Reactor API the fallback relies on.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Reactor.getJwtResolver()", () => {
+  const mockFetch = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", mockFetch);
+    mockFetch.mockReset();
+    // Reject every fetch with an AbortError so `connect()` exits
+    // cleanly via its `if (isAbortError(error)) return;` path —
+    // no unhandled rejections, no error events, no need for the
+    // test to assert on the connect promise. The resolver
+    // assignment we care about happens synchronously *before*
+    // the first awaited fetch.
+    mockFetch.mockImplementation(() =>
+      Promise.reject(new AbortError("test: fetch aborted"))
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns undefined before connect()", () => {
+    const reactor = new Reactor({
+      apiUrl: "https://api.test.com",
+      modelName: "echo",
+    });
+    expect(reactor.getJwtResolver()).toBeUndefined();
+  });
+
+  it("wraps a string jwt into a resolver after connect()", async () => {
+    const reactor = new Reactor({
+      apiUrl: "https://api.test.com",
+      modelName: "echo",
+    });
+    // connect() is `async` but the resolver assignment is
+    // synchronous-before-first-await, so kicking off the promise
+    // and ignoring it leaves the resolver observable immediately.
+    const connectPromise = reactor.connect("static-jwt");
+    const resolver = reactor.getJwtResolver();
+    expect(resolver).toBeDefined();
+    expect(await resolver!()).toBe("static-jwt");
+    // Consume the (expected) connect failure so vitest doesn't flag
+    // it as unhandled.
+    await connectPromise.catch(() => {});
+  });
+
+  it("preserves a function resolver verbatim after connect()", async () => {
+    const reactor = new Reactor({
+      apiUrl: "https://api.test.com",
+      modelName: "echo",
+    });
+    let calls = 0;
+    const supplied: JwtResolver = () => `jwt-${++calls}`;
+    const connectPromise = reactor.connect(supplied);
+    // Identity preserved: the stored resolver is the same function
+    // reference that was passed in (no double-wrap).
+    const stored = reactor.getJwtResolver();
+    expect(stored).toBe(supplied);
+    // We don't pin a specific number for `calls` here: the in-flight
+    // connect attempt may have already invoked the resolver once via
+    // CoordinatorClient.getHeaders() (and that's the point — the
+    // resolver gets called *per request*, not once at construction).
+    // Two more direct invocations should produce monotonically
+    // increasing tokens regardless of how many connect spent.
+    const before = calls;
+    expect(await stored!()).toBe(`jwt-${before + 1}`);
+    expect(await stored!()).toBe(`jwt-${before + 2}`);
+    await connectPromise.catch(() => {});
+  });
+
+  it("leaves the resolver unset in local mode (no auth needed)", async () => {
+    const reactor = new Reactor({
+      apiUrl: "http://localhost:8080",
+      modelName: "echo",
+      local: true,
+    });
+    const connectPromise = reactor.connect();
+    // Local mode talks to LocalCoordinatorClient which strips auth
+    // anyway — leaving `jwtResolver` undefined means clip surfaces
+    // correctly drop Authorization on `/clips` fetches too.
+    expect(reactor.getJwtResolver()).toBeUndefined();
+    await connectPromise.catch(() => {});
   });
 });

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import React from "react";
+import { ReactorContext } from "../core/store";
 import {
   RecordingError,
   createPlayableManifestUrl,
@@ -32,9 +33,21 @@ import {
  * **does not require a ``ReactorProvider``** in the tree.  It
  * operates on the ``Clip`` value alone, so it stays usable after
  * ``reactor.disconnect()`` and works with clips loaded from
- * fixtures, server logs, or any other source.
+ * fixtures, server logs, or any other source. When a
+ * ``ReactorProvider`` *is* mounted above, however, an omitted
+ * ``getJwt`` falls back to whatever resolver the provider was
+ * configured with — saving you from re-threading the token through
+ * every clip surface (REA-2512).
  *
- * @example Compose with the download button:
+ * @example Compose with the download button (provider supplies JWT):
+ * ```tsx
+ * <ReactorProvider getJwt={() => clerk.getToken({ template: "reactor" })}>
+ *   <ClipPlayer clip={clip} />
+ *   <ClipDownloadButton clip={clip} />
+ * </ReactorProvider>
+ * ```
+ *
+ * @example Compose with the download button (explicit `getJwt`):
  * ```tsx
  * <div>
  *   <ClipPlayer clip={clip} getJwt={() => jwt} />
@@ -57,10 +70,14 @@ export interface ClipPlayerProps {
    * Lazy resolver for the Coordinator JWT used on the ``/clips``
    * manifest GET.
    *
-   * - **Production / Coordinator:** required.  Should return the
-   *   same JWT your app already passes to ``ReactorProvider`` /
-   *   ``reactor.connect()``.  Called at request time (not at render
-   *   time) so token refreshes are picked up automatically.
+   * - **Production / Coordinator:** optional if rendered inside a
+   *   ``<ReactorProvider>`` — the player falls back to whatever
+   *   resolver the provider was configured with via its own
+   *   ``getJwt`` / ``jwtToken`` prop. Pass an explicit `getJwt`
+   *   here to override (e.g. previewing a clip against a different
+   *   tenant). Required when used outside a provider in production.
+   *   Called at request time (not at render time) so token
+   *   refreshes are picked up automatically.
    * - **Local-dev / HttpRuntime:** omit — the local ``/clips``
    *   endpoint serves manifests without auth.
    *
@@ -112,6 +129,13 @@ export function ClipPlayer({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [phase, setPhase] = useState<Phase>({ kind: "waiting" });
 
+  // Subscribe to the surrounding `<ReactorProvider>` (if any) so an
+  // omitted `getJwt` prop transparently falls back to the resolver
+  // the provider was configured with. `undefined` outside a
+  // provider, in which case behaviour matches the pre-fallback SDK
+  // (caller must supply `getJwt` for authenticated /clips).
+  const store = useContext(ReactorContext);
+
   // The playback effect intentionally depends only on `clip`.  Callers
   // typically pass an inline `getJwt={() => token}` that changes
   // identity on every render — using it directly in the effect deps
@@ -123,10 +147,18 @@ export function ClipPlayer({
   const getJwtRef = useRef(getJwt);
   const autoPlayRef = useRef(autoPlay);
   const slackMsRef = useRef(slackMs);
+  // Captured into a ref for the same reason as `getJwtRef`: the
+  // store identity is stable per-provider but we don't want the
+  // setup effect to re-run on store change either (the resolver
+  // lookup happens at request time, inside `setup`, so a swap on
+  // the provider is picked up on the next attach without needing
+  // to tear down the player).
+  const storeRef = useRef(store);
   useEffect(() => {
     getJwtRef.current = getJwt;
     autoPlayRef.current = autoPlay;
     slackMsRef.current = slackMs;
+    storeRef.current = store;
   });
 
   // Playback pipeline: fetch manifest (with optional JWT) → wrap in
@@ -212,7 +244,17 @@ export function ClipPlayer({
     const setup = async () => {
       try {
         setPhase({ kind: "waiting" });
-        const jwt = getJwtRef.current ? await getJwtRef.current() : undefined;
+        // Resolver precedence: explicit `getJwt` prop wins; otherwise
+        // we ask the surrounding `<ReactorProvider>` (if any) for its
+        // resolver. Matches `useClipDownload`'s fallback chain so
+        // composing the two against a single provider gives the same
+        // token without re-threading (REA-2512).
+        const explicit = getJwtRef.current;
+        const fallback = storeRef.current
+          ?.getState()
+          .internal.reactor.getJwtResolver();
+        const resolver = explicit ?? fallback;
+        const jwt = resolver ? await resolver() : undefined;
         if (cancelled) return;
         const body = await fetchPlaylist(clip.playlistUrl, {
           predictedReadyAtMs: clip.predictedReadyAtMs,

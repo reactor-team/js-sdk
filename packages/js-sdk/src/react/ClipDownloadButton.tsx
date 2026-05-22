@@ -18,7 +18,14 @@ import { useClipDownload, type ClipDownloadState } from "./useClipDownload";
  * render-prop.  No CSS file is shipped — every default style is
  * inline so it loses to anything the consumer provides.
  *
- * @example Default label, state-aware:
+ * @example Inside a `ReactorProvider` (JWT inherited from provider):
+ * ```tsx
+ * <ReactorProvider getJwt={() => clerk.getToken({ template: "reactor" })}>
+ *   <ClipDownloadButton clip={clip} />
+ * </ReactorProvider>
+ * ```
+ *
+ * @example Default label, state-aware (explicit getJwt):
  * ```tsx
  * <ClipDownloadButton clip={clip} getJwt={() => jwt} />
  * ```
@@ -39,8 +46,11 @@ export interface ClipDownloadButtonProps {
   /** The clip to download. */
   clip: Clip;
   /**
-   * Lazy JWT resolver.  See {@link ClipPlayerProps.getJwt} for the
-   * production / local-dev distinction.  Omit in local-dev mode.
+   * Lazy JWT resolver. Optional when rendered inside a
+   * ``<ReactorProvider>`` — the button falls back to the
+   * provider's resolver via {@link useClipDownload}'s context
+   * fallback. See {@link ClipPlayerProps.getJwt} for the
+   * production / local-dev distinction. Omit in local-dev mode.
    */
   getJwt?: () => string | Promise<string>;
   /** Filename for the saved MP4.  Default ``"reactor-clip.mp4"``. */
