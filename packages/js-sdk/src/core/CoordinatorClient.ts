@@ -36,22 +36,12 @@ const SESSION_POLL_DEFAULT_MAX_ATTEMPTS = 20;
 
 export interface CoordinatorClientOptions {
   baseUrl: string;
-  /**
-   * Either a static JWT string or a {@link JwtResolver} called
-   * immediately before each Coordinator HTTP request. Prefer the
-   * resolver form when the token is short-lived (e.g. Clerk session
-   * JWTs default to ~60s) — see {@link JwtSource} and REA-2512.
-   */
   jwtToken: JwtSource;
   model: string;
 }
 
 export class CoordinatorClient {
   protected readonly baseUrl: string;
-  // Per-request resolver. String inputs were normalised into a
-  // constant resolver in the constructor so the request path stays
-  // shape-agnostic; the runtime cost vs. the old static field is one
-  // function call + a possible microtask hop.
   private readonly resolveJwt: JwtResolver;
   protected readonly model: string;
   protected currentSessionId?: string;
@@ -83,13 +73,8 @@ export class CoordinatorClient {
 
   /**
    * Returns authorization + versioning headers for all coordinator
-   * requests.
-   *
-   * Async because the JWT resolver may need to round-trip to the
-   * auth provider (Clerk, custom backend, etc.) when its cached
-   * token is near expiry. An empty string suppresses the
-   * `Authorization` header entirely — leave the resolver returning
-   * `""` in local-dev setups where the runtime serves auth-free.
+   * requests. Async so the JWT resolver can fetch a fresh token if
+   * needed; an empty token suppresses the `Authorization` header.
    */
   protected async getHeaders(): Promise<Record<string, string>> {
     const headers: Record<string, string> = {

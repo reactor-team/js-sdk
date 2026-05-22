@@ -106,10 +106,6 @@ export class WebRTCTransportClient implements TransportClient {
 
   private readonly baseUrl: string;
   private readonly sessionId: string;
-  // String inputs get wrapped into a constant resolver in the
-  // constructor so the request path is shape-agnostic and short-lived
-  // tokens (Clerk session JWTs, default ~60s lifetime — REA-2512)
-  // can be refreshed lazily before each signaling fetch.
   private readonly resolveJwt: JwtResolver;
   webrtcVersion: string;
   private readonly maxPollAttempts: number;
@@ -155,10 +151,8 @@ export class WebRTCTransportClient implements TransportClient {
     return `${this.baseUrl}/sessions/${this.sessionId}/transport/webrtc`;
   }
 
-  // Async because the JWT resolver may need a network hop when the
-  // upstream cache is near expiry. Empty resolver returns suppress
-  // the Authorization header entirely (parity with
-  // LocalCoordinatorClient's auth-free signaling path).
+  // Async so the JWT resolver can fetch a fresh token if needed; an
+  // empty token suppresses the `Authorization` header.
   private async getHeaders(): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
       [WEBRTC_VERSION_HEADER]: this.webrtcVersion,

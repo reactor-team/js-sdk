@@ -36,8 +36,5 @@ export {
 } from "./core/RecordingClient";
 export type { RecordingClientHost } from "./core/RecordingClient";
 export type { ReactorStore } from "./core/store";
-// JWT resolver types — pass a resolver to ReactorProvider / Reactor.connect()
-// when the token is short-lived (e.g. Clerk session JWTs) so each Coordinator
-// HTTP call picks up a fresh token. See REA-2512.
 export type { JwtResolver, JwtSource } from "./core/auth";
 export { normalizeJwtSource } from "./core/auth";

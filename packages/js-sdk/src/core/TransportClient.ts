@@ -40,13 +40,6 @@ type EventHandler = (...args: any[]) => void;
 export interface TransportClientConfig {
   baseUrl: string;
   sessionId: string;
-  /**
-   * Either a static JWT string or a resolver invoked immediately
-   * before each transport-signaling HTTP request. See
-   * {@link JwtSource} and REA-2512 for why short-lived tokens
-   * (Clerk, custom backends with sub-minute TTLs) need the resolver
-   * form.
-   */
   jwtToken: JwtSource;
 }
 

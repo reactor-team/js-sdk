@@ -39,16 +39,9 @@ export interface UseClipDownloadOptions {
    * manifest GET.  Called on every {@link download} invocation, so
    * token refreshes are picked up automatically.
    *
-   * **Optional when rendered under a `<ReactorProvider>`** — the
-   * hook falls back to the resolver supplied to
-   * `<ReactorProvider getJwt={…} />` / `Reactor.connect()` when this
-   * prop is omitted. Pass an explicit `getJwt` to override (e.g.
-   * downloading a clip against a different account, or unit-testing
-   * with a fixed token).
-   *
-   * Omit in local-dev mode (HttpRuntime has no auth on ``/clips``).
-   * See {@link ClipPlayerProps.getJwt} for the production / local
-   * distinction.
+   * Optional inside a ``<ReactorProvider>`` (inherits the provider's
+   * resolver) and in local-dev mode. See
+   * {@link ClipPlayerProps.getJwt}.
    */
   getJwt?: () => string | Promise<string>;
 }
@@ -112,10 +105,8 @@ export function useClipDownload(
 ): UseClipDownloadResult {
   const [state, setState] = useState<ClipDownloadState>({ kind: "idle" });
 
-  // Subscribe to whatever `<ReactorProvider>` (if any) is mounted
-  // above us. Returns `undefined` outside a provider — in that case
-  // the only token source is whatever the caller passes via
-  // `options.getJwt`, matching the pre-fallback behaviour.
+  // `undefined` outside a `<ReactorProvider>`; used to inherit the
+  // provider's JWT resolver when `options.getJwt` is omitted.
   const store = useContext(ReactorContext);
 
   // Latest-value refs so `download` can be a stable callback (empty
@@ -144,12 +135,9 @@ export function useClipDownload(
     inFlightRef.current = true;
     setState({ kind: "downloading", fetched: 0, total: 0 });
     try {
-      // Resolver precedence: explicit `options.getJwt` wins, then we
-      // fall back to whatever resolver the surrounding
-      // `<ReactorProvider>` configured via its own `getJwt` prop
-      // (REA-2512). Reading the resolver from the store at click
-      // time (not at render time) means a token-source swap on the
-      // provider is picked up immediately by the next download.
+      // Explicit `options.getJwt` wins; fall back to the provider's
+      // resolver. Reading at click time picks up provider swaps
+      // without re-running this callback.
       const explicit = getJwtRef.current;
       const fallback = store?.getState().internal.reactor.getJwtResolver();
       const resolver = explicit ?? fallback;
@@ -177,9 +165,6 @@ export function useClipDownload(
     } finally {
       inFlightRef.current = false;
     }
-    // `store` is stable for the lifetime of its `<ReactorProvider>` —
-    // including it in deps keeps the closure correct without
-    // forcing the caller to re-memoize their click handler.
   }, [store]);
 
   const reset = useCallback(() => setState({ kind: "idle" }), []);

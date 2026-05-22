@@ -63,13 +63,10 @@ export class Reactor {
   private tracks: TrackCapability[] = [];
   private presetTracks?: TrackCapability[];
   private sessionResponse?: SessionResponse;
-  // Most recent JWT resolver supplied to `connect()`. We cache it so
-  // off-session surfaces (clip download toast that outlives the
-  // session, `useClipDownload` falling back from a missing `getJwt`
-  // option, etc.) can reach the same token source the
-  // CoordinatorClient/WebRTCTransportClient are using, without
-  // requiring callers to thread `getJwt` through every clip
-  // component. See `getJwtResolver()` and REA-2512.
+  // Cached so clip surfaces (player, download button, hook) can
+  // reach the same token source without re-threading `getJwt`.
+  // Outlives `disconnect()` because captured clips can still be
+  // downloaded after the session has ended.
   private jwtResolver?: JwtResolver;
 
   /** Per-Reactor recording client. See {@link RecordingClient}. */
@@ -107,18 +104,9 @@ export class Reactor {
 
   /**
    * Returns the JWT resolver supplied to the most recent
-   * {@link connect} call, or `undefined` if no auth source has been
-   * configured yet (pre-connect, or local mode).
-   *
-   * Surfaces like {@link ClipPlayer}, {@link ClipDownloadButton},
-   * and {@link useClipDownload} use this as a fallback when their
-   * own `getJwt` prop isn't supplied — so a consumer that already
-   * passed `getJwt` to `<ReactorProvider>` doesn't need to re-thread
-   * it through every clip-aware component. The resolver outlives
-   * `disconnect()` on purpose: a captured clip can still be
-   * downloaded after the live session has ended, and refreshing the
-   * JWT against the auth provider (Clerk, etc.) is independent of
-   * session lifecycle.
+   * {@link connect} call, or `undefined` if none was set (pre-connect
+   * or local mode). Used by clip surfaces as a fallback when their
+   * own `getJwt` prop is omitted.
    */
   getJwtResolver(): JwtResolver | undefined {
     return this.jwtResolver;
@@ -406,13 +394,10 @@ export class Reactor {
 
   /**
    * Connects to the coordinator, creates a session, then establishes
-   * the transport using server-declared capabilities.
-   *
-   * `jwtToken` accepts either a static token string or a
-   * {@link JwtSource} resolver. The resolver form is required when
-   * the token is short-lived (e.g. Clerk session JWTs default to
-   * ~60s) — see REA-2512. A string is wrapped into a constant
-   * resolver and behaves identically to the pre-resolver SDK.
+   * the transport using server-declared capabilities. `jwtToken` may
+   * be a static string or a {@link JwtSource} resolver; pass a
+   * resolver when the token is short-lived so each Coordinator HTTP
+   * hop sees a fresh value.
    */
   async connect(jwtToken?: JwtSource, options?: ConnectOptions): Promise<void> {
     console.debug("[Reactor] Connecting, status:", this.status);
@@ -428,12 +413,8 @@ export class Reactor {
 
     this.connectStartTime = performance.now();
 
-    // Cache the resolver form before constructing downstream clients
-    // so off-session surfaces (e.g. a clip-download toast that
-    // outlives the session) can reach the same token source via
-    // `getJwtResolver()`. Local mode has no auth — the
-    // LocalCoordinatorClient strips Authorization regardless, so we
-    // leave `jwtResolver` undefined there.
+    // Cache the resolver so clip surfaces can reuse it via
+    // `getJwtResolver()`. Local mode is auth-free, leave it unset.
     if (!this.local && jwtToken !== undefined) {
       this.jwtResolver = normalizeJwtSource(jwtToken);
     }

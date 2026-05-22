@@ -32,10 +32,7 @@ export class LocalCoordinatorClient extends CoordinatorClient {
     });
   }
 
-  // The local runtime serves auth-free endpoints, so we override
-  // getHeaders() to strip the Authorization line that the base class
-  // would otherwise emit for the "local" sentinel jwt. Async to match
-  // the base class signature.
+  // Local runtime endpoints are auth-free; skip the Authorization header.
   protected override async getHeaders(): Promise<Record<string, string>> {
     return {
       [API_VERSION_HEADER]: String(REACTOR_API_VERSION),

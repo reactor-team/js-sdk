@@ -25,14 +25,7 @@ export interface ReactorState {
   lastError?: ReactorError;
   sessionId?: string;
   sessionExpiration?: number;
-  /**
-   * Token source for Coordinator HTTP calls. Stored as the union so
-   * callers that pass a resolver via `<ReactorProvider getJwt={…} />`
-   * (the recommended path for short-lived tokens — REA-2512) and
-   * legacy callers that pass a static string both flow through the
-   * same field. Selecting `s.jwtToken` will return whichever shape
-   * the consumer originally supplied.
-   */
+  /** Token source for Coordinator HTTP calls — see {@link JwtSource}. */
   jwtToken?: JwtSource;
 }
 
@@ -76,11 +69,7 @@ export const defaultInitState: ReactorState = {
 };
 
 export interface ReactorInitializationProps extends ReactorOptions {
-  /**
-   * Token source for the underlying {@link Reactor}. See
-   * {@link ReactorState.jwtToken}: prefer the resolver form when
-   * the token is short-lived (REA-2512).
-   */
+  /** Token source for the underlying {@link Reactor} — see {@link JwtSource}. */
   jwtToken?: JwtSource;
 }
 
