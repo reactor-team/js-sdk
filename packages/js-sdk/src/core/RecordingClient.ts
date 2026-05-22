@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
-
 /**
  * Per-Reactor recording client.  Owns the FIFO promise correlator for
  * inbound `clipReady` / `clipFailed` runtime messages and the

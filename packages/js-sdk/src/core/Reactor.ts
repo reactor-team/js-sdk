@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
-
 import {
   type ReactorEvent,
   type ReactorStatus,

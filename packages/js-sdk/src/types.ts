@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
-
 export type ReactorStatus =
   | "disconnected" // Not connected to anything
   | "connecting" // Establishing connection to coordinator

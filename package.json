@@ -9,11 +9,15 @@
     "test:integration": "pnpm --filter @reactor-team/js-sdk test:integration",
     "format:check": "prettier --check .",
     "format": "prettier --write .",
+    "lint:secrets": "git ls-files -z | xargs -0 secretlint --maskSecrets",
+    "lint:license": "./scripts/check-license.sh",
     "local-build": "pnpm --filter @reactor-team/js-sdk build && echo '\n@reactor-team/js-sdk built. Link with:\n  pnpm link '$(realpath packages/js-sdk)",
     "install:create-app": "pnpm --filter create-reactor-app install-cli"
   },
   "packageManager": "pnpm@10.12.1",
   "devDependencies": {
-    "prettier": "^3.6.2"
+    "@secretlint/secretlint-rule-preset-recommend": "^13.0.2",
+    "prettier": "^3.6.2",
+    "secretlint": "^13.0.2"
   }
 }

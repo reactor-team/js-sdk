@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
-
 /**
  * !!! INTEGRATION-TEST-ONLY WORKAROUND — DO NOT IMPORT FROM THE SDK !!!
  *

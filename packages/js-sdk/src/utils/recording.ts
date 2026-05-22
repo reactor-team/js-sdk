@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
-
 /**
  * Stateless primitives for the Reactor recording feature.
  *

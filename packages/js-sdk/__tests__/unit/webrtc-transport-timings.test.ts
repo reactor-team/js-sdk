@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
-
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { WebRTCTransportClient } from "../../src/core/WebRTCTransportClient";
 import type { TrackCapability } from "../../src/core/types";

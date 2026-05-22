@@ -3,7 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/@reactor-team/js-sdk)](https://www.npmjs.com/package/@reactor-team/js-sdk)
 [![npm downloads](https://img.shields.io/npm/dm/@reactor-team/js-sdk)](https://www.npmjs.com/package/@reactor-team/js-sdk)
 [![build](https://img.shields.io/github/actions/workflow/status/reactor-team/js-sdk/ci.yml?branch=main)](https://github.com/reactor-team/js-sdk/actions)
-[![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
+[![license](https://img.shields.io/badge/license-Apache_2.0-blue)](./LICENSE)
 
 The official JavaScript SDK for building real-time AI video applications with [Reactor](https://reactor.inc).
 
@@ -50,4 +50,7 @@ export default function App() {
 
 ## License
 
-[MIT](./LICENSE)
+[Apache 2.0](./LICENSE) © 2024-2026 Reactor Technologies, Inc.
+
+See [NOTICE](./NOTICE) for attribution requirements and
+[CONTRIBUTING.md](./CONTRIBUTING.md) for the contributor sign-off (DCO) policy.

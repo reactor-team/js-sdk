@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
-
 import { describe, it, expect, afterEach } from "vitest";
 import { CoordinatorClient } from "../../src/core/CoordinatorClient";
 import { DEFAULT_BASE_URL } from "../../src/core/Reactor";

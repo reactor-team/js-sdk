@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
-
 /**
  * Reference to an uploaded file, returned by {@link Reactor.uploadFile}.
  *

@@ -122,7 +122,7 @@ pnpm unlink --global
 
 ## License
 
-ISC License - Copyright (c) Reactor Technologies, Inc.
+[Apache 2.0](https://github.com/reactor-team/js-sdk/blob/main/LICENSE) © 2024-2026 Reactor Technologies, Inc.
 
 ## Support
 

@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
-
 /**
  * Generic transport interface for connecting to a Reactor session.
  *

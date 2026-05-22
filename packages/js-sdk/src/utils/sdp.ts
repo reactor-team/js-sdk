@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
-
 /**
  * SDP offer sanitization:
  * - Removes telephone-event codec entries from all m-sections.

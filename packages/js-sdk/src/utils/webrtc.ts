@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
-
 /**
  * Stateless WebRTC utility functions for SDP exchange and peer connection management.
  */

@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
-
 import { describe, it, expect, vi } from "vitest";
 import {
   transformIceServers,

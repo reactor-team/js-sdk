@@ -1,4 +1,3 @@
-// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
 "use client";
 
 import { useEffect, useRef, useState } from "react";

@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
-
 /**
  * LocalCoordinatorClient connects to a local runtime instance.
  *

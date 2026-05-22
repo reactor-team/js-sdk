@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
-
 /**
  * The CoordinatorClient handles session lifecycle via HTTP requests.
  *

@@ -2,7 +2,7 @@
   "name": "@reactor-team/js-sdk",
   "version": "2.10.0",
   "description": "Reactor JavaScript frontend SDK — connect React and TypeScript apps to real-time AI video models on Reactor.",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/reactor-team/js-sdk.git"
@@ -34,9 +34,13 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE",
+    "NOTICE"
   ],
   "scripts": {
+    "prepack": "cp ../../LICENSE ../../NOTICE .",
+    "postpack": "rm -f LICENSE NOTICE",
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "vitest run",

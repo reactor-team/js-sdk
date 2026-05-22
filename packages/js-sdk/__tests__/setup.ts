@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
-
 // Polyfill browser WebRTC globals for Node.js so integration tests can
 // exercise the SDK against production without a browser.  Unit tests
 // override these with vi.stubGlobal() as needed.

@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
-
 /**
  * Tests for {@link RecordingClient} in isolation, against a fake
  * {@link RecordingClientHost}. The reactor-level integration is

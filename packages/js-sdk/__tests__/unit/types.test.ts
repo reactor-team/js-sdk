@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Reactor Technologies, Inc. All rights reserved.
-
 import { describe, it, expect } from "vitest";
 import { ConflictError, AbortError, isAbortError } from "../../src/types";
 
