@@ -64,20 +64,29 @@ describe("WebRTCTransportClient (extended)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     mockPC = createMockPC();
-    vi.stubGlobal("RTCPeerConnection", vi.fn().mockReturnValue(mockPC));
+    vi.stubGlobal(
+      "RTCPeerConnection",
+      vi.fn(function (this: any) {
+        return mockPC;
+      })
+    );
     vi.stubGlobal(
       "RTCSessionDescription",
-      vi.fn().mockImplementation((d: any) => d)
+      vi.fn(function (this: any, d: any) {
+        return d;
+      })
     );
     vi.stubGlobal(
       "RTCIceCandidate",
-      vi.fn().mockImplementation((c: any) => c)
+      vi.fn(function (this: any, c: any) {
+        return c;
+      })
     );
     vi.stubGlobal(
       "MediaStream",
-      vi.fn().mockImplementation((tracks?: any[]) => ({
-        getTracks: () => tracks ?? [],
-      }))
+      vi.fn(function (this: any, tracks?: any[]) {
+        return { getTracks: () => tracks ?? [] };
+      })
     );
     vi.stubGlobal("MediaStreamTrack", vi.fn());
     vi.stubGlobal("fetch", mockFetch);

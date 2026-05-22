@@ -26,25 +26,29 @@ let transportHandlers: Record<string, (...args: any[]) => void> = {};
 let mockTransportClient: any;
 
 vi.mock("../../src/core/CoordinatorClient", () => ({
-  CoordinatorClient: vi.fn().mockImplementation(() => ({
-    createSession: vi.fn().mockResolvedValue(MOCK_INITIAL_RESPONSE),
-    pollSessionReady: vi.fn().mockResolvedValue(MOCK_FULL_SESSION_RESPONSE),
-    terminateSession: vi.fn().mockResolvedValue(undefined),
-    abort: vi.fn(),
-  })),
+  CoordinatorClient: vi.fn(function (this: any) {
+    return {
+      createSession: vi.fn().mockResolvedValue(MOCK_INITIAL_RESPONSE),
+      pollSessionReady: vi.fn().mockResolvedValue(MOCK_FULL_SESSION_RESPONSE),
+      terminateSession: vi.fn().mockResolvedValue(undefined),
+      abort: vi.fn(),
+    };
+  }),
 }));
 
 vi.mock("../../src/core/LocalCoordinatorClient", () => ({
-  LocalCoordinatorClient: vi.fn().mockImplementation(() => ({
-    createSession: vi.fn().mockResolvedValue(MOCK_INITIAL_RESPONSE),
-    pollSessionReady: vi.fn().mockResolvedValue(MOCK_FULL_SESSION_RESPONSE),
-    terminateSession: vi.fn().mockResolvedValue(undefined),
-    abort: vi.fn(),
-  })),
+  LocalCoordinatorClient: vi.fn(function (this: any) {
+    return {
+      createSession: vi.fn().mockResolvedValue(MOCK_INITIAL_RESPONSE),
+      pollSessionReady: vi.fn().mockResolvedValue(MOCK_FULL_SESSION_RESPONSE),
+      terminateSession: vi.fn().mockResolvedValue(undefined),
+      abort: vi.fn(),
+    };
+  }),
 }));
 
 vi.mock("../../src/core/WebRTCTransportClient", () => ({
-  WebRTCTransportClient: vi.fn().mockImplementation(() => {
+  WebRTCTransportClient: vi.fn(function (this: any) {
     transportHandlers = {};
     mockTransportClient = {
       warmup: vi.fn().mockResolvedValue(undefined),
