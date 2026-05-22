@@ -57,7 +57,7 @@
   "packageManager": "pnpm@10.12.1",
   "dependencies": {
     "sdp-transform": "^3.0.0",
-    "zod": "^4.0.5"
+    "zod": "^4.4.3"
   },
   "peerDependencies": {
     "hls.js": "^1.6.0",
