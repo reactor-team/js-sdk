@@ -200,17 +200,7 @@ const clip = await reactor.requestClip(10); // last 10 s
 pnpm add hls.js
 ```
 
-### Social-media-ready downloads (optional)
-
-A Reactor clip is internally a fragmented MP4 (`init.mp4 + chunk_00.m4s + …`). The default behaviour of `downloadClipAsFile` concatenates those bytes and hands you a perfectly playable `.mp4` — but mid-session clips inherit the session timeline in their decode timestamps, which means QuickLook, Twitter / X, Instagram, and TikTok either show several seconds of black at the head or reject the upload outright.
-
-Installing the optional `mp4box` peer dependency switches the download path to a `-c copy`-style remux: the H.264 / AAC bitstream passes through unchanged, but the container is rewritten to a flat MP4 with `start_time=0`, faststart layout, and `major_brand=isom`. Pure JavaScript, no WASM, ~60 KB gzipped, no extra COOP/COEP headers required:
-
-```bash
-pnpm add mp4box
-```
-
-That's it — `downloadClipAsFile`, `<ClipDownloadButton>`, and `useClipDownload` pick it up automatically. To opt out, pass `remux: "off"`.
+Downloads are remuxed into a flat MP4 (`start_time=0`, faststart, `major_brand=isom`) under the hood so the resulting file uploads cleanly to Twitter, Instagram, TikTok, and YouTube without any extra setup on your side — the H.264 / AAC bitstream itself is passed through untouched. Pass `remux: "off"` if you specifically want the raw fragmented MP4 for a custom pipeline.
 
 Full walkthrough, error codes, and the headless `useClipDownload` hook: [Recordings](https://docs.reactor.inc/concepts/recordings).
 

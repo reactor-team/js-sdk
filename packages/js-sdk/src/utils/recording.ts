@@ -10,9 +10,9 @@
  * - HTTP helpers `fetchPlaylist` (deadline-driven polling) and
  *   `parsePlaylist` (HLS `.m3u8` parser).
  * - The `downloadClipAsFile` helper that streams the referenced
- *   fMP4 chunks, optionally remuxes them into a flat MP4 via
- *   `mp4box` (PTS=0, faststart, `major_brand=isom`), and returns a
- *   Blob for browser download.
+ *   fMP4 chunks, remuxes them into a flat social-media-ready MP4
+ *   via `mp4box` (PTS=0, faststart, `major_brand=isom`), and
+ *   returns a Blob for browser download.
  *
  * Stateful pieces (FIFO promise correlator, in-flight request
  * lifecycle, integration with Reactor's event bus) live in the
@@ -101,7 +101,6 @@ export class RecordingError extends Error {
       | "CHUNK_FETCH_FAILED"
       | "INVALID_PLAYLIST"
       | "DOWNLOAD_UNSUPPORTED"
-      | "REMUX_UNAVAILABLE"
       | "REMUX_FAILED"
       | "INTERNAL_ERROR",
     public readonly reason: string
@@ -512,33 +511,31 @@ function absolutizeManifestUrls(
  * the final `Blob`.
  *
  * The runtime serves recordings as fragmented MP4 (fMP4): an
- * `init.mp4` followed by a series of `.m4s` chunks. Byte-concatenating
- * those gives a *playable* fMP4 (Safari, hls.js, ffmpeg all handle
- * it), but social-media uploaders and most desktop tools expect a
- * **flat MP4** — one `ftyp + moov + mdat` with `start_time=0` and
- * `+faststart` layout. A mid-session clip carries the session
- * timeline in its `tfdt baseMediaDecodeTime`, so the concatenated
- * output has `start_time=32.0` (or wherever the clip starts) and
- * QuickLook / Twitter / Instagram either show 32 s of black or reject
- * the upload outright.
+ * `init.mp4` followed by a series of `.m4s` chunks.
+ * Byte-concatenating those gives a *playable* fMP4 (Safari, hls.js,
+ * ffmpeg all handle it), but social-media uploaders and most desktop
+ * tools expect a **flat MP4** — one `ftyp + moov + mdat` with
+ * `start_time=0` and `+faststart` layout.  A mid-session clip carries
+ * the session timeline in its `tfdt baseMediaDecodeTime`, so the raw
+ * concatenated output has `start_time=32.0` (or wherever the clip
+ * starts on the session timeline) and QuickLook / Twitter / Instagram
+ * either show 32 s of black or reject the upload outright.
  *
- * `mp4box` is loaded dynamically when remux is requested — it is
- * declared as an **optional peer dependency**, mirroring how `hls.js`
- * is configured for {@link ClipPlayer}. Consumers who don't install
- * it stay on the concat path; consumers who do, get a social-ready
- * MP4 out of the box.
+ * The SDK pipes the assembled bytes through [`mp4box`](https://www.npmjs.com/package/mp4box)
+ * (a regular runtime dependency, dynamic-imported at call time for
+ * code-splitting) which rewrites the container in-place — no
+ * decode, no re-encode, every NAL unit + AAC packet passes through
+ * untouched.
  *
- * - `"auto"` *(default)* — remux when `mp4box` is available; fall
- *   back to byte-concat with a one-shot `console.warn` when it
- *   isn't. Safe to ship without further changes; users who want the
- *   improved output `pnpm add mp4box`.
- * - `"force"` — remux unconditionally. Throws
- *   `RecordingError("REMUX_UNAVAILABLE", …)` if `mp4box` can't be
- *   loaded (caller wants a hard guarantee, e.g. before uploading to
- *   Twitter from a server-side context).
- * - `"off"` — never remux. Returns the byte-concatenated fragmented
- *   MP4 verbatim. Use when you specifically want the raw fMP4 (e.g.
- *   to feed it into your own pipeline).
+ * - `"auto"` *(default)* — remux; on the rare parse failure fall
+ *   back to the byte-concatenated fMP4 with a `console.warn` so the
+ *   download still succeeds end-to-end.
+ * - `"force"` — remux; throw `RecordingError("REMUX_FAILED", …)` on
+ *   any failure.  Use when downstream code requires the remuxed
+ *   shape (automated social-media upload, etc.).
+ * - `"off"` — skip remux entirely and return the byte-concatenated
+ *   fMP4.  Use when you specifically want the raw fMP4 (debugging,
+ *   custom pipeline, etc.).
  */
 export type RemuxMode = "auto" | "force" | "off";
 
@@ -558,10 +555,10 @@ export interface DownloadClipOptions {
     bytes: number;
   }) => void;
   /**
-   * Whether to remux the assembled fragmented MP4 into a flat MP4
-   * via the optional `mp4box` peer dependency.  Defaults to
-   * `"auto"`.  See {@link RemuxMode} for the full semantics and the
-   * rationale.
+   * How to package the assembled fragmented MP4 into the final
+   * Blob.  Defaults to `"auto"` (remux into a flat MP4 with a
+   * silent fallback to byte-concat on the rare failure).  See
+   * {@link RemuxMode} for the full semantics.
    */
   remux?: RemuxMode;
 }
@@ -654,14 +651,14 @@ export async function downloadClipAsFile(
  * Concatenate `parts` and, based on `mode`, optionally pipe the
  * result through {@link remuxFragmentedToFlat}.
  *
- * The `"auto"` path swallows a missing-peer-dep `ImportError`,
- * surfaces it once via `console.warn`, and returns the unmodified
- * concatenation — i.e. existing behaviour for users who haven't
- * installed `mp4box`. The `"force"` path turns the same condition
- * into a typed `RecordingError("REMUX_UNAVAILABLE")` for callers
- * that need a hard guarantee. Any other failure inside `mp4box`
- * (corrupt input, unsupported codec, internal assertion) becomes
- * `REMUX_FAILED`.
+ * Remux failures are funneled through the same path regardless of
+ * whether they came from the dynamic `mp4box` import (exotic
+ * bundler setup, CSP, etc.) or from `mp4box` itself (corrupt input,
+ * unsupported codec, internal assertion).  `"auto"` swallows them
+ * with a `console.warn` and returns the unmodified concatenation
+ * so the download still succeeds; `"force"` rethrows as
+ * `RecordingError("REMUX_FAILED")` for callers that need a hard
+ * guarantee.
  */
 async function maybeRemux(
   parts: Uint8Array[],
@@ -671,26 +668,10 @@ async function maybeRemux(
     return concatUint8Arrays(parts);
   }
 
-  let mp4boxModule: typeof import("mp4box");
-  try {
-    mp4boxModule = await loadMp4Box();
-  } catch (error) {
-    if (mode === "force") {
-      throw new RecordingError(
-        "REMUX_UNAVAILABLE",
-        `mp4box is not available: ${(error as Error).message}. ` +
-          `Install it with \`pnpm add mp4box\` (or your package ` +
-          `manager's equivalent), or pass \`remux: "off"\` to skip ` +
-          `remux.`
-      );
-    }
-    warnRemuxFallbackOnce();
-    return concatUint8Arrays(parts);
-  }
-
   const input = concatUint8Arrays(parts);
   try {
-    return await remuxFragmentedToFlat(input, mp4boxModule);
+    const MP4Box = await loadMp4Box();
+    return await remuxFragmentedToFlat(input, MP4Box);
   } catch (error) {
     if (mode === "force") {
       throw new RecordingError(
@@ -707,34 +688,18 @@ async function maybeRemux(
 }
 
 /**
- * Indirection so tests can stub the dynamic import without depending
- * on whether `mp4box` is actually installed in the test environment,
- * and reset the once-per-process fallback warning latch between
- * cases.
+ * Indirection so tests can stub the dynamic `mp4box` import without
+ * pulling the real bytes through every test that calls
+ * `downloadClipAsFile`.
  *
  * @internal
  */
 export const __remuxInternals = {
   loadMp4Box: (): Promise<typeof import("mp4box")> => import("mp4box"),
-  resetFallbackWarning: (): void => {
-    remuxFallbackWarned = false;
-  },
 };
 
 function loadMp4Box(): Promise<typeof import("mp4box")> {
   return __remuxInternals.loadMp4Box();
-}
-
-let remuxFallbackWarned = false;
-function warnRemuxFallbackOnce(): void {
-  if (remuxFallbackWarned) return;
-  remuxFallbackWarned = true;
-  console.warn(
-    "[Reactor] `mp4box` is not installed; clip downloads will return a " +
-      "fragmented MP4 that some uploaders (Twitter, Instagram, ...) " +
-      "reject. Run `pnpm add mp4box` to get social-media-compatible " +
-      'downloads, or pass `remux: "off"` to silence this warning.'
-  );
 }
 
 /**

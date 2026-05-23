@@ -478,14 +478,13 @@ describe("downloadClipAsFile", () => {
   }
 
   /** Saved between tests so we can restore the real dynamic-import
-   * loader after each one. Tests below replace it to simulate the
-   * peer dep being installed (stub), missing (throw), or broken.
-   * `resetFallbackWarning` clears the module-level one-shot latch so
-   * each test starts from a clean state. */
+   * loader after each one. Tests below replace it to stub `mp4box`
+   * with a predictable in-memory shim (verifying option plumbing
+   * without pulling the real fMP4 bytes through every case) or to
+   * simulate a load failure. */
   let realLoadMp4Box: typeof __remuxInternals.loadMp4Box;
   beforeEach(() => {
     realLoadMp4Box = __remuxInternals.loadMp4Box;
-    __remuxInternals.resetFallbackWarning();
   });
   afterEach(() => {
     __remuxInternals.loadMp4Box = realLoadMp4Box;
@@ -615,13 +614,18 @@ describe("downloadClipAsFile", () => {
       expect(Array.from(out)).toEqual([99, 99, 99]);
     });
 
-    it("auto: falls back to byte-concat with a one-shot warning when mp4box is missing", async () => {
+    it("auto: falls back to byte-concat with a warning on remux failure", async () => {
       installChunkFetchMock();
-      __remuxInternals.loadMp4Box = async () => {
-        const err: any = new Error("Cannot find module 'mp4box'");
-        err.code = "MODULE_NOT_FOUND";
-        throw err;
-      };
+      stubMp4boxOnce({
+        output: new Uint8Array(0),
+        onCreate: (file, kind) => {
+          if (kind === "input") {
+            file.flush = () => {
+              throw new Error("corrupt input");
+            };
+          }
+        },
+      });
       const warnSpy = vi
         .spyOn(console, "warn")
         .mockImplementation(() => undefined);
@@ -633,20 +637,7 @@ describe("downloadClipAsFile", () => {
       );
       expect(out[0]).toBe(initBytes[0]);
       expect(warnSpy).toHaveBeenCalledTimes(1);
-      expect(warnSpy.mock.calls[0][0]).toContain("mp4box");
-    });
-
-    it("force: throws REMUX_UNAVAILABLE when mp4box is missing", async () => {
-      installChunkFetchMock();
-      __remuxInternals.loadMp4Box = async () => {
-        throw new Error("Cannot find module 'mp4box'");
-      };
-
-      await expect(
-        downloadClipAsFile(clip, null, { remux: "force" })
-      ).rejects.toMatchObject({
-        code: "REMUX_UNAVAILABLE",
-      });
+      expect(warnSpy.mock.calls[0][0]).toContain("remux failed");
     });
 
     it("force: throws REMUX_FAILED when mp4box throws during remux", async () => {
@@ -661,6 +652,19 @@ describe("downloadClipAsFile", () => {
           }
         },
       });
+
+      await expect(
+        downloadClipAsFile(clip, null, { remux: "force" })
+      ).rejects.toMatchObject({
+        code: "REMUX_FAILED",
+      });
+    });
+
+    it("force: throws REMUX_FAILED when the mp4box dynamic import fails", async () => {
+      installChunkFetchMock();
+      __remuxInternals.loadMp4Box = async () => {
+        throw new Error("Cannot find module 'mp4box'");
+      };
 
       await expect(
         downloadClipAsFile(clip, null, { remux: "force" })
