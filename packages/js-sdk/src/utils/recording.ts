@@ -10,8 +10,9 @@
  * - HTTP helpers `fetchPlaylist` (deadline-driven polling) and
  *   `parsePlaylist` (HLS `.m3u8` parser).
  * - The `downloadClipAsFile` helper that streams the referenced
- *   fMP4 chunks and byte-concatenates them into a fragmented-MP4
- *   Blob for browser download.
+ *   fMP4 chunks, remuxes them into a flat social-media-ready MP4
+ *   via `mp4box` (PTS=0, faststart, `major_brand=isom`), and
+ *   returns a Blob for browser download.
  *
  * Stateful pieces (FIFO promise correlator, in-flight request
  * lifecycle, integration with Reactor's event bus) live in the
@@ -522,10 +523,17 @@ export interface DownloadClipOptions {
 }
 
 /**
- * Stream the chunks referenced by `clip.playlistUrl`, byte-concatenate
- * them into a fragmented-MP4 Blob, and (when `filename` is non-null)
- * trigger a browser-native `<a download>`.  Pass `filename: null` to
- * skip the download trigger and just receive the Blob.
+ * Stream the chunks referenced by `clip.playlistUrl`, remux the
+ * assembled bytes into a flat social-media-ready MP4, and (when
+ * `filename` is non-null) trigger a browser-native `<a download>`.
+ * Pass `filename: null` to skip the download trigger and just
+ * receive the Blob.
+ *
+ * The remux step rewrites the container only — H.264 NAL units and
+ * AAC packets pass through unchanged — so `start_time=0`,
+ * `+faststart`, and `major_brand=isom` come for free without any
+ * re-encode cost.  See {@link maybeRemux} for the fallback
+ * semantics on the rare parse failure.
  */
 export async function downloadClipAsFile(
   clip: Clip,
@@ -547,7 +555,7 @@ export async function downloadClipAsFile(
   );
 
   const orderedUrls = [initUrl, ...segmentUrls];
-  const parts: BlobPart[] = [];
+  const parts: Uint8Array[] = [];
   let bytes = 0;
 
   for (let i = 0; i < orderedUrls.length; i++) {
@@ -567,7 +575,7 @@ export async function downloadClipAsFile(
         `Chunk ${i} returned HTTP ${response.status}`
       );
     }
-    const data = await response.arrayBuffer();
+    const data = new Uint8Array(await response.arrayBuffer());
     parts.push(data);
     bytes += data.byteLength;
     options.onProgress?.({
@@ -577,7 +585,8 @@ export async function downloadClipAsFile(
     });
   }
 
-  const blob = new Blob(parts, { type: "video/mp4" });
+  const finalBytes = await maybeRemux(parts);
+  const blob = new Blob([finalBytes as BlobPart], { type: "video/mp4" });
 
   if (filename === null) {
     return blob;
@@ -594,6 +603,216 @@ export async function downloadClipAsFile(
 
   triggerBrowserDownload(blob, filename);
   return blob;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Fragmented MP4 → flat MP4 remux
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Concatenate `parts` and pipe the result through
+ * {@link remuxFragmentedToFlat}.  Remux failures (`mp4box` import
+ * blocked by exotic bundler / CSP, corrupt input, unsupported
+ * codec, internal assertion) are funneled through a single path:
+ * a `console.warn` and a return of the unmodified concatenation,
+ * so the download still succeeds end-to-end with the (worse, but
+ * still playable) fragmented MP4 the runtime emitted.
+ */
+async function maybeRemux(parts: Uint8Array[]): Promise<Uint8Array> {
+  const input = concatUint8Arrays(parts);
+  try {
+    const MP4Box = await loadMp4Box();
+    return await remuxFragmentedToFlat(input, MP4Box);
+  } catch (error) {
+    console.warn(
+      "[Reactor] Clip remux failed, returning fragmented MP4 instead.",
+      error
+    );
+    return input;
+  }
+}
+
+/**
+ * Indirection so tests can stub the dynamic `mp4box` import without
+ * pulling the real bytes through every test that calls
+ * `downloadClipAsFile`.
+ *
+ * @internal
+ */
+export const __remuxInternals = {
+  loadMp4Box: (): Promise<typeof import("mp4box")> => import("mp4box"),
+};
+
+function loadMp4Box(): Promise<typeof import("mp4box")> {
+  return __remuxInternals.loadMp4Box();
+}
+
+/**
+ * The actual fMP4 → flat MP4 conversion.  No re-encode: every NAL
+ * unit and AAC packet passes through unchanged.  Only the container
+ * framing (boxes) and decode timestamps get rewritten.
+ *
+ * The output file is initialised with `["isom", "mp42", "avc1", "iso2"]`
+ * as compatible brands so the major brand is `isom` (not `iso5`,
+ * which is what byte-concatenated fragments default to) and the
+ * sample tables are written ahead of `mdat` — i.e. the file is
+ * implicitly faststart.  Per-track decode times are shifted by the
+ * first sample's DTS so the output starts at `0.000000` regardless
+ * of where the clip sits on the session timeline.
+ */
+async function remuxFragmentedToFlat(
+  input: Uint8Array,
+  MP4Box: typeof import("mp4box")
+): Promise<Uint8Array> {
+  return new Promise<Uint8Array>((resolve, reject) => {
+    const inFile = MP4Box.createFile();
+    const outFile = MP4Box.createFile();
+    outFile.init({ brands: ["isom", "mp42", "avc1", "iso2"] });
+
+    const inToOutTrack = new Map<number, number>();
+    const trackBaselineDts = new Map<number, number>();
+    let settled = false;
+
+    const fail = (err: Error) => {
+      if (settled) return;
+      settled = true;
+      reject(err);
+    };
+
+    inFile.onError = (_module: string, message: string) => {
+      fail(new Error(message));
+    };
+
+    inFile.onReady = (info) => {
+      if (!info.tracks.length) {
+        fail(new Error("no tracks in input"));
+        return;
+      }
+      for (const track of info.tracks) {
+        // setExtractionOptions delivers samples in batches via
+        // onSamples; nbSamples controls batch size only, not total.
+        inFile.setExtractionOptions(track.id, null, { nbSamples: 1000 });
+      }
+      inFile.start();
+    };
+
+    inFile.onSamples = (id, _user, samples) => {
+      if (settled || samples.length === 0) return;
+
+      let outId = inToOutTrack.get(id);
+      let baseline = trackBaselineDts.get(id);
+      if (outId === undefined) {
+        // The sample carries the parsed input SampleEntry (avc1 /
+        // mp4a / …) whose child boxes are the actual codec config
+        // (avcC, esds, …).  `addTrack` creates a fresh empty
+        // SampleEntry of the requested `type`, so we have to pass
+        // the input's child boxes via `description_boxes`: they
+        // become direct children of the new SampleEntry, where
+        // decoders expect them.  Passing the whole input
+        // SampleEntry as `description` instead would nest it
+        // (`stsd > avc1 > avc1 > avcC`) and decoders would fail to
+        // find avcC and render black.
+        const firstSample = samples[0];
+        const sampleEntry =
+          firstSample.description as import("mp4box").SampleEntry;
+        const inputTrack = trackInfoById(inFile, id);
+        outId = outFile.addTrack({
+          type: sampleEntry.type as import("mp4box").SampleEntryFourCC,
+          timescale: firstSample.timescale,
+          width: inputTrack?.track_width,
+          height: inputTrack?.track_height,
+          language: inputTrack?.language,
+          hdlr: inputTrack?.video
+            ? "vide"
+            : inputTrack?.audio
+              ? "soun"
+              : undefined,
+          // `boxes` is typed as `Box[]` but `description_boxes`
+          // wants the narrower `BoxKind[]` union — at runtime they
+          // are the same concrete instances, just typed loosely.
+          description_boxes:
+            sampleEntry.boxes as unknown as import("mp4box").IsoFileOptions["description_boxes"],
+        });
+        baseline = firstSample.dts;
+        inToOutTrack.set(id, outId);
+        trackBaselineDts.set(id, baseline);
+      }
+      const dtsShift = baseline as number;
+
+      for (const sample of samples) {
+        if (!sample.data) continue;
+        outFile.addSample(outId, sample.data, {
+          duration: sample.duration,
+          dts: sample.dts - dtsShift,
+          cts: sample.cts - dtsShift,
+          is_sync: sample.is_sync,
+        });
+      }
+    };
+
+    let buf: import("mp4box").MP4BoxBuffer;
+    try {
+      buf = MP4Box.MP4BoxBuffer.fromArrayBuffer(
+        input.buffer.slice(
+          input.byteOffset,
+          input.byteOffset + input.byteLength
+        ),
+        0
+      );
+    } catch (error) {
+      fail(error as Error);
+      return;
+    }
+
+    try {
+      inFile.appendBuffer(buf);
+      inFile.flush();
+    } catch (error) {
+      fail(error as Error);
+      return;
+    }
+
+    if (settled) return;
+    if (inToOutTrack.size === 0) {
+      fail(new Error("no samples extracted from input"));
+      return;
+    }
+
+    let output: Uint8Array;
+    try {
+      const stream = outFile.getBuffer();
+      output = new Uint8Array(
+        stream.buffer.slice(0, stream.byteLength) as ArrayBuffer
+      );
+    } catch (error) {
+      fail(error as Error);
+      return;
+    }
+
+    settled = true;
+    resolve(output);
+  });
+}
+
+function trackInfoById(
+  file: import("mp4box").ISOFile,
+  id: number
+): import("mp4box").Track | undefined {
+  const info = file.getInfo();
+  return info.tracks.find((t) => t.id === id);
+}
+
+function concatUint8Arrays(parts: Uint8Array[]): Uint8Array {
+  if (parts.length === 1) return parts[0];
+  let total = 0;
+  for (const p of parts) total += p.byteLength;
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const p of parts) {
+    out.set(p, offset);
+    offset += p.byteLength;
+  }
+  return out;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

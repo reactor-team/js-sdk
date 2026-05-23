@@ -3,6 +3,7 @@ import {
   ClipReadyPayloadSchema,
   RecordingError,
   RuntimeRecordingMessageType,
+  __remuxInternals,
   clipFromPayload,
   createPlayableManifestUrl,
   downloadClipAsFile,
@@ -449,11 +450,16 @@ describe("downloadClipAsFile", () => {
     coordinatorBaseUrl: "http://localhost:8080",
   });
 
-  it("fetches playlist + every chunk and assembles a Blob", async () => {
-    const initBytes = new Uint8Array([1, 2, 3, 4]);
-    const chunk0 = new Uint8Array([5, 6, 7, 8, 9, 10]);
-    const chunk1 = new Uint8Array([11, 12, 13]);
+  /** Mock chunk bytes that won't parse as real fMP4. The remux path
+   * is stubbed via `__remuxInternals.loadMp4Box` so the assertions
+   * below can still match exact byte counts. */
+  const initBytes = new Uint8Array([1, 2, 3, 4]);
+  const chunk0 = new Uint8Array([5, 6, 7, 8, 9, 10]);
+  const chunk1 = new Uint8Array([11, 12, 13]);
+  const concatSize =
+    initBytes.byteLength + chunk0.byteLength + chunk1.byteLength;
 
+  function installChunkFetchMock(): ReturnType<typeof vi.fn> {
     const mockFetch = vi.fn().mockImplementation((url: string) => {
       if (url.includes("/clips?")) {
         return Promise.resolve(new Response(SAMPLE_MANIFEST, { status: 200 }));
@@ -470,13 +476,33 @@ describe("downloadClipAsFile", () => {
       return Promise.resolve(new Response(null, { status: 404 }));
     });
     globalThis.fetch = mockFetch as any;
+    return mockFetch;
+  }
+
+  let realLoadMp4Box: typeof __remuxInternals.loadMp4Box;
+  beforeEach(() => {
+    realLoadMp4Box = __remuxInternals.loadMp4Box;
+    // The default for these tests is "remux throws" — exercises the
+    // silent-fallback path, which keeps the byte-count assertions on
+    // the assembled Blob honest without having to build a real fMP4
+    // fixture. Tests that care about the success path override this
+    // with a passthrough stub.
+    __remuxInternals.loadMp4Box = async () => {
+      throw new Error("stubbed");
+    };
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+  afterEach(() => {
+    __remuxInternals.loadMp4Box = realLoadMp4Box;
+  });
+
+  it("fetches playlist + every chunk and assembles a Blob", async () => {
+    installChunkFetchMock();
 
     const onProgress = vi.fn();
     const blob = await downloadClipAsFile(clip, null, { onProgress });
     expect(blob).toBeInstanceOf(Blob);
-    expect(blob.size).toBe(
-      initBytes.byteLength + chunk0.byteLength + chunk1.byteLength
-    );
+    expect(blob.size).toBe(concatSize);
     expect(onProgress).toHaveBeenCalledTimes(3);
     expect(onProgress).toHaveBeenLastCalledWith(
       expect.objectContaining({ fetched: 3, total: 3 })
@@ -500,5 +526,83 @@ describe("downloadClipAsFile", () => {
     await expect(downloadClipAsFile(clip, null)).rejects.toMatchObject({
       code: "CHUNK_FETCH_FAILED",
     });
+  });
+
+  it("returns the mp4box remuxed bytes when remux succeeds", async () => {
+    installChunkFetchMock();
+    const remuxed = new Uint8Array([99, 99, 99]);
+    // Stub mp4box with a passthrough that drives parse → samples →
+    // flush synchronously inside flush(). The output ISOFile's
+    // getBuffer() returns the canned remuxed bytes.
+    __remuxInternals.loadMp4Box = async () =>
+      ({
+        createFile: (() => {
+          let isInput = true;
+          return () => {
+            const file: any = {
+              onError: undefined,
+              onReady: undefined,
+              onSamples: undefined,
+              init: () => undefined,
+              appendBuffer: () => 0,
+              start: () => undefined,
+              setExtractionOptions: () => undefined,
+              addTrack: () => 1,
+              addSample: () => undefined,
+              getInfo: () => ({ tracks: [{ id: 1 }] }),
+              getBuffer: () => ({
+                buffer: remuxed.buffer.slice(
+                  remuxed.byteOffset,
+                  remuxed.byteOffset + remuxed.byteLength
+                ),
+                byteLength: remuxed.byteLength,
+              }),
+              flush: undefined as undefined | (() => void),
+            };
+            if (isInput) {
+              file.flush = () => {
+                file.onReady?.({ tracks: [{ id: 1 }] });
+                file.onSamples?.(1, null, [
+                  {
+                    data: new Uint8Array([0]),
+                    duration: 1,
+                    dts: 7,
+                    cts: 7,
+                    is_sync: true,
+                    description: { type: "avc1" },
+                    timescale: 1000,
+                  },
+                ]);
+              };
+              isInput = false;
+            } else {
+              file.flush = () => undefined;
+            }
+            return file;
+          };
+        })(),
+        MP4BoxBuffer: {
+          fromArrayBuffer: (ab: ArrayBufferLike, fileStart: number) => {
+            const buf = ab.slice(0) as ArrayBuffer & { fileStart: number };
+            buf.fileStart = fileStart;
+            return buf;
+          },
+        },
+      }) as any;
+
+    const blob = await downloadClipAsFile(clip, null);
+    const out = new Uint8Array(await blob.arrayBuffer());
+    expect(Array.from(out)).toEqual([99, 99, 99]);
+  });
+
+  it("falls back to the byte-concatenated fMP4 on remux failure (logged via console.warn)", async () => {
+    installChunkFetchMock();
+    // Default beforeEach already stubs loadMp4Box to throw.
+    const blob = await downloadClipAsFile(clip, null);
+    const out = new Uint8Array(await blob.arrayBuffer());
+    expect(out.byteLength).toBe(concatSize);
+    expect(out[0]).toBe(initBytes[0]);
+    expect(console.warn).toHaveBeenCalledTimes(1);
+    expect((console.warn as any).mock.calls[0][0]).toContain("remux failed");
   });
 });
