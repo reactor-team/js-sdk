@@ -8,6 +8,7 @@
  */
 
 import type { TrackCapability, ConnectionStats, MessageScope } from "../types";
+import type { JwtSource } from "./auth";
 import type { WebRTCTransportTimings } from "./WebRTCTransportClient";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,7 +40,7 @@ type EventHandler = (...args: any[]) => void;
 export interface TransportClientConfig {
   baseUrl: string;
   sessionId: string;
-  jwtToken: string;
+  jwtToken: JwtSource;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

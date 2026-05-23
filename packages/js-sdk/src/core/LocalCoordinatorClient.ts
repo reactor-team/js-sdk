@@ -32,7 +32,8 @@ export class LocalCoordinatorClient extends CoordinatorClient {
     });
   }
 
-  protected override getHeaders(): HeadersInit {
+  // Local runtime endpoints are auth-free; skip the Authorization header.
+  protected override async getHeaders(): Promise<Record<string, string>> {
     return {
       [API_VERSION_HEADER]: String(REACTOR_API_VERSION),
       [API_ACCEPT_VERSION_HEADER]: String(REACTOR_API_VERSION),
@@ -53,7 +54,7 @@ export class LocalCoordinatorClient extends CoordinatorClient {
     const response = await fetch(`${this.baseUrl}/start_session`, {
       method: "POST",
       headers: {
-        ...this.getHeaders(),
+        ...(await this.getHeaders()),
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -116,7 +117,7 @@ export class LocalCoordinatorClient extends CoordinatorClient {
     try {
       await fetch(`${this.baseUrl}/stop_session`, {
         method: "POST",
-        headers: this.getHeaders(),
+        headers: await this.getHeaders(),
         signal: this.signal,
       });
     } catch (error) {

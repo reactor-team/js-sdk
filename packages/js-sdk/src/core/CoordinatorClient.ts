@@ -27,6 +27,7 @@ import {
   VERSION_ERROR_CODES,
 } from "./types";
 import { AbortError } from "../types";
+import { type JwtResolver, type JwtSource, normalizeJwtSource } from "./auth";
 
 const SESSION_POLL_INITIAL_BACKOFF_MS = 200;
 const SESSION_POLL_MAX_BACKOFF_MS = 10_000;
@@ -35,20 +36,20 @@ const SESSION_POLL_DEFAULT_MAX_ATTEMPTS = 20;
 
 export interface CoordinatorClientOptions {
   baseUrl: string;
-  jwtToken: string;
+  jwtToken: JwtSource;
   model: string;
 }
 
 export class CoordinatorClient {
   protected readonly baseUrl: string;
-  private jwtToken: string;
+  private readonly resolveJwt: JwtResolver;
   protected readonly model: string;
   protected currentSessionId?: string;
   private abortController: AbortController;
 
   constructor(options: CoordinatorClientOptions) {
     this.baseUrl = options.baseUrl;
-    this.jwtToken = options.jwtToken;
+    this.resolveJwt = normalizeJwtSource(options.jwtToken);
     this.model = options.model;
     this.abortController = new AbortController();
   }
@@ -71,14 +72,20 @@ export class CoordinatorClient {
   }
 
   /**
-   * Returns authorization + versioning headers for all coordinator requests.
+   * Returns authorization + versioning headers for all coordinator
+   * requests. Async so the JWT resolver can fetch a fresh token if
+   * needed; an empty token suppresses the `Authorization` header.
    */
-  protected getHeaders(): HeadersInit {
-    return {
-      Authorization: `Bearer ${this.jwtToken}`,
+  protected async getHeaders(): Promise<Record<string, string>> {
+    const headers: Record<string, string> = {
       [API_VERSION_HEADER]: String(REACTOR_API_VERSION),
       [API_ACCEPT_VERSION_HEADER]: String(REACTOR_API_VERSION),
     };
+    const jwt = await this.resolveJwt();
+    if (jwt) {
+      headers.Authorization = `Bearer ${jwt}`;
+    }
+    return headers;
   }
 
   /**
@@ -150,7 +157,7 @@ export class CoordinatorClient {
     const response = await fetch(`${this.baseUrl}/sessions`, {
       method: "POST",
       headers: {
-        ...this.getHeaders(),
+        ...(await this.getHeaders()),
         "Content-Type": "application/json",
       },
       body: JSON.stringify(requestBody),
@@ -217,7 +224,7 @@ export class CoordinatorClient {
         `${this.baseUrl}/sessions/${this.currentSessionId}`,
         {
           method: "GET",
-          headers: this.getHeaders(),
+          headers: await this.getHeaders(),
           signal: this.signal,
         }
       );
@@ -280,7 +287,7 @@ export class CoordinatorClient {
       `${this.baseUrl}/sessions/${this.currentSessionId}`,
       {
         method: "GET",
-        headers: this.getHeaders(),
+        headers: await this.getHeaders(),
         signal: this.signal,
       }
     );
@@ -308,7 +315,7 @@ export class CoordinatorClient {
       `${this.baseUrl}/sessions/${this.currentSessionId}/info`,
       {
         method: "GET",
-        headers: this.getHeaders(),
+        headers: await this.getHeaders(),
         signal: this.signal,
       }
     );
@@ -344,7 +351,7 @@ export class CoordinatorClient {
       `${this.baseUrl}/sessions/${this.currentSessionId}`,
       {
         method: "PUT",
-        headers: this.getHeaders(),
+        headers: await this.getHeaders(),
         signal: this.signal,
       }
     );
@@ -383,7 +390,7 @@ export class CoordinatorClient {
       {
         method: "DELETE",
         headers: {
-          ...this.getHeaders(),
+          ...(await this.getHeaders()),
           ...(body ? { "Content-Type": "application/json" } : {}),
         },
         ...(body ? { body: JSON.stringify(body) } : {}),
@@ -431,7 +438,7 @@ export class CoordinatorClient {
       {
         method: "POST",
         headers: {
-          ...this.getHeaders(),
+          ...(await this.getHeaders()),
           "Content-Type": "application/json",
         },
         body: JSON.stringify(request),

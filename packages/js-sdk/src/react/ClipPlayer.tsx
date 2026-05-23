@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import React from "react";
+import { ReactorContext } from "../core/store";
 import {
   RecordingError,
   createPlayableManifestUrl,
@@ -32,9 +33,11 @@ import {
  * **does not require a ``ReactorProvider``** in the tree.  It
  * operates on the ``Clip`` value alone, so it stays usable after
  * ``reactor.disconnect()`` and works with clips loaded from
- * fixtures, server logs, or any other source.
+ * fixtures, server logs, or any other source. When a
+ * ``ReactorProvider`` is mounted above, an omitted ``getJwt``
+ * inherits the provider's resolver.
  *
- * @example Compose with the download button:
+ * @example Compose with the download button (explicit `getJwt`):
  * ```tsx
  * <div>
  *   <ClipPlayer clip={clip} getJwt={() => jwt} />
@@ -55,18 +58,16 @@ export interface ClipPlayerProps {
   clip: Clip;
   /**
    * Lazy resolver for the Coordinator JWT used on the ``/clips``
-   * manifest GET.
+   * manifest GET. Called at request time so token refreshes are
+   * picked up automatically.
    *
-   * - **Production / Coordinator:** required.  Should return the
-   *   same JWT your app already passes to ``ReactorProvider`` /
-   *   ``reactor.connect()``.  Called at request time (not at render
-   *   time) so token refreshes are picked up automatically.
-   * - **Local-dev / HttpRuntime:** omit — the local ``/clips``
-   *   endpoint serves manifests without auth.
+   * - **Production:** required outside a ``<ReactorProvider>``;
+   *   optional inside one (inherits the provider's resolver).
+   * - **Local-dev (HttpRuntime):** omit — ``/clips`` is auth-free.
    *
-   * The chunks referenced *inside* the manifest are S3 presigned
-   * GETs (prod) or unauthenticated runtime URLs (local), and are
-   * fetched without an ``Authorization`` header in either case.
+   * Chunk URLs inside the manifest are presigned (prod) or
+   * unauthenticated (local) and are fetched without
+   * ``Authorization`` in either case.
    */
   getJwt?: () => string | Promise<string>;
   /**
@@ -112,6 +113,10 @@ export function ClipPlayer({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [phase, setPhase] = useState<Phase>({ kind: "waiting" });
 
+  // `undefined` outside a `<ReactorProvider>`; used to inherit the
+  // provider's JWT resolver when `getJwt` is omitted.
+  const store = useContext(ReactorContext);
+
   // The playback effect intentionally depends only on `clip`.  Callers
   // typically pass an inline `getJwt={() => token}` that changes
   // identity on every render — using it directly in the effect deps
@@ -123,10 +128,15 @@ export function ClipPlayer({
   const getJwtRef = useRef(getJwt);
   const autoPlayRef = useRef(autoPlay);
   const slackMsRef = useRef(slackMs);
+  // Same ref pattern: the resolver is looked up inside `setup` at
+  // request time, so a provider swap is picked up on next attach
+  // without tearing the player down.
+  const storeRef = useRef(store);
   useEffect(() => {
     getJwtRef.current = getJwt;
     autoPlayRef.current = autoPlay;
     slackMsRef.current = slackMs;
+    storeRef.current = store;
   });
 
   // Playback pipeline: fetch manifest (with optional JWT) → wrap in
@@ -212,7 +222,13 @@ export function ClipPlayer({
     const setup = async () => {
       try {
         setPhase({ kind: "waiting" });
-        const jwt = getJwtRef.current ? await getJwtRef.current() : undefined;
+        // Explicit `getJwt` wins; fall back to the provider's resolver.
+        const explicit = getJwtRef.current;
+        const fallback = storeRef.current
+          ?.getState()
+          .internal.reactor.getJwtResolver();
+        const resolver = explicit ?? fallback;
+        const jwt = resolver ? await resolver() : undefined;
         if (cancelled) return;
         const body = await fetchPlaylist(clip.playlistUrl, {
           predictedReadyAtMs: clip.predictedReadyAtMs,

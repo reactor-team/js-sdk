@@ -1,6 +1,13 @@
 "use client";
 
-import { ReactNode, useContext, useEffect, useRef, useState } from "react";
+import {
+  ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   createReactorStore,
   initReactorStore,
@@ -11,6 +18,7 @@ import {
 } from "../core/store";
 import { useStore } from "zustand";
 import type { ConnectOptions } from "../types";
+import type { JwtResolver, JwtSource } from "../core/auth";
 
 /**
  * Options for the React provider's connect behavior.
@@ -34,9 +42,22 @@ export interface ReactorConnectOptions extends ConnectOptions {
 // children positionally without falling back to an
 // `eslint-disable-next-line react/no-children-prop` workaround in
 // downstream consumer projects.
-interface ReactorProviderProps extends ReactorInitializationProps {
+interface ReactorProviderProps extends Omit<
+  ReactorInitializationProps,
+  "jwtToken"
+> {
   connectOptions?: ReactorConnectOptions;
+  /**
+   * Static JWT token. Use when you hold a long-lived SDK JWT (e.g.
+   * minted via `/tokens`). For short-lived tokens use {@link getJwt}.
+   */
   jwtToken?: string;
+  /**
+   * Lazy JWT resolver invoked immediately before each Coordinator
+   * HTTP request. Preferred for short-lived tokens. Wins over
+   * {@link jwtToken} when both are provided.
+   */
+  getJwt?: JwtResolver;
   children?: ReactNode;
 }
 
@@ -45,8 +66,43 @@ export function ReactorProvider({
   children,
   connectOptions,
   jwtToken,
+  getJwt,
   ...props
 }: ReactorProviderProps) {
+  // Auto-stabilize the `getJwt` resolver via ref. Without this, an
+  // inline `getJwt={async () => …}` on every parent render gives the
+  // provider a new function identity, the effect below treats it
+  // as "auth source changed", tears the store down, and disconnects
+  // the live session — a footgun we'd otherwise be asking every
+  // consumer to defuse with `useCallback`. Same idiom React's
+  // `useEffectEvent` codifies, and what we already use internally
+  // in `useClipDownload` / `ClipPlayer` to absorb resolver identity
+  // churn there. The ref is read at request time so the latest
+  // resolver — and any state it closes over (Clerk session, account
+  // ID, etc.) — is on the wire for every Coordinator HTTP hop.
+  const getJwtRef = useRef<JwtResolver | undefined>(getJwt);
+  useEffect(() => {
+    getJwtRef.current = getJwt;
+  });
+  // Only re-memoize when the resolver transitions between defined
+  // and undefined (sign-in / sign-out). Pure identity changes are
+  // absorbed by `getJwtRef`.
+  const hasGetJwt = getJwt !== undefined;
+  const stableGetJwt = useMemo<JwtResolver | undefined>(() => {
+    if (!hasGetJwt) return undefined;
+    return async () => {
+      const r = getJwtRef.current;
+      return r ? await r() : "";
+    };
+  }, [hasGetJwt]);
+
+  // Static-string `jwtToken` keeps its legacy semantics: changing
+  // the string identity means "different auth source" (e.g. tenant
+  // switch) and intentionally tears the session down. Consumers who
+  // need to rotate a short-lived token should use `getJwt` — which
+  // is now both the recommended path and the foolproof one.
+  const jwtSource: JwtSource | undefined = stableGetJwt ?? jwtToken;
+
   // Stable Reactor instance
   const storeRef = useRef<ReactorStoreApi | undefined>(undefined);
   const firstRender = useRef(true);
@@ -60,7 +116,7 @@ export function ReactorProvider({
     storeRef.current = createReactorStore(
       initReactorStore({
         ...props,
-        jwtToken,
+        jwtToken: jwtSource,
       })
     );
     console.debug("[ReactorProvider] Reactor store created successfully");
@@ -99,14 +155,14 @@ export function ReactorProvider({
       if (
         autoConnect &&
         current.getState().status === "disconnected" &&
-        jwtToken
+        jwtSource
       ) {
         console.debug(
           "[ReactorProvider] Starting autoconnect in first render..."
         );
         current
           .getState()
-          .connect(jwtToken, pollingOptions)
+          .connect(jwtSource, pollingOptions)
           .then(() => {
             console.debug(
               "[ReactorProvider] Autoconnect successful in first render"
@@ -146,7 +202,7 @@ export function ReactorProvider({
         apiUrl,
         modelName,
         local,
-        jwtToken,
+        jwtToken: jwtSource,
       } satisfies ReactorInitializationProps)
     );
 
@@ -162,12 +218,12 @@ export function ReactorProvider({
     if (
       autoConnect &&
       current.getState().status === "disconnected" &&
-      jwtToken
+      jwtSource
     ) {
       console.debug("[ReactorProvider] Starting autoconnect...");
       current
         .getState()
-        .connect(jwtToken, pollingOptions)
+        .connect(jwtSource, pollingOptions)
         .then(() => {
           console.debug("[ReactorProvider] Autoconnect successful");
         })
@@ -190,7 +246,8 @@ export function ReactorProvider({
           console.error("[ReactorProvider] Failed to disconnect:", error);
         });
     };
-  }, [apiUrl, modelName, autoConnect, local, jwtToken, maxAttempts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiUrl, modelName, autoConnect, local, jwtSource, maxAttempts]);
 
   return (
     <ReactorContext.Provider value={storeRef.current}>
