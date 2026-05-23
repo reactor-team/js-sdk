@@ -702,13 +702,16 @@ async function remuxFragmentedToFlat(
       let outId = inToOutTrack.get(id);
       let baseline = trackBaselineDts.get(id);
       if (outId === undefined) {
-        // The sample carries the parsed SampleEntry (avc1 / mp4a / …)
-        // including avcC / esds; addTrack reuses it verbatim so the
-        // bitstream stays bit-identical.  The `description` union
-        // includes SampleGroupEntry for sample-group descriptions,
-        // but onSamples only ever hands us a SampleEntry here — the
-        // cast skips a narrowing dance the types aren't expressive
-        // enough to handle.
+        // The sample carries the parsed input SampleEntry (avc1 /
+        // mp4a / …) whose child boxes are the actual codec config
+        // (avcC, esds, …).  `addTrack` creates a fresh empty
+        // SampleEntry of the requested `type`, so we have to pass
+        // the input's child boxes via `description_boxes`: they
+        // become direct children of the new SampleEntry, where
+        // decoders expect them.  Passing the whole input
+        // SampleEntry as `description` instead would nest it
+        // (`stsd > avc1 > avc1 > avcC`) and decoders would fail to
+        // find avcC and render black.
         const firstSample = samples[0];
         const sampleEntry =
           firstSample.description as import("mp4box").SampleEntry;
@@ -724,7 +727,11 @@ async function remuxFragmentedToFlat(
             : inputTrack?.audio
               ? "soun"
               : undefined,
-          description: sampleEntry,
+          // `boxes` is typed as `Box[]` but `description_boxes`
+          // wants the narrower `BoxKind[]` union — at runtime they
+          // are the same concrete instances, just typed loosely.
+          description_boxes:
+            sampleEntry.boxes as unknown as import("mp4box").IsoFileOptions["description_boxes"],
         });
         baseline = firstSample.dts;
         inToOutTrack.set(id, outId);
