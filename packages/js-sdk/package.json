@@ -61,11 +61,15 @@
   },
   "peerDependencies": {
     "hls.js": "^1.6.0",
+    "mp4box": "^2.3.0",
     "react": "^17.0.0 || ^18.0.0 || ^19.0.0",
     "zustand": "^5.0.6"
   },
   "peerDependenciesMeta": {
     "hls.js": {
+      "optional": true
+    },
+    "mp4box": {
       "optional": true
     }
   },
@@ -74,6 +78,7 @@
     "@types/node": "^25",
     "@types/react": "^19.2.15",
     "hls.js": "^1.6.0",
+    "mp4box": "^2.3.0",
     "prettier": "^3.6.2",
     "tsup": "^8.5.0",
     "typescript": "^5.8.3",

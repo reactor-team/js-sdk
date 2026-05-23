@@ -3,6 +3,7 @@ import {
   ClipReadyPayloadSchema,
   RecordingError,
   RuntimeRecordingMessageType,
+  __remuxInternals,
   clipFromPayload,
   createPlayableManifestUrl,
   downloadClipAsFile,
@@ -449,11 +450,14 @@ describe("downloadClipAsFile", () => {
     coordinatorBaseUrl: "http://localhost:8080",
   });
 
-  it("fetches playlist + every chunk and assembles a Blob", async () => {
-    const initBytes = new Uint8Array([1, 2, 3, 4]);
-    const chunk0 = new Uint8Array([5, 6, 7, 8, 9, 10]);
-    const chunk1 = new Uint8Array([11, 12, 13]);
+  /** Mock chunk bytes that won't actually parse as fMP4 — irrelevant
+   * for these tests because they only exercise the fetch + concat
+   * path and stub `mp4box` out separately. */
+  const initBytes = new Uint8Array([1, 2, 3, 4]);
+  const chunk0 = new Uint8Array([5, 6, 7, 8, 9, 10]);
+  const chunk1 = new Uint8Array([11, 12, 13]);
 
+  function installChunkFetchMock(): ReturnType<typeof vi.fn> {
     const mockFetch = vi.fn().mockImplementation((url: string) => {
       if (url.includes("/clips?")) {
         return Promise.resolve(new Response(SAMPLE_MANIFEST, { status: 200 }));
@@ -470,9 +474,31 @@ describe("downloadClipAsFile", () => {
       return Promise.resolve(new Response(null, { status: 404 }));
     });
     globalThis.fetch = mockFetch as any;
+    return mockFetch;
+  }
+
+  /** Saved between tests so we can restore the real dynamic-import
+   * loader after each one. Tests below replace it to simulate the
+   * peer dep being installed (stub), missing (throw), or broken.
+   * `resetFallbackWarning` clears the module-level one-shot latch so
+   * each test starts from a clean state. */
+  let realLoadMp4Box: typeof __remuxInternals.loadMp4Box;
+  beforeEach(() => {
+    realLoadMp4Box = __remuxInternals.loadMp4Box;
+    __remuxInternals.resetFallbackWarning();
+  });
+  afterEach(() => {
+    __remuxInternals.loadMp4Box = realLoadMp4Box;
+  });
+
+  it("fetches playlist + every chunk and assembles a Blob (remux off)", async () => {
+    installChunkFetchMock();
 
     const onProgress = vi.fn();
-    const blob = await downloadClipAsFile(clip, null, { onProgress });
+    const blob = await downloadClipAsFile(clip, null, {
+      onProgress,
+      remux: "off",
+    });
     expect(blob).toBeInstanceOf(Blob);
     expect(blob.size).toBe(
       initBytes.byteLength + chunk0.byteLength + chunk1.byteLength
@@ -499,6 +525,160 @@ describe("downloadClipAsFile", () => {
 
     await expect(downloadClipAsFile(clip, null)).rejects.toMatchObject({
       code: "CHUNK_FETCH_FAILED",
+    });
+  });
+
+  describe("remux mode", () => {
+    /**
+     * Minimal mp4box stub that always returns predictable bytes.
+     *
+     * We don't exercise real fMP4 parsing here — the goal is to
+     * verify the `auto` / `force` / `off` branching, fallback, and
+     * error mapping. A round-trip test against a real fixture would
+     * either ship a binary blob or pull a fixture from disk; covered
+     * separately by integration / manual verification.
+     */
+    function stubMp4boxOnce(opts: {
+      output: Uint8Array;
+      onCreate?: (file: any, kind: "input" | "output") => void;
+    }) {
+      let calls = 0;
+      const createFile = () => {
+        calls++;
+        const kind = calls === 1 ? "input" : "output";
+        const file: any = {
+          onError: undefined,
+          onReady: undefined,
+          onSamples: undefined,
+          init: () => undefined,
+          appendBuffer: () => 0,
+          flush: () => undefined,
+          start: () => undefined,
+          setExtractionOptions: () => undefined,
+          addTrack: () => 1,
+          addSample: () => undefined,
+          getInfo: () => ({ tracks: [{ id: 1 }] }),
+          getBuffer: () => ({
+            buffer: opts.output.buffer.slice(
+              opts.output.byteOffset,
+              opts.output.byteOffset + opts.output.byteLength
+            ),
+            byteLength: opts.output.byteLength,
+          }),
+        };
+        opts.onCreate?.(file, kind);
+        return file;
+      };
+      __remuxInternals.loadMp4Box = async () =>
+        ({
+          createFile,
+          MP4BoxBuffer: {
+            fromArrayBuffer: (ab: ArrayBufferLike, fileStart: number) => {
+              const buf = ab.slice(0) as ArrayBuffer & { fileStart: number };
+              buf.fileStart = fileStart;
+              return buf;
+            },
+          },
+        }) as any;
+    }
+
+    it("auto: returns remuxed bytes when mp4box is available", async () => {
+      installChunkFetchMock();
+      const remuxed = new Uint8Array([99, 99, 99]);
+      stubMp4boxOnce({
+        output: remuxed,
+        onCreate: (file, kind) => {
+          if (kind === "input") {
+            // Drive the parse → ready → samples → flush sequence
+            // synchronously inside flush() so the awaiting Promise
+            // resolves before the call returns.
+            file.flush = () => {
+              file.onReady?.({ tracks: [{ id: 1 }] });
+              file.onSamples?.(1, null, [
+                {
+                  data: new Uint8Array([0]),
+                  duration: 1,
+                  dts: 7,
+                  cts: 7,
+                  is_sync: true,
+                  description: { type: "avc1" },
+                  timescale: 1000,
+                },
+              ]);
+            };
+          }
+        },
+      });
+
+      const blob = await downloadClipAsFile(clip, null, { remux: "auto" });
+      const out = new Uint8Array(await blob.arrayBuffer());
+      expect(Array.from(out)).toEqual([99, 99, 99]);
+    });
+
+    it("auto: falls back to byte-concat with a one-shot warning when mp4box is missing", async () => {
+      installChunkFetchMock();
+      __remuxInternals.loadMp4Box = async () => {
+        const err: any = new Error("Cannot find module 'mp4box'");
+        err.code = "MODULE_NOT_FOUND";
+        throw err;
+      };
+      const warnSpy = vi
+        .spyOn(console, "warn")
+        .mockImplementation(() => undefined);
+
+      const blob = await downloadClipAsFile(clip, null, { remux: "auto" });
+      const out = new Uint8Array(await blob.arrayBuffer());
+      expect(out.byteLength).toBe(
+        initBytes.byteLength + chunk0.byteLength + chunk1.byteLength
+      );
+      expect(out[0]).toBe(initBytes[0]);
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy.mock.calls[0][0]).toContain("mp4box");
+    });
+
+    it("force: throws REMUX_UNAVAILABLE when mp4box is missing", async () => {
+      installChunkFetchMock();
+      __remuxInternals.loadMp4Box = async () => {
+        throw new Error("Cannot find module 'mp4box'");
+      };
+
+      await expect(
+        downloadClipAsFile(clip, null, { remux: "force" })
+      ).rejects.toMatchObject({
+        code: "REMUX_UNAVAILABLE",
+      });
+    });
+
+    it("force: throws REMUX_FAILED when mp4box throws during remux", async () => {
+      installChunkFetchMock();
+      stubMp4boxOnce({
+        output: new Uint8Array(0),
+        onCreate: (file, kind) => {
+          if (kind === "input") {
+            file.flush = () => {
+              throw new Error("corrupt input");
+            };
+          }
+        },
+      });
+
+      await expect(
+        downloadClipAsFile(clip, null, { remux: "force" })
+      ).rejects.toMatchObject({
+        code: "REMUX_FAILED",
+      });
+    });
+
+    it("off: skips mp4box entirely (no dynamic import attempted)", async () => {
+      installChunkFetchMock();
+      const loader = vi.fn();
+      __remuxInternals.loadMp4Box = loader as any;
+
+      const blob = await downloadClipAsFile(clip, null, { remux: "off" });
+      expect(blob.size).toBe(
+        initBytes.byteLength + chunk0.byteLength + chunk1.byteLength
+      );
+      expect(loader).not.toHaveBeenCalled();
     });
   });
 });
