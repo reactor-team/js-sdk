@@ -28,7 +28,6 @@ export type {
   DownloadClipOptions,
   FetchPlaylistOptions,
   ParseClipOptions,
-  RemuxMode,
 } from "./utils/recording";
 // Stateful recording client + its host adapter.
 export {

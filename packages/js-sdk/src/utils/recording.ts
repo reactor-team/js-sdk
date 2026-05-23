@@ -101,7 +101,6 @@ export class RecordingError extends Error {
       | "CHUNK_FETCH_FAILED"
       | "INVALID_PLAYLIST"
       | "DOWNLOAD_UNSUPPORTED"
-      | "REMUX_FAILED"
       | "INTERNAL_ERROR",
     public readonly reason: string
   ) {
@@ -506,39 +505,6 @@ function absolutizeManifestUrls(
 // downloadClipAsFile
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Controls how `downloadClipAsFile` packages the assembled chunks into
- * the final `Blob`.
- *
- * The runtime serves recordings as fragmented MP4 (fMP4): an
- * `init.mp4` followed by a series of `.m4s` chunks.
- * Byte-concatenating those gives a *playable* fMP4 (Safari, hls.js,
- * ffmpeg all handle it), but social-media uploaders and most desktop
- * tools expect a **flat MP4** — one `ftyp + moov + mdat` with
- * `start_time=0` and `+faststart` layout.  A mid-session clip carries
- * the session timeline in its `tfdt baseMediaDecodeTime`, so the raw
- * concatenated output has `start_time=32.0` (or wherever the clip
- * starts on the session timeline) and QuickLook / Twitter / Instagram
- * either show 32 s of black or reject the upload outright.
- *
- * The SDK pipes the assembled bytes through [`mp4box`](https://www.npmjs.com/package/mp4box)
- * (a regular runtime dependency, dynamic-imported at call time for
- * code-splitting) which rewrites the container in-place — no
- * decode, no re-encode, every NAL unit + AAC packet passes through
- * untouched.
- *
- * - `"auto"` *(default)* — remux; on the rare parse failure fall
- *   back to the byte-concatenated fMP4 with a `console.warn` so the
- *   download still succeeds end-to-end.
- * - `"force"` — remux; throw `RecordingError("REMUX_FAILED", …)` on
- *   any failure.  Use when downstream code requires the remuxed
- *   shape (automated social-media upload, etc.).
- * - `"off"` — skip remux entirely and return the byte-concatenated
- *   fMP4.  Use when you specifically want the raw fMP4 (debugging,
- *   custom pipeline, etc.).
- */
-export type RemuxMode = "auto" | "force" | "off";
-
 export interface DownloadClipOptions {
   /**
    * Coordinator JWT.  Attached on the manifest GET only; the chunks
@@ -554,24 +520,20 @@ export interface DownloadClipOptions {
     total: number;
     bytes: number;
   }) => void;
-  /**
-   * How to package the assembled fragmented MP4 into the final
-   * Blob.  Defaults to `"auto"` (remux into a flat MP4 with a
-   * silent fallback to byte-concat on the rare failure).  See
-   * {@link RemuxMode} for the full semantics.
-   */
-  remux?: RemuxMode;
 }
 
 /**
- * Stream the chunks referenced by `clip.playlistUrl`, optionally
- * remux them into a flat social-media-compatible MP4 (default), and
- * (when `filename` is non-null) trigger a browser-native
- * `<a download>`.  Pass `filename: null` to skip the download trigger
- * and just receive the Blob.
+ * Stream the chunks referenced by `clip.playlistUrl`, remux the
+ * assembled bytes into a flat social-media-ready MP4, and (when
+ * `filename` is non-null) trigger a browser-native `<a download>`.
+ * Pass `filename: null` to skip the download trigger and just
+ * receive the Blob.
  *
- * @see {@link DownloadClipOptions.remux} for the remux mode + the
- *   optional `mp4box` peer dependency.
+ * The remux step rewrites the container only — H.264 NAL units and
+ * AAC packets pass through unchanged — so `start_time=0`,
+ * `+faststart`, and `major_brand=isom` come for free without any
+ * re-encode cost.  See {@link maybeRemux} for the fallback
+ * semantics on the rare parse failure.
  */
 export async function downloadClipAsFile(
   clip: Clip,
@@ -623,7 +585,7 @@ export async function downloadClipAsFile(
     });
   }
 
-  const finalBytes = await maybeRemux(parts, options.remux ?? "auto");
+  const finalBytes = await maybeRemux(parts);
   const blob = new Blob([finalBytes as BlobPart], { type: "video/mp4" });
 
   if (filename === null) {
@@ -648,37 +610,20 @@ export async function downloadClipAsFile(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Concatenate `parts` and, based on `mode`, optionally pipe the
- * result through {@link remuxFragmentedToFlat}.
- *
- * Remux failures are funneled through the same path regardless of
- * whether they came from the dynamic `mp4box` import (exotic
- * bundler setup, CSP, etc.) or from `mp4box` itself (corrupt input,
- * unsupported codec, internal assertion).  `"auto"` swallows them
- * with a `console.warn` and returns the unmodified concatenation
- * so the download still succeeds; `"force"` rethrows as
- * `RecordingError("REMUX_FAILED")` for callers that need a hard
- * guarantee.
+ * Concatenate `parts` and pipe the result through
+ * {@link remuxFragmentedToFlat}.  Remux failures (`mp4box` import
+ * blocked by exotic bundler / CSP, corrupt input, unsupported
+ * codec, internal assertion) are funneled through a single path:
+ * a `console.warn` and a return of the unmodified concatenation,
+ * so the download still succeeds end-to-end with the (worse, but
+ * still playable) fragmented MP4 the runtime emitted.
  */
-async function maybeRemux(
-  parts: Uint8Array[],
-  mode: RemuxMode
-): Promise<Uint8Array> {
-  if (mode === "off") {
-    return concatUint8Arrays(parts);
-  }
-
+async function maybeRemux(parts: Uint8Array[]): Promise<Uint8Array> {
   const input = concatUint8Arrays(parts);
   try {
     const MP4Box = await loadMp4Box();
     return await remuxFragmentedToFlat(input, MP4Box);
   } catch (error) {
-    if (mode === "force") {
-      throw new RecordingError(
-        "REMUX_FAILED",
-        `mp4box remux failed: ${(error as Error).message}`
-      );
-    }
     console.warn(
       "[Reactor] Clip remux failed, returning fragmented MP4 instead.",
       error

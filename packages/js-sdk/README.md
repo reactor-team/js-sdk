@@ -200,7 +200,7 @@ const clip = await reactor.requestClip(10); // last 10 s
 pnpm add hls.js
 ```
 
-Downloads are remuxed into a flat MP4 (`start_time=0`, faststart, `major_brand=isom`) under the hood so the resulting file uploads cleanly to Twitter, Instagram, TikTok, and YouTube without any extra setup on your side — the H.264 / AAC bitstream itself is passed through untouched. Pass `remux: "off"` if you specifically want the raw fragmented MP4 for a custom pipeline.
+Downloads are remuxed into a flat MP4 (`start_time=0`, faststart, `major_brand=isom`) under the hood so the resulting file uploads cleanly to Twitter, Instagram, TikTok, and YouTube without any extra setup on your side — the H.264 / AAC bitstream itself is passed through untouched.
 
 Full walkthrough, error codes, and the headless `useClipDownload` hook: [Recordings](https://docs.reactor.inc/concepts/recordings).
 
