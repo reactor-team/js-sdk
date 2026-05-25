@@ -5,6 +5,7 @@ import type {
   MessageScope,
   ConnectOptions,
 } from "../types";
+import { type JwtSource } from "./auth";
 import { Reactor, type Options as ReactorOptions } from "./Reactor";
 import { FileRef } from "./FileRef";
 import { create } from "zustand/react";
@@ -24,12 +25,13 @@ export interface ReactorState {
   lastError?: ReactorError;
   sessionId?: string;
   sessionExpiration?: number;
-  jwtToken?: string;
+  /** Token source for Coordinator HTTP calls — see {@link JwtSource}. */
+  jwtToken?: JwtSource;
 }
 
 export interface ReactorActions {
   sendCommand(command: string, data: any, scope?: MessageScope): Promise<void>;
-  connect(jwtToken?: string, options?: ConnectOptions): Promise<void>;
+  connect(jwtToken?: JwtSource, options?: ConnectOptions): Promise<void>;
   disconnect(recoverable?: boolean): Promise<void>;
   publish(name: string, track: MediaStreamTrack): Promise<void>;
   unpublish(name: string): Promise<void>;
@@ -67,7 +69,8 @@ export const defaultInitState: ReactorState = {
 };
 
 export interface ReactorInitializationProps extends ReactorOptions {
-  jwtToken?: string;
+  /** Token source for the underlying {@link Reactor} — see {@link JwtSource}. */
+  jwtToken?: JwtSource;
 }
 
 export const initReactorStore = (
@@ -170,7 +173,7 @@ export const createReactorStore = (
           throw error;
         }
       },
-      connect: async (jwtToken?: string, options?: ConnectOptions) => {
+      connect: async (jwtToken?: JwtSource, options?: ConnectOptions) => {
         if (jwtToken === undefined) {
           // If no JWT Token, it might have been passed in the constructor props. So read from it.
           jwtToken = get().jwtToken;

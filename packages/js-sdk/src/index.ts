@@ -36,3 +36,5 @@ export {
 } from "./core/RecordingClient";
 export type { RecordingClientHost } from "./core/RecordingClient";
 export type { ReactorStore } from "./core/store";
+export type { JwtResolver, JwtSource } from "./core/auth";
+export { normalizeJwtSource } from "./core/auth";

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { ReactorContext } from "../core/store";
 import {
   RecordingError,
   downloadClipAsFile,
@@ -36,10 +37,11 @@ export interface UseClipDownloadOptions {
   /**
    * Lazy resolver for the Coordinator JWT used on the ``/clips``
    * manifest GET.  Called on every {@link download} invocation, so
-   * token refreshes are picked up automatically.  Omit in local-dev
-   * mode (HttpRuntime has no auth on ``/clips``).  See
-   * {@link ClipPlayerProps.getJwt} for the production / local
-   * distinction.
+   * token refreshes are picked up automatically.
+   *
+   * Optional inside a ``<ReactorProvider>`` (inherits the provider's
+   * resolver) and in local-dev mode. See
+   * {@link ClipPlayerProps.getJwt}.
    */
   getJwt?: () => string | Promise<string>;
 }
@@ -103,6 +105,10 @@ export function useClipDownload(
 ): UseClipDownloadResult {
   const [state, setState] = useState<ClipDownloadState>({ kind: "idle" });
 
+  // `undefined` outside a `<ReactorProvider>`; used to inherit the
+  // provider's JWT resolver when `options.getJwt` is omitted.
+  const store = useContext(ReactorContext);
+
   // Latest-value refs so `download` can be a stable callback (empty
   // deps) without forcing the caller to memoize `clip` / `options`.
   // This is the same pattern the SDK uses elsewhere (see
@@ -129,7 +135,13 @@ export function useClipDownload(
     inFlightRef.current = true;
     setState({ kind: "downloading", fetched: 0, total: 0 });
     try {
-      const jwt = getJwtRef.current ? await getJwtRef.current() : undefined;
+      // Explicit `options.getJwt` wins; fall back to the provider's
+      // resolver. Reading at click time picks up provider swaps
+      // without re-running this callback.
+      const explicit = getJwtRef.current;
+      const fallback = store?.getState().internal.reactor.getJwtResolver();
+      const resolver = explicit ?? fallback;
+      const jwt = resolver ? await resolver() : undefined;
       const blob = await downloadClipAsFile(
         clipRef.current,
         filenameRef.current,
@@ -153,7 +165,7 @@ export function useClipDownload(
     } finally {
       inFlightRef.current = false;
     }
-  }, []);
+  }, [store]);
 
   const reset = useCallback(() => setState({ kind: "idle" }), []);
 

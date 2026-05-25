@@ -9,6 +9,7 @@ import {
   type ConnectionTimings,
   isAbortError,
 } from "../types";
+import { type JwtResolver, type JwtSource, normalizeJwtSource } from "./auth";
 import { CoordinatorClient } from "./CoordinatorClient";
 import { LocalCoordinatorClient } from "./LocalCoordinatorClient";
 import { type TransportClient, type TransportStatus } from "./TransportClient";
@@ -62,6 +63,11 @@ export class Reactor {
   private tracks: TrackCapability[] = [];
   private presetTracks?: TrackCapability[];
   private sessionResponse?: SessionResponse;
+  // Cached so clip surfaces (player, download button, hook) can
+  // reach the same token source without re-threading `getJwt`.
+  // Outlives `disconnect()` because captured clips can still be
+  // downloaded after the session has ended.
+  private jwtResolver?: JwtResolver;
 
   /** Per-Reactor recording client. See {@link RecordingClient}. */
   readonly recording: RecordingClient;
@@ -95,6 +101,16 @@ export class Reactor {
   }
 
   private eventListeners: Map<ReactorEvent, Set<EventHandler>> = new Map();
+
+  /**
+   * Returns the JWT resolver supplied to the most recent
+   * {@link connect} call, or `undefined` if none was set (pre-connect
+   * or local mode). Used by clip surfaces as a fallback when their
+   * own `getJwt` prop is omitted.
+   */
+  getJwtResolver(): JwtResolver | undefined {
+    return this.jwtResolver;
+  }
 
   on(event: ReactorEvent, handler: EventHandler) {
     if (!this.eventListeners.has(event)) {
@@ -378,9 +394,12 @@ export class Reactor {
 
   /**
    * Connects to the coordinator, creates a session, then establishes
-   * the transport using server-declared capabilities.
+   * the transport using server-declared capabilities. `jwtToken` may
+   * be a static string or a {@link JwtSource} resolver; pass a
+   * resolver when the token is short-lived so each Coordinator HTTP
+   * hop sees a fresh value.
    */
-  async connect(jwtToken?: string, options?: ConnectOptions): Promise<void> {
+  async connect(jwtToken?: JwtSource, options?: ConnectOptions): Promise<void> {
     console.debug("[Reactor] Connecting, status:", this.status);
 
     if (jwtToken == undefined && !this.local) {
@@ -393,6 +412,12 @@ export class Reactor {
     this.setStatus("connecting");
 
     this.connectStartTime = performance.now();
+
+    // Cache the resolver so clip surfaces can reuse it via
+    // `getJwtResolver()`. Local mode is auth-free, leave it unset.
+    if (!this.local && jwtToken !== undefined) {
+      this.jwtResolver = normalizeJwtSource(jwtToken);
+    }
 
     try {
       this.coordinatorClient = this.local

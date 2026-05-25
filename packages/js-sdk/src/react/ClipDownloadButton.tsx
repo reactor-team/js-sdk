@@ -39,8 +39,9 @@ export interface ClipDownloadButtonProps {
   /** The clip to download. */
   clip: Clip;
   /**
-   * Lazy JWT resolver.  See {@link ClipPlayerProps.getJwt} for the
-   * production / local-dev distinction.  Omit in local-dev mode.
+   * Lazy JWT resolver. Optional inside a ``<ReactorProvider>``
+   * (inherits the provider's resolver) and in local-dev mode. See
+   * {@link ClipPlayerProps.getJwt}.
    */
   getJwt?: () => string | Promise<string>;
   /** Filename for the saved MP4.  Default ``"reactor-clip.mp4"``. */
