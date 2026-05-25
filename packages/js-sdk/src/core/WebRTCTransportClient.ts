@@ -21,6 +21,8 @@ import {
   type TrackMappingEntry,
   type WebRTCSdpOfferRequest,
   type WebRTCSdpAnswerResponse,
+  type IceCandidate,
+  type IceCandidatesRequest,
   IceServersResponseSchema,
   WebRTCSdpAnswerResponseSchema,
   REACTOR_WEBRTC_VERSION,
@@ -43,6 +45,17 @@ const INITIAL_BACKOFF_MS = 200;
 const MAX_BACKOFF_MS = 15_000;
 const BACKOFF_MULTIPLIER = 2;
 const DEFAULT_MAX_POLL_ATTEMPTS = 6;
+
+/**
+ * Debounce window for coalescing trickle ICE candidates into a single
+ * POST. Browsers fire {@link RTCPeerConnection.onicecandidate} in bursts
+ * (host candidates land together, then srflx, then relay); buffering for
+ * a few tens of milliseconds collapses each burst into one request
+ * without adding noticeable latency to the connection. The
+ * gathering-complete event ({@link RTCPeerConnectionIceEvent.candidate}
+ * === ``null``) bypasses the debounce and flushes immediately.
+ */
+const ICE_CANDIDATE_BATCH_WINDOW_MS = 25;
 
 export interface WebRTCTransportConfig extends TransportClientConfig {
   webrtcVersion?: string;
@@ -103,6 +116,10 @@ export class WebRTCTransportClient implements TransportClient {
   private pendingSdpOffer?: string;
   private pendingTrackMapping?: TrackMappingEntry[];
   private cachedIceServers?: Promise<RTCIceServer[]>;
+
+  // Trickle ICE batching
+  private pendingIceCandidates: IceCandidate[] = [];
+  private iceCandidateFlushTimer?: ReturnType<typeof setTimeout>;
 
   private readonly baseUrl: string;
   private readonly sessionId: string;
@@ -269,6 +286,83 @@ export class WebRTCTransportClient implements TransportClient {
     console.debug("[WebRTCTransport] SDP offer accepted (202)");
   }
 
+  private async sendIceCandidates(
+    candidates: IceCandidate[],
+    is_final: boolean
+  ): Promise<void> {
+    console.debug(
+      `[WebRTCTransport] Sending ICE candidates (count=${candidates.length}, is_final=${is_final})`
+    );
+
+    const requestBody: IceCandidatesRequest = {
+      candidates,
+      is_final,
+      client_info: {
+        sdk_version: REACTOR_SDK_VERSION,
+        sdk_type: REACTOR_SDK_TYPE,
+      },
+    };
+
+    const response = await fetch(`${this.transportBaseUrl}/ice_candidates`, {
+      method: "POST",
+      headers: {
+        ...this.getHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+      signal: this.signal,
+    });
+
+    await this.checkVersionMismatch(response);
+
+    if (response.status !== 202) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to send ICE candidates: ${response.status} ${errorText}`
+      );
+    }
+
+    console.debug("[WebRTCTransport] ICE candidates accepted (202)");
+    return;
+  }
+
+  /**
+   * Drain the pending ICE candidates buffer and POST them as a single
+   * batch. Called either by the debounce timer (collected candidates so
+   * far) or directly by the gathering-complete handler (with
+   * ``isFinal=true``).
+   *
+   * Errors are logged at debug level — trickle ICE is fire-and-forget,
+   * and the connection can still succeed even if some candidate batches
+   * are lost (host/srflx candidates from the other side are usually
+   * sufficient).
+   */
+  private flushPendingIceCandidates(isFinal: boolean): void {
+    if (this.iceCandidateFlushTimer !== undefined) {
+      clearTimeout(this.iceCandidateFlushTimer);
+      this.iceCandidateFlushTimer = undefined;
+    }
+
+    const batch = this.pendingIceCandidates;
+    this.pendingIceCandidates = [];
+
+    if (batch.length === 0 && !isFinal) {
+      return;
+    }
+
+    this.sendIceCandidates(batch, isFinal).catch((err) => {
+      console.debug("[WebRTCTransport] ICE candidate flush failed:", err);
+    });
+  }
+
+  private cancelPendingIceCandidates(): void {
+    if (this.iceCandidateFlushTimer !== undefined) {
+      clearTimeout(this.iceCandidateFlushTimer);
+      this.iceCandidateFlushTimer = undefined;
+    }
+    this.pendingIceCandidates = [];
+  }
+
   private async pollSdpAnswer(): Promise<WebRTCSdpAnswerResponse> {
     console.debug("[WebRTCTransport] Polling for SDP answer...");
 
@@ -345,6 +439,7 @@ export class WebRTCTransportClient implements TransportClient {
 
     this.stopPing();
     this.stopStatsPolling();
+    this.cancelPendingIceCandidates();
 
     if (this.dataChannel) {
       this.dataChannel.close();
@@ -419,6 +514,7 @@ export class WebRTCTransportClient implements TransportClient {
   async disconnect(): Promise<void> {
     this.stopPing();
     this.stopStatsPolling();
+    this.cancelPendingIceCandidates();
 
     for (const name of Array.from(this.publishedTracks.keys())) {
       await this.unpublishTrack(name);
@@ -708,8 +804,25 @@ export class WebRTCTransportClient implements TransportClient {
     };
 
     this.peerConnection.onicecandidate = (event) => {
+      // Browsers fire onicecandidate in tight bursts (host -> srflx ->
+      // relay). Buffer each candidate and flush after a small debounce
+      // window so we POST one batch per burst instead of one POST per
+      // candidate. The end-of-candidates marker (event.candidate ===
+      // null) bypasses the debounce and flushes immediately.
       if (event.candidate) {
-        console.debug("[WebRTCTransport] ICE candidate:", event.candidate);
+        this.pendingIceCandidates.push({
+          candidate: event.candidate.candidate,
+          sdp_mid: event.candidate.sdpMid ?? undefined,
+          sdp_mline_index: event.candidate.sdpMLineIndex ?? undefined,
+        });
+        if (this.iceCandidateFlushTimer === undefined) {
+          this.iceCandidateFlushTimer = setTimeout(
+            () => this.flushPendingIceCandidates(false),
+            ICE_CANDIDATE_BATCH_WINDOW_MS
+          );
+        }
+      } else {
+        this.flushPendingIceCandidates(true);
       }
     };
 

@@ -66,7 +66,6 @@ export async function createOffer(pc: RTCPeerConnection): Promise<string> {
   await pc.setLocalDescription(
     new RTCSessionDescription({ type: initial.type, sdp })
   );
-  await waitForIceGathering(pc);
 
   const localDescription = pc.localDescription;
   if (!localDescription) {
