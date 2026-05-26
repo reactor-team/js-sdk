@@ -7,7 +7,7 @@ const COORDINATOR_URL = process.env.REACTOR_COORDINATOR_URL ?? DEFAULT_BASE_URL;
 
 async function fetchTestToken(apiKey: string, apiUrl: string): Promise<string> {
   const response = await fetch(`${apiUrl}/tokens`, {
-    method: "GET",
+    method: "POST",
     headers: { "Reactor-API-Key": apiKey },
   });
   if (!response.ok) {
