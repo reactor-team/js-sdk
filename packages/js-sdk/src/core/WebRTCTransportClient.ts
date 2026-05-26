@@ -306,7 +306,7 @@ export class WebRTCTransportClient implements TransportClient {
     const response = await fetch(`${this.transportBaseUrl}/ice_candidates`, {
       method: "POST",
       headers: {
-        ...this.getHeaders(),
+        ...(await this.getHeaders()),
         "Content-Type": "application/json",
       },
       body: JSON.stringify(requestBody),
