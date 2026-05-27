@@ -1,0 +1,23 @@
+# CODEOWNERS for reactor-team/js-sdk.
+#
+# This file exists primarily to protect CI infrastructure once the
+# repository is open-sourced. Changes to anything that runs in CI with
+# access to secrets — or that defines what runs in CI at all — must be
+# reviewed by a maintainer, even when GitHub's branch protection would
+# otherwise accept the PR.
+#
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Buildkite pipeline definition — controls which steps run, which secrets
+# they receive, and which agent queue picks them up.
+/.buildkite/                  @Dere-Wah @bryceoz @tempusfrangit @mmassenzio
+
+# GitHub Actions workflows — including npm publish on release and the
+# docs-PR automation that holds DOCS_REPO_PAT / ANTHROPIC_API_KEY.
+/.github/workflows/           @Dere-Wah @bryceoz @tempusfrangit @mmassenzio
+
+# Shell scripts invoked from CI (e.g. check-license.sh).
+/scripts/                     @Dere-Wah @bryceoz @tempusfrangit @mmassenzio
+
+# CODEOWNERS itself — prevent a PR from quietly weakening the rules above.
+/.github/CODEOWNERS           @Dere-Wah @bryceoz @tempusfrangit @mmassenzio
