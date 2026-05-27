@@ -18,13 +18,15 @@ import {
  *   segments) — useful for a progress bar.  ``total`` is 0 until the
  *   manifest is parsed and the chunk count is known.
  * - ``error``: most recent attempt failed; the ``message`` is suitable
- *   for surfacing inline.  ``RecordingError`` instances are formatted
- *   as ``"<CODE>: <reason>"`` for grep-ability.
+ *   for surfacing inline (``RecordingError`` instances are formatted
+ *   as ``"<CODE>: <reason>"`` for grep-ability), and ``error`` carries
+ *   the original thrown value so callers can ``instanceof
+ *   RecordingError`` it and branch on the typed ``code``.
  */
 export type ClipDownloadState =
   | { kind: "idle" }
   | { kind: "downloading"; fetched: number; total: number }
-  | { kind: "error"; message: string };
+  | { kind: "error"; message: string; error: unknown };
 
 export interface UseClipDownloadOptions {
   /**
@@ -160,7 +162,7 @@ export function useClipDownload(
           : err instanceof Error
             ? err.message
             : String(err);
-      setState({ kind: "error", message });
+      setState({ kind: "error", message, error: err });
       return undefined;
     } finally {
       inFlightRef.current = false;

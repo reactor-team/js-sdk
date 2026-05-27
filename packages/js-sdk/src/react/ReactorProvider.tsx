@@ -126,7 +126,19 @@ export function ReactorProvider({
   const { autoConnect = false, ...pollingOptions } = connectOptions ?? {};
 
   const { apiUrl, modelName, local } = props;
-  const maxAttempts = pollingOptions.maxAttempts;
+
+  // `autoConnect` is a startup hint and `maxAttempts` is a polling
+  // knob — neither should trigger a session teardown when it changes
+  // mid-flight.  Reading the latest value via refs at effect-run time
+  // means a parent component that flips `autoConnect={false → true}`
+  // or tweaks `maxAttempts` won't tear the live session down just to
+  // pick up the new value.
+  const autoConnectRef = useRef(autoConnect);
+  const pollingOptionsRef = useRef(pollingOptions);
+  useEffect(() => {
+    autoConnectRef.current = autoConnect;
+    pollingOptionsRef.current = pollingOptions;
+  });
 
   // Handle page unload (refresh, close, navigate away) with non-recoverable disconnect
   useEffect(() => {
@@ -153,7 +165,7 @@ export function ReactorProvider({
       // We know as a fact that the store is not undefined at this point
       const current = storeRef.current!;
       if (
-        autoConnect &&
+        autoConnectRef.current &&
         current.getState().status === "disconnected" &&
         jwtSource
       ) {
@@ -162,7 +174,7 @@ export function ReactorProvider({
         );
         current
           .getState()
-          .connect(jwtSource, pollingOptions)
+          .connect(jwtSource, pollingOptionsRef.current)
           .then(() => {
             console.debug(
               "[ReactorProvider] Autoconnect successful in first render"
@@ -216,14 +228,14 @@ export function ReactorProvider({
     );
 
     if (
-      autoConnect &&
+      autoConnectRef.current &&
       current.getState().status === "disconnected" &&
       jwtSource
     ) {
       console.debug("[ReactorProvider] Starting autoconnect...");
       current
         .getState()
-        .connect(jwtSource, pollingOptions)
+        .connect(jwtSource, pollingOptionsRef.current)
         .then(() => {
           console.debug("[ReactorProvider] Autoconnect successful");
         })
@@ -247,7 +259,7 @@ export function ReactorProvider({
         });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiUrl, modelName, autoConnect, local, jwtSource, maxAttempts]);
+  }, [apiUrl, modelName, local, jwtSource]);
 
   return (
     <ReactorContext.Provider value={storeRef.current}>

@@ -79,6 +79,8 @@ To play model audio alongside the video, set `audioTrack` to the track name decl
 
 Commands are the model's typed RPC surface (`set_prompt`, `set_image`, and any custom events declared in the model schema). The full catalog is in the [Model API Reference](https://docs.reactor.inc/model-api-reference/overview).
 
+Always select the specific slices you need with `useReactor` — selecting `(s) => s` re-renders the component on every state change (status flips, track updates, etc.).
+
 ```tsx
 import { useReactor } from "@reactor-team/js-sdk";
 
@@ -98,6 +100,8 @@ function PromptInput() {
   );
 }
 ```
+
+Calling `sendCommand` before the session is `"ready"` throws a `NotReadyError` — gate the call behind `status === "ready"` (as above), or catch the error if you'd rather queue retries yourself.
 
 ### Publish webcam input
 
@@ -135,7 +139,10 @@ function FrameCounter() {
 Bind an `<input type="file">` to the model with `uploadFile` and then pass the returned [`FileRef`](https://docs.reactor.inc/api-reference/types#fileref) into any command:
 
 ```tsx
-const { uploadFile, sendCommand } = useReactor((s) => s);
+const { uploadFile, sendCommand } = useReactor((s) => ({
+  uploadFile: s.uploadFile,
+  sendCommand: s.sendCommand,
+}));
 
 const ref = await uploadFile(file);
 await sendCommand("set_image", { image: ref });
@@ -153,18 +160,19 @@ import { Reactor } from "@reactor-team/js-sdk";
 const reactor = new Reactor({
   apiUrl: "https://api.reactor.inc",
   modelName: "your-model-name",
-  jwtToken: await fetchJwt(),
 });
 
-reactor.on("statusChange", (status) => console.log("status:", status));
+reactor.on("statusChanged", (status) => console.log("status:", status));
 reactor.on("message", (msg) => console.log("model:", msg));
+reactor.on("trackReceived", (name, track) => {
+  if (name === "main_video") {
+    videoEl.srcObject = new MediaStream([track]);
+  }
+});
 
-await reactor.connect();
+await reactor.connect(await fetchJwt());
 
 await reactor.sendCommand("set_prompt", { prompt: "a forest at dawn" });
-
-const stream = reactor.getMediaStream("main_video");
-videoEl.srcObject = stream;
 ```
 
 ---
@@ -187,11 +195,13 @@ function ClipModal({ clip, jwt }: { clip: Clip; jwt: string }) {
 }
 ```
 
-Capture a clip from anywhere inside the provider:
+Capture a clip from anywhere inside the provider with the `useReactorRecording()` hook, which bundles `requestClip`, `requestRecording`, and `downloadClipAsFile`:
 
 ```tsx
-const reactor = useReactor((s) => s.internal.reactor);
-const clip = await reactor.requestClip(10); // last 10 s
+import { useReactorRecording } from "@reactor-team/js-sdk";
+
+const { requestClip } = useReactorRecording();
+const clip = await requestClip(10); // last 10 s
 ```
 
 `<ClipPlayer>` uses native HLS on Safari/iOS; install `hls.js` to support Chrome, Firefox, and Edge:
@@ -218,7 +228,7 @@ For models with a published typed SDK, prefer [`@reactor-models/<name>`](https:/
 | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | `Reactor`                                                                                                                        | [Reactor class](https://docs.reactor.inc/api-reference/reactor-class)       |
 | `<ReactorProvider>`, `<ReactorView>`, `<WebcamStream>`, `<ReactorController>`                                                    | [React components](https://docs.reactor.inc/api-reference/react-components) |
-| `useReactor`, `useReactorMessage`, `useStats`                                                                                    | [React hooks](https://docs.reactor.inc/api-reference/react-hooks)           |
+| `useReactor`, `useReactorMessage`, `useReactorError`, `useTrack`, `useReactorRecording`, `useStats`                              | [React hooks](https://docs.reactor.inc/api-reference/react-hooks)           |
 | `<ClipPlayer>`, `<ClipDownloadButton>`, `useClipDownload`, `RecordingClient`, `RecordingError`, `fetchPlaylist`, `parsePlaylist` | [Recordings](https://docs.reactor.inc/concepts/recordings)                  |
 
 ---

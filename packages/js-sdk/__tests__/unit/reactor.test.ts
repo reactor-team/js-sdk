@@ -318,31 +318,30 @@ describe("Reactor", () => {
   // ── sendCommand() guard ───────────────────────────────────────────────
 
   describe("sendCommand()", () => {
-    it("warns and returns when not ready", async () => {
+    it("throws NotReadyError when status is not 'ready'", async () => {
       const r = new Reactor({ modelName: "echo" });
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-      await r.sendCommand("set_effect", { effect: "grayscale" });
-
-      expect(warnSpy).toHaveBeenCalledWith(
-        "[Reactor]",
-        expect.stringContaining("Cannot send message")
-      );
+      await expect(
+        r.sendCommand("set_effect", { effect: "grayscale" })
+      ).rejects.toMatchObject({
+        name: "NotReadyError",
+        code: "NOT_READY",
+        status: "disconnected",
+      });
     });
   });
 
   // ── publishTrack() guard ──────────────────────────────────────────────
 
   describe("publishTrack()", () => {
-    it("warns when not ready", async () => {
+    it("throws NotReadyError when status is not 'ready'", async () => {
       const r = new Reactor({ modelName: "echo" });
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-      await r.publishTrack("webcam", {} as MediaStreamTrack);
-
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Cannot publish track")
-      );
+      await expect(
+        r.publishTrack("webcam", {} as MediaStreamTrack)
+      ).rejects.toMatchObject({
+        name: "NotReadyError",
+        code: "NOT_READY",
+        status: "disconnected",
+      });
     });
   });
 

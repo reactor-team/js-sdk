@@ -42,6 +42,44 @@ export class AbortError extends Error {
   }
 }
 
+/**
+ * Thrown when an imperative method is called on a {@link Reactor}
+ * (or the store action that wraps it) before the session is
+ * `"ready"`. Carries the observed {@link ReactorStatus} so callers
+ * can render the actual state instead of a generic "not ready".
+ *
+ * Affects `sendCommand`, `publishTrack`, `unpublishTrack`, and
+ * `uploadFile`. Recording requests (`requestClip`,
+ * `requestRecording`) still reject with their own
+ * `RecordingError("DISCONNECTED", …)` to keep the recording error
+ * union self-contained.
+ *
+ * @example
+ * ```ts
+ * try {
+ *   await reactor.sendCommand("set_prompt", { prompt });
+ * } catch (err) {
+ *   if (err instanceof NotReadyError) {
+ *     console.warn(`Session not ready yet (status=${err.status})`);
+ *     return;
+ *   }
+ *   throw err;
+ * }
+ * ```
+ */
+export class NotReadyError extends Error {
+  readonly code = "NOT_READY" as const;
+  constructor(
+    public readonly operation: string,
+    public readonly status: ReactorStatus
+  ) {
+    super(
+      `Cannot ${operation}: session status is "${status}" (expected "ready")`
+    );
+    this.name = "NotReadyError";
+  }
+}
+
 /** Matches both our custom AbortError and the native DOMException thrown by fetch(). */
 export function isAbortError(error: unknown): boolean {
   return (

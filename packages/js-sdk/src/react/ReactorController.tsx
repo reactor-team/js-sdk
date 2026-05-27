@@ -2,6 +2,7 @@
 
 import { useReactor, useReactorInternalMessage } from "./hooks";
 import { FileRef } from "../core/FileRef";
+import { NotReadyError } from "../types";
 import React, { useState, useCallback, useRef } from "react";
 
 export interface ReactorControllerProps {
@@ -216,7 +217,20 @@ export function ReactorController({
         }
       });
 
-      await sendCommand(commandName, data);
+      try {
+        await sendCommand(commandName, data);
+      } catch (err) {
+        // Race between the button click and the session flipping away
+        // from "ready" — the new typed `NotReadyError` lets us swallow
+        // it quietly instead of bubbling an unhandled rejection.
+        if (err instanceof NotReadyError) {
+          console.warn(
+            `[ReactorController] Skipped "${commandName}": ${err.message}`
+          );
+          return;
+        }
+        throw err;
+      }
     },
     [sendCommand, commands]
   );

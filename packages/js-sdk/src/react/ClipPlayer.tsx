@@ -93,6 +93,22 @@ export interface ClipPlayerProps {
   muted?: boolean;
   className?: string;
   style?: React.CSSProperties;
+  /**
+   * Fired once the manifest is attached and playback is queued.
+   * Useful for hiding a parent-level loading spinner or firing
+   * "first paint" telemetry.
+   */
+  onReady?: (clip: Clip) => void;
+  /**
+   * Fired when playback can't proceed — playlist 4xx/5xx, manifest
+   * polling timed out, ``hls.js`` not installed on a non-Safari
+   * browser, or a fatal ``hls.js`` runtime error.  ``RecordingError``
+   * instances pass through verbatim so callers can branch on the
+   * typed ``code``; everything else comes through as the original
+   * thrown value, with ``message`` populated as a fallback for
+   * inline rendering.
+   */
+  onError?: (error: { message: string; cause: unknown }, clip: Clip) => void;
 }
 
 type Phase =
@@ -109,6 +125,8 @@ export function ClipPlayer({
   muted = true,
   className,
   style,
+  onReady,
+  onError,
 }: ClipPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [phase, setPhase] = useState<Phase>({ kind: "waiting" });
@@ -128,6 +146,8 @@ export function ClipPlayer({
   const getJwtRef = useRef(getJwt);
   const autoPlayRef = useRef(autoPlay);
   const slackMsRef = useRef(slackMs);
+  const onReadyRef = useRef(onReady);
+  const onErrorRef = useRef(onError);
   // Same ref pattern: the resolver is looked up inside `setup` at
   // request time, so a provider swap is picked up on next attach
   // without tearing the player down.
@@ -136,6 +156,8 @@ export function ClipPlayer({
     getJwtRef.current = getJwt;
     autoPlayRef.current = autoPlay;
     slackMsRef.current = slackMs;
+    onReadyRef.current = onReady;
+    onErrorRef.current = onError;
     storeRef.current = store;
   });
 
@@ -152,9 +174,16 @@ export function ClipPlayer({
     let hlsInstance: { destroy: () => void } | null = null;
     let manifestBlobUrl: string | null = null;
 
-    const fail = (message: string) => {
+    const fail = (message: string, cause: unknown = undefined) => {
       if (cancelled) return;
       setPhase({ kind: "error", message });
+      onErrorRef.current?.({ message, cause }, clip);
+    };
+
+    const markReady = () => {
+      if (cancelled) return;
+      setPhase({ kind: "ready" });
+      onReadyRef.current?.(clip);
     };
 
     const attachPlayer = async (manifestUrl: string) => {
@@ -169,7 +198,7 @@ export function ClipPlayer({
             // Autoplay may be blocked by the browser; native controls still work.
           });
         }
-        if (!cancelled) setPhase({ kind: "ready" });
+        markReady();
         return;
       }
 
@@ -180,9 +209,10 @@ export function ClipPlayer({
       try {
         const mod = (await import("hls.js")) as { default: HlsConstructor };
         HlsCtor = mod.default;
-      } catch {
+      } catch (err) {
         fail(
-          "HLS playback unavailable in this browser. Install `hls.js` as a peer dependency, or use Download."
+          "HLS playback unavailable in this browser. Install `hls.js` as a peer dependency, or use Download.",
+          err
         );
         return;
       }
@@ -196,7 +226,7 @@ export function ClipPlayer({
       hls.attachMedia(video);
       hls.on(HlsCtor.Events.MANIFEST_PARSED, () => {
         if (cancelled) return;
-        setPhase({ kind: "ready" });
+        markReady();
         if (autoPlayRef.current) {
           video.play().catch(() => {
             // Autoplay may be blocked.
@@ -211,7 +241,7 @@ export function ClipPlayer({
         // `levelLoadError`) that the user-facing overlay would
         // otherwise hide.  Fatal errors still hard-fail the player.
         if (data.fatal) {
-          fail(`Playback error: ${data.details ?? "unknown"}`);
+          fail(`Playback error: ${data.details ?? "unknown"}`, data);
           return;
         }
         console.warn("[Reactor.ClipPlayer] hls.js non-fatal error", data);
@@ -253,7 +283,7 @@ export function ClipPlayer({
             : err instanceof Error
               ? err.message
               : String(err);
-        fail(message);
+        fail(message, err);
       }
     };
 

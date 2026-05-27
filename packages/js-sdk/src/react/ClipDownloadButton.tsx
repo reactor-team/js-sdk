@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import type { Clip } from "../utils/recording";
 import { useClipDownload, type ClipDownloadState } from "./useClipDownload";
 
@@ -62,6 +62,24 @@ export interface ClipDownloadButtonProps {
   style?: React.CSSProperties;
   /** Forwarded to the underlying ``<button>``.  ORed with the internal "downloading" state. */
   disabled?: boolean;
+  /**
+   * Fired once per successful download with the assembled MP4 Blob.
+   *
+   * Runs after the browser save trigger (when ``filename`` is set) so
+   * a toast / Sentry breadcrumb / analytics call lines up with what
+   * the user just received.  Pass ``filename: null`` if you want the
+   * Blob but no native save dialog.
+   */
+  onSuccess?: (blob: Blob, clip: Clip) => void;
+  /**
+   * Fired once per failed download with the original thrown value.
+   *
+   * ``RecordingError`` instances surface as-is so callers can branch
+   * on the typed ``code`` (``CLIP_GONE`` vs ``CHUNK_FETCH_FAILED`` vs
+   * ``DOWNLOAD_UNSUPPORTED``).  Non-Reactor errors come through
+   * unwrapped — `instanceof Error` is the safest narrow.
+   */
+  onError?: (error: unknown, clip: Clip) => void;
 }
 
 export function ClipDownloadButton({
@@ -72,10 +90,36 @@ export function ClipDownloadButton({
   className,
   style,
   disabled,
+  onSuccess,
+  onError,
 }: ClipDownloadButtonProps) {
   const { state, download } = useClipDownload(clip, { filename, getJwt });
   const downloading = state.kind === "downloading";
   const isDisabled = downloading || !!disabled;
+
+  // Stable callback identity via refs so consumers can pass inline
+  // `onSuccess={...}` without forcing the effects below to re-fire on
+  // every parent render — same pattern as `useClipDownload`.
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+    onErrorRef.current = onError;
+  });
+
+  // The hook's `error` state retains its identity across renders so
+  // a single failure fires `onError` exactly once.  The same applies
+  // on the success side: re-render with the same `state: idle` after
+  // a download won't double-fire.
+  const lastErrorRef = useRef<unknown>(undefined);
+  useEffect(() => {
+    if (state.kind === "error" && state.error !== lastErrorRef.current) {
+      lastErrorRef.current = state.error;
+      onErrorRef.current?.(state.error, clip);
+    } else if (state.kind !== "error") {
+      lastErrorRef.current = undefined;
+    }
+  }, [state, clip]);
 
   const content =
     typeof children === "function"
@@ -88,7 +132,12 @@ export function ClipDownloadButton({
     <button
       type="button"
       onClick={() => {
-        void download();
+        void (async () => {
+          const blob = await download();
+          if (blob !== undefined) {
+            onSuccessRef.current?.(blob, clip);
+          }
+        })();
       }}
       disabled={isDisabled}
       title={state.kind === "error" ? state.message : undefined}

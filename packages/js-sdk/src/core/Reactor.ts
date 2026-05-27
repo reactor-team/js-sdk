@@ -8,6 +8,7 @@ import {
   type ConnectionStats,
   type ConnectionTimings,
   isAbortError,
+  NotReadyError,
 } from "../types";
 import { type JwtResolver, type JwtSource, normalizeJwtSource } from "./auth";
 import { CoordinatorClient } from "./CoordinatorClient";
@@ -133,16 +134,17 @@ export class Reactor {
    * When any value in `data` is a {@link FileRef}, it is automatically
    * extracted and serialized into a separate `uploads` section on the
    * wire, keyed by the parameter name.  Scalar values remain in `data`.
+   *
+   * @throws {NotReadyError} if the session is not `"ready"`.  Gate
+   *   the call behind `status === "ready"` or catch and retry.
    */
   async sendCommand(
     command: string,
     data: any,
     scope: MessageScope = "application"
   ): Promise<void> {
-    if (process.env.NODE_ENV !== "development" && this.status !== "ready") {
-      const errorMessage = `Cannot send message, status is ${this.status}`;
-      console.warn("[Reactor]", errorMessage);
-      return;
+    if (this.status !== "ready") {
+      throw new NotReadyError("sendCommand", this.status);
     }
 
     try {
@@ -202,9 +204,7 @@ export class Reactor {
     options?: { name?: string }
   ): Promise<FileRef> {
     if (this.status !== "ready") {
-      throw new Error(
-        `Cannot upload file, status is "${this.status}". Must be "ready".`
-      );
+      throw new NotReadyError("uploadFile", this.status);
     }
     if (!this.coordinatorClient || !this.sessionId) {
       throw new Error("No active session. Call connect() first.");
@@ -308,13 +308,12 @@ export class Reactor {
    * Publishes a MediaStreamTrack to a named sendonly track.
    * The transceiver is already set up from capabilities — this just
    * calls replaceTrack() on the sender.
+   *
+   * @throws {NotReadyError} if the session is not `"ready"`.
    */
   async publishTrack(name: string, track: MediaStreamTrack): Promise<void> {
-    if (process.env.NODE_ENV !== "development" && this.status !== "ready") {
-      console.warn(
-        `[Reactor] Cannot publish track "${name}", status is ${this.status}`
-      );
-      return;
+    if (this.status !== "ready") {
+      throw new NotReadyError(`publishTrack("${name}")`, this.status);
     }
 
     try {
@@ -330,6 +329,14 @@ export class Reactor {
     }
   }
 
+  /**
+   * Removes a previously-published track from its sendonly transceiver.
+   *
+   * Unlike `publishTrack`, this is safe to call on any status — a
+   * teardown path may need to unpublish while the transport is already
+   * closing.  If `status !== "ready"` the call is a no-op (no transport
+   * to call `removeTrack()` on).
+   */
   async unpublishTrack(name: string): Promise<void> {
     try {
       await this.transportClient?.unpublishTrack(name);
