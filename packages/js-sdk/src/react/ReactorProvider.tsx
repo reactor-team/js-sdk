@@ -246,8 +246,15 @@ export function ReactorProvider({
           console.error("[ReactorProvider] Failed to disconnect:", error);
         });
     };
+    // Only the "what session are we talking to" inputs tear the
+    // store down: target Coordinator (`apiUrl`), model selection
+    // (`modelName`), local-mode flag, and auth source. `autoConnect`
+    // is read for the first-mount decision but flipping it later
+    // shouldn't kill an existing session; `maxAttempts` is just
+    // initial-handshake polling config and has no meaning after
+    // connect — both intentionally omitted from the dep array.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiUrl, modelName, autoConnect, local, jwtSource, maxAttempts]);
+  }, [apiUrl, modelName, local, jwtSource]);
 
   return (
     <ReactorContext.Provider value={storeRef.current}>

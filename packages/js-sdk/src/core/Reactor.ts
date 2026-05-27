@@ -7,6 +7,7 @@ import {
   type ConnectOptions,
   type ConnectionStats,
   type ConnectionTimings,
+  NotReadyError,
   isAbortError,
 } from "../types";
 import { type JwtResolver, type JwtSource, normalizeJwtSource } from "./auth";
@@ -139,10 +140,8 @@ export class Reactor {
     data: any,
     scope: MessageScope = "application"
   ): Promise<void> {
-    if (process.env.NODE_ENV !== "development" && this.status !== "ready") {
-      const errorMessage = `Cannot send message, status is ${this.status}`;
-      console.warn("[Reactor]", errorMessage);
-      return;
+    if (this.status !== "ready") {
+      throw new NotReadyError(`send command "${command}"`, this.status);
     }
 
     try {

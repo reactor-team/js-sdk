@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import type { Clip } from "../utils/recording";
 import { useClipDownload, type ClipDownloadState } from "./useClipDownload";
 
@@ -62,6 +62,21 @@ export interface ClipDownloadButtonProps {
   style?: React.CSSProperties;
   /** Forwarded to the underlying ``<button>``.  ORed with the internal "downloading" state. */
   disabled?: boolean;
+  /**
+   * Fires once the download completes successfully with the
+   * assembled MP4 ``Blob``.  Typical use is to drop a toast or
+   * mark the clip as saved — re-uploading the blob, generating a
+   * ``URL.createObjectURL``, etc. is also fair game.
+   */
+  onSuccess?: (blob: Blob) => void;
+  /**
+   * Fires when the download fails.  Receives a plain ``Error``
+   * whose message mirrors the inline state shown in the button
+   * (``"<CODE>: <reason>"`` for ``RecordingError``s).  Use this to
+   * forward failures into Sentry / Sonner / a parent component
+   * instead of relying on the in-button ``title`` tooltip.
+   */
+  onError?: (error: Error) => void;
 }
 
 export function ClipDownloadButton({
@@ -72,10 +87,34 @@ export function ClipDownloadButton({
   className,
   style,
   disabled,
+  onSuccess,
+  onError,
 }: ClipDownloadButtonProps) {
   const { state, download } = useClipDownload(clip, { filename, getJwt });
   const downloading = state.kind === "downloading";
   const isDisabled = downloading || !!disabled;
+
+  // Latest-value refs so callback identity churn doesn't re-fire the
+  // error effect or re-create the click handler on every parent
+  // render — same idiom used in `ClipPlayer` / `useClipDownload`.
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+    onErrorRef.current = onError;
+  });
+
+  // Drive `onError` from the underlying state machine. `download()`
+  // resolves to `undefined` on failure (the hook surfaces errors via
+  // state, not by rejecting), so we hook the state transition into
+  // the error callback rather than the click handler. Re-running on
+  // every state change is intentional: a retry → error → retry →
+  // error cycle should call `onError` each time.
+  useEffect(() => {
+    if (state.kind === "error") {
+      onErrorRef.current?.(new Error(state.message));
+    }
+  }, [state]);
 
   const content =
     typeof children === "function"
@@ -88,7 +127,9 @@ export function ClipDownloadButton({
     <button
       type="button"
       onClick={() => {
-        void download();
+        void download().then((blob) => {
+          if (blob) onSuccessRef.current?.(blob);
+        });
       }}
       disabled={isDisabled}
       title={state.kind === "error" ? state.message : undefined}

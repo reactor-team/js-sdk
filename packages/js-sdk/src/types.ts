@@ -42,6 +42,23 @@ export class AbortError extends Error {
   }
 }
 
+/**
+ * Thrown by operations that require an active `"ready"` session when
+ * the Reactor is in any other state — e.g. calling `sendCommand`
+ * while `status === "connecting"`.  Carries the operation that was
+ * attempted and the live status so callers can branch (typically:
+ * disable a button, show a spinner, queue the action for later).
+ */
+export class NotReadyError extends Error {
+  constructor(
+    public readonly operation: string,
+    public readonly status: ReactorStatus
+  ) {
+    super(`Cannot ${operation} while status is "${status}". Must be "ready".`);
+    this.name = "NotReadyError";
+  }
+}
+
 /** Matches both our custom AbortError and the native DOMException thrown by fetch(). */
 export function isAbortError(error: unknown): boolean {
   return (

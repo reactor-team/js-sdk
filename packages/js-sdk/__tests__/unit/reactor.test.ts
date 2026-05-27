@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Reactor, DEFAULT_BASE_URL } from "../../src/core/Reactor";
+import { NotReadyError } from "../../src/types";
 
 const MOCK_SESSION_ID = "85ded560-014c-42df-8902-89dfbca8fa00";
 
@@ -318,16 +319,29 @@ describe("Reactor", () => {
   // ── sendCommand() guard ───────────────────────────────────────────────
 
   describe("sendCommand()", () => {
-    it("warns and returns when not ready", async () => {
+    it("throws NotReadyError when not ready", async () => {
       const r = new Reactor({ modelName: "echo" });
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-      await r.sendCommand("set_effect", { effect: "grayscale" });
+      await expect(
+        r.sendCommand("set_effect", { effect: "grayscale" })
+      ).rejects.toMatchObject({
+        name: "NotReadyError",
+        operation: 'send command "set_effect"',
+        status: "disconnected",
+      });
+    });
 
-      expect(warnSpy).toHaveBeenCalledWith(
-        "[Reactor]",
-        expect.stringContaining("Cannot send message")
-      );
+    it("throws NotReadyError carrying the operation and live status", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      try {
+        await r.sendCommand("set_effect", { effect: "grayscale" });
+        expect.fail("sendCommand should have thrown");
+      } catch (err) {
+        expect(err).toBeInstanceOf(NotReadyError);
+        const e = err as NotReadyError;
+        expect(e.status).toBe("disconnected");
+        expect(e.operation).toBe('send command "set_effect"');
+      }
     });
   });
 
