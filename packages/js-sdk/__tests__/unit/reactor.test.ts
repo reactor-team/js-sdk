@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Reactor, DEFAULT_BASE_URL } from "../../src/core/Reactor";
-import { NotReadyError } from "../../src/types";
 
 const MOCK_SESSION_ID = "85ded560-014c-42df-8902-89dfbca8fa00";
 
@@ -319,29 +318,39 @@ describe("Reactor", () => {
   // ── sendCommand() guard ───────────────────────────────────────────────
 
   describe("sendCommand()", () => {
-    it("throws NotReadyError when not ready", async () => {
+    it("resolves (does not reject) when not ready", async () => {
       const r = new Reactor({ modelName: "echo" });
 
       await expect(
         r.sendCommand("set_effect", { effect: "grayscale" })
-      ).rejects.toMatchObject({
-        name: "NotReadyError",
-        operation: 'send command "set_effect"',
-        status: "disconnected",
-      });
+      ).resolves.toBeUndefined();
     });
 
-    it("throws NotReadyError carrying the operation and live status", async () => {
+    it("populates lastError with a recoverable NOT_READY entry when not ready", async () => {
       const r = new Reactor({ modelName: "echo" });
-      try {
-        await r.sendCommand("set_effect", { effect: "grayscale" });
-        expect.fail("sendCommand should have thrown");
-      } catch (err) {
-        expect(err).toBeInstanceOf(NotReadyError);
-        const e = err as NotReadyError;
-        expect(e.status).toBe("disconnected");
-        expect(e.operation).toBe('send command "set_effect"');
-      }
+
+      await r.sendCommand("set_effect", { effect: "grayscale" });
+
+      expect(r.getLastError()).toMatchObject({
+        code: "NOT_READY",
+        component: "api",
+        recoverable: true,
+      });
+      expect(r.getLastError()?.message).toContain('"set_effect"');
+      expect(r.getLastError()?.message).toContain('"disconnected"');
+    });
+
+    it("emits an `error` event subscribers can react to when not ready", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      const handler = vi.fn();
+      r.on("error", handler);
+
+      await r.sendCommand("set_effect", { effect: "grayscale" });
+
+      expect(handler).toHaveBeenCalledOnce();
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({ code: "NOT_READY", recoverable: true })
+      );
     });
   });
 
