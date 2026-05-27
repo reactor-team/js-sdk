@@ -246,13 +246,10 @@ export function ReactorProvider({
           console.error("[ReactorProvider] Failed to disconnect:", error);
         });
     };
-    // Only the "what session are we talking to" inputs tear the
-    // store down: target Coordinator (`apiUrl`), model selection
-    // (`modelName`), local-mode flag, and auth source. `autoConnect`
-    // is read for the first-mount decision but flipping it later
-    // shouldn't kill an existing session; `maxAttempts` is just
-    // initial-handshake polling config and has no meaning after
-    // connect — both intentionally omitted from the dep array.
+    // `autoConnect` is a first-mount-only signal and `maxAttempts`
+    // is initial-handshake polling config; neither identifies the
+    // session, so they're intentionally out of the deps to stop
+    // mid-mount prop changes from tearing the live session down.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiUrl, modelName, local, jwtSource]);
 

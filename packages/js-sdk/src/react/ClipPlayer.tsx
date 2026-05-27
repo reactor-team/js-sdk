@@ -94,12 +94,10 @@ export interface ClipPlayerProps {
   className?: string;
   style?: React.CSSProperties;
   /**
-   * Fires when the player surfaces its inline error overlay.
-   * Receives the originating error (a ``RecordingError`` for
-   * manifest-fetch failures, a generic ``Error`` for hls.js / native
-   * playback failures and missing-peer-dep cases) so the consumer
-   * can forward it into Sentry / Sonner / etc. without parsing the
-   * overlay string.
+   * Fires when the player enters its inline error state.  Receives
+   * the originating error: a ``RecordingError`` for manifest-fetch
+   * failures, a plain ``Error`` for hls.js / native playback or
+   * missing-peer-dep cases.
    */
   onError?: (error: Error) => void;
 }
@@ -151,10 +149,8 @@ export function ClipPlayer({
     storeRef.current = store;
   });
 
-  // Surface phase transitions into `error` to the consumer.  Fires
-  // once per error — each subsequent `clip` change resets the phase
-  // back through `waiting`/`loading` before potentially re-entering
-  // `error`, at which point this fires again.
+  // Re-fires per error transition: each new `clip` resets through
+  // `waiting` / `loading` before potentially re-entering `error`.
   useEffect(() => {
     if (phase.kind === "error") {
       onErrorRef.current?.(phase.error);

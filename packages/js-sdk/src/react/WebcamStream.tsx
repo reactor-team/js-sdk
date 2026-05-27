@@ -22,8 +22,7 @@ export interface WebcamStreamProps {
   /**
    * The name of the sendonly **audio** track to publish the mic to.
    * Ignored when {@link audio} is `false` (the default); required
-   * otherwise — without it the mic stream has nowhere to go and the
-   * component logs a warning instead of publishing.
+   * otherwise.
    */
   audioTrack?: string;
   className?: string;
@@ -34,25 +33,20 @@ export interface WebcamStreamProps {
     React.VideoHTMLAttributes<HTMLVideoElement>["style"]
   >["objectFit"];
   /**
-   * Fires once `getUserMedia` is rejected with `NotAllowedError` /
-   * `PermissionDeniedError`.  Use this to render a custom
-   * permission-denied UI instead of (or alongside) the inline
-   * placeholder this component already shows.
+   * Fires once `getUserMedia` is rejected with `NotAllowedError`
+   * or `PermissionDeniedError`.
    */
   onPermissionDenied?: () => void;
   /**
-   * Fires after the local media stream has been published to the
-   * Reactor session (both video and audio when {@link audio} is
-   * enabled).  Re-fires after a reconnect, so consumers can use it
-   * to toggle a "live" indicator without tracking status themselves.
+   * Fires after the local media stream has been published (both
+   * video and audio when {@link audio} is enabled).  Re-fires
+   * after a reconnect.
    */
   onPublished?: () => void;
   /**
-   * Fires when a non-permission `getUserMedia` failure or a
-   * publish/unpublish call throws — i.e. the cases the component
-   * currently logs to `console.error` and otherwise swallows.
-   * Permission denials are routed to {@link onPermissionDenied}
-   * instead.
+   * Fires on non-permission `getUserMedia` failures and on
+   * publish / unpublish rejections.  Permission denials route to
+   * {@link onPermissionDenied} instead.
    */
   onError?: (error: Error) => void;
 }
@@ -86,9 +80,8 @@ export function WebcamStream({
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Latest-value refs so the callbacks can be invoked from inside
-  // long-lived effects without dragging their identity into the dep
-  // arrays — same pattern used by `useClipDownload` / `ClipPlayer`.
+  // Held in refs so inline callback identity doesn't churn the
+  // publish/unpublish effect on every parent render.
   const onPermissionDeniedRef = useRef(onPermissionDenied);
   const onPublishedRef = useRef(onPublished);
   const onErrorRef = useRef(onError);
@@ -98,10 +91,8 @@ export function WebcamStream({
     onErrorRef.current = onError;
   });
 
-  // Audio is on iff the consumer asked for it AND told us where to
-  // publish. Without an `audioTrack` the captured audio stream has
-  // nowhere to go, so we capture video-only and surface a warning —
-  // a silent demotion would be a worse footgun.
+  // Without an `audioTrack` the captured mic has nowhere to publish;
+  // warn rather than silently capturing video-only.
   const audioRequested = audio !== false && audio !== undefined;
   const audioEnabled = audioRequested && !!audioTrack;
   if (audioRequested && !audioTrack) {
@@ -143,10 +134,9 @@ export function WebcamStream({
   const stopWebcam = async () => {
     console.debug("[WebcamPublisher] Stopping webcam");
 
-    // Unpublish video + (optional) audio in parallel; either failure
-    // is logged but doesn't block the local-track teardown below
-    // because the underlying `MediaStreamTrack`s must always stop or
-    // the camera/mic indicator stays on after the component unmounts.
+    // Unpublish failures are logged but don't block local-track
+    // teardown — leaving tracks running keeps the camera/mic
+    // indicator on after unmount.
     const unpublishTasks: Array<Promise<void>> = [unpublish(track)];
     if (audioEnabled && audioTrack) {
       unpublishTasks.push(unpublish(audioTrack));
@@ -196,11 +186,7 @@ export function WebcamStream({
     }
   }, [stream]);
 
-  // Auto-publish when reactor is ready and webcam is active. Video
-  // and audio (when enabled) publish in parallel and `onPublished`
-  // fires once both have succeeded; a single failure surfaces via
-  // `onError` and leaves `isPublishing` at false so the next status
-  // tick can retry.
+  // Auto-publish when reactor is ready and webcam is active.
   useEffect(() => {
     if (!stream) {
       return;

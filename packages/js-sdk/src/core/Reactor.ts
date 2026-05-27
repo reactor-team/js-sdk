@@ -139,16 +139,8 @@ export class Reactor {
     data: any,
     scope: MessageScope = "application"
   ): Promise<void> {
-    // Pre-flight: a command sent before the transport is `"ready"`
-    // can't go on the wire. We surface this through the same
-    // `lastError` / `"error"` event channel as transport-side
-    // failures (`MESSAGE_SEND_FAILED`, `TRACK_PUBLISH_FAILED`, …)
-    // rather than rejecting the Promise — most call sites are
-    // unawaited React event handlers, and routing through `lastError`
-    // lets `useReactor(s => s.lastError)` paint the failure without
-    // forcing every caller into a `try/catch`.  The error is
-    // recoverable: re-issuing the command once `status` flips back
-    // to `"ready"` is the correct retry.
+    // Pre-flight failure: reported through `lastError` so unawaited
+    // callers observe it without a `try/catch`.
     if (this.status !== "ready") {
       this.createError(
         "NOT_READY",

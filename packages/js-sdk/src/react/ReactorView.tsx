@@ -26,12 +26,10 @@ export interface ReactorViewProps {
     React.VideoHTMLAttributes<HTMLVideoElement>["style"]
   >["objectFit"];
   /**
-   * Controls whether inbound audio plays.  Defaults to `true`
-   * (muted) when no `audioTrack` is configured — there's no audio
-   * to surface and `muted` keeps the underlying `<video>` element
-   * within browser autoplay policies.  Defaults to `false` when
-   * `audioTrack` is set, because the consumer asking for audio
-   * almost always wants it audible.  Pass an explicit value to
+   * Controls whether inbound audio plays.  Default is `true`
+   * (muted) when no `audioTrack` is set — keeps the underlying
+   * `<video>` element within browser autoplay policies; `false`
+   * when an `audioTrack` is set.  Pass an explicit value to
    * override either default.
    */
   muted?: boolean;
