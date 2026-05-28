@@ -112,7 +112,7 @@ For video-to-video models, drop `<WebcamStream>` inside the provider and name th
 
 ### Receive messages
 
-Models emit structured messages back to your app, such as progress updates, state snapshots, or custom model events. Subscribe with `useReactorMessage`:
+Models emit structured messages back to your app, such as progress updates, state snapshots, or custom model events. Subscribe with `useReactorMessage`. Select store fields one at a time so a component only re-renders when something it actually uses changes — passing `(s) => s` will rerender on every track frame, status flip, and error:
 
 ```tsx
 import { useReactorMessage } from "@reactor-team/js-sdk";
@@ -135,7 +135,10 @@ function FrameCounter() {
 Bind an `<input type="file">` to the model with `uploadFile` and then pass the returned [`FileRef`](https://docs.reactor.inc/api-reference/types#fileref) into any command:
 
 ```tsx
-const { uploadFile, sendCommand } = useReactor((s) => s);
+const { uploadFile, sendCommand } = useReactor((s) => ({
+  uploadFile: s.uploadFile,
+  sendCommand: s.sendCommand,
+}));
 
 const ref = await uploadFile(file);
 await sendCommand("set_image", { image: ref });
@@ -153,18 +156,17 @@ import { Reactor } from "@reactor-team/js-sdk";
 const reactor = new Reactor({
   apiUrl: "https://api.reactor.inc",
   modelName: "your-model-name",
-  jwtToken: await fetchJwt(),
 });
 
-reactor.on("statusChange", (status) => console.log("status:", status));
+reactor.on("statusChanged", (status) => console.log("status:", status));
 reactor.on("message", (msg) => console.log("model:", msg));
+reactor.on("trackReceived", (name, _track, stream) => {
+  if (name === "main_video") videoEl.srcObject = stream;
+});
 
-await reactor.connect();
+await reactor.connect(await fetchJwt());
 
 await reactor.sendCommand("set_prompt", { prompt: "a forest at dawn" });
-
-const stream = reactor.getMediaStream("main_video");
-videoEl.srcObject = stream;
 ```
 
 ---

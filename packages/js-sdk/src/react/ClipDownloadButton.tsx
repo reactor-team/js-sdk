@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import type { Clip } from "../utils/recording";
 import { useClipDownload, type ClipDownloadState } from "./useClipDownload";
 
@@ -62,6 +62,16 @@ export interface ClipDownloadButtonProps {
   style?: React.CSSProperties;
   /** Forwarded to the underlying ``<button>``.  ORed with the internal "downloading" state. */
   disabled?: boolean;
+  /**
+   * Fires when the download completes with the assembled MP4 ``Blob``.
+   */
+  onSuccess?: (blob: Blob) => void;
+  /**
+   * Fires when the download fails.  Message mirrors the in-button
+   * state — ``"<CODE>: <reason>"`` for ``RecordingError``s, the
+   * plain error message otherwise.
+   */
+  onError?: (error: Error) => void;
 }
 
 export function ClipDownloadButton({
@@ -72,10 +82,30 @@ export function ClipDownloadButton({
   className,
   style,
   disabled,
+  onSuccess,
+  onError,
 }: ClipDownloadButtonProps) {
   const { state, download } = useClipDownload(clip, { filename, getJwt });
   const downloading = state.kind === "downloading";
   const isDisabled = downloading || !!disabled;
+
+  // Held in refs so inline callback identity doesn't churn the
+  // error-emit effect or the click handler on every parent render.
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+    onErrorRef.current = onError;
+  });
+
+  // `useClipDownload.download()` resolves to `undefined` on failure
+  // (the hook surfaces errors through state, not by rejecting).
+  // Each retry that lands back in `"error"` re-fires `onError`.
+  useEffect(() => {
+    if (state.kind === "error") {
+      onErrorRef.current?.(new Error(state.message));
+    }
+  }, [state]);
 
   const content =
     typeof children === "function"
@@ -88,7 +118,9 @@ export function ClipDownloadButton({
     <button
       type="button"
       onClick={() => {
-        void download();
+        void download().then((blob) => {
+          if (blob) onSuccessRef.current?.(blob);
+        });
       }}
       disabled={isDisabled}
       title={state.kind === "error" ? state.message : undefined}

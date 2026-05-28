@@ -246,8 +246,12 @@ export function ReactorProvider({
           console.error("[ReactorProvider] Failed to disconnect:", error);
         });
     };
+    // `autoConnect` is a first-mount-only signal and `maxAttempts`
+    // is initial-handshake polling config; neither identifies the
+    // session, so they're intentionally out of the deps to stop
+    // mid-mount prop changes from tearing the live session down.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiUrl, modelName, autoConnect, local, jwtSource, maxAttempts]);
+  }, [apiUrl, modelName, local, jwtSource]);
 
   return (
     <ReactorContext.Provider value={storeRef.current}>

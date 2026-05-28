@@ -139,9 +139,15 @@ export class Reactor {
     data: any,
     scope: MessageScope = "application"
   ): Promise<void> {
-    if (process.env.NODE_ENV !== "development" && this.status !== "ready") {
-      const errorMessage = `Cannot send message, status is ${this.status}`;
-      console.warn("[Reactor]", errorMessage);
+    // Pre-flight failure: reported through `lastError` so unawaited
+    // callers observe it without a `try/catch`.
+    if (this.status !== "ready") {
+      this.createError(
+        "NOT_READY",
+        `Cannot send command "${command}" while status is "${this.status}". Must be "ready".`,
+        "api",
+        true
+      );
       return;
     }
 
