@@ -360,4 +360,89 @@ describe("Reactor", () => {
       );
     });
   });
+
+  // ── publish / subscribe options ───────────────────────────────────────
+
+  describe("connect() with publish/subscribe options", () => {
+    const MIXED_TRACKS_RESPONSE = {
+      ...MOCK_FULL_SESSION_RESPONSE,
+      capabilities: {
+        protocol_version: "1.0",
+        tracks: [
+          { name: "main_video", kind: "video" as const, direction: "recvonly" as const },
+          { name: "main_audio", kind: "audio" as const, direction: "recvonly" as const },
+          { name: "webcam", kind: "video" as const, direction: "sendonly" as const },
+        ],
+      },
+    };
+
+    it("prepares only recvonly tracks when publish is false", async () => {
+      const r = new Reactor({ modelName: "echo" });
+
+      const { CoordinatorClient } = await import("../../src/core/CoordinatorClient");
+      vi.mocked(CoordinatorClient).mockImplementationOnce(function (this: any) {
+        return {
+          createSession: vi.fn().mockResolvedValue(MOCK_INITIAL_RESPONSE),
+          pollSessionReady: vi.fn().mockResolvedValue(MIXED_TRACKS_RESPONSE),
+          terminateSession: vi.fn().mockResolvedValue(undefined),
+          abort: vi.fn(),
+        };
+      });
+
+      await r.connect("jwt", { publish: false });
+
+      expect(mockTransportClient.prepare).toHaveBeenCalledWith([
+        { name: "main_video", kind: "video", direction: "recvonly" },
+        { name: "main_audio", kind: "audio", direction: "recvonly" },
+      ]);
+
+      await r.disconnect();
+    });
+
+    it("prepares only sendonly tracks when subscribe is false", async () => {
+      const r = new Reactor({ modelName: "echo" });
+
+      const { CoordinatorClient } = await import("../../src/core/CoordinatorClient");
+      vi.mocked(CoordinatorClient).mockImplementationOnce(function (this: any) {
+        return {
+          createSession: vi.fn().mockResolvedValue(MOCK_INITIAL_RESPONSE),
+          pollSessionReady: vi.fn().mockResolvedValue(MIXED_TRACKS_RESPONSE),
+          terminateSession: vi.fn().mockResolvedValue(undefined),
+          abort: vi.fn(),
+        };
+      });
+
+      await r.connect("jwt", { subscribe: false });
+
+      expect(mockTransportClient.prepare).toHaveBeenCalledWith([
+        { name: "webcam", kind: "video", direction: "sendonly" },
+      ]);
+
+      await r.disconnect();
+    });
+
+    it("prepares all tracks when both publish and subscribe are true (default)", async () => {
+      const r = new Reactor({ modelName: "echo" });
+
+      const { CoordinatorClient } = await import("../../src/core/CoordinatorClient");
+      vi.mocked(CoordinatorClient).mockImplementationOnce(function (this: any) {
+        return {
+          createSession: vi.fn().mockResolvedValue(MOCK_INITIAL_RESPONSE),
+          pollSessionReady: vi.fn().mockResolvedValue(MIXED_TRACKS_RESPONSE),
+          terminateSession: vi.fn().mockResolvedValue(undefined),
+          abort: vi.fn(),
+        };
+      });
+
+      await r.connect("jwt");
+
+      expect(mockTransportClient.prepare).toHaveBeenCalledWith([
+        { name: "main_video", kind: "video", direction: "recvonly" },
+        { name: "main_audio", kind: "audio", direction: "recvonly" },
+        { name: "webcam", kind: "video", direction: "sendonly" },
+      ]);
+
+      await r.disconnect();
+    });
+  });
 });

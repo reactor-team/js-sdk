@@ -109,6 +109,9 @@ export function ReactorProvider({
   // State to trigger re-renders when store changes
   const [_storeVersion, setStoreVersion] = useState(0);
 
+  // Destructure connectOptions with defaults
+  const { autoConnect = false, ...pollingOptions } = connectOptions ?? {};
+
   if (storeRef.current === undefined) {
     console.debug("[ReactorProvider] Creating new reactor store");
     // We create the store without autoconnecting, to avoid duplicate connections.
@@ -117,16 +120,22 @@ export function ReactorProvider({
       initReactorStore({
         ...props,
         jwtToken: jwtSource,
+        connectOptions: pollingOptions,
       })
     );
     console.debug("[ReactorProvider] Reactor store created successfully");
   }
 
-  // Destructure connectOptions with defaults
-  const { autoConnect = false, ...pollingOptions } = connectOptions ?? {};
-
   const { apiUrl, modelName, local } = props;
   const maxAttempts = pollingOptions.maxAttempts;
+  const { publish, subscribe } = pollingOptions;
+
+  // Keep connectOptions in the store in sync when provider props change without
+  // tearing the store down (e.g. toggling publish/subscribe while disconnected).
+  useEffect(() => {
+    storeRef.current?.setState({ connectOptions: pollingOptions });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [publish, subscribe, maxAttempts]);
 
   // Handle page unload (refresh, close, navigate away) with non-recoverable disconnect
   useEffect(() => {
@@ -203,6 +212,7 @@ export function ReactorProvider({
         modelName,
         local,
         jwtToken: jwtSource,
+        connectOptions: pollingOptions,
       } satisfies ReactorInitializationProps)
     );
 

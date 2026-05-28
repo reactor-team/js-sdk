@@ -61,6 +61,16 @@ export interface ReactorState {
 export interface ConnectOptions {
   /** Maximum number of SDP polling attempts before giving up. Default: 6. */
   maxAttempts?: number;
+  /**
+   * When false, sendonly tracks are excluded from the negotiation so the
+   * client does not publish any media to the model. Default: true.
+   */
+  publish?: boolean;
+  /**
+   * When false, recvonly tracks are excluded from the negotiation so the
+   * client does not receive any media from the model. Default: true.
+   */
+  subscribe?: boolean;
 }
 
 /**
