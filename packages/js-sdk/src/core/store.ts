@@ -27,6 +27,13 @@ export interface ReactorState {
   sessionExpiration?: number;
   /** Token source for Coordinator HTTP calls — see {@link JwtSource}. */
   jwtToken?: JwtSource;
+  /**
+   * Default connect options set by the provider. Applied as base values
+   * whenever `connect()` is called without explicit options, so that
+   * provider-level settings like `publish`/`subscribe` are honoured for
+   * both autoConnect and manual connect calls.
+   */
+  connectOptions?: ConnectOptions;
 }
 
 export interface ReactorActions {
@@ -66,11 +73,14 @@ export const defaultInitState: ReactorState = {
   sessionExpiration: undefined,
   jwtToken: undefined,
   sessionId: undefined,
+  connectOptions: undefined,
 };
 
 export interface ReactorInitializationProps extends ReactorOptions {
   /** Token source for the underlying {@link Reactor} — see {@link JwtSource}. */
   jwtToken?: JwtSource;
+  /** Default connect options applied when `connect()` is called without explicit options. */
+  connectOptions?: ConnectOptions;
 }
 
 export const initReactorStore = (
@@ -146,6 +156,7 @@ export const createReactorStore = (
     return {
       ...publicState,
       jwtToken: initProps.jwtToken,
+      connectOptions: initProps.connectOptions,
       internal: { reactor },
 
       // actions
@@ -179,10 +190,13 @@ export const createReactorStore = (
           jwtToken = get().jwtToken;
         }
 
+        // Merge provider-level defaults with call-time overrides (call-time wins).
+        const resolvedOptions: ConnectOptions = { ...get().connectOptions, ...options };
+
         console.debug("[ReactorStore] Connect called.");
 
         try {
-          await get().internal.reactor.connect(jwtToken, options);
+          await get().internal.reactor.connect(jwtToken, resolvedOptions);
           console.debug("[ReactorStore] Connect completed successfully");
         } catch (error) {
           console.error("[ReactorStore] Connect failed:", error);

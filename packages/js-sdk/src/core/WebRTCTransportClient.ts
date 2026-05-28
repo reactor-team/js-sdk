@@ -24,6 +24,7 @@ import {
   type IceCandidate,
   type IceCandidatesRequest,
   IceServersResponseSchema,
+  WebRTCSdpOfferResponseSchema,
   WebRTCSdpAnswerResponseSchema,
   REACTOR_WEBRTC_VERSION,
   REACTOR_SDK_VERSION,
@@ -249,7 +250,7 @@ export class WebRTCTransportClient implements TransportClient {
     sdpOffer: string,
     trackMapping: TrackMappingEntry[],
     method: "POST" | "PUT" = "POST"
-  ): Promise<void> {
+  ): Promise<string | undefined> {
     console.debug(
       `[WebRTCTransport] Sending SDP offer (${method}) for session:`,
       this.sessionId
@@ -283,7 +284,21 @@ export class WebRTCTransportClient implements TransportClient {
       );
     }
 
-    console.debug("[WebRTCTransport] SDP offer accepted (202)");
+    // Multi-connection runtimes include a connection_id in the 202 body.
+    // Older servers return no body — treat as undefined for backward compat.
+    let connectionId: string | undefined;
+    try {
+      const body = await response.json();
+      connectionId = WebRTCSdpOfferResponseSchema.parse(body).connection_id;
+    } catch {
+      // No body or non-JSON response — connection_id unavailable
+    }
+
+    console.debug(
+      "[WebRTCTransport] SDP offer accepted (202)",
+      connectionId ? `connection_id=${connectionId}` : "(no connection_id)"
+    );
+    return connectionId;
   }
 
   private async sendIceCandidates(
@@ -363,8 +378,14 @@ export class WebRTCTransportClient implements TransportClient {
     this.pendingIceCandidates = [];
   }
 
-  private async pollSdpAnswer(): Promise<WebRTCSdpAnswerResponse> {
+  private async pollSdpAnswer(
+    connectionId?: string
+  ): Promise<WebRTCSdpAnswerResponse> {
     console.debug("[WebRTCTransport] Polling for SDP answer...");
+
+    const pollUrl = connectionId
+      ? `${this.transportBaseUrl}/sdp_params?connection_id=${connectionId}`
+      : `${this.transportBaseUrl}/sdp_params`;
 
     const pollStart = performance.now();
     let backoffMs = INITIAL_BACKOFF_MS;
@@ -386,7 +407,7 @@ export class WebRTCTransportClient implements TransportClient {
         `[WebRTCTransport] SDP poll attempt ${attempt}/${this.maxPollAttempts}`
       );
 
-      const response = await fetch(`${this.transportBaseUrl}/sdp_params`, {
+      const response = await fetch(pollUrl, {
         method: "GET",
         headers: await this.getHeaders(),
         signal: this.signal,
@@ -499,9 +520,9 @@ export class WebRTCTransportClient implements TransportClient {
     this.pendingSdpOffer = undefined;
     this.pendingTrackMapping = undefined;
 
-    await this.sendSdpOffer(sdpOffer, trackMapping, method);
+    const connectionId = await this.sendSdpOffer(sdpOffer, trackMapping, method);
 
-    const answerResponse = await this.pollSdpAnswer();
+    const answerResponse = await this.pollSdpAnswer(connectionId);
 
     this.iceStartTime = performance.now();
     await webrtc.setRemoteDescription(
