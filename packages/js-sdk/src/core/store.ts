@@ -8,6 +8,7 @@ import type {
 import { type JwtSource } from "./auth";
 import { Reactor, type Options as ReactorOptions } from "./Reactor";
 import { FileRef } from "./FileRef";
+import type { Clip, DownloadClipOptions } from "../utils/recording";
 import { create } from "zustand/react";
 import { createContext } from "react";
 
@@ -37,6 +38,31 @@ export interface ReactorActions {
   unpublish(name: string): Promise<void>;
   reconnect(options?: ConnectOptions): Promise<void>;
   uploadFile(file: File | Blob, options?: { name?: string }): Promise<FileRef>;
+  /**
+   * Capture the trailing `durationSeconds` of the live session as a
+   * clip.  Top-level alias for `internal.reactor.requestClip(…)` —
+   * lifted onto the store so consumers don't have to reach through
+   * `internal.reactor` for the common case.  See
+   * {@link Reactor.requestClip}.
+   */
+  requestClip(durationSeconds: number): Promise<Clip>;
+  /**
+   * Capture the entire session up to "now" as a clip.  Top-level
+   * alias for `internal.reactor.requestRecording()`.  See
+   * {@link Reactor.requestRecording}.
+   */
+  requestRecording(): Promise<Clip>;
+  /**
+   * Stream the chunks referenced by `clip.playlistUrl` and trigger a
+   * native browser download of the assembled MP4.  Top-level alias
+   * for `internal.reactor.downloadClipAsFile(…)`.  See
+   * {@link Reactor.downloadClipAsFile}.
+   */
+  downloadClipAsFile(
+    clip: Clip,
+    filename?: string | null,
+    options?: DownloadClipOptions
+  ): Promise<Blob>;
 }
 
 // Internal state not exposed to components
@@ -255,6 +281,14 @@ export const createReactorStore = (
           throw error;
         }
       },
+      requestClip: (durationSeconds: number) =>
+        get().internal.reactor.requestClip(durationSeconds),
+      requestRecording: () => get().internal.reactor.requestRecording(),
+      downloadClipAsFile: (
+        clip: Clip,
+        filename?: string | null,
+        options?: DownloadClipOptions
+      ) => get().internal.reactor.downloadClipAsFile(clip, filename, options),
     };
   });
 };
