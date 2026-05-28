@@ -12,6 +12,9 @@ dist/
 *.log
 CLAUDE.md
 next-env.d.ts
+# Next.js example templates ship a tracked next-env.d.ts so cloned
+# projects pick up the right types before the first `next dev` run.
+!examples/*/next-env.d.ts
 tsconfig.tsbuildinfo
 
 # Per-package LICENSE/NOTICE are copied in by `prepack` from the repo root.

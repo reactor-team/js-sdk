@@ -54,7 +54,7 @@ npx create-reactor-app my-app --model=helios --token ghp_xxxxxxxxxxxx
 
 ### Available Models
 
-Templates live in the [`reactor-team/reactor-experiments`](https://github.com/reactor-team/reactor-experiments) repository. By default the model name maps 1:1 to a top-level folder of the same name (e.g. `--model=helios` clones the `helios/` folder).
+Templates live in the [`examples/`](https://github.com/reactor-team/js-sdk/tree/main/examples) directory of this repository. By default the model name maps 1:1 to a folder of the same name (e.g. `--model=helios` clones the `examples/helios/` folder).
 
 The CLI also supports an optional alias map (`MODEL_MAP` in `bin/create-reactor-app.ts`) for cases where the public model name needs to differ from the folder name. It is empty by default — add an entry only when you want a name → folder rename.
 
