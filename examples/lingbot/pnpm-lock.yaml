@@ -12,8 +12,8 @@ importers:
         specifier: latest
         version: 0.2.33(hls.js@1.6.16)(react@19.2.6)(zustand@5.0.13(@types/react@19.2.14)(react@19.2.6))
       '@reactor-team/js-sdk':
-        specifier: ^2.10.1
-        version: 2.10.1(hls.js@1.6.16)(react@19.2.6)(zustand@5.0.13(@types/react@19.2.14)(react@19.2.6))
+        specifier: ^2.11.1
+        version: 2.11.1(hls.js@1.6.16)(react@19.2.6)(zustand@5.0.13(@types/react@19.2.14)(react@19.2.6))
       '@reactor-team/ui':
         specifier: ^1.4.1
         version: 1.4.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -270,8 +270,8 @@ packages:
     peerDependencies:
       react: '>=18'
 
-  '@reactor-team/js-sdk@2.10.1':
-    resolution: {integrity: sha512-X0OO8Wc+oaubvCj08FuwnN9CT8JZLxtokz0liLBSefjOgpV5kb/cE+8Y4XQpXEBSExGfBpu9uaauvOCIWjE5EA==}
+  '@reactor-team/js-sdk@2.11.1':
+    resolution: {integrity: sha512-KbGsE6FHz4cJdlpSSQ0Y6sfitymoJcltM1kWr6tDk6R/gofBHVayLECia6aYE5X1RSlWlciw1D9ZlD5Q0wxsng==}
     engines: {node: '>=18'}
     peerDependencies:
       hls.js: ^1.6.0
@@ -764,13 +764,13 @@ snapshots:
 
   '@reactor-models/lingbot@0.2.33(hls.js@1.6.16)(react@19.2.6)(zustand@5.0.13(@types/react@19.2.14)(react@19.2.6))':
     dependencies:
-      '@reactor-team/js-sdk': 2.10.1(hls.js@1.6.16)(react@19.2.6)(zustand@5.0.13(@types/react@19.2.14)(react@19.2.6))
+      '@reactor-team/js-sdk': 2.11.1(hls.js@1.6.16)(react@19.2.6)(zustand@5.0.13(@types/react@19.2.14)(react@19.2.6))
       react: 19.2.6
     transitivePeerDependencies:
       - hls.js
       - zustand
 
-  '@reactor-team/js-sdk@2.10.1(hls.js@1.6.16)(react@19.2.6)(zustand@5.0.13(@types/react@19.2.14)(react@19.2.6))':
+  '@reactor-team/js-sdk@2.11.1(hls.js@1.6.16)(react@19.2.6)(zustand@5.0.13(@types/react@19.2.14)(react@19.2.6))':
     dependencies:
       mp4box: 2.3.0
       react: 19.2.6

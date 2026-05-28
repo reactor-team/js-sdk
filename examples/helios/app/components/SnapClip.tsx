@@ -31,6 +31,15 @@ import {
 // clip UI renders through a portal outside the provider subtree (e.g.
 // a Sonner toast living in `app/layout.tsx`) — capture the resolver
 // with `reactor.getJwtResolver()` at action time and thread it down.
+//
+// As of `@reactor-team/js-sdk` ≥ 2.11.1, `requestClip` /
+// `requestRecording` / `downloadClipAsFile` are exposed directly on
+// the React store, so the recording surface is reachable via
+// `useReactor((s) => s.requestClip)` without the `s.internal.reactor`
+// escape hatch. The clip components also accept `onError` / `onSuccess`
+// callbacks — this panel routes both player and download failures
+// into its inline error line, and clears that line when a download
+// completes.
 export interface SnapClipProps {
   /** Length of the snap, in seconds. Default 10. */
   durationSeconds?: number;
@@ -48,9 +57,9 @@ export function SnapClip({
   filename,
   label,
 }: SnapClipProps) {
-  const { status, reactor } = useReactor((s) => ({
+  const { status, requestClip } = useReactor((s) => ({
     status: s.status,
-    reactor: s.internal.reactor,
+    requestClip: s.requestClip,
   }));
 
   const [clip, setClip] = useState<Clip | null>(null);
@@ -64,7 +73,7 @@ export function SnapClip({
     setBusy(true);
     setError(null);
     try {
-      const c = await reactor.requestClip(durationSeconds);
+      const c = await requestClip(durationSeconds);
       setClip(c);
     } catch (e) {
       setError(
@@ -101,6 +110,8 @@ export function SnapClip({
           clip={clip}
           filename={downloadName}
           onClose={() => setClip(null)}
+          onError={(e) => setError(e.message)}
+          onDownloaded={() => setError(null)}
         />
       )}
     </div>
@@ -111,10 +122,14 @@ function ClipModal({
   clip,
   filename,
   onClose,
+  onError,
+  onDownloaded,
 }: {
   clip: Clip;
   filename: string;
   onClose: () => void;
+  onError: (error: Error) => void;
+  onDownloaded: () => void;
 }) {
   return (
     <div
@@ -139,11 +154,17 @@ function ClipModal({
 
         <ClipPlayer
           clip={clip}
+          onError={onError}
           className="w-full overflow-hidden rounded-lg border border-zinc-800"
         />
 
         <div className="flex justify-end">
-          <ClipDownloadButton clip={clip} filename={filename} />
+          <ClipDownloadButton
+            clip={clip}
+            filename={filename}
+            onSuccess={onDownloaded}
+            onError={onError}
+          />
         </div>
       </div>
     </div>

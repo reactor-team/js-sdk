@@ -518,7 +518,7 @@ The base-prompt capture trick is the reusable bit. Two places it's natural to ex
 
 The Reactor base SDK exposes a recording surface that works for every model: ask for the last N seconds of the live stream, get back a `Clip`, and either preview it with `<ClipPlayer>` or download it with `<ClipDownloadButton>`. The model SDK does not own this — it lives on `@reactor-team/js-sdk` because it is the same call for Lingbot, Helios, and every future model with recording enabled.
 
-The example ships a drop-in [`app/components/SnapClip.tsx`](../app/components/SnapClip.tsx) panel that wires this together: a "Capture" button that calls `reactor.requestClip(durationSeconds)`, opens a modal with the SDK's preview player, and offers an MP4 download. It is **model-agnostic** — the same file ships unchanged in every example.
+The example ships a drop-in [`app/components/SnapClip.tsx`](../app/components/SnapClip.tsx) panel that wires this together: a "Capture" button that calls `requestClip(durationSeconds)` off the store, opens a modal with the SDK's preview player, and offers an MP4 download. It is **model-agnostic** — the same file ships unchanged in every example.
 
 ### When to reach for `@reactor-team/js-sdk` directly
 
@@ -540,10 +540,10 @@ When you scaffold a new component, ask: "Does this depend on Lingbot-specific ev
 
 `SnapClip` is small enough to read in one go. The shape that matters:
 
-1. **Pull the live `Reactor` instance off the store.** `useReactor((s) => s.internal.reactor)` is the canonical accessor — it works inside `<LingbotProvider>` because that provider wraps `<ReactorProvider>` internally.
+1. **Destructure the recording action off the store.** `useReactor((s) => s.requestClip)` is the canonical accessor as of `@reactor-team/js-sdk` ≥ 2.11.1 — `requestClip`, `requestRecording`, and `downloadClipAsFile` are first-class actions alongside `connect` / `disconnect` / `uploadFile`. No `s.internal.reactor` indirection.
 2. **Gate on connection status.** `useReactor((s) => s.status)` — return `null` when status is not `"ready"`, so the panel disappears on disconnect just like every other live-only control.
 3. **Catch `RecordingError`.** Recording can fail with typed reasons (`DISCONNECTED`, `RECORDER_DISABLED`, `INVALID_DURATION`, `REQUEST_TIMEOUT`). Surface them inline like `CommandError` does.
-4. **Compose `<ClipPlayer>` + `<ClipDownloadButton>` in a modal.** Both accept the same `clip` prop. The SDK's components stay usable after `reactor.disconnect()`, so the modal keeps working if the session ends mid-preview.
+4. **Compose `<ClipPlayer>` + `<ClipDownloadButton>` in a modal, route their errors through callbacks.** Both accept `onError` (and `<ClipDownloadButton>` also accepts `onSuccess(blob)`); `SnapClip` threads them into the same inline error line that `requestClip` failures use. The SDK's components stay usable after disconnect, so the modal keeps working if the session ends mid-preview.
 5. **No `getJwt` plumbing.** Both clip components auto-inherit the resolver from `<LingbotProvider getJwt={…}>` via React context (`@reactor-team/js-sdk` ≥ 2.10.1). That is the single source of truth for auth in this app — `SnapClip` doesn't need to know about the JWT route at all.
 
 ### The portal gotcha (Sonner toasts, headless modals)
@@ -560,10 +560,16 @@ Fix: capture the resolver imperatively _inside_ the provider subtree, then threa
 
 ```tsx
 function HandlerInsideProvider() {
-  const reactor = useReactor((s) => s.internal.reactor);
+  // `requestClip` is a top-level store action; `internal.reactor`
+  // stays in the escape-hatch slot for `getJwtResolver()` because
+  // that one isn't lifted onto the store surface.
+  const { requestClip, reactor } = useReactor((s) => ({
+    requestClip: s.requestClip,
+    reactor: s.internal.reactor,
+  }));
 
   const onSnap = async () => {
-    const clip = await reactor.requestClip(30);
+    const clip = await requestClip(30);
 
     // Captured here — works because we're inside the provider.
     // The closure carries it across Sonner's portal boundary.
@@ -590,11 +596,11 @@ For multi-clip galleries, store an array of `Clip` instead of a single one, rend
 
 ### Full-session recordings
 
-`reactor.requestRecording()` (no args) grabs everything from the start of recording up to now, instead of a trailing window. Same `Clip` shape, longer manifest, larger MP4. Swap the call inside `SnapClip` if you want a "Save the whole session" button instead.
+`requestRecording()` (no args, also on the store) grabs everything from the start of recording up to now, instead of a trailing window. Same `Clip` shape, longer manifest, larger MP4. Swap the call inside `SnapClip` if you want a "Save the whole session" button instead.
 
 ### Clips are short-lived
 
-The URL on a `Clip` expires after a few minutes. Do not store `Clip` objects long-term, and do not hand `clip.playlistUrl` to your users for sharing. If you want a permanent link, download the MP4 (via `<ClipDownloadButton>` or `reactor.downloadClipAsFile(clip, null)` for a Blob) and host the result yourself.
+The URL on a `Clip` expires after a few minutes. Do not store `Clip` objects long-term, and do not hand `clip.playlistUrl` to your users for sharing. If you want a permanent link, download the MP4 (via `<ClipDownloadButton>` or `downloadClipAsFile(clip, null)` for a Blob) and host the result yourself.
 
 ### Clip downloads are social-media-ready (`@reactor-team/js-sdk` ≥ 2.10.1)
 
@@ -629,7 +635,7 @@ Reach for actual `@reactor-team/ui` components only when you need their behavior
 
 ## Common mistakes when extending
 
-1. **Reaching for `@reactor-team/js-sdk` directly.** Everything Lingbot-specific is on `@reactor-models/lingbot`. If you find yourself wanting `useReactor((s) => s.internal.reactor)` for a Lingbot event or message, re-read the typed hooks list above. The one allowed exception is the recording surface — see [Capturing clips](#capturing-clips).
+1. **Reaching for `@reactor-team/js-sdk` directly.** Everything Lingbot-specific is on `@reactor-models/lingbot`. If you find yourself reaching for `useReactor((s) => s.internal.reactor)` for a Lingbot event or message, re-read the typed hooks list above. The one allowed exception is the recording surface — see [Capturing clips](#capturing-clips). And on 2.11.1+, even recording is a top-level store action (`s.requestClip` / `s.requestRecording` / `s.downloadClipAsFile`); reach for `s.internal.reactor` only for the few surfaces that aren't lifted yet (`getJwtResolver()`, raw `runtimeMessage` subscriptions).
 2. **Aggregating events to reconstruct state.** Subscribe to `useLingbotState` and read fields off the snapshot. Stop folding `chunk_complete` + `generation_started` + `generation_paused` into your own boolean flags.
 3. **Calling `start()` without waiting for image conditioning.** First chunk will flicker. Use `useLingbotImageAccepted` with a one-shot ref resolver.
 4. **Forgetting to send `idle` on key release.** Movement/look axes hold their last value until you change them. Always pair every `set_movement: "forward"` with a `set_movement: "idle"` on key-up / mouse-up.
