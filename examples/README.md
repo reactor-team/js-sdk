@@ -6,6 +6,7 @@ Self-contained, runnable Next.js apps built on `@reactor-team/js-sdk` and the ty
 | ----------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`helios/`](./helios)   | [`@reactor-models/helios`](https://www.npmjs.com/package/@reactor-models/helios)   | Continuous prompt-driven video generation. Curated text and image scenes, mid-stream prompt hot-swap via `setPrompt`, atomic `setConditioning({ prompt, image })` for image-to-video, snap-clip recording, design tokens from `@reactor-team/ui`. |
 | [`lingbot/`](./lingbot) | [`@reactor-models/lingbot`](https://www.npmjs.com/package/@reactor-models/lingbot) | Interactive world model. Pick a starting image, drive the scene with WASD, layer in curated dynamic events (rain, fog, …) as live prompt swaps, snap-clip recording.                                                                              |
+| [`longlive-v2/`](./longlive-v2) | [`@reactor-models/longlive-v2`](https://www.npmjs.com/package/@reactor-models/longlive-v2) | Multi-shot **director's storyboard**. Compose shots (`set_shot`) and cuts (`scene_cut`) on a chunk timeline, schedule beats with `schedule_shot` / `schedule_scene_cut`, then direct live. Surfaces the per-scene 48-chunk budget and how cuts extend length. Snap-clip recording. |
 
 ## Running an example
 
@@ -27,6 +28,7 @@ API keys come from [reactor.inc/dashboard](https://www.reactor.inc/dashboard/acc
 ```bash
 npx create-reactor-app my-app --model helios
 npx create-reactor-app my-app --model lingbot
+npx create-reactor-app my-app --model longlive-v2
 ```
 
 `create-reactor-app` pulls from this folder on `main`, so anything that lands here ships to the CLI on the next release of `create-reactor-app`.
