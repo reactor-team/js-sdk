@@ -344,6 +344,14 @@ export class Reactor {
     }
   }
 
+  pauseTrack(name: string): void {
+    this.transportClient?.pauseTrack(name);
+  }
+
+  resumeTrack(name: string): void {
+    this.transportClient?.resumeTrack(name);
+  }
+
   /**
    * Reconnects to an existing session with a fresh transport.
    */

@@ -98,6 +98,7 @@ export class WebRTCTransportClient implements TransportClient {
   private eventListeners: Map<TransportEvent, Set<EventHandler>> = new Map();
   private peerConnection: RTCPeerConnection | undefined;
   private dataChannel: RTCDataChannel | undefined;
+  private controlChannel: RTCDataChannel | undefined;
   private status: TransportStatus = "disconnected";
   private pingInterval: ReturnType<typeof setInterval> | undefined;
   private statsInterval: ReturnType<typeof setInterval> | undefined;
@@ -466,6 +467,10 @@ export class WebRTCTransportClient implements TransportClient {
       this.dataChannel.close();
       this.dataChannel = undefined;
     }
+    if (this.controlChannel) {
+      this.controlChannel.close();
+      this.controlChannel = undefined;
+    }
     if (this.peerConnection) {
       webrtc.closePeerConnection(this.peerConnection);
       this.peerConnection = undefined;
@@ -483,6 +488,8 @@ export class WebRTCTransportClient implements TransportClient {
 
     this.dataChannel = webrtc.createDataChannel(this.peerConnection);
     this.setupDataChannelHandlers();
+
+    this.controlChannel = webrtc.createDataChannel(this.peerConnection, "control");
 
     this.transceiverMap.clear();
     for (const track of tracks) {
@@ -544,6 +551,11 @@ export class WebRTCTransportClient implements TransportClient {
     if (this.dataChannel) {
       this.dataChannel.close();
       this.dataChannel = undefined;
+    }
+
+    if (this.controlChannel) {
+      this.controlChannel.close();
+      this.controlChannel = undefined;
     }
 
     if (this.peerConnection) {
@@ -626,6 +638,64 @@ export class WebRTCTransportClient implements TransportClient {
     } catch (error) {
       console.warn("[WebRTCTransport] Failed to send message:", error);
     }
+  }
+
+  private sendControlMessage(command: string, data: any): void {
+    if (!this.controlChannel) {
+      console.warn("[WebRTCTransport] Control channel not available");
+      return;
+    }
+    try {
+      webrtc.sendMessage(this.controlChannel, command, data, "runtime");
+    } catch (error) {
+      console.warn("[WebRTCTransport] Failed to send control message:", error);
+    }
+  }
+
+  pauseTrack(name: string): void {
+    const entry = this.transceiverMap.get(name);
+    if (entry?.transceiver?.mid) {
+      entry.transceiver.direction = "inactive";
+      this.applyDirectionLocally(entry.transceiver.mid, "inactive").catch((e) => {
+        console.warn("[WebRTCTransport] Failed to apply pause direction:", e);
+      });
+    }
+    this.sendControlMessage("pause_track", { name });
+  }
+
+  resumeTrack(name: string): void {
+    const entry = this.transceiverMap.get(name);
+    if (entry?.transceiver?.mid) {
+      entry.transceiver.direction = entry.direction;
+      this.applyDirectionLocally(entry.transceiver.mid, entry.direction).catch((e) => {
+        console.warn("[WebRTCTransport] Failed to apply resume direction:", e);
+      });
+    }
+    this.sendControlMessage("resume_track", { name });
+  }
+
+  private async applyDirectionLocally(
+    mid: string,
+    localDirection: RTCRtpTransceiverDirection,
+  ): Promise<void> {
+    const pc = this.peerConnection;
+    const localSdp = pc?.localDescription?.sdp;
+    const remoteSdp = pc?.remoteDescription?.sdp;
+    if (!pc || !localSdp || !remoteSdp) return;
+
+    const modifiedLocal = webrtc.replaceSdpDirectionForMid(localSdp, mid, localDirection);
+    const modifiedRemote = webrtc.replaceSdpDirectionForMid(
+      remoteSdp,
+      mid,
+      webrtc.complementDirection(localDirection),
+    );
+
+    await pc.setLocalDescription(
+      new RTCSessionDescription({ type: "offer", sdp: modifiedLocal }),
+    );
+    await pc.setRemoteDescription(
+      new RTCSessionDescription({ type: "answer", sdp: modifiedRemote }),
+    );
   }
 
   // ─────────────────────────────────────────────────────────────────────────

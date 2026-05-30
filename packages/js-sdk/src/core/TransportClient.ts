@@ -124,6 +124,18 @@ export interface TransportClient {
   unpublishTrack(name: string): Promise<void>;
 
   /**
+   * Signals the runtime to pause processing of a named track.
+   * Sent via the control data channel.
+   */
+  pauseTrack(name: string): void;
+
+  /**
+   * Signals the runtime to resume processing of a named track.
+   * Sent via the control data channel.
+   */
+  resumeTrack(name: string): void;
+
+  /**
    * Subscribes to transport events.
    *
    * Events:
