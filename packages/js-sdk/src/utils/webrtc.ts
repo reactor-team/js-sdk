@@ -292,6 +292,48 @@ export function parseMessage(data: unknown): unknown {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SDP Direction
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Returns the complementary SDP direction from the remote peer's perspective.
+ * sendonly ↔ recvonly; sendrecv and inactive are symmetric.
+ */
+export function complementDirection(
+  direction: RTCRtpTransceiverDirection,
+): RTCRtpTransceiverDirection {
+  if (direction === "sendonly") return "recvonly";
+  if (direction === "recvonly") return "sendonly";
+  return direction;
+}
+
+/**
+ * Replaces the direction attribute inside the m= section identified by `mid`.
+ *
+ * Splits the SDP on m= section boundaries, locates the section containing
+ * `a=mid:<mid>`, and substitutes its direction line. All other sections and
+ * the session block are returned unchanged.
+ */
+export function replaceSdpDirectionForMid(
+  sdp: string,
+  mid: string,
+  direction: RTCRtpTransceiverDirection,
+): string {
+  // Split on the lookahead so each media section retains its leading \r\n.
+  const [session, ...mediaSections] = sdp.split(/(?=\r\nm=)/);
+
+  const updated = mediaSections.map((section) => {
+    if (!section.includes(`\r\na=mid:${mid}\r\n`)) return section;
+    return section.replace(
+      /\r\na=(sendonly|recvonly|sendrecv|inactive)\r\n/,
+      `\r\na=${direction}\r\n`,
+    );
+  });
+
+  return session + updated.join("");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Connection State
 // ─────────────────────────────────────────────────────────────────────────────
 
