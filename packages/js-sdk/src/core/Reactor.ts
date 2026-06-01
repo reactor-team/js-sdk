@@ -549,6 +549,9 @@ export class Reactor {
       } else if (scope === "runtime") {
         // Just emit — `RecordingClient` and any app-level
         // `runtimeMessage` listeners are subscribers via `on()`.
+        // Content moderation events arrive as `{ type: "moderation",
+        // data: ModerationEvent }`; apps filter on `type` rather than
+        // subscribing to a dedicated SDK event.
         this.emit("runtimeMessage", message);
       }
     });
