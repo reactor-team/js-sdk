@@ -34,7 +34,9 @@ export function NowPlaying() {
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
       <span className="text-[10px] uppercase tracking-wider text-zinc-400">Now playing</span>
-      <p className="mt-1 line-clamp-3 text-sm text-zinc-200">{snapshot.current_prompt ?? "—"}</p>
+      <p className="mt-1 line-clamp-3 text-sm text-zinc-200">
+        {typeof snapshot.current_prompt === "string" ? snapshot.current_prompt : "—"}
+      </p>
 
       <div className="mt-2 flex items-center gap-3 text-[11px] text-zinc-400">
         <span>scene chunk {sceneChunk}/{SCENE_BUDGET}</span>
