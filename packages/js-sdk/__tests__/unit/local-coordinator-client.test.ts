@@ -36,10 +36,24 @@ describe("LocalCoordinatorClient", () => {
   // ── adoptSession() ───────────────────────────────────────────────────────
 
   describe("adoptSession()", () => {
-    it("throws — attaching to an existing session is unsupported in local mode", async () => {
-      await expect(client.adoptSession("some-session-id")).rejects.toThrow(
-        "not supported in local mode"
-      );
+    it("adopts an existing id and caches it for pollSessionReady without start_session", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(MOCK_LOCAL_SESSION_RESPONSE),
+      });
+
+      await client.adoptSession("local");
+
+      expect(client.getSessionId()).toBe("local");
+      const [url, opts] = mockFetch.mock.calls[0];
+      expect(url).toBe("http://localhost:8080/sessions/local");
+      expect(opts.method).toBe("GET");
+
+      // pollSessionReady returns the cached lookup — no extra /start_session POST.
+      const ready = await client.pollSessionReady();
+      expect(ready.session_id).toBe("local");
+      expect(mockFetch).toHaveBeenCalledTimes(1);
     });
   });
 

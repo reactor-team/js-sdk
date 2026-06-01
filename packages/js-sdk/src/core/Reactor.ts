@@ -408,8 +408,8 @@ export class Reactor {
    * Pass `options.sessionId` to attach to a session that already exists
    * (e.g. one created by a backend) instead of creating a new one — session
    * creation is skipped and the transport is brought up against that id. The
-   * `jwtToken` must be valid for the account that owns the session. Not
-   * supported in local mode.
+   * `jwtToken` must be valid for the account that owns the session. Works in
+   * local mode too (it looks the session up by id rather than starting one).
    */
   async connect(jwtToken?: JwtSource, options?: ConnectOptions): Promise<void> {
     console.debug("[Reactor] Connecting, status:", this.status);

@@ -89,14 +89,18 @@ export class LocalCoordinatorClient extends CoordinatorClient {
   }
 
   /**
-   * Not supported in local mode. The local runtime only surfaces capabilities
-   * through `start_session`, so there is no way to attach to a session this
-   * client did not start. Use a fresh `connect()` (which starts a session)
-   * instead of passing `connect({ sessionId })`.
+   * Attaches to an existing session by id, mirroring the production client.
+   * The local runtime always uses the id `"local"` today, but the surface
+   * accepts any id so it stays ready for real local session ids later. Looks
+   * the session up by id and caches the response so {@link pollSessionReady}
+   * returns immediately — no `start_session` is issued.
    */
-  override async adoptSession(_sessionId: string): Promise<void> {
-    throw new Error(
-      "Attaching to an existing session id is not supported in local mode."
+  override async adoptSession(sessionId: string): Promise<void> {
+    this.currentSessionId = sessionId;
+    this.cachedSessionResponse = await this.getSession();
+    console.debug(
+      "[LocalCoordinatorClient] Adopted existing session:",
+      sessionId
     );
   }
 
