@@ -33,6 +33,16 @@ describe("LocalCoordinatorClient", () => {
     vi.unstubAllGlobals();
   });
 
+  // ── adoptSession() ───────────────────────────────────────────────────────
+
+  describe("adoptSession()", () => {
+    it("throws — attaching to an existing session is unsupported in local mode", async () => {
+      await expect(client.adoptSession("some-session-id")).rejects.toThrow(
+        "not supported in local mode"
+      );
+    });
+  });
+
   // ── createSession() ────────────────────────────────────────────────────
 
   describe("createSession()", () => {

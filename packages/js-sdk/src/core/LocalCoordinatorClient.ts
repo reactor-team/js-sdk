@@ -89,6 +89,18 @@ export class LocalCoordinatorClient extends CoordinatorClient {
   }
 
   /**
+   * Not supported in local mode. The local runtime only surfaces capabilities
+   * through `start_session`, so there is no way to attach to a session this
+   * client did not start. Use a fresh `connect()` (which starts a session)
+   * instead of passing `connect({ sessionId })`.
+   */
+  override async adoptSession(_sessionId: string): Promise<void> {
+    throw new Error(
+      "Attaching to an existing session id is not supported in local mode."
+    );
+  }
+
+  /**
    * Returns the cached full session response immediately.
    * The local runtime already provided everything in start_session.
    */

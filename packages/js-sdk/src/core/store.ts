@@ -32,6 +32,11 @@ export interface ReactorState {
 
 export interface ReactorActions {
   sendCommand(command: string, data: any, scope?: MessageScope): Promise<void>;
+  /**
+   * Connect the underlying {@link Reactor}. `options` is forwarded verbatim —
+   * pass `options.sessionId` to attach to an existing session instead of
+   * creating one (see {@link ConnectOptions}).
+   */
   connect(jwtToken?: JwtSource, options?: ConnectOptions): Promise<void>;
   disconnect(recoverable?: boolean): Promise<void>;
   publish(name: string, track: MediaStreamTrack): Promise<void>;
