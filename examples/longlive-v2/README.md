@@ -40,26 +40,26 @@ Get an API key from the [Reactor dashboard](https://reactor.inc). It stays on th
 
 The sidebar is **phase-driven** by the model's `state` snapshot (`snapshot.started`):
 
-| Phase | Visible | What you do |
-| --- | --- | --- |
-| **Setup** (idle) | `<Storyboard>` | Compose the plan: opening shot + scheduled shots/cuts. "Start" compiles it to `set_shot` → `schedule_*` → `start`. |
-| **Live** (generating) | `<NowPlaying>` + `<Director>` | Watch the playhead; fire or schedule shots/cuts in real time. |
+| Phase                 | Visible                       | What you do                                                                                                        |
+| --------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Setup** (idle)      | `<Storyboard>`                | Compose the plan: opening shot + scheduled shots/cuts. "Start" compiles it to `set_shot` → `schedule_*` → `start`. |
+| **Live** (generating) | `<NowPlaying>` + `<Director>` | Watch the playhead; fire or schedule shots/cuts in real time.                                                      |
 
 `<Timeline>` (under the video) visualizes the plan and the playhead in both phases. `<SnapClip>` is model-agnostic and shows whenever the session is `ready`.
 
 ## Code tour
 
-| Path | What it is |
-| --- | --- |
-| `app/LongLiveApp.tsx` | Provider + phase-driven layout |
-| `app/components/Storyboard.tsx` | Setup: compose beats, load presets, "Start storyboard" |
-| `app/components/Timeline.tsx` | Visual chunk timeline — scenes, beats, playhead |
-| `app/components/Director.tsx` | Live: fire/schedule shots & cuts |
-| `app/components/NowPlaying.tsx` | Live: active prompt, scene budget, pause/resume/reset |
-| `app/lib/storyboard-store.ts` | Zustand store for the authored storyboard |
-| `app/lib/prompts.ts` | Preset storyboards (full multi-shot sequences) |
-| `app/api/reactor/token/route.ts` | Mints the short-lived JWT server-side |
-| `app/components/SnapClip.tsx` | Model-agnostic clip recording (drop-in) |
+| Path                             | What it is                                             |
+| -------------------------------- | ------------------------------------------------------ |
+| `app/LongLiveApp.tsx`            | Provider + phase-driven layout                         |
+| `app/components/Storyboard.tsx`  | Setup: compose beats, load presets, "Start storyboard" |
+| `app/components/Timeline.tsx`    | Visual chunk timeline — scenes, beats, playhead        |
+| `app/components/Director.tsx`    | Live: fire/schedule shots & cuts                       |
+| `app/components/NowPlaying.tsx`  | Live: active prompt, scene budget, pause/resume/reset  |
+| `app/lib/storyboard-store.ts`    | Zustand store for the authored storyboard              |
+| `app/lib/prompts.ts`             | Preset storyboards (full multi-shot sequences)         |
+| `app/api/reactor/token/route.ts` | Mints the short-lived JWT server-side                  |
+| `app/components/SnapClip.tsx`    | Model-agnostic clip recording (drop-in)                |
 
 ## Going further
 

@@ -42,7 +42,11 @@ export function Timeline() {
         {/* scene dividers */}
         {starts.map((c, i) =>
           i === 0 ? null : (
-            <div key={`s-${c}`} className="absolute inset-y-0 w-px bg-amber-500/60" style={{ left: pct(c) }} />
+            <div
+              key={`s-${c}`}
+              className="absolute inset-y-0 w-px bg-amber-500/60"
+              style={{ left: pct(c) }}
+            />
           ),
         )}
 
@@ -66,7 +70,10 @@ export function Timeline() {
 
         {/* playhead */}
         {running && (
-          <div className="absolute inset-y-0 z-10 w-0.5 bg-active" style={{ left: pct(sessionChunk) }}>
+          <div
+            className="absolute inset-y-0 z-10 w-0.5 bg-active"
+            style={{ left: pct(sessionChunk) }}
+          >
             <div className="absolute -left-1 -top-1 h-2.5 w-2.5 rounded-full bg-active" />
           </div>
         )}
@@ -74,8 +81,8 @@ export function Timeline() {
 
       <p className="mt-1.5 text-[10px] text-zinc-500">
         <span className="text-sky-400">▸ shot</span> keeps the scene ·{" "}
-        <span className="text-amber-400">✂ cut</span> starts a new one (fresh {SCENE_BUDGET}-chunk
-        budget)
+        <span className="text-amber-400">✂ cut</span> starts a new one (fresh{" "}
+        {SCENE_BUDGET}-chunk budget)
       </p>
     </div>
   );

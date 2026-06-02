@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useLongliveV2CommandError, useLongliveV2State } from "@reactor-models/longlive-v2";
+import {
+  useLongliveV2CommandError,
+  useLongliveV2State,
+} from "@reactor-models/longlive-v2";
 
 // Surface command_error messages from the model. LongLive 2 emits these
 // when a command fails its preconditions — for example, calling

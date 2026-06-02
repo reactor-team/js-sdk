@@ -33,28 +33,45 @@ export function NowPlaying() {
 
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
-      <span className="text-[10px] uppercase tracking-wider text-zinc-400">Now playing</span>
+      <span className="text-[10px] uppercase tracking-wider text-zinc-400">
+        Now playing
+      </span>
       <p className="mt-1 line-clamp-3 text-sm text-zinc-200">
-        {typeof snapshot.current_prompt === "string" ? snapshot.current_prompt : "—"}
+        {typeof snapshot.current_prompt === "string"
+          ? snapshot.current_prompt
+          : "—"}
       </p>
 
       <div className="mt-2 flex items-center gap-3 text-[11px] text-zinc-400">
-        <span>scene chunk {sceneChunk}/{SCENE_BUDGET}</span>
+        <span>
+          scene chunk {sceneChunk}/{SCENE_BUDGET}
+        </span>
         <span>session {snapshot.session_chunk ?? 0}</span>
-        {remaining <= 8 && <span className="font-semibold text-amber-400">cut to continue</span>}
+        {remaining <= 8 && (
+          <span className="font-semibold text-amber-400">cut to continue</span>
+        )}
       </div>
 
       <div className="mt-3 flex gap-1.5">
         {snapshot.paused ? (
-          <button onClick={() => resume()} className="flex-1 rounded-md border border-zinc-700 py-1 text-xs text-zinc-200 hover:bg-zinc-800">
+          <button
+            onClick={() => resume()}
+            className="flex-1 rounded-md border border-zinc-700 py-1 text-xs text-zinc-200 hover:bg-zinc-800"
+          >
             Resume
           </button>
         ) : (
-          <button onClick={() => pause()} className="flex-1 rounded-md border border-zinc-700 py-1 text-xs text-zinc-200 hover:bg-zinc-800">
+          <button
+            onClick={() => pause()}
+            className="flex-1 rounded-md border border-zinc-700 py-1 text-xs text-zinc-200 hover:bg-zinc-800"
+          >
             Pause
           </button>
         )}
-        <button onClick={onReset} className="flex-1 rounded-md border border-red-900/60 py-1 text-xs text-red-300 hover:bg-red-950/40">
+        <button
+          onClick={onReset}
+          className="flex-1 rounded-md border border-red-900/60 py-1 text-xs text-red-300 hover:bg-red-950/40"
+        >
           Reset
         </button>
       </div>

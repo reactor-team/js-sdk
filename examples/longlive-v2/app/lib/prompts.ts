@@ -90,7 +90,8 @@ export const STORYBOARDS: ReadonlyArray<PresetStoryboard> = [
   {
     id: "wildlife",
     label: "Wildlife montage",
-    description: "Hard cuts across animals in natural settings — LongLive's strength.",
+    description:
+      "Hard cuts across animals in natural settings — LongLive's strength.",
     beats: [
       {
         kind: "shot",

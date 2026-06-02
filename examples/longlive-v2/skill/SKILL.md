@@ -13,12 +13,12 @@ A continuous, autoregressive video model you direct like a storyboard. You open 
 
 ## The shot-vs-cut grammar (internalize this)
 
-| | **shot** (`set_shot`) | **cut** (`scene_cut`) |
-| --- | --- | --- |
-| Feel | new beat, same world | clean break to a new scene |
-| Memory | preserved | purged |
+|              | **shot** (`set_shot`)                 | **cut** (`scene_cut`)           |
+| ------------ | ------------------------------------- | ------------------------------- |
+| Feel         | new beat, same world                  | clean break to a new scene      |
+| Memory       | preserved                             | purged                          |
 | Chunk budget | **spends** the current scene's budget | **resets** it (fresh 48 chunks) |
-| Length | does not extend | **extends** the video |
+| Length       | does not extend                       | **extends** the video           |
 
 ## Chunks, scenes, and length
 
@@ -27,12 +27,12 @@ A chunk is 29 frames (~1.2s at 24fps). Two counters arrive on every `chunk_compl
 
 ## The four concepts
 
-| Concept | API |
-| --- | --- |
-| **Connection** | `useLongliveV2()` → `status`, `connect()`, `disconnect()`. Four states: disconnected → connecting → waiting → ready. |
-| **Events (you send)** | `useLongliveV2()` → `setShot`, `sceneCut`, `scheduleShot`, `scheduleSceneCut`, `start`, `pause`, `resume`, `reset`, `setSeed`. |
-| **Messages (you receive)** | `useLongliveV2State((msg) => …)`, `useLongliveV2CommandError((msg) => …)`. |
-| **Tracks** | `<LongliveV2MainVideoView />` — pre-bound `<ReactorView track="main_video">`. |
+| Concept                    | API                                                                                                                            |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Connection**             | `useLongliveV2()` → `status`, `connect()`, `disconnect()`. Four states: disconnected → connecting → waiting → ready.           |
+| **Events (you send)**      | `useLongliveV2()` → `setShot`, `sceneCut`, `scheduleShot`, `scheduleSceneCut`, `start`, `pause`, `resume`, `reset`, `setSeed`. |
+| **Messages (you receive)** | `useLongliveV2State((msg) => …)`, `useLongliveV2CommandError((msg) => …)`.                                                     |
+| **Tracks**                 | `<LongliveV2MainVideoView />` — pre-bound `<ReactorView track="main_video">`.                                                  |
 
 ## The UI phase model
 

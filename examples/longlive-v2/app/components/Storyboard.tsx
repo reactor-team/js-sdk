@@ -13,7 +13,8 @@ import { STORYBOARDS } from "../lib/prompts";
 //
 // Hidden once generation is running — directing live moves to <Director>.
 export function Storyboard() {
-  const { status, setShot, scheduleShot, scheduleSceneCut, start } = useLongliveV2();
+  const { status, setShot, scheduleShot, scheduleSceneCut, start } =
+    useLongliveV2();
   const { beats, setOpening, addBeat, remove, load, clear } = useStoryboard();
   const [snapshot, setSnapshot] = useState<LongliveV2StateMessage | null>(null);
   const [text, setText] = useState("");
@@ -44,7 +45,10 @@ export function Storyboard() {
       await setShot({ prompt: opener.prompt });
       for (const b of beats.filter((b) => b.atChunk !== 0)) {
         if (b.kind === "cut") {
-          await scheduleSceneCut({ prompt: b.prompt, at_session_chunk: b.atChunk });
+          await scheduleSceneCut({
+            prompt: b.prompt,
+            at_session_chunk: b.atChunk,
+          });
         } else {
           await scheduleShot({ prompt: b.prompt, at_session_chunk: b.atChunk });
         }
@@ -58,9 +62,14 @@ export function Storyboard() {
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-wider text-zinc-400">Storyboard</span>
+        <span className="text-[10px] uppercase tracking-wider text-zinc-400">
+          Storyboard
+        </span>
         {beats.length > 0 && (
-          <button onClick={clear} className="text-[10px] text-zinc-500 hover:text-zinc-300">
+          <button
+            onClick={clear}
+            className="text-[10px] text-zinc-500 hover:text-zinc-300"
+          >
             clear
           </button>
         )}
@@ -84,7 +93,11 @@ export function Storyboard() {
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder={opener ? "Describe a shot or the next scene…" : "Describe the opening shot…"}
+        placeholder={
+          opener
+            ? "Describe a shot or the next scene…"
+            : "Describe the opening shot…"
+        }
         className="min-h-[64px] w-full resize-none rounded-md border border-zinc-700 bg-zinc-950 p-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
       />
 
@@ -93,13 +106,21 @@ export function Storyboard() {
           <div className="flex overflow-hidden rounded-md border border-zinc-700">
             <button
               onClick={() => setKind("shot")}
-              className={kind === "shot" ? "bg-brand px-2 py-1 text-brand-fg" : "px-2 py-1 text-zinc-400"}
+              className={
+                kind === "shot"
+                  ? "bg-brand px-2 py-1 text-brand-fg"
+                  : "px-2 py-1 text-zinc-400"
+              }
             >
               Shot
             </button>
             <button
               onClick={() => setKind("cut")}
-              className={kind === "cut" ? "bg-brand px-2 py-1 text-brand-fg" : "px-2 py-1 text-zinc-400"}
+              className={
+                kind === "cut"
+                  ? "bg-brand px-2 py-1 text-brand-fg"
+                  : "px-2 py-1 text-zinc-400"
+              }
             >
               Cut
             </button>
@@ -127,12 +148,26 @@ export function Storyboard() {
       {beats.length > 0 && (
         <ul className="mt-3 flex flex-col gap-1">
           {beats.map((b) => (
-            <li key={b.id} className="flex items-center gap-2 rounded bg-zinc-950/60 px-2 py-1 text-xs">
-              <span className={b.kind === "cut" ? "font-bold text-amber-400" : "font-bold text-sky-400"}>
-                {b.atChunk === 0 ? "open" : `${b.kind === "cut" ? "✂" : "▸"} @${b.atChunk}`}
+            <li
+              key={b.id}
+              className="flex items-center gap-2 rounded bg-zinc-950/60 px-2 py-1 text-xs"
+            >
+              <span
+                className={
+                  b.kind === "cut"
+                    ? "font-bold text-amber-400"
+                    : "font-bold text-sky-400"
+                }
+              >
+                {b.atChunk === 0
+                  ? "open"
+                  : `${b.kind === "cut" ? "✂" : "▸"} @${b.atChunk}`}
               </span>
               <span className="flex-1 truncate text-zinc-300">{b.prompt}</span>
-              <button onClick={() => remove(b.id)} className="text-zinc-500 hover:text-red-400">
+              <button
+                onClick={() => remove(b.id)}
+                className="text-zinc-500 hover:text-red-400"
+              >
                 ✕
               </button>
             </li>
@@ -147,7 +182,11 @@ export function Storyboard() {
       >
         {starting ? "Starting…" : "▶ Start storyboard"}
       </button>
-      {!ready && <p className="mt-1 text-[11px] text-zinc-500">Connect first to start.</p>}
+      {!ready && (
+        <p className="mt-1 text-[11px] text-zinc-500">
+          Connect first to start.
+        </p>
+      )}
     </div>
   );
 }

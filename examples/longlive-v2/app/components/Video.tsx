@@ -8,7 +8,10 @@ import { LongliveV2MainVideoView } from "@reactor-models/longlive-v2";
 export function Video() {
   return (
     <div className="relative h-full min-h-[40vh] w-full overflow-hidden rounded-lg border border-zinc-800 bg-black lg:min-h-0">
-      <LongliveV2MainVideoView className="h-full w-full" videoObjectFit="contain" />
+      <LongliveV2MainVideoView
+        className="h-full w-full"
+        videoObjectFit="contain"
+      />
     </div>
   );
 }
