@@ -991,6 +991,7 @@ export class WebRTCTransportClient implements TransportClient {
 
     this.controlChannel.onopen = () => {
       console.debug("[WebRTCTransport] Control channel open");
+      this.checkFullyConnected();
     };
 
     this.controlChannel.onclose = () => {

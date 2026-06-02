@@ -128,14 +128,14 @@ export function ReactorProvider({
 
   const { apiUrl, modelName, local } = props;
   const maxAttempts = pollingOptions.maxAttempts;
-  const { publish, autoResumeTracks } = pollingOptions;
+  const { autoResumeTracks } = pollingOptions;
 
   // Keep connectOptions in the store in sync when provider props change without
-  // tearing the store down (e.g. toggling publish/autoResumeTracks while disconnected).
+  // tearing the store down (e.g. toggling autoResumeTracks while disconnected).
   useEffect(() => {
     storeRef.current?.setState({ connectOptions: pollingOptions });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [publish, autoResumeTracks, maxAttempts]);
+  }, [autoResumeTracks, maxAttempts]);
 
   // Handle page unload (refresh, close, navigate away) with non-recoverable disconnect
   useEffect(() => {

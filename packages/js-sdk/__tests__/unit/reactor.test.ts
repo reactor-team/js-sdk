@@ -363,9 +363,9 @@ describe("Reactor", () => {
     });
   });
 
-  // ── publish / autoResumeTracks options ────────────────────────────────
+  // ── autoResumeTracks option ───────────────────────────────────────────
 
-  describe("connect() with publish/autoResumeTracks options", () => {
+  describe("connect() track negotiation and autoResumeTracks", () => {
     const MIXED_TRACKS_RESPONSE = {
       ...MOCK_FULL_SESSION_RESPONSE,
       capabilities: {
@@ -387,31 +387,14 @@ describe("Reactor", () => {
       };
     }
 
-    it("prepares only recvonly tracks when publish is false", async () => {
+    it("always prepares all tracks (sendonly and recvonly)", async () => {
       const r = new Reactor({ modelName: "echo" });
       const { CoordinatorClient } = await import("../../src/core/CoordinatorClient");
       vi.mocked(CoordinatorClient).mockImplementationOnce(function (this: any) {
         return mockCoordinator();
       });
 
-      await r.connect("jwt", { publish: false });
-
-      expect(mockTransportClient.prepare).toHaveBeenCalledWith([
-        { name: "main_video", kind: "video", direction: "recvonly" },
-        { name: "main_audio", kind: "audio", direction: "recvonly" },
-      ]);
-
-      await r.disconnect();
-    });
-
-    it("always includes recvonly tracks regardless of other options", async () => {
-      const r = new Reactor({ modelName: "echo" });
-      const { CoordinatorClient } = await import("../../src/core/CoordinatorClient");
-      vi.mocked(CoordinatorClient).mockImplementationOnce(function (this: any) {
-        return mockCoordinator();
-      });
-
-      await r.connect("jwt", { publish: true });
+      await r.connect("jwt");
 
       expect(mockTransportClient.prepare).toHaveBeenCalledWith([
         { name: "main_video", kind: "video", direction: "recvonly" },

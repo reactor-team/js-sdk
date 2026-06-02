@@ -62,11 +62,6 @@ export interface ConnectOptions {
   /** Maximum number of SDP polling attempts before giving up. Default: 6. */
   maxAttempts?: number;
   /**
-   * When false, sendonly tracks are excluded from the negotiation so the
-   * client does not publish any media to the model. Default: true.
-   */
-  publish?: boolean;
-  /**
    * When true, sends `resume_track` for every recvonly track immediately
    * after the connection is established, causing the backend to begin
    * streaming those tracks. When false (default), recvonly tracks start
