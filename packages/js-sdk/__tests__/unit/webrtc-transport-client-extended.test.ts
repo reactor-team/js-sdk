@@ -53,6 +53,10 @@ const MOCK_TRACKS: TrackCapability[] = [
   { name: "main_video", kind: "video", direction: "recvonly" },
 ];
 
+const SENDONLY_TRACKS: TrackCapability[] = [
+  { name: "webcam", kind: "video", direction: "sendonly" },
+];
+
 const ICE_SERVERS_RESPONSE = {
   ice_servers: [{ uris: ["stun:stun.example.com:3478"] }],
 };
@@ -401,6 +405,67 @@ describe("WebRTCTransportClient (extended)", () => {
       await client.connect(true);
 
       expect(mockFetch.mock.calls[1][1].method).toBe("PUT");
+    });
+  });
+
+  // ── publishTrack() / unpublishTrack() control messages ───────────────
+
+  describe("publishTrack() and unpublishTrack() control messages", () => {
+    async function connectSendonly(client: WebRTCTransportClient) {
+      setupFullConnect();
+      await client.prepare(SENDONLY_TRACKS);
+      await client.connect();
+      simulateConnected();
+    }
+
+    function getControlMessages(dc: ReturnType<typeof getDataChannel>) {
+      return dc.send.mock.calls.map((c: any) => JSON.parse(c[0]));
+    }
+
+    it("sends publish_track via control channel after publishing", async () => {
+      const client = createClient();
+      await connectSendonly(client);
+
+      const dc = getDataChannel();
+      dc.send.mockClear();
+
+      await client.publishTrack("webcam", {} as MediaStreamTrack);
+
+      const msgs = getControlMessages(dc);
+      const msg = msgs.find((m: any) => m.data?.type === "publish_track");
+      expect(msg).toBeDefined();
+      expect(msg.scope).toBe("runtime");
+      expect(msg.data.data).toEqual({ name: "webcam" });
+    });
+
+    it("sends unpublish_track via control channel after unpublishing", async () => {
+      const client = createClient();
+      await connectSendonly(client);
+
+      const dc = getDataChannel();
+      await client.publishTrack("webcam", {} as MediaStreamTrack);
+      dc.send.mockClear();
+
+      await client.unpublishTrack("webcam");
+
+      const msgs = getControlMessages(dc);
+      const msg = msgs.find((m: any) => m.data?.type === "unpublish_track");
+      expect(msg).toBeDefined();
+      expect(msg.scope).toBe("runtime");
+      expect(msg.data.data).toEqual({ name: "webcam" });
+    });
+
+    it("does not send unpublish_track when unpublishing a track that was never published", async () => {
+      const client = createClient();
+      await connectSendonly(client);
+
+      const dc = getDataChannel();
+      dc.send.mockClear();
+
+      await client.unpublishTrack("webcam");
+
+      const msgs = getControlMessages(dc);
+      expect(msgs.find((m: any) => m.data?.type === "unpublish_track")).toBeUndefined();
     });
   });
 

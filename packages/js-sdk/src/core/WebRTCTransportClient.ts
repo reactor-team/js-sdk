@@ -490,6 +490,7 @@ export class WebRTCTransportClient implements TransportClient {
     this.setupDataChannelHandlers();
 
     this.controlChannel = webrtc.createDataChannel(this.peerConnection, "control");
+    this.setupControlChannelHandlers();
 
     this.transceiverMap.clear();
     for (const track of tracks) {
@@ -731,6 +732,7 @@ export class WebRTCTransportClient implements TransportClient {
 
     await entry.transceiver.sender.replaceTrack(track);
     this.publishedTracks.set(name, track);
+    this.sendControlMessage("publish_track", { name });
     console.debug(`[WebRTCTransport] Track "${name}" published successfully`);
   }
 
@@ -740,6 +742,7 @@ export class WebRTCTransportClient implements TransportClient {
 
     try {
       await entry.transceiver.sender.replaceTrack(null);
+      this.sendControlMessage("unpublish_track", { name });
       console.debug(
         `[WebRTCTransport] Track "${name}" unpublished successfully`
       );
@@ -835,7 +838,7 @@ export class WebRTCTransportClient implements TransportClient {
   // ─────────────────────────────────────────────────────────────────────────
 
   private checkFullyConnected(): void {
-    if (this.peerConnected && this.dataChannelOpen) {
+    if (this.peerConnected && this.dataChannelOpen && this.controlChannel?.readyState === "open") {
       this.setStatus("connected");
       this.startStatsPolling();
     }
@@ -980,6 +983,27 @@ export class WebRTCTransportClient implements TransportClient {
           error
         );
       }
+    };
+  }
+
+  private setupControlChannelHandlers(): void {
+    if (!this.controlChannel) return;
+
+    this.controlChannel.onopen = () => {
+      console.debug("[WebRTCTransport] Control channel open");
+    };
+
+    this.controlChannel.onclose = () => {
+      console.debug("[WebRTCTransport] Control channel closed");
+    };
+
+    this.controlChannel.onerror = (error) => {
+      console.error("[WebRTCTransport] Control channel error:", error);
+    };
+
+    this.controlChannel.onmessage = (event) => {
+      const rawData = webrtc.parseMessage(event.data) as any;
+      console.debug("[WebRTCTransport] Received control message:", rawData);
     };
   }
 }

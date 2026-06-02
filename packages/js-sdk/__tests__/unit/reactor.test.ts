@@ -61,6 +61,8 @@ vi.mock("../../src/core/WebRTCTransportClient", () => ({
       sendCommand: vi.fn(),
       publishTrack: vi.fn().mockResolvedValue(undefined),
       unpublishTrack: vi.fn().mockResolvedValue(undefined),
+      pauseTrack: vi.fn(),
+      resumeTrack: vi.fn(),
       on: vi.fn((event: string, handler: any) => {
         transportHandlers[event] = handler;
       }),
@@ -361,9 +363,9 @@ describe("Reactor", () => {
     });
   });
 
-  // ── publish / subscribe options ───────────────────────────────────────
+  // ── publish / autoResumeTracks options ────────────────────────────────
 
-  describe("connect() with publish/subscribe options", () => {
+  describe("connect() with publish/autoResumeTracks options", () => {
     const MIXED_TRACKS_RESPONSE = {
       ...MOCK_FULL_SESSION_RESPONSE,
       capabilities: {
@@ -376,17 +378,20 @@ describe("Reactor", () => {
       },
     };
 
+    function mockCoordinator() {
+      return {
+        createSession: vi.fn().mockResolvedValue(MOCK_INITIAL_RESPONSE),
+        pollSessionReady: vi.fn().mockResolvedValue(MIXED_TRACKS_RESPONSE),
+        terminateSession: vi.fn().mockResolvedValue(undefined),
+        abort: vi.fn(),
+      };
+    }
+
     it("prepares only recvonly tracks when publish is false", async () => {
       const r = new Reactor({ modelName: "echo" });
-
       const { CoordinatorClient } = await import("../../src/core/CoordinatorClient");
       vi.mocked(CoordinatorClient).mockImplementationOnce(function (this: any) {
-        return {
-          createSession: vi.fn().mockResolvedValue(MOCK_INITIAL_RESPONSE),
-          pollSessionReady: vi.fn().mockResolvedValue(MIXED_TRACKS_RESPONSE),
-          terminateSession: vi.fn().mockResolvedValue(undefined),
-          abort: vi.fn(),
-        };
+        return mockCoordinator();
       });
 
       await r.connect("jwt", { publish: false });
@@ -399,48 +404,50 @@ describe("Reactor", () => {
       await r.disconnect();
     });
 
-    it("prepares only sendonly tracks when subscribe is false", async () => {
+    it("always includes recvonly tracks regardless of other options", async () => {
       const r = new Reactor({ modelName: "echo" });
-
       const { CoordinatorClient } = await import("../../src/core/CoordinatorClient");
       vi.mocked(CoordinatorClient).mockImplementationOnce(function (this: any) {
-        return {
-          createSession: vi.fn().mockResolvedValue(MOCK_INITIAL_RESPONSE),
-          pollSessionReady: vi.fn().mockResolvedValue(MIXED_TRACKS_RESPONSE),
-          terminateSession: vi.fn().mockResolvedValue(undefined),
-          abort: vi.fn(),
-        };
+        return mockCoordinator();
       });
 
-      await r.connect("jwt", { subscribe: false });
-
-      expect(mockTransportClient.prepare).toHaveBeenCalledWith([
-        { name: "webcam", kind: "video", direction: "sendonly" },
-      ]);
-
-      await r.disconnect();
-    });
-
-    it("prepares all tracks when both publish and subscribe are true (default)", async () => {
-      const r = new Reactor({ modelName: "echo" });
-
-      const { CoordinatorClient } = await import("../../src/core/CoordinatorClient");
-      vi.mocked(CoordinatorClient).mockImplementationOnce(function (this: any) {
-        return {
-          createSession: vi.fn().mockResolvedValue(MOCK_INITIAL_RESPONSE),
-          pollSessionReady: vi.fn().mockResolvedValue(MIXED_TRACKS_RESPONSE),
-          terminateSession: vi.fn().mockResolvedValue(undefined),
-          abort: vi.fn(),
-        };
-      });
-
-      await r.connect("jwt");
+      await r.connect("jwt", { publish: true });
 
       expect(mockTransportClient.prepare).toHaveBeenCalledWith([
         { name: "main_video", kind: "video", direction: "recvonly" },
         { name: "main_audio", kind: "audio", direction: "recvonly" },
         { name: "webcam", kind: "video", direction: "sendonly" },
       ]);
+
+      await r.disconnect();
+    });
+
+    it("calls resumeTrack for all recvonly tracks when autoResumeTracks is true", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      const { CoordinatorClient } = await import("../../src/core/CoordinatorClient");
+      vi.mocked(CoordinatorClient).mockImplementationOnce(function (this: any) {
+        return mockCoordinator();
+      });
+
+      await r.connect("jwt", { autoResumeTracks: true });
+
+      expect(mockTransportClient.resumeTrack).toHaveBeenCalledWith("main_video");
+      expect(mockTransportClient.resumeTrack).toHaveBeenCalledWith("main_audio");
+      expect(mockTransportClient.resumeTrack).not.toHaveBeenCalledWith("webcam");
+
+      await r.disconnect();
+    });
+
+    it("does not call resumeTrack when autoResumeTracks is false (default)", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      const { CoordinatorClient } = await import("../../src/core/CoordinatorClient");
+      vi.mocked(CoordinatorClient).mockImplementationOnce(function (this: any) {
+        return mockCoordinator();
+      });
+
+      await r.connect("jwt");
+
+      expect(mockTransportClient.resumeTrack).not.toHaveBeenCalled();
 
       await r.disconnect();
     });
