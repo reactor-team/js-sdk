@@ -62,6 +62,7 @@ export class Reactor {
   private capabilities?: Capabilities;
   private tracks: TrackCapability[] = [];
   private presetTracks?: TrackCapability[];
+  private autoResumeTracks = false;
   private sessionResponse?: SessionResponse;
   // Cached so clip surfaces (player, download button, hook) can
   // reach the same token source without re-threading `getJwt`.
@@ -465,7 +466,7 @@ export class Reactor {
       let transportConnectingMs: number;
 
       const publish = options?.publish ?? true;
-      const subscribe = options?.subscribe ?? true;
+      this.autoResumeTracks = options?.autoResumeTracks ?? false;
 
       if (this.presetTracks) {
         // 2a. Parallel path: tracks are known at build time, so we can
@@ -473,7 +474,7 @@ export class Reactor {
         this.tracks = this.presetTracks.filter(
           (t) =>
             (t.direction === "sendonly" && publish) ||
-            (t.direction === "recvonly" && subscribe)
+            t.direction === "recvonly"
         );
 
         const tParallel = performance.now();
@@ -504,7 +505,7 @@ export class Reactor {
         this.tracks = allTracks.filter(
           (t) =>
             (t.direction === "sendonly" && publish) ||
-            (t.direction === "recvonly" && subscribe)
+            t.direction === "recvonly"
         );
         this.capabilities = { ...sessionResponse.capabilities!, tracks: this.tracks };
         this.emit("capabilitiesReceived", this.capabilities);
@@ -573,6 +574,15 @@ export class Reactor {
       switch (status) {
         case "connected":
           this.finalizeConnectionTimings();
+
+          if (this.autoResumeTracks) {
+            for (const track of this.tracks) {``
+              if (track.direction === "recvonly") {
+                this.resumeTrack(track.name);
+              }
+            }
+          }
+
           this.setStatus("ready");
           break;
         case "disconnected":
@@ -593,8 +603,17 @@ export class Reactor {
     client.on(
       "trackReceived",
       (name: string, track: MediaStreamTrack, stream: MediaStream) => {
+        console.log("[Reactor] trackReceived", name, track, stream);
         if (this.transportClient !== client) return;
         this.emit("trackReceived", name, track, stream);
+
+        if (this.autoResumeTracks) {
+          for (const track of this.tracks) {
+            if (track.direction === "recvonly") {
+              this.resumeTrack(track.name);
+            }
+          }
+        }
       }
     );
 

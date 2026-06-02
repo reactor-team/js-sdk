@@ -67,10 +67,12 @@ export interface ConnectOptions {
    */
   publish?: boolean;
   /**
-   * When false, recvonly tracks are excluded from the negotiation so the
-   * client does not receive any media from the model. Default: true.
+   * When true, sends `resume_track` for every recvonly track immediately
+   * after the connection is established, causing the backend to begin
+   * streaming those tracks. When false (default), recvonly tracks start
+   * paused and must be resumed individually via `resumeTrack()`.
    */
-  subscribe?: boolean;
+  autoResumeTracks?: boolean;
 }
 
 /**
