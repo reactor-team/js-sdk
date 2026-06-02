@@ -14,15 +14,27 @@ function createMockPeerConnection() {
     }),
     setLocalDescription: vi.fn(),
     setRemoteDescription: vi.fn(),
-    createDataChannel: vi.fn().mockReturnValue({
-      onopen: null as ((ev: Event) => void) | null,
-      onclose: null,
-      onerror: null,
-      onmessage: null,
-      readyState: "connecting",
-      close: vi.fn(),
-      send: vi.fn(),
-    }),
+    createDataChannel: vi.fn()
+      .mockReturnValueOnce({
+        onopen: null as ((ev: Event) => void) | null,
+        onclose: null,
+        onerror: null,
+        onmessage: null,
+        readyState: "connecting",
+        close: vi.fn(),
+        send: vi.fn(),
+        label: "data",
+      })
+      .mockReturnValueOnce({
+        onopen: null as ((ev: Event) => void) | null,
+        onclose: null,
+        onerror: null,
+        onmessage: null,
+        readyState: "connecting",
+        close: vi.fn(),
+        send: vi.fn(),
+        label: "control",
+      }),
     close: vi.fn(),
     getSenders: vi.fn().mockReturnValue([]),
     getReceivers: vi.fn().mockReturnValue([]),
@@ -125,8 +137,11 @@ describe("WebRTCTransportClient connection timings", () => {
     mockPC.onconnectionstatechange!();
 
     const dc = mockPC.createDataChannel.mock.results[0].value;
+    const cc = mockPC.createDataChannel.mock.results[1].value;
     dc.readyState = "open";
     dc.onopen(new Event("open"));
+    cc.readyState = "open";
+    cc.onopen(new Event("open"));
 
     const timings = client.getTransportTimings();
     expect(timings).toBeDefined();
@@ -158,8 +173,11 @@ describe("WebRTCTransportClient connection timings", () => {
     mockPC.connectionState = "connected";
     mockPC.onconnectionstatechange!();
     const dc = mockPC.createDataChannel.mock.results[0].value;
+    const cc = mockPC.createDataChannel.mock.results[1].value;
     dc.readyState = "open";
     dc.onopen(new Event("open"));
+    cc.readyState = "open";
+    cc.onopen(new Event("open"));
 
     expect(client.getTransportTimings()).toBeDefined();
 

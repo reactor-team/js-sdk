@@ -465,17 +465,12 @@ export class Reactor {
       let sessionPollingMs: number;
       let transportConnectingMs: number;
 
-      const publish = options?.publish ?? true;
       this.autoResumeTracks = options?.autoResumeTracks ?? false;
 
       if (this.presetTracks) {
         // 2a. Parallel path: tracks are known at build time, so we can
         //     prepare the transport while waiting for the Runtime.
-        this.tracks = this.presetTracks.filter(
-          (t) =>
-            (t.direction === "sendonly" && publish) ||
-            t.direction === "recvonly"
-        );
+        this.tracks = this.presetTracks;
 
         const tParallel = performance.now();
         const [sessionResponse] = await Promise.all([
@@ -501,12 +496,7 @@ export class Reactor {
         sessionPollingMs = performance.now() - tPoll;
 
         this.sessionResponse = sessionResponse;
-        const allTracks = sessionResponse.capabilities!.tracks;
-        this.tracks = allTracks.filter(
-          (t) =>
-            (t.direction === "sendonly" && publish) ||
-            t.direction === "recvonly"
-        );
+        this.tracks = sessionResponse.capabilities!.tracks;
         this.capabilities = { ...sessionResponse.capabilities!, tracks: this.tracks };
         this.emit("capabilitiesReceived", this.capabilities);
 
@@ -519,6 +509,14 @@ export class Reactor {
         await this.transportClient.prepare(this.tracks);
         await this.transportClient.connect();
         transportConnectingMs = performance.now() - tTransport;
+      }
+
+      if (this.autoResumeTracks) {
+        for (const track of this.tracks) {
+          if (track.direction === "recvonly") {
+            this.resumeTrack(track.name);
+          }
+        }
       }
 
       console.debug("[Reactor] Session ready, tracks:", this.tracks.length);
