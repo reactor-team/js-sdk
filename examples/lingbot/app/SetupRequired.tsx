@@ -1,7 +1,6 @@
 import { Header } from "./components/Header";
 
-const DASHBOARD_URL =
-  "https://www.reactor.inc/dashboard/account?section=api-keys";
+const ACCOUNT_API_KEYS_URL = "https://www.reactor.inc/account/api-keys";
 
 // Server Component shown when REACTOR_API_KEY is missing from the
 // environment. Pure markup — no hooks, no UI-lib components, so it
@@ -30,7 +29,7 @@ export function SetupRequired() {
               <span>
                 Create an API key at{" "}
                 <a
-                  href={DASHBOARD_URL}
+                  href={ACCOUNT_API_KEYS_URL}
                   target="_blank"
                   rel="noreferrer"
                   className="text-brand underline-offset-2 hover:underline"

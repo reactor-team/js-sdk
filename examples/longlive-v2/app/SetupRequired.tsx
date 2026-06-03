@@ -1,6 +1,8 @@
 import { Header } from "./components/Header";
+import { cn, PANEL } from "./components/ui";
 
-const ACCOUNT_API_KEYS_URL = "https://www.reactor.inc/account/api-keys";
+const DASHBOARD_URL =
+  "https://www.reactor.inc/dashboard/account?section=api-keys";
 
 // Server Component shown when REACTOR_API_KEY is missing from the
 // environment. Pure markup — no hooks, no UI-lib components, so it
@@ -12,7 +14,7 @@ export function SetupRequired() {
     <div className="flex min-h-screen flex-col">
       <Header />
       <main className="flex flex-1 items-center justify-center p-6">
-        <div className="w-full max-w-md rounded-lg border border-zinc-800 bg-zinc-900/40 p-6">
+        <div className={cn(PANEL, "w-full max-w-md p-6")}>
           <h2 className="text-base font-semibold text-zinc-100">
             Setup required
           </h2>
@@ -29,7 +31,7 @@ export function SetupRequired() {
               <span>
                 Create an API key at{" "}
                 <a
-                  href={ACCOUNT_API_KEYS_URL}
+                  href={DASHBOARD_URL}
                   target="_blank"
                   rel="noreferrer"
                   className="text-brand underline-offset-2 hover:underline"
