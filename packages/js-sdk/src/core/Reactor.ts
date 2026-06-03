@@ -404,6 +404,12 @@ export class Reactor {
    * be a static string or a {@link JwtSource} resolver; pass a
    * resolver when the token is short-lived so each Coordinator HTTP
    * hop sees a fresh value.
+   *
+   * Pass `options.sessionId` to attach to a session that already exists
+   * (e.g. one created by a backend) instead of creating a new one — session
+   * creation is skipped and the transport is brought up against that id. The
+   * `jwtToken` must be valid for the account that owns the session. Works in
+   * local mode too (it looks the session up by id rather than starting one).
    */
   async connect(jwtToken?: JwtSource, options?: ConnectOptions): Promise<void> {
     console.debug("[Reactor] Connecting, status:", this.status);
@@ -434,25 +440,36 @@ export class Reactor {
             model: this.model,
           });
 
-      // 1. Create session — slim response with session_id and status
-      const tSession = performance.now();
-      const initialResponse = await this.coordinatorClient.createSession();
-      const sessionCreationMs = performance.now() - tSession;
+      // 1. Resolve the session — either attach to a caller-supplied session
+      //    (created elsewhere, e.g. by a backend) or create a fresh one. In
+      //    the attach path there's no POST /sessions, so `sessionCreationMs`
+      //    stays 0.
+      let sessionCreationMs = 0;
+      let sessionId: string;
+      if (options?.sessionId) {
+        await this.coordinatorClient.adoptSession(options.sessionId);
+        sessionId = options.sessionId;
+        console.debug("[Reactor] Attaching to existing session:", sessionId);
+      } else {
+        const tSession = performance.now();
+        const initialResponse = await this.coordinatorClient.createSession();
+        sessionCreationMs = performance.now() - tSession;
+        sessionId = initialResponse.session_id;
+        console.debug(
+          "[Reactor] Session created:",
+          sessionId,
+          "state:",
+          initialResponse.state
+        );
+      }
 
-      this.setSessionId(initialResponse.session_id);
-
-      console.debug(
-        "[Reactor] Session created:",
-        initialResponse.session_id,
-        "state:",
-        initialResponse.state
-      );
+      this.setSessionId(sessionId);
 
       this.setStatus("waiting");
 
       this.transportClient = new WebRTCTransportClient({
         baseUrl: this.coordinatorUrl,
-        sessionId: initialResponse.session_id,
+        sessionId,
         jwtToken: this.local ? "local" : jwtToken!,
         webrtcVersion: REACTOR_WEBRTC_VERSION,
         maxPollAttempts: options?.maxAttempts,

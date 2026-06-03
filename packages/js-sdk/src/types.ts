@@ -61,6 +61,13 @@ export interface ReactorState {
 export interface ConnectOptions {
   /** Maximum number of SDP polling attempts before giving up. Default: 6. */
   maxAttempts?: number;
+  /**
+   * Attach to a session that already exists (e.g. one created by a backend)
+   * instead of creating a new one. When set, `connect()` skips `POST /sessions`
+   * and brings up the transport directly against this id. The JWT passed to
+   * `connect()` must be valid for the account that owns the session.
+   */
+  sessionId?: string;
 }
 
 /**
