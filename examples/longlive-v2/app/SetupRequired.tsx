@@ -1,4 +1,5 @@
 import { Header } from "./components/Header";
+import { cn, PANEL } from "./components/ui";
 
 const DASHBOARD_URL =
   "https://www.reactor.inc/dashboard/account?section=api-keys";
@@ -13,7 +14,7 @@ export function SetupRequired() {
     <div className="flex min-h-screen flex-col">
       <Header />
       <main className="flex flex-1 items-center justify-center p-6">
-        <div className="w-full max-w-md rounded-lg border border-zinc-800 bg-zinc-900/40 p-6">
+        <div className={cn(PANEL, "w-full max-w-md p-6")}>
           <h2 className="text-base font-semibold text-zinc-100">
             Setup required
           </h2>

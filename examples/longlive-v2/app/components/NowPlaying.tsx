@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useLongliveV2, useLongliveV2State } from "@reactor-models/longlive-v2";
 import type { LongliveV2StateMessage } from "@reactor-models/longlive-v2";
 import { useStoryboard, SCENE_BUDGET } from "../lib/storyboard-store";
+import { cn, Panel, Button, IconButton, Icon } from "./ui";
 
 // LIVE-PHASE PANEL. Shows the active prompt, the per-scene chunk budget
 // (current_chunk / 48) and the cumulative session_chunk, plus pause / resume /
@@ -32,17 +33,14 @@ export function NowPlaying() {
   }
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
-      <span className="text-[10px] uppercase tracking-wider text-zinc-400">
-        Now playing
-      </span>
-      <p className="mt-1 line-clamp-3 text-sm text-zinc-200">
+    <Panel label="Now playing">
+      <p className="line-clamp-3 text-sm text-zinc-200">
         {typeof snapshot.current_prompt === "string"
           ? snapshot.current_prompt
           : "—"}
       </p>
 
-      <div className="mt-2 flex items-center gap-3 text-[11px] text-zinc-400">
+      <div className="mt-2 flex items-center gap-3 font-mono tabular-nums text-[11px] text-zinc-400">
         <span>
           scene chunk {sceneChunk}/{SCENE_BUDGET}
         </span>
@@ -52,29 +50,42 @@ export function NowPlaying() {
         )}
       </div>
 
-      <div className="mt-3 flex gap-1.5">
+      <div className="mt-2 h-1 w-full overflow-hidden rounded bg-zinc-800">
+        <div
+          className={cn(
+            "h-full rounded transition-[width]",
+            remaining <= 8 ? "bg-red-500/80" : "bg-brand",
+          )}
+          style={{
+            width: `${Math.min(100, (sceneChunk / SCENE_BUDGET) * 100)}%`,
+          }}
+        />
+      </div>
+
+      <div className="mt-3 flex items-center gap-1.5">
         {snapshot.paused ? (
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => resume()}
-            className="flex-1 rounded-md border border-zinc-700 py-1 text-xs text-zinc-200 hover:bg-zinc-800"
+            leadingIcon={<Icon name="play" />}
+            className="flex-1"
           >
             Resume
-          </button>
+          </Button>
         ) : (
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => pause()}
-            className="flex-1 rounded-md border border-zinc-700 py-1 text-xs text-zinc-200 hover:bg-zinc-800"
+            leadingIcon={<Icon name="pause" />}
+            className="flex-1"
           >
             Pause
-          </button>
+          </Button>
         )}
-        <button
-          onClick={onReset}
-          className="flex-1 rounded-md border border-red-900/60 py-1 text-xs text-red-300 hover:bg-red-950/40"
-        >
-          Reset
-        </button>
+        <IconButton icon="reset" label="Reset" tone="danger" onClick={onReset} />
       </div>
-    </div>
+    </Panel>
   );
 }

@@ -2,6 +2,8 @@
 
 import { useLongliveV2 } from "@reactor-models/longlive-v2";
 
+import { Button, Panel, cn } from "./ui";
+
 // The status badge teaches the four-state connection machine:
 //   disconnected → connecting → waiting → ready
 //
@@ -9,9 +11,9 @@ import { useLongliveV2 } from "@reactor-models/longlive-v2";
 // *see* the transitions, not have them hidden behind a spinner.
 const TONE: Record<string, { dot: string; label: string }> = {
   disconnected: { dot: "bg-zinc-500", label: "Disconnected" },
-  connecting: { dot: "bg-amber-400 animate-pulse", label: "Connecting…" },
-  waiting: { dot: "bg-amber-400 animate-pulse", label: "Waiting for GPU…" },
-  ready: { dot: "bg-active", label: "Connected" },
+  connecting: { dot: "bg-blue-500 animate-pulse", label: "Connecting…" },
+  waiting: { dot: "bg-blue-500 animate-pulse", label: "Waiting for GPU…" },
+  ready: { dot: "bg-active animate-pulse", label: "Connected" },
 };
 
 export function StatusBadge() {
@@ -20,32 +22,26 @@ export function StatusBadge() {
   const idle = status === "disconnected";
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
+    <Panel>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className={`h-2 w-2 rounded-full ${tone.dot}`} />
+          <span className={cn("h-2 w-2 rounded-full", tone.dot)} />
           <span className="text-sm text-zinc-200">{tone.label}</span>
         </div>
         {idle ? (
-          <button
-            onClick={() => connect()}
-            className="rounded-md bg-brand px-3 py-1 text-xs font-medium text-brand-fg hover:opacity-90"
-          >
+          <Button variant="primary" size="sm" onClick={() => connect()}>
             Connect
-          </button>
+          </Button>
         ) : (
-          <button
-            onClick={() => disconnect()}
-            className="rounded-md border border-zinc-700 px-3 py-1 text-xs text-zinc-300 hover:bg-zinc-800"
-          >
+          <Button variant="secondary" size="sm" onClick={() => disconnect()}>
             Disconnect
-          </button>
+          </Button>
         )}
       </div>
 
       {lastError && (
         <p className="mt-2 text-xs text-red-400">{lastError.message}</p>
       )}
-    </div>
+    </Panel>
   );
 }

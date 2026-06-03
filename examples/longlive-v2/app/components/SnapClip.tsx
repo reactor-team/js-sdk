@@ -8,6 +8,7 @@ import {
   useReactor,
   type Clip,
 } from "@reactor-team/js-sdk";
+import { Button, cn, EYEBROW, Icon, PANEL, Panel } from "./ui";
 
 // Model-agnostic "Snap clip" panel.
 //
@@ -92,17 +93,17 @@ export function SnapClip({
     filename ?? `reactor-clip-${Math.floor(Date.now() / 1000)}.mp4`;
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
-      <span className="text-[10px] uppercase tracking-wider text-zinc-500">
-        Capture
-      </span>
-      <button
+    <Panel label="Capture">
+      <Button
+        variant="primary"
+        size="md"
         onClick={snap}
         disabled={busy}
-        className="mt-2 w-full rounded-md bg-brand px-3 py-2 text-sm font-medium text-brand-fg hover:opacity-90 disabled:opacity-40"
+        className="w-full"
+        leadingIcon={<Icon name="scissors" />}
       >
         {busy ? "Capturing…" : (label ?? `Snap last ${durationSeconds}s`)}
-      </button>
+      </Button>
       {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
 
       {clip && (
@@ -114,7 +115,7 @@ export function SnapClip({
           onDownloaded={() => setError(null)}
         />
       )}
-    </div>
+    </Panel>
   );
 }
 
@@ -138,18 +139,21 @@ function ClipModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="flex w-full max-w-2xl flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-950 p-4 shadow-xl"
+        className={cn(
+          PANEL,
+          "flex w-full max-w-2xl flex-col gap-3 bg-zinc-950 p-4 shadow-xl",
+        )}
       >
         <div className="flex items-center justify-between gap-3">
-          <span className="text-[10px] uppercase tracking-wider text-zinc-500">
-            Clip · {clip.kind}
-          </span>
-          <button
+          <span className={EYEBROW}>Clip · {clip.kind}</span>
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={onClose}
-            className="rounded-md border border-zinc-800 px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+            leadingIcon={<Icon name="x" />}
           >
             Close
-          </button>
+          </Button>
         </div>
 
         <ClipPlayer

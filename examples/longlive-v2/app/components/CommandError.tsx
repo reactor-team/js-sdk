@@ -5,6 +5,7 @@ import {
   useLongliveV2CommandError,
   useLongliveV2State,
 } from "@reactor-models/longlive-v2";
+import { cn, EYEBROW, PANEL } from "./ui";
 
 // Surface command_error messages from the model. LongLive 2 emits these
 // when a command fails its preconditions — for example, calling
@@ -31,8 +32,8 @@ export function CommandError() {
   if (!error) return null;
 
   return (
-    <div className="rounded-lg border border-red-900/50 bg-red-950/20 p-3">
-      <span className="text-[10px] uppercase tracking-wider text-red-500">
+    <div className={cn(PANEL, "border-red-900/50 bg-red-950/20 p-3")}>
+      <span className={cn(EYEBROW, "text-red-500")}>
         {error.command} failed
       </span>
       <p className="mt-1 text-sm text-red-300">{error.reason}</p>

@@ -5,6 +5,15 @@ import { useLongliveV2, useLongliveV2State } from "@reactor-models/longlive-v2";
 import type { LongliveV2StateMessage } from "@reactor-models/longlive-v2";
 import { useStoryboard, type BeatKind } from "../lib/storyboard-store";
 import { STORYBOARDS } from "../lib/prompts";
+import {
+  cn,
+  secs,
+  FOCUS_RING,
+  Panel,
+  Button,
+  SegmentedToggle,
+  Icon,
+} from "./ui";
 
 // SETUP-PHASE PANEL. Compose a storyboard before pressing start: an opening
 // shot, then shots (soft) and cuts (hard) scheduled at chunk positions.
@@ -60,31 +69,33 @@ export function Storyboard() {
   }
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-wider text-zinc-400">
-          Storyboard
-        </span>
-        {beats.length > 0 && (
-          <button
-            onClick={clear}
-            className="text-[10px] text-zinc-500 hover:text-zinc-300"
-          >
+    <Panel
+      label="Storyboard"
+      action={
+        beats.length > 0 ? (
+          <Button variant="ghost" size="sm" onClick={clear}>
             clear
-          </button>
-        )}
-      </div>
-
+          </Button>
+        ) : undefined
+      }
+    >
       {/* Presets */}
-      <div className="mb-3 flex flex-wrap gap-1.5">
+      <div className="mb-3 flex flex-col gap-1.5">
         {STORYBOARDS.map((s) => (
           <button
             key={s.id}
-            title={s.description}
             onClick={() => load(s.beats.map((b) => ({ ...b })))}
-            className="rounded-md border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800"
+            className={cn(
+              "w-full rounded-md border border-zinc-700 px-2.5 py-2 text-left transition-colors hover:bg-zinc-800",
+              FOCUS_RING,
+            )}
           >
-            {s.label}
+            <span className="block text-sm font-semibold text-zinc-200">
+              {s.label}
+            </span>
+            <span className="block text-[11px] text-zinc-500">
+              {s.description}
+            </span>
           </button>
         ))}
       </div>
@@ -103,46 +114,36 @@ export function Storyboard() {
 
       {opener && (
         <div className="mt-2 flex items-center gap-1.5 text-xs">
-          <div className="flex overflow-hidden rounded-md border border-zinc-700">
-            <button
-              onClick={() => setKind("shot")}
-              className={
-                kind === "shot"
-                  ? "bg-brand px-2 py-1 text-brand-fg"
-                  : "px-2 py-1 text-zinc-400"
-              }
-            >
-              Shot
-            </button>
-            <button
-              onClick={() => setKind("cut")}
-              className={
-                kind === "cut"
-                  ? "bg-brand px-2 py-1 text-brand-fg"
-                  : "px-2 py-1 text-zinc-400"
-              }
-            >
-              Cut
-            </button>
-          </div>
-          <span className="text-zinc-500">@ chunk</span>
+          <SegmentedToggle
+            aria-label="Beat kind"
+            value={kind}
+            onChange={(v) => setKind(v as BeatKind)}
+            options={[
+              { value: "shot", label: "Shot", hint: " · soft" },
+              { value: "cut", label: "Cut", hint: " · hard" },
+            ]}
+          />
+          <span className="text-zinc-500">at chunk</span>
           <input
             type="number"
             min={1}
             value={atChunk}
             onChange={(e) => setAtChunk(Math.max(1, Number(e.target.value)))}
-            className="w-14 rounded border border-zinc-700 bg-zinc-950 px-1 py-1 text-center text-zinc-100"
+            className="w-14 rounded border border-zinc-700 bg-zinc-950 px-1 py-1 text-center font-mono tabular-nums text-zinc-100"
           />
+          <span className="text-zinc-500">~{secs(atChunk)}</span>
         </div>
       )}
 
-      <button
+      <Button
+        variant="secondary"
+        size="sm"
         onClick={add}
         disabled={!text.trim()}
-        className="mt-2 w-full rounded-md border border-zinc-700 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 disabled:opacity-40"
+        className="mt-2 w-full"
       >
         {opener ? `+ Add ${kind}` : "+ Set opening shot"}
-      </button>
+      </Button>
 
       {/* Beat list */}
       {beats.length > 0 && (
@@ -152,41 +153,52 @@ export function Storyboard() {
               key={b.id}
               className="flex items-center gap-2 rounded bg-zinc-950/60 px-2 py-1 text-xs"
             >
-              <span
-                className={
-                  b.kind === "cut"
-                    ? "font-bold text-amber-400"
-                    : "font-bold text-sky-400"
-                }
-              >
-                {b.atChunk === 0
-                  ? "open"
-                  : `${b.kind === "cut" ? "✂" : "▸"} @${b.atChunk}`}
-              </span>
+              {b.atChunk === 0 ? (
+                <span className="font-mono text-[10px] uppercase text-zinc-400">
+                  open
+                </span>
+              ) : b.kind === "cut" ? (
+                <span className="flex items-center gap-1">
+                  <Icon name="scissors" className="size-3 text-brand" />
+                  <span className="font-mono tabular-nums text-zinc-500">
+                    @{b.atChunk}
+                  </span>
+                </span>
+              ) : (
+                <span className="flex items-center gap-1">
+                  <Icon name="dot" className="size-3 text-sky-300/80" />
+                  <span className="font-mono tabular-nums text-zinc-500">
+                    @{b.atChunk}
+                  </span>
+                </span>
+              )}
               <span className="flex-1 truncate text-zinc-300">{b.prompt}</span>
               <button
                 onClick={() => remove(b.id)}
-                className="text-zinc-500 hover:text-red-400"
+                className={cn("text-zinc-500 hover:text-red-400", FOCUS_RING)}
+                aria-label="Remove beat"
               >
-                ✕
+                <Icon name="x" className="size-3" />
               </button>
             </li>
           ))}
         </ul>
       )}
 
-      <button
+      <Button
+        variant="primary"
         onClick={startStoryboard}
         disabled={!ready || !opener || starting}
-        className="mt-3 w-full rounded-md bg-brand py-2 text-sm font-medium text-brand-fg hover:opacity-90 disabled:opacity-40"
+        className="mt-3 w-full"
+        leadingIcon={<Icon name="play" />}
       >
-        {starting ? "Starting…" : "▶ Start storyboard"}
-      </button>
+        {starting ? "Starting…" : "Start storyboard"}
+      </Button>
       {!ready && (
         <p className="mt-1 text-[11px] text-zinc-500">
           Connect first to start.
         </p>
       )}
-    </div>
+    </Panel>
   );
 }

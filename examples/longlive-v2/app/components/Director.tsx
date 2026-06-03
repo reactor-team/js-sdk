@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useLongliveV2, useLongliveV2State } from "@reactor-models/longlive-v2";
 import type { LongliveV2StateMessage } from "@reactor-models/longlive-v2";
 import { type BeatKind } from "../lib/storyboard-store";
+import { Panel, Button, SegmentedToggle, Icon, secs } from "./ui";
 
 // LIVE-PHASE PANEL. Direct the running session: fire a soft shot or hard cut
 // at the next chunk boundary ("now"), or schedule one ahead at a chunk index.
@@ -39,11 +40,7 @@ export function Director() {
   }
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
-      <span className="text-[10px] uppercase tracking-wider text-zinc-400">
-        Direct live
-      </span>
-
+    <Panel label="Direct live">
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -52,76 +49,55 @@ export function Director() {
             ? "Describe the scene to cut to…"
             : "Describe the next shot…"
         }
-        className="mt-2 min-h-[56px] w-full resize-none rounded-md border border-zinc-700 bg-zinc-950 p-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+        className="min-h-[56px] w-full resize-none rounded-md border border-zinc-700 bg-zinc-950 p-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
       />
 
       <div className="mt-2 flex items-center gap-1.5 text-xs">
-        <div className="flex overflow-hidden rounded-md border border-zinc-700">
-          <button
-            onClick={() => setKind("shot")}
-            className={
-              kind === "shot"
-                ? "bg-brand px-2 py-1 text-brand-fg"
-                : "px-2 py-1 text-zinc-400"
-            }
-          >
-            Shot
-          </button>
-          <button
-            onClick={() => setKind("cut")}
-            className={
-              kind === "cut"
-                ? "bg-brand px-2 py-1 text-brand-fg"
-                : "px-2 py-1 text-zinc-400"
-            }
-          >
-            Cut
-          </button>
-        </div>
-        <div className="flex overflow-hidden rounded-md border border-zinc-700">
-          <button
-            onClick={() => setWhen("now")}
-            className={
-              when === "now"
-                ? "bg-zinc-700 px-2 py-1 text-zinc-100"
-                : "px-2 py-1 text-zinc-400"
-            }
-          >
-            Now
-          </button>
-          <button
-            onClick={() => setWhen("at")}
-            className={
-              when === "at"
-                ? "bg-zinc-700 px-2 py-1 text-zinc-100"
-                : "px-2 py-1 text-zinc-400"
-            }
-          >
-            At
-          </button>
-        </div>
+        <SegmentedToggle
+          aria-label="Beat kind"
+          value={kind}
+          onChange={(v) => setKind(v as BeatKind)}
+          options={[
+            { value: "shot", label: "Shot", hint: " · soft" },
+            { value: "cut", label: "Cut", hint: " · hard" },
+          ]}
+        />
+        <SegmentedToggle
+          aria-label="Timing"
+          value={when}
+          onChange={(v) => setWhen(v as "now" | "at")}
+          options={[
+            { value: "now", label: "Now" },
+            { value: "at", label: "At" },
+          ]}
+        />
         {when === "at" && (
-          <input
-            type="number"
-            min={sessionChunk + 1}
-            value={atChunk}
-            onChange={(e) => setAtChunk(Number(e.target.value))}
-            className="w-14 rounded border border-zinc-700 bg-zinc-950 px-1 py-1 text-center text-zinc-100"
-          />
+          <>
+            <input
+              type="number"
+              min={sessionChunk + 1}
+              value={atChunk}
+              onChange={(e) => setAtChunk(Number(e.target.value))}
+              className="w-14 rounded border border-zinc-700 bg-zinc-950 px-1 py-1 text-center font-mono tabular-nums text-zinc-100"
+            />
+            <span className="text-zinc-500">~{secs(atChunk)}</span>
+          </>
         )}
       </div>
 
-      <button
+      <Button
+        variant="primary"
         onClick={fire}
         disabled={!text.trim()}
-        className="mt-2 w-full rounded-md bg-brand py-1.5 text-sm font-medium text-brand-fg hover:opacity-90 disabled:opacity-40"
+        className="mt-2 w-full"
+        leadingIcon={<Icon name={kind === "cut" ? "scissors" : "play"} />}
       >
         {when === "now"
           ? kind === "cut"
-            ? "✂ Cut now"
-            : "▸ Shot now"
+            ? "Cut now"
+            : "Shot now"
           : `Schedule ${kind} @ ${atChunk}`}
-      </button>
-    </div>
+      </Button>
+    </Panel>
   );
 }
