@@ -24,7 +24,8 @@ export const FOCUS_RING =
 export const CHUNK_SECONDS = 1.2;
 
 /** Whole-second string from a chunk count, e.g. secs(24) -> "29s". */
-export const secs = (chunks: number) => `${Math.round(chunks * CHUNK_SECONDS)}s`;
+export const secs = (chunks: number) =>
+  `${Math.round(chunks * CHUNK_SECONDS)}s`;
 
 /** m:ss from whole seconds. */
 export const timecode = (totalSec: number) => {

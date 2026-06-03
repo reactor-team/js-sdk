@@ -84,7 +84,12 @@ export function NowPlaying() {
             Pause
           </Button>
         )}
-        <IconButton icon="reset" label="Reset" tone="danger" onClick={onReset} />
+        <IconButton
+          icon="reset"
+          label="Reset"
+          tone="danger"
+          onClick={onReset}
+        />
       </div>
     </Panel>
   );
