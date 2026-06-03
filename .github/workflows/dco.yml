@@ -42,6 +42,13 @@ jobs:
             author_email=$(git show -s --format='%ae' "$sha")
             subject=$(git show -s --format='%s' "$sha")
 
+            # Dependabot opens its own PRs and cannot add a Signed-off-by
+            # trailer; its commits are machine-generated, so exempt them.
+            if [[ "$author_name" == "dependabot[bot]" || "$author_email" == *"dependabot[bot]"* ]]; then
+              echo "Skipping DCO check for Dependabot commit $sha."
+              continue
+            fi
+
             expected="Signed-off-by: ${author_name} <${author_email}>"
             body=$(git show -s --format='%B' "$sha")
 
