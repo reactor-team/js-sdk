@@ -47,7 +47,7 @@ describe("LocalCoordinatorClient", () => {
 
       expect(client.getSessionId()).toBe("local");
       const [url, opts] = mockFetch.mock.calls[0];
-      expect(url).toBe("http://localhost:8080/sessions/local");
+      expect(url).toBe("http://localhost:8080/session");
       expect(opts.method).toBe("GET");
 
       // pollSessionReady returns the cached lookup — no extra /start_session POST.
