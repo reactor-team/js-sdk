@@ -106,6 +106,12 @@ export class WebRTCTransportClient implements TransportClient {
 
   private transceiverMap: Map<string, TransceiverEntry> = new Map();
   private publishedTracks: Map<string, MediaStreamTrack> = new Map();
+  private pendingControlRequests = new Map<string, {
+    resolve: () => void;
+    reject: (err: Error) => void;
+    timeout: ReturnType<typeof setTimeout>;
+  }>();
+  private controlRequestCounter = 0;
   private peerConnected = false;
   private dataChannelOpen = false;
 
@@ -564,6 +570,12 @@ export class WebRTCTransportClient implements TransportClient {
       this.peerConnection = undefined;
     }
 
+    for (const [, pending] of this.pendingControlRequests) {
+      clearTimeout(pending.timeout);
+      pending.reject(new Error("[WebRTCTransport] Disconnected while waiting for response"));
+    }
+    this.pendingControlRequests.clear();
+
     this.transceiverMap.clear();
     this.peerConnected = false;
     this.dataChannelOpen = false;
@@ -641,16 +653,42 @@ export class WebRTCTransportClient implements TransportClient {
     }
   }
 
-  private sendControlMessage(command: string, data: any): void {
+  private sendControlMessage(command: string, data: any, reqId?: string): void {
     if (!this.controlChannel) {
       console.warn("[WebRTCTransport] Control channel not available");
       return;
     }
     try {
-      webrtc.sendMessage(this.controlChannel, command, data, "runtime");
+      if (this.controlChannel.readyState !== "open") {
+        throw new Error(`Control channel not open: ${this.controlChannel.readyState}`);
+      }
+      this.controlChannel.send(JSON.stringify({ type: "notification", event: command, data }));
     } catch (error) {
       console.warn("[WebRTCTransport] Failed to send control message:", error);
     }
+  }
+
+  private sendControlRequest(method: string, data: any, timeoutMs: number = 10_000): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const requestId = `ctrl_${++this.controlRequestCounter}`;
+      const timeout = setTimeout(() => {
+        this.pendingControlRequests.delete(requestId);
+        reject(new Error(`[WebRTCTransport] Request "${method}" timed out`));
+      }, timeoutMs);
+      this.pendingControlRequests.set(requestId, { resolve, reject, timeout });
+      try {
+        if (!this.controlChannel || this.controlChannel.readyState !== "open") {
+          throw new Error("Control channel not available");
+        }
+        this.controlChannel.send(
+          JSON.stringify({ type: "request", method, request_id: requestId, data })
+        );
+      } catch (error) {
+        clearTimeout(timeout);
+        this.pendingControlRequests.delete(requestId);
+        reject(error);
+      }
+    });
   }
 
   pauseTrack(name: string): void {
@@ -730,9 +768,9 @@ export class WebRTCTransportClient implements TransportClient {
       );
     }
 
+    await this.sendControlRequest("publish_track", { name });
     await entry.transceiver.sender.replaceTrack(track);
     this.publishedTracks.set(name, track);
-    this.sendControlMessage("publish_track", { name });
     console.debug(`[WebRTCTransport] Track "${name}" published successfully`);
   }
 
@@ -1003,8 +1041,27 @@ export class WebRTCTransportClient implements TransportClient {
     };
 
     this.controlChannel.onmessage = (event) => {
-      const rawData = webrtc.parseMessage(event.data) as any;
-      console.debug("[WebRTCTransport] Received control message:", rawData);
+      const raw = webrtc.parseMessage(event.data) as any;
+      if (raw?.type === "response") {
+        const requestId = raw?.request_id as string | undefined;
+        if (requestId) {
+          const pending = this.pendingControlRequests.get(requestId);
+          if (pending) {
+            clearTimeout(pending.timeout);
+            this.pendingControlRequests.delete(requestId);
+            if (raw?.error) {
+              pending.reject(new Error(
+                `[WebRTCTransport] ${raw.method ?? "request"} failed: ${raw.error.message ?? "unknown error"}`
+              ));
+            } else {
+              pending.resolve();
+            }
+          }
+        }
+        return;
+      }
+
+      console.debug("[WebRTCTransport] Received control message:", raw);
     };
   }
 }

@@ -441,41 +441,78 @@ describe("WebRTCTransportClient (extended)", () => {
       simulateConnected();
     }
 
-    function getControlMessages(dc: ReturnType<typeof getDataChannel>) {
-      return dc.send.mock.calls.map((c: any) => JSON.parse(c[0]));
+    function getControlMessages(cc: ReturnType<typeof getControlChannel>) {
+      return cc.send.mock.calls.map((c: any) => JSON.parse(c[0]));
     }
 
-    it("sends publish_track via control channel after publishing", async () => {
+    function drainMicrotasks() {
+      return Promise.resolve().then(() => Promise.resolve());
+    }
+
+    function sendResponse(cc: ReturnType<typeof getControlChannel>, requestId: string, method: string, accepted: boolean, reason?: string) {
+      const msg: any = { type: "response", method, request_id: requestId };
+      if (accepted) {
+        msg.data = {};
+      } else {
+        msg.error = { code: "PUBLISHER_SLOT_TAKEN", message: reason ?? "publisher slot already taken" };
+      }
+      cc.onmessage({ data: JSON.stringify(msg) });
+    }
+
+    it("sends publish_track as request and resolves when backend accepts", async () => {
       const client = createClient();
       await connectSendonly(client);
 
       const cc = getControlChannel();
       cc.send.mockClear();
 
-      await client.publishTrack("webcam", {} as MediaStreamTrack);
+      const publishPromise = client.publishTrack("webcam", {} as MediaStreamTrack);
+      await drainMicrotasks();
 
       const msgs = getControlMessages(cc);
-      const msg = msgs.find((m: any) => m.data?.type === "publish_track");
+      const msg = msgs.find((m: any) => m.type === "request" && m.method === "publish_track");
       expect(msg).toBeDefined();
-      expect(msg.scope).toBe("runtime");
-      expect(msg.data.data).toEqual({ name: "webcam" });
+      expect(msg.data).toEqual({ name: "webcam" });
+      expect(msg.request_id).toBeDefined();
+
+      sendResponse(cc, msg.request_id, "publish_track", true);
+      await publishPromise;
     });
 
-    it("sends unpublish_track via control channel after unpublishing", async () => {
+    it("rejects and rolls back when backend returns error response", async () => {
       const client = createClient();
       await connectSendonly(client);
 
       const cc = getControlChannel();
-      await client.publishTrack("webcam", {} as MediaStreamTrack);
+      const publishPromise = client.publishTrack("webcam", {} as MediaStreamTrack);
+      await drainMicrotasks();
+
+      const msg = getControlMessages(cc).find((m: any) => m.type === "request" && m.method === "publish_track");
+      sendResponse(cc, msg.request_id, "publish_track", false, "publisher slot already taken");
+
+      await expect(publishPromise).rejects.toThrow("publisher slot already taken");
+    });
+
+    it("sends unpublish_track as notification after unpublishing", async () => {
+      const client = createClient();
+      await connectSendonly(client);
+
+      const cc = getControlChannel();
+
+      // First publish (with response)
+      const publishPromise = client.publishTrack("webcam", {} as MediaStreamTrack);
+      await drainMicrotasks();
+      const publishMsg = getControlMessages(cc).find((m: any) => m.type === "request" && m.method === "publish_track");
+      sendResponse(cc, publishMsg.request_id, "publish_track", true);
+      await publishPromise;
+
       cc.send.mockClear();
 
       await client.unpublishTrack("webcam");
 
-      const msgs = getControlMessages(cc);
-      const msg = msgs.find((m: any) => m.data?.type === "unpublish_track");
+      const msg = getControlMessages(cc).find((m: any) => m.type === "notification" && m.event === "unpublish_track");
       expect(msg).toBeDefined();
-      expect(msg.scope).toBe("runtime");
-      expect(msg.data.data).toEqual({ name: "webcam" });
+      expect(msg.data).toEqual({ name: "webcam" });
     });
 
     it("does not send unpublish_track when unpublishing a track that was never published", async () => {
@@ -488,7 +525,19 @@ describe("WebRTCTransportClient (extended)", () => {
       await client.unpublishTrack("webcam");
 
       const msgs = getControlMessages(cc);
-      expect(msgs.find((m: any) => m.data?.type === "unpublish_track")).toBeUndefined();
+      expect(msgs.find((m: any) => m.event === "unpublish_track")).toBeUndefined();
+    });
+
+    it("rejects with timeout when no ack is received", async () => {
+      const client = createClient();
+      await connectSendonly(client);
+
+      const publishPromise = client.publishTrack("webcam", {} as MediaStreamTrack);
+      await drainMicrotasks();
+
+      vi.advanceTimersByTime(11_000);
+
+      await expect(publishPromise).rejects.toThrow("timed out");
     });
   });
 
