@@ -21,7 +21,7 @@ pnpm install
 pnpm dev
 ```
 
-API keys come from [reactor.inc/dashboard](https://www.reactor.inc/dashboard/account?section=api-keys). The example mints short-lived JWTs server-side via `app/api/reactor/token/route.ts` and hands the resolver to `<ModelProvider getJwt={fetchToken}>` — see each example's `skill/SKILL.md` for the design rationale.
+API keys come from [reactor.inc/account/api-keys](https://www.reactor.inc/account/api-keys). The example mints short-lived JWTs server-side via `app/api/reactor/token/route.ts` and hands the resolver to `<ModelProvider getJwt={fetchToken}>` — see each example's `skill/SKILL.md` for the design rationale.
 
 ## Scaffolding from these templates
 

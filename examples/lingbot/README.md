@@ -25,7 +25,7 @@ Pick a starting image, watch it come alive as a continuous video stream, and dri
 
 ## Quick start
 
-You'll need a Reactor API key — grab one at [reactor.inc/dashboard](https://www.reactor.inc/dashboard/account?section=api-keys). It starts with `rk_`.
+You'll need a Reactor API key — grab one at [reactor.inc/account/api-keys](https://www.reactor.inc/account/api-keys). It starts with `rk_`.
 
 ```bash
 cp .env.example .env
