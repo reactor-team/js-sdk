@@ -328,6 +328,7 @@ export class Reactor {
         "gpu",
         true
       );
+      throw error;
     }
   }
 
