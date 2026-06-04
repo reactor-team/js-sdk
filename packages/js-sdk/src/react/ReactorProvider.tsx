@@ -137,6 +137,17 @@ export function ReactorProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoResumeTracks, maxAttempts]);
 
+  // On page unload, close the peer connection without terminating the session.
+  // The session will be cleaned up by server-side timeouts.
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      storeRef.current?.getState().internal.reactor.disconnect(true);
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
 
   useEffect(() => {
     if (firstRender.current) {
