@@ -168,13 +168,13 @@ export const WebRTCSdpOfferRequestSchema = z.object({
 // POST/PUT /sessions/{id}/transport/webrtc/sdp_params — Response (202)
 // connection_id is returned by multi-connection runtimes; absent on older servers.
 export const WebRTCSdpOfferResponseSchema = z.object({
-  connection_id: z.string().optional(),
+  connection_id: z.number().optional(),
 });
 
 // GET /sessions/{id}/transport/webrtc/sdp_params — Response (200)
 export const WebRTCSdpAnswerResponseSchema = z.object({
   sdp_answer: z.string(),
-  connection_id: z.string().optional(),
+  connection_id: z.number().optional(),
 });
 
 export const IceCandidateSchema = z.object({

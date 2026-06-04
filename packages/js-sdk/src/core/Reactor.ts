@@ -512,14 +512,6 @@ export class Reactor {
         transportConnectingMs = performance.now() - tTransport;
       }
 
-      if (this.autoResumeTracks) {
-        for (const track of this.tracks) {
-          if (track.direction === "recvonly") {
-            this.resumeTrack(track.name);
-          }
-        }
-      }
-
       console.debug("[Reactor] Session ready, tracks:", this.tracks.length);
 
       this.connectionTimings = {

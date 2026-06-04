@@ -118,6 +118,14 @@ describe("WebRTCTransportClient", () => {
     });
   }
 
+  function mockRegisterConnection(connectionId = 1234) {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 201,
+      json: () => Promise.resolve({ connection_id: connectionId, track_map: {} }),
+    });
+  }
+
   function mockSdpOfferAccepted() {
     mockFetch.mockResolvedValueOnce({ ok: true, status: 202 });
   }
@@ -132,6 +140,7 @@ describe("WebRTCTransportClient", () => {
 
   function setupFullConnect() {
     mockIceServersFetch();
+    mockRegisterConnection();
     mockSdpOfferAccepted();
     mockSdpAnswerReady();
   }
@@ -164,6 +173,7 @@ describe("WebRTCTransportClient", () => {
 
       await client.warmup();
 
+      mockRegisterConnection();
       mockSdpOfferAccepted();
       mockSdpAnswerReady();
 
@@ -293,33 +303,47 @@ describe("WebRTCTransportClient", () => {
   // ── connect() ───────────────────────────────────────────────
 
   describe("connect()", () => {
-    it("sends the SDP offer and polls for the answer", async () => {
+    it("registers a connection then sends the SDP offer and polls for the answer", async () => {
       const client = createClient();
       mockIceServersFetch();
       await client.prepare(MOCK_TRACKS);
 
+      mockRegisterConnection(5001);
       mockSdpOfferAccepted();
       mockSdpAnswerReady();
       await client.connect();
 
+      // call[0] = ICE servers, call[1] = register, call[2] = SDP offer, call[3] = SDP poll
       expect(mockFetch.mock.calls[1][0]).toBe(
-        "https://api.test.com/sessions/test-session-id/transport/webrtc/sdp_params"
+        "https://api.test.com/sessions/test-session-id/transport/webrtc/connections"
       );
       expect(mockFetch.mock.calls[1][1].method).toBe("POST");
 
-      const body = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(mockFetch.mock.calls[2][0]).toBe(
+        "https://api.test.com/sessions/test-session-id/transport/webrtc/connections/5001/sdp_params"
+      );
+      expect(mockFetch.mock.calls[2][1].method).toBe("POST");
+
+      const body = JSON.parse(mockFetch.mock.calls[2][1].body);
       expect(body.sdp_offer).toBeDefined();
       expect(body.track_mapping).toHaveLength(1);
       expect(body.track_mapping[0].name).toBe("main_video");
 
-      expect(mockFetch.mock.calls[2][0]).toBe(
-        "https://api.test.com/sessions/test-session-id/transport/webrtc/sdp_params"
+      expect(mockFetch.mock.calls[3][0]).toBe(
+        "https://api.test.com/sessions/test-session-id/transport/webrtc/connections/5001/sdp_params"
       );
-      expect(mockFetch.mock.calls[2][1].method).toBe("GET");
+      expect(mockFetch.mock.calls[3][1].method).toBe("GET");
     });
 
-    it("uses PUT method for reconnections", async () => {
+    it("uses PUT method for reconnections (reuses existing connection_id)", async () => {
       const client = createClient();
+      // First connect to establish a connection_id
+      setupFullConnect();
+      await client.prepare(MOCK_TRACKS);
+      await client.connect();
+
+      // Reconnect: re-prepare, then connect(true) — skips registration, uses PUT
+      mockFetch.mockReset();
       mockIceServersFetch();
       await client.prepare(MOCK_TRACKS);
 
@@ -327,6 +351,8 @@ describe("WebRTCTransportClient", () => {
       mockSdpAnswerReady();
       await client.connect(true);
 
+      // call[0] = ICE servers, call[1] = SDP offer PUT (no registration)
+      expect(mockFetch.mock.calls[1][0]).toContain("/connections/1234/sdp_params");
       expect(mockFetch.mock.calls[1][1].method).toBe("PUT");
     });
 
@@ -341,6 +367,7 @@ describe("WebRTCTransportClient", () => {
       mockIceServersFetch();
       await client.prepare(MOCK_TRACKS);
 
+      mockRegisterConnection();
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
@@ -357,13 +384,14 @@ describe("WebRTCTransportClient", () => {
       mockIceServersFetch();
       await client.prepare(MOCK_TRACKS);
 
+      mockRegisterConnection();
       mockSdpOfferAccepted();
       mockFetch.mockResolvedValueOnce({ ok: true, status: 202 });
       mockSdpAnswerReady();
 
       await client.connect();
-      // ICE(prepare) + POST + GET(202) + GET(200) = 4
-      expect(mockFetch).toHaveBeenCalledTimes(4);
+      // ICE + register + POST + GET(202) + GET(200) = 5
+      expect(mockFetch).toHaveBeenCalledTimes(5);
     });
 
     it("throws after exhausting SDP poll attempts", async () => {
@@ -371,6 +399,7 @@ describe("WebRTCTransportClient", () => {
       mockIceServersFetch();
       await client.prepare(MOCK_TRACKS);
 
+      mockRegisterConnection();
       mockSdpOfferAccepted();
       mockFetch.mockResolvedValue({ ok: true, status: 202 });
 

@@ -120,10 +120,15 @@ describe("WebRTCTransportClient (extended)", () => {
     });
   }
 
-  function setupFullConnect() {
+  function setupFullConnect(connectionId = 1234) {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve(ICE_SERVERS_RESPONSE),
+    });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 201,
+      json: () => Promise.resolve({ connection_id: connectionId, track_map: {} }),
     });
     mockFetch.mockResolvedValueOnce({ ok: true, status: 202 });
     mockFetch.mockResolvedValueOnce({
@@ -407,11 +412,12 @@ describe("WebRTCTransportClient (extended)", () => {
   // ── reconnect via prepare + connect("PUT") ─────────────
 
   describe("reconnect (prepare + connect PUT)", () => {
-    it("tears down old connection and creates new one with PUT", async () => {
+    it("reuses existing connection_id and sends PUT without re-registering", async () => {
       const client = createClient();
       await connectClient(client);
       simulateConnected();
 
+      // Re-prepare and reconnect: ICE + PUT sdp_params + GET sdp_params (no registration)
       mockFetch.mockReset();
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -427,6 +433,8 @@ describe("WebRTCTransportClient (extended)", () => {
       await client.prepare(MOCK_TRACKS);
       await client.connect(true);
 
+      // call[0] = ICE, call[1] = PUT sdp_params (skips registration)
+      expect(mockFetch.mock.calls[1][0]).toContain("/connections/1234/sdp_params");
       expect(mockFetch.mock.calls[1][1].method).toBe("PUT");
     });
   });
