@@ -93,13 +93,20 @@ export interface ClipPlayerProps {
   muted?: boolean;
   className?: string;
   style?: React.CSSProperties;
+  /**
+   * Fires when the player enters its inline error state.  Receives
+   * the originating error: a ``RecordingError`` for manifest-fetch
+   * failures, a plain ``Error`` for hls.js / native playback or
+   * missing-peer-dep cases.
+   */
+  onError?: (error: Error) => void;
 }
 
 type Phase =
   | { kind: "waiting" }
   | { kind: "loading" }
   | { kind: "ready" }
-  | { kind: "error"; message: string };
+  | { kind: "error"; message: string; error: Error };
 
 export function ClipPlayer({
   clip,
@@ -109,6 +116,7 @@ export function ClipPlayer({
   muted = true,
   className,
   style,
+  onError,
 }: ClipPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [phase, setPhase] = useState<Phase>({ kind: "waiting" });
@@ -128,6 +136,7 @@ export function ClipPlayer({
   const getJwtRef = useRef(getJwt);
   const autoPlayRef = useRef(autoPlay);
   const slackMsRef = useRef(slackMs);
+  const onErrorRef = useRef(onError);
   // Same ref pattern: the resolver is looked up inside `setup` at
   // request time, so a provider swap is picked up on next attach
   // without tearing the player down.
@@ -136,8 +145,17 @@ export function ClipPlayer({
     getJwtRef.current = getJwt;
     autoPlayRef.current = autoPlay;
     slackMsRef.current = slackMs;
+    onErrorRef.current = onError;
     storeRef.current = store;
   });
+
+  // Re-fires per error transition: each new `clip` resets through
+  // `waiting` / `loading` before potentially re-entering `error`.
+  useEffect(() => {
+    if (phase.kind === "error") {
+      onErrorRef.current?.(phase.error);
+    }
+  }, [phase]);
 
   // Playback pipeline: fetch manifest (with optional JWT) → wrap in
   // blob URL → attach via native HLS (Safari) or hls.js (everyone
@@ -152,9 +170,13 @@ export function ClipPlayer({
     let hlsInstance: { destroy: () => void } | null = null;
     let manifestBlobUrl: string | null = null;
 
-    const fail = (message: string) => {
+    const fail = (error: Error) => {
       if (cancelled) return;
-      setPhase({ kind: "error", message });
+      const message =
+        error instanceof RecordingError
+          ? `${error.code}: ${error.reason}`
+          : error.message;
+      setPhase({ kind: "error", message, error });
     };
 
     const attachPlayer = async (manifestUrl: string) => {
@@ -182,13 +204,17 @@ export function ClipPlayer({
         HlsCtor = mod.default;
       } catch {
         fail(
-          "HLS playback unavailable in this browser. Install `hls.js` as a peer dependency, or use Download."
+          new Error(
+            "HLS playback unavailable in this browser. Install `hls.js` as a peer dependency, or use Download."
+          )
         );
         return;
       }
       if (cancelled) return;
       if (!HlsCtor.isSupported()) {
-        fail("This browser cannot play HLS clips. Use Download instead.");
+        fail(
+          new Error("This browser cannot play HLS clips. Use Download instead.")
+        );
         return;
       }
       const hls = new HlsCtor();
@@ -211,7 +237,7 @@ export function ClipPlayer({
         // `levelLoadError`) that the user-facing overlay would
         // otherwise hide.  Fatal errors still hard-fail the player.
         if (data.fatal) {
-          fail(`Playback error: ${data.details ?? "unknown"}`);
+          fail(new Error(`Playback error: ${data.details ?? "unknown"}`));
           return;
         }
         console.warn("[Reactor.ClipPlayer] hls.js non-fatal error", data);
@@ -247,13 +273,7 @@ export function ClipPlayer({
         if (err instanceof DOMException && err.name === "AbortError") {
           return;
         }
-        const message =
-          err instanceof RecordingError
-            ? `${err.code}: ${err.reason}`
-            : err instanceof Error
-              ? err.message
-              : String(err);
-        fail(message);
+        fail(err instanceof Error ? err : new Error(String(err)));
       }
     };
 

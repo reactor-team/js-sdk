@@ -52,8 +52,13 @@ steps:
           - pnpm install --frozen-lockfile
           - pnpm test:unit
 
+      # Gated to main-branch builds so the REACTOR_API_KEY secret is never
+      # exposed to PR builds (including PRs from forks). PRs still run build,
+      # lint, format, license, secret scan, and unit tests above — all of
+      # which are secret-free and safe to run on untrusted code.
       - label: ":globe_with_meridians: Integration Tests"
         key: integration-tests
+        if: build.branch == "main"
         commands:
           - corepack enable
           - pnpm install --frozen-lockfile

@@ -52,6 +52,29 @@ describe("CoordinatorClient", () => {
     vi.unstubAllGlobals();
   });
 
+  // ── adoptSession() ───────────────────────────────────────────────────────
+
+  describe("adoptSession()", () => {
+    it("targets subsequent calls at the adopted id without creating a session", async () => {
+      await client.adoptSession("ext-session-123");
+      expect(client.getSessionId()).toBe("ext-session-123");
+      // No POST /sessions happened.
+      expect(mockFetch).not.toHaveBeenCalled();
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(MOCK_FULL_SESSION_RESPONSE),
+      });
+
+      await client.pollSessionReady();
+
+      const [url, opts] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://api.test.com/sessions/ext-session-123");
+      expect(opts.method).toBe("GET");
+    });
+  });
+
   // ── createSession() ────────────────────────────────────────────────────
 
   describe("createSession()", () => {

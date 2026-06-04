@@ -68,6 +68,13 @@ export interface ConnectOptions {
    * paused and must be resumed individually via `resumeTrack()`.
    */
   autoResumeTracks?: boolean;
+  /**
+   * Attach to a session that already exists (e.g. one created by a backend)
+   * instead of creating a new one. When set, `connect()` skips `POST /sessions`
+   * and brings up the transport directly against this id. The JWT passed to
+   * `connect()` must be valid for the account that owns the session.
+   */
+  sessionId?: string;
 }
 
 /**
@@ -115,9 +122,55 @@ export type ReactorEvent =
   | "statusChanged" //updates on the reactor status
   | "sessionIdChanged" //updates on the session ID.
   | "message" //application-scoped messages from the model
-  | "runtimeMessage" //internal platform-level control messages (e.g. capabilities)
+  | "runtimeMessage" //internal platform-level control messages (e.g. capabilities, moderation)
   | "trackReceived" // (name: string, track: MediaStreamTrack, stream: MediaStream)
   | "error" //error events with ReactorError details
   | "sessionExpirationChanged" //session expiration has changed
   | "capabilitiesReceived" //server capabilities received after session creation
   | "statsUpdate"; //WebRTC stats update (RTT, etc.)
+
+/**
+ * Severity tier of a content moderation event delivered as the inner
+ * payload of a `runtimeMessage` with `type === "moderation"`.
+ *
+ * - `"warn"`: the input scored above the warn threshold but below the
+ *   terminate threshold. The session continues; this is informational
+ *   only.
+ * - `"terminate"`: the input crossed the terminate threshold. The
+ *   session will be ended shortly after this message is dispatched.
+ */
+export type ModerationAction = "warn" | "terminate";
+
+/**
+ * Inner payload of a `runtimeMessage` with `type === "moderation"`.
+ *
+ * Surfaces a content-moderation outcome to the client app. Fires on
+ * any moderatable input (free-text fields, file uploads) that the
+ * configured moderation policy flags. Apps receive it by subscribing
+ * to the existing `runtimeMessage` event and filtering on `type`:
+ *
+ *     reactor.on("runtimeMessage", (m) => {
+ *       if (m?.type === "moderation") {
+ *         const payload = m.data as ModerationEvent;
+ *         // ...render banner, log, etc.
+ *       }
+ *     });
+ */
+export interface ModerationEvent {
+  /** Severity tier — `"warn"` continues the session, `"terminate"` ends it. */
+  action: ModerationAction;
+  /**
+   * Modality of the flagged input. `"text"` for string fields,
+   * `"image"` for `UploadedFile` payloads with an image MIME type.
+   */
+  input_kind: "text" | "image";
+  /**
+   * Name of the inbound command/event whose payload was flagged
+   * (e.g. `"set_prompt"`, `"set_image"`, `"fileUploaded"`).
+   */
+  command: string;
+  /** Category labels that flagged (e.g. `["sexual"]`, `["violence/graphic"]`). */
+  categories: string[];
+  /** Short human-readable summary suitable for UI rendering. */
+  message: string;
+}
