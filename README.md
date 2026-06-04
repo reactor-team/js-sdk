@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/@reactor-team/js-sdk)](https://www.npmjs.com/package/@reactor-team/js-sdk)
 [![npm downloads](https://img.shields.io/npm/dm/@reactor-team/js-sdk)](https://www.npmjs.com/package/@reactor-team/js-sdk)
-[![build](https://img.shields.io/github/actions/workflow/status/reactor-team/js-sdk/ci.yml?branch=main)](https://github.com/reactor-team/js-sdk/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/reactor-team/js-sdk/ci.yml?branch=main)](https://github.com/reactor-team/js-sdk/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-Apache_2.0-blue)](./LICENSE)
 
 The official JavaScript SDK for building real-time AI video applications with [Reactor](https://reactor.inc).
