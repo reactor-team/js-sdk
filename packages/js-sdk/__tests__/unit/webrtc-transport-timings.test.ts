@@ -114,6 +114,11 @@ describe("WebRTCTransportClient connection timings", () => {
       ok: true,
       json: () => Promise.resolve(ICE_SERVERS_RESPONSE),
     });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 201,
+      json: () => Promise.resolve({ connection_id: 1234, track_map: {} }),
+    });
     mockFetch.mockResolvedValueOnce({ ok: true, status: 202 });
     mockFetch.mockResolvedValueOnce({
       ok: true,

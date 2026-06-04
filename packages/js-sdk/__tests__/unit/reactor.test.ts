@@ -414,6 +414,10 @@ describe("Reactor", () => {
 
       await r.connect("jwt", { autoResumeTracks: true });
 
+      // resumeTrack is sent from the statusChanged:connected handler,
+      // not from connect() itself — simulate the transport becoming ready.
+      transportHandlers["statusChanged"]?.("connected");
+
       expect(mockTransportClient.resumeTrack).toHaveBeenCalledWith("main_video");
       expect(mockTransportClient.resumeTrack).toHaveBeenCalledWith("main_audio");
       expect(mockTransportClient.resumeTrack).not.toHaveBeenCalledWith("webcam");

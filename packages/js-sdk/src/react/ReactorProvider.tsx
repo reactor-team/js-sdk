@@ -137,23 +137,6 @@ export function ReactorProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoResumeTracks, maxAttempts]);
 
-  // Handle page unload (refresh, close, navigate away) with non-recoverable disconnect
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      console.debug(
-        "[ReactorProvider] Page unloading, performing non-recoverable disconnect"
-      );
-      // Call disconnect synchronously - we can't await here as the page is unloading
-      // The disconnect(false) ensures non-recoverable cleanup (stops session, clears state)
-      storeRef.current?.getState().internal.reactor.disconnect(false);
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, []);
 
   useEffect(() => {
     if (firstRender.current) {

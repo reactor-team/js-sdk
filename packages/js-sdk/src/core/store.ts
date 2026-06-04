@@ -30,7 +30,7 @@ export interface ReactorState {
   /**
    * Default connect options set by the provider. Applied as base values
    * whenever `connect()` is called without explicit options, so that
-   * provider-level settings like `publish`/`autoResumeTracks` are honoured for
+   * provider-level settings like `autoResumeTracks` are honoured for
    * both autoConnect and manual connect calls.
    */
   connectOptions?: ConnectOptions;
