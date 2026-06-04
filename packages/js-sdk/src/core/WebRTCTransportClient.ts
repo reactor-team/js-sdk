@@ -106,6 +106,9 @@ export class WebRTCTransportClient implements TransportClient {
 
   private transceiverMap: Map<string, TransceiverEntry> = new Map();
   private publishedTracks: Map<string, MediaStreamTrack> = new Map();
+  // Serializes local pause/resume renegotiations so they never overlap — see
+  // enqueueDirectionChange.
+  private directionChangeChain: Promise<void> = Promise.resolve();
   private pendingControlRequests = new Map<string, {
     resolve: () => void;
     reject: (err: Error) => void;
@@ -717,7 +720,7 @@ export class WebRTCTransportClient implements TransportClient {
     const entry = this.transceiverMap.get(name);
     if (entry?.transceiver?.mid) {
       entry.transceiver.direction = "inactive";
-      this.applyDirectionLocally(entry.transceiver.mid, "inactive").catch((e) => {
+      this.enqueueDirectionChange(entry.transceiver.mid, "inactive").catch((e) => {
         console.warn("[WebRTCTransport] Failed to apply pause direction:", e);
       });
     }
@@ -727,17 +730,39 @@ export class WebRTCTransportClient implements TransportClient {
   resumeTrack(name: string): void {
     if (this.status !== "connected") {
       console.log("[WebRTCTransport] Cannot resume track", name, " - not connected, skipping");
-      return
+      return;
     }
-    
+
     const entry = this.transceiverMap.get(name);
     if (entry?.transceiver?.mid) {
       entry.transceiver.direction = entry.direction;
-      this.applyDirectionLocally(entry.transceiver.mid, entry.direction).catch((e) => {
+      this.enqueueDirectionChange(entry.transceiver.mid, entry.direction).catch((e) => {
         console.warn("[WebRTCTransport] Failed to apply resume direction:", e);
       });
     }
     this.sendControlMessage("resume_track", { name });
+  }
+
+  /**
+   * Serializes local pause/resume renegotiations. Each direction change munges
+   * the local offer + remote answer and re-applies both; auto-resume fires one
+   * per recvonly track (and re-fires on every `trackReceived`), so several land
+   * at once. Run concurrently they read each other's half-applied SDP and drop
+   * `setRemoteDescription()` into the `stable` state — the
+   * "Called in wrong state: stable" error — leaving the track flagged resumed
+   * but never actually renegotiated, so no frames arrive. Chaining keeps each
+   * offer/answer pair atomic; a failure is swallowed on the chain so it can't
+   * wedge later changes.
+   */
+  private enqueueDirectionChange(
+    mid: string,
+    localDirection: RTCRtpTransceiverDirection,
+  ): Promise<void> {
+    const run = this.directionChangeChain
+      .catch(() => {})
+      .then(() => this.applyDirectionLocally(mid, localDirection));
+    this.directionChangeChain = run.catch(() => {});
+    return run;
   }
 
   private async applyDirectionLocally(
@@ -745,9 +770,23 @@ export class WebRTCTransportClient implements TransportClient {
     localDirection: RTCRtpTransceiverDirection,
   ): Promise<void> {
     const pc = this.peerConnection;
-    const localSdp = pc?.localDescription?.sdp;
-    const remoteSdp = pc?.remoteDescription?.sdp;
-    if (!pc || !localSdp || !remoteSdp) return;
+    if (!pc) return;
+
+    // Idempotent: if the transceiver already negotiated this direction there's
+    // nothing to do. This collapses the repeated auto-resume calls (one per
+    // track, re-fired on every `trackReceived`) into at most one real
+    // renegotiation instead of a storm of same-direction re-offers.
+    const tx = pc.getTransceivers().find((t) => t.mid === mid);
+    if (tx && tx.currentDirection === localDirection) return;
+
+    // The chain guarantees the previous change settled back to "stable"; if
+    // something left us mid-negotiation, bail rather than throw — the next
+    // queued change retries from a clean state.
+    if (pc.signalingState !== "stable") return;
+
+    const localSdp = pc.localDescription?.sdp;
+    const remoteSdp = pc.remoteDescription?.sdp;
+    if (!localSdp || !remoteSdp) return;
 
     const modifiedLocal = webrtc.replaceSdpDirectionForMid(localSdp, mid, localDirection);
     const modifiedRemote = webrtc.replaceSdpDirectionForMid(
@@ -756,12 +795,25 @@ export class WebRTCTransportClient implements TransportClient {
       webrtc.complementDirection(localDirection),
     );
 
-    await pc.setLocalDescription(
-      new RTCSessionDescription({ type: "offer", sdp: modifiedLocal }),
-    );
-    await pc.setRemoteDescription(
-      new RTCSessionDescription({ type: "answer", sdp: modifiedRemote }),
-    );
+    try {
+      await pc.setLocalDescription(
+        new RTCSessionDescription({ type: "offer", sdp: modifiedLocal }),
+      );
+      await pc.setRemoteDescription(
+        new RTCSessionDescription({ type: "answer", sdp: modifiedRemote }),
+      );
+    } catch (e) {
+      // Roll back a half-applied offer so the connection returns to "stable"
+      // and the next queued direction change can proceed cleanly.
+      if (pc.signalingState === "have-local-offer") {
+        try {
+          await pc.setLocalDescription({ type: "rollback" });
+        } catch {
+          // Best-effort; nothing more we can do here.
+        }
+      }
+      throw e;
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
