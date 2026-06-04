@@ -25,7 +25,13 @@ export interface ReactorViewProps {
   videoObjectFit?: NonNullable<
     React.VideoHTMLAttributes<HTMLVideoElement>["style"]
   >["objectFit"];
-  /** Controls whether inbound audio plays. Default true (muted) to satisfy browser autoplay policies. */
+  /**
+   * Controls whether inbound audio plays.  Default is `true`
+   * (muted) when no `audioTrack` is set — keeps the underlying
+   * `<video>` element within browser autoplay policies; `false`
+   * when an `audioTrack` is set.  Pass an explicit value to
+   * override either default.
+   */
   muted?: boolean;
 }
 
@@ -37,7 +43,7 @@ export function ReactorView({
   className,
   style,
   videoObjectFit = "contain",
-  muted = true,
+  muted = audioTrack === undefined,
 }: ReactorViewProps) {
   const { videoMediaTrack, audioMediaTrack } = useReactor((state) => ({
     videoMediaTrack: state.tracks[track] ?? null,

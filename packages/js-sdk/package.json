@@ -1,6 +1,6 @@
 {
   "name": "@reactor-team/js-sdk",
-  "version": "2.11.0",
+  "version": "2.11.1",
   "description": "Reactor JavaScript frontend SDK — connect React and TypeScript apps to real-time AI video models on Reactor.",
   "license": "Apache-2.0",
   "repository": {

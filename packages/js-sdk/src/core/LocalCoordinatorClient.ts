@@ -3,6 +3,7 @@
  *
  * The local runtime uses a simpler protocol than the production coordinator:
  *   - POST /start_session  → starts session, returns full capabilities immediately
+ *   - GET  /session        → read-only session descriptor (no id; single session)
  *   - POST /stop_session   → stops session
  *   - Transport signaling via /sessions/{id}/transport/webrtc/* (unchanged)
  *
@@ -86,6 +87,48 @@ export class LocalCoordinatorClient extends CoordinatorClient {
     );
 
     return CreateSessionResponseSchema.parse(data);
+  }
+
+  /**
+   * Adopts the local session for `connect({ sessionId })`: records the id and
+   * reads the session descriptor, caching it so {@link pollSessionReady}
+   * returns immediately. No `start_session` is issued.
+   *
+   * The local runtime hosts a single session (always id `"local"`), so the
+   * lookup ignores the specific id. This is a pure read of session info — it
+   * does not start or otherwise advance the session.
+   */
+  override async adoptSession(sessionId: string): Promise<void> {
+    this.currentSessionId = sessionId;
+    this.cachedSessionResponse = await this.getSession();
+    console.debug(
+      "[LocalCoordinatorClient] Adopted existing session:",
+      sessionId
+    );
+  }
+
+  /**
+   * Reads the local session descriptor (model, capabilities, transport,
+   * state) via the runtime's read-only `GET /session`.
+   *
+   * The local runtime exposes a single session, so — unlike the Coordinator's
+   * id-addressed `GET /sessions/{id}` — there is no id in the path. Read-only:
+   * it does not start or advance the session.
+   */
+  override async getSession(): Promise<SessionResponse> {
+    const response = await fetch(`${this.baseUrl}/session`, {
+      method: "GET",
+      headers: await this.getHeaders(),
+      signal: this.signal,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to get session: ${response.status} ${errorText}`);
+    }
+
+    const data = await response.json();
+    return SessionResponseSchema.parse(data);
   }
 
   /**

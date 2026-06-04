@@ -7,9 +7,9 @@ import path from "path";
 import chalk from "chalk";
 
 const REPO_OWNER = "reactor-team";
-const REPO_NAME = "reactor-experiments";
+const REPO_NAME = "js-sdk";
 const REPO_URL = `github.com/${REPO_OWNER}/${REPO_NAME}.git`;
-const EXAMPLES_PATH = "";
+const EXAMPLES_PATH = "examples";
 
 // Aliases for cases where a model's public name differs from its template
 // folder in the repo. Leave empty when names map 1:1 to folders.

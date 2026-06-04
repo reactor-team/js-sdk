@@ -188,6 +188,17 @@ export class CoordinatorClient {
   }
 
   /**
+   * Attaches to a session created elsewhere (e.g. by a backend) instead of
+   * creating one via {@link createSession}. After this, {@link pollSessionReady}
+   * and {@link getSession} operate on the adopted id. The session must be owned
+   * by the account behind this client's JWT.
+   */
+  async adoptSession(sessionId: string): Promise<void> {
+    this.currentSessionId = sessionId;
+    console.debug("[CoordinatorClient] Adopted existing session:", sessionId);
+  }
+
+  /**
    * Polls GET /sessions/{id} until the Runtime has accepted the session
    * and populated capabilities and selected_transport.
    */

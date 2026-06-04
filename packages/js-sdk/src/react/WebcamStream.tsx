@@ -6,11 +6,25 @@ import React from "react";
 
 export interface WebcamStreamProps {
   /**
-   * The name of the sendonly track to publish the webcam to.
+   * The name of the sendonly **video** track to publish the webcam to.
    * Must match a track name declared in the server capabilities.
    * Check the model's documentation for available track names.
    */
   track: string;
+  /**
+   * Capture and publish the microphone alongside the webcam.  Pass
+   * `true` for default constraints, or an explicit
+   * `MediaTrackConstraints` to control sample rate / device / echo
+   * cancellation.  Requires {@link audioTrack} so the SDK knows
+   * which sendonly track to publish the mic to.  Default `false`.
+   */
+  audio?: boolean | MediaTrackConstraints;
+  /**
+   * The name of the sendonly **audio** track to publish the mic to.
+   * Ignored when {@link audio} is `false` (the default); required
+   * otherwise.
+   */
+  audioTrack?: string;
   className?: string;
   style?: React.CSSProperties;
   videoConstraints?: MediaTrackConstraints;
@@ -18,10 +32,29 @@ export interface WebcamStreamProps {
   videoObjectFit?: NonNullable<
     React.VideoHTMLAttributes<HTMLVideoElement>["style"]
   >["objectFit"];
+  /**
+   * Fires once `getUserMedia` is rejected with `NotAllowedError`
+   * or `PermissionDeniedError`.
+   */
+  onPermissionDenied?: () => void;
+  /**
+   * Fires after the local media stream has been published (both
+   * video and audio when {@link audio} is enabled).  Re-fires
+   * after a reconnect.
+   */
+  onPublished?: () => void;
+  /**
+   * Fires on non-permission `getUserMedia` failures and on
+   * publish / unpublish rejections.  Permission denials route to
+   * {@link onPermissionDenied} instead.
+   */
+  onError?: (error: Error) => void;
 }
 
 export function WebcamStream({
   track,
+  audio = false,
+  audioTrack,
   className,
   style,
   videoConstraints = {
@@ -30,6 +63,9 @@ export function WebcamStream({
   },
   showWebcam = true,
   videoObjectFit = "contain",
+  onPermissionDenied,
+  onPublished,
+  onError,
 }: WebcamStreamProps) {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -44,14 +80,34 @@ export function WebcamStream({
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Start webcam
+  // Held in refs so inline callback identity doesn't churn the
+  // publish/unpublish effect on every parent render.
+  const onPermissionDeniedRef = useRef(onPermissionDenied);
+  const onPublishedRef = useRef(onPublished);
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onPermissionDeniedRef.current = onPermissionDenied;
+    onPublishedRef.current = onPublished;
+    onErrorRef.current = onError;
+  });
+
+  // Without an `audioTrack` the captured mic has nowhere to publish;
+  // warn rather than silently capturing video-only.
+  const audioRequested = audio !== false && audio !== undefined;
+  const audioEnabled = audioRequested && !!audioTrack;
+  if (audioRequested && !audioTrack) {
+    console.warn(
+      "[WebcamStream] `audio` was set but `audioTrack` is missing; capturing video-only."
+    );
+  }
+
   const startWebcam = async () => {
     console.debug("[WebcamPublisher] Starting webcam");
 
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: videoConstraints,
-        audio: false,
+        audio: audioEnabled ? (audio === true ? true : audio) : false,
       });
 
       console.debug("[WebcamPublisher] Webcam started successfully");
@@ -60,32 +116,46 @@ export function WebcamStream({
     } catch (err) {
       console.error("[WebcamPublisher] Failed to start webcam:", err);
 
-      // Check if the error is a permission denial
       if (
         err instanceof DOMException &&
         (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")
       ) {
         console.debug("[WebcamPublisher] Camera permission denied");
         setPermissionDenied(true);
+        onPermissionDeniedRef.current?.();
+      } else {
+        onErrorRef.current?.(
+          err instanceof Error ? err : new Error(String(err))
+        );
       }
     }
   };
 
-  // Stop webcam
   const stopWebcam = async () => {
     console.debug("[WebcamPublisher] Stopping webcam");
 
-    // Unpublish if currently publishing
-    try {
-      await unpublish(track);
-      console.debug("[WebcamPublisher] Unpublished before stopping");
-    } catch (err) {
-      console.error("[WebcamPublisher] Error unpublishing before stop:", err);
+    // Unpublish failures are logged but don't block local-track
+    // teardown — leaving tracks running keeps the camera/mic
+    // indicator on after unmount.
+    const unpublishTasks: Array<Promise<void>> = [unpublish(track)];
+    if (audioEnabled && audioTrack) {
+      unpublishTasks.push(unpublish(audioTrack));
+    }
+    const results = await Promise.allSettled(unpublishTasks);
+    for (const r of results) {
+      if (r.status === "rejected") {
+        console.error(
+          "[WebcamPublisher] Error unpublishing before stop:",
+          r.reason
+        );
+        onErrorRef.current?.(
+          r.reason instanceof Error ? r.reason : new Error(String(r.reason))
+        );
+      }
     }
 
     setIsPublishing(false);
 
-    // Stop all tracks
     stream?.getTracks().forEach((t) => {
       t.stop();
       console.debug("[WebcamPublisher] Stopped track:", t.kind);
@@ -116,7 +186,7 @@ export function WebcamStream({
     }
   }, [stream]);
 
-  // Auto-publish when reactor is ready and webcam is active
+  // Auto-publish when reactor is ready and webcam is active.
   useEffect(() => {
     if (!stream) {
       return;
@@ -126,29 +196,52 @@ export function WebcamStream({
       console.debug(
         "[WebcamPublisher] Reactor ready, auto-publishing webcam stream"
       );
-      const videoTrack = stream.getVideoTracks()[0];
-      if (videoTrack) {
-        publish(track, videoTrack)
-          .then(() => {
-            console.debug("[WebcamPublisher] Auto-publish successful");
-            setIsPublishing(true);
-          })
-          .catch((err) => {
-            console.error("[WebcamPublisher] Auto-publish failed:", err);
-          });
-      }
-    } else if (status !== "ready" && isPublishing) {
-      console.debug("[WebcamPublisher] Reactor not ready, auto-unpublishing");
-      unpublish(track)
+      const videoMediaTrack = stream.getVideoTracks()[0];
+      const audioMediaTrack =
+        audioEnabled && audioTrack ? stream.getAudioTracks()[0] : null;
+      const tasks: Array<Promise<void>> = [];
+      if (videoMediaTrack) tasks.push(publish(track, videoMediaTrack));
+      if (audioMediaTrack && audioTrack)
+        tasks.push(publish(audioTrack, audioMediaTrack));
+      if (tasks.length === 0) return;
+      Promise.all(tasks)
         .then(() => {
-          console.debug("[WebcamPublisher] Auto-unpublish successful");
-          setIsPublishing(false);
+          console.debug("[WebcamPublisher] Auto-publish successful");
+          setIsPublishing(true);
+          onPublishedRef.current?.();
         })
         .catch((err) => {
-          console.error("[WebcamPublisher] Auto-unpublish failed:", err);
+          console.error("[WebcamPublisher] Auto-publish failed:", err);
+          onErrorRef.current?.(
+            err instanceof Error ? err : new Error(String(err))
+          );
         });
+    } else if (status !== "ready" && isPublishing) {
+      console.debug("[WebcamPublisher] Reactor not ready, auto-unpublishing");
+      const tasks: Array<Promise<void>> = [unpublish(track)];
+      if (audioEnabled && audioTrack) tasks.push(unpublish(audioTrack));
+      Promise.allSettled(tasks).then((results) => {
+        for (const r of results) {
+          if (r.status === "rejected") {
+            console.error("[WebcamPublisher] Auto-unpublish failed:", r.reason);
+            onErrorRef.current?.(
+              r.reason instanceof Error ? r.reason : new Error(String(r.reason))
+            );
+          }
+        }
+        setIsPublishing(false);
+      });
     }
-  }, [status, stream, isPublishing, publish, unpublish, track]);
+  }, [
+    status,
+    stream,
+    isPublishing,
+    publish,
+    unpublish,
+    track,
+    audioEnabled,
+    audioTrack,
+  ]);
 
   // Listen for error events from Reactor
   useEffect(() => {

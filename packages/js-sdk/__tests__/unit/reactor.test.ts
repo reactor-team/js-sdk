@@ -24,17 +24,20 @@ const MOCK_FULL_SESSION_RESPONSE = {
 
 let transportHandlers: Record<string, (...args: any[]) => void> = {};
 let mockTransportClient: any;
+let mockCoordinatorClient: any;
 
 vi.mock("../../src/core/CoordinatorClient", () => ({
   CoordinatorClient: vi.fn(function (this: any) {
-    return {
+    mockCoordinatorClient = {
       createSession: vi.fn().mockResolvedValue(MOCK_INITIAL_RESPONSE),
+      adoptSession: vi.fn().mockResolvedValue(undefined),
       pollSessionReady: vi.fn().mockResolvedValue(MOCK_FULL_SESSION_RESPONSE),
       getSession: vi.fn().mockResolvedValue(MOCK_FULL_SESSION_RESPONSE),
       terminateSession: vi.fn().mockResolvedValue(undefined),
       abort: vi.fn(),
       getSessionId: vi.fn().mockReturnValue(MOCK_SESSION_ID),
     };
+    return mockCoordinatorClient;
   }),
 }));
 
@@ -80,6 +83,7 @@ describe("Reactor", () => {
     vi.clearAllMocks();
     transportHandlers = {};
     mockTransportClient = undefined;
+    mockCoordinatorClient = undefined;
   });
 
   // ── Constructor ──────────────────────────────────────────────────────────
@@ -205,6 +209,32 @@ describe("Reactor", () => {
       await r.disconnect();
     });
 
+    it("attaches to an existing session id instead of creating one", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      const existingId = "11111111-2222-3333-4444-555555555555";
+
+      await r.connect("jwt-token", { sessionId: existingId });
+
+      expect(mockCoordinatorClient.adoptSession).toHaveBeenCalledWith(
+        existingId
+      );
+      expect(mockCoordinatorClient.createSession).not.toHaveBeenCalled();
+      expect(r.getSessionId()).toBe(existingId);
+
+      await r.disconnect();
+    });
+
+    it("creates a new session when no sessionId is provided", async () => {
+      const r = new Reactor({ modelName: "echo" });
+
+      await r.connect("jwt-token");
+
+      expect(mockCoordinatorClient.createSession).toHaveBeenCalled();
+      expect(mockCoordinatorClient.adoptSession).not.toHaveBeenCalled();
+
+      await r.disconnect();
+    });
+
     it("emits capabilitiesReceived after session ready", async () => {
       const r = new Reactor({ modelName: "echo" });
       const capHandler = vi.fn();
@@ -320,15 +350,38 @@ describe("Reactor", () => {
   // ── sendCommand() guard ───────────────────────────────────────────────
 
   describe("sendCommand()", () => {
-    it("warns and returns when not ready", async () => {
+    it("resolves (does not reject) when not ready", async () => {
       const r = new Reactor({ modelName: "echo" });
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      await expect(
+        r.sendCommand("set_effect", { effect: "grayscale" })
+      ).resolves.toBeUndefined();
+    });
+
+    it("populates lastError with a recoverable NOT_READY entry when not ready", async () => {
+      const r = new Reactor({ modelName: "echo" });
 
       await r.sendCommand("set_effect", { effect: "grayscale" });
 
-      expect(warnSpy).toHaveBeenCalledWith(
-        "[Reactor]",
-        expect.stringContaining("Cannot send message")
+      expect(r.getLastError()).toMatchObject({
+        code: "NOT_READY",
+        component: "api",
+        recoverable: true,
+      });
+      expect(r.getLastError()?.message).toContain('"set_effect"');
+      expect(r.getLastError()?.message).toContain('"disconnected"');
+    });
+
+    it("emits an `error` event subscribers can react to when not ready", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      const handler = vi.fn();
+      r.on("error", handler);
+
+      await r.sendCommand("set_effect", { effect: "grayscale" });
+
+      expect(handler).toHaveBeenCalledOnce();
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({ code: "NOT_READY", recoverable: true })
       );
     });
   });
