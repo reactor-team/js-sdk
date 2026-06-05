@@ -62,10 +62,13 @@ export interface ConnectOptions {
   /** Maximum number of SDP polling attempts before giving up. Default: 6. */
   maxAttempts?: number;
   /**
-   * When true, sends `resume_track` for every recvonly track immediately
-   * after the connection is established, causing the backend to begin
-   * streaming those tracks. When false (default), recvonly tracks start
-   * paused and must be resumed individually via `resumeTrack()`.
+   * When true (default), sends `resume_track` for every recvonly track
+   * immediately after the connection is established, causing the backend to
+   * begin streaming those tracks — this preserves the pre-multi-connection
+   * behaviour where output tracks flow automatically on connect. Set to false
+   * to keep recvonly tracks paused on connect and resume them individually via
+   * `resumeTrack()` (e.g. multi-connection apps that only subscribe to a
+   * subset of peers).
    */
   autoResumeTracks?: boolean;
   /**

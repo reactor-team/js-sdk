@@ -502,7 +502,7 @@ export class Reactor {
       let sessionPollingMs: number;
       let transportConnectingMs: number;
 
-      this.autoResumeTracks = options?.autoResumeTracks ?? false;
+      this.autoResumeTracks = options?.autoResumeTracks ?? true;
 
       if (this.presetTracks) {
         // 2a. Parallel path: tracks are known at build time, so we can
@@ -606,7 +606,7 @@ export class Reactor {
           this.finalizeConnectionTimings();
 
           if (this.autoResumeTracks) {
-            for (const track of this.tracks) {``
+            for (const track of this.tracks) {
               if (track.direction === "recvonly") {
                 this.resumeTrack(track.name);
               }
@@ -633,7 +633,6 @@ export class Reactor {
     client.on(
       "trackReceived",
       (name: string, track: MediaStreamTrack, stream: MediaStream) => {
-        console.log("[Reactor] trackReceived", name, track, stream);
         if (this.transportClient !== client) return;
         this.emit("trackReceived", name, track, stream);
 
