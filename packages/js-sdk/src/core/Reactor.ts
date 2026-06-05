@@ -521,7 +521,7 @@ export class Reactor {
         this.emit("capabilitiesReceived", this.capabilities);
 
         const tConnect = performance.now();
-        await this.transportClient.connect();
+        await this.transportClient.connect(false, options?.connectionId);
         transportConnectingMs = performance.now() - tConnect;
       } else {
         // 2b. Sequential path: tracks come from the poll response, but
@@ -544,7 +544,7 @@ export class Reactor {
 
         const tTransport = performance.now();
         await this.transportClient.prepare(this.tracks);
-        await this.transportClient.connect();
+        await this.transportClient.connect(false, options?.connectionId);
         transportConnectingMs = performance.now() - tTransport;
       }
 
