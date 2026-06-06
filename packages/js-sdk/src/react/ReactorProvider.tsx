@@ -137,11 +137,16 @@ export function ReactorProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoResumeTracks, maxAttempts]);
 
-  // On page unload, close the peer connection without terminating the session.
-  // The session will be cleaned up by server-side timeouts.
+  // On page unload, perform a non-recoverable disconnect. The session's
+  // creator tears the session down (DELETE), matching the pre-multi-connection
+  // behaviour; a client that adopted an existing session (connect({ sessionId }))
+  // only closes its own transport and leaves the session alive for its owner.
+  // This gating lives in Reactor.disconnect() via the `createdSession` flag, so
+  // passing `false` here is safe for both roles. We can't await during unload,
+  // so the DELETE is best-effort (same as before).
   useEffect(() => {
     const handleBeforeUnload = () => {
-      storeRef.current?.getState().internal.reactor.disconnect(true);
+      storeRef.current?.getState().internal.reactor.disconnect(false);
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);

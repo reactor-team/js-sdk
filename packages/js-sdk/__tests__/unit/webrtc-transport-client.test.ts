@@ -409,6 +409,60 @@ describe("WebRTCTransportClient", () => {
     });
   });
 
+  // ── connect() with a provided connectionId ────────────────────────────
+
+  describe("connect() with a provided connectionId", () => {
+    it("adopts the id, skips registration, and posts the offer to that connection", async () => {
+      const client = createClient();
+      mockIceServersFetch();
+      await client.prepare(MOCK_TRACKS);
+
+      mockSdpOfferAccepted();
+      mockSdpAnswerReady();
+      await client.connect(false, 7777);
+
+      // No POST .../connections registration call was made.
+      const registerCall = mockFetch.mock.calls.find((c) =>
+        String(c[0]).endsWith("/connections")
+      );
+      expect(registerCall).toBeUndefined();
+
+      // call[0] = ICE servers (prepare); call[1] = SDP offer POST to the id.
+      expect(mockFetch.mock.calls[1][0]).toBe(
+        "https://api.test.com/sessions/test-session-id/transport/webrtc/connections/7777/sdp_params"
+      );
+      expect(mockFetch.mock.calls[1][1].method).toBe("POST");
+    });
+
+    it("rejects an out-of-range connectionId before any network call", async () => {
+      const client = createClient();
+      mockIceServersFetch();
+      await client.prepare(MOCK_TRACKS);
+      const callsAfterPrepare = mockFetch.mock.calls.length;
+
+      await expect(client.connect(false, 999)).rejects.toThrow(
+        "Invalid connectionId"
+      );
+      expect(mockFetch.mock.calls.length).toBe(callsAfterPrepare);
+    });
+
+    it("surfaces a clear error when the connection is not found (404)", async () => {
+      const client = createClient();
+      mockIceServersFetch();
+      await client.prepare(MOCK_TRACKS);
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: () => Promise.resolve('{"error":"connection"}'),
+      });
+
+      await expect(client.connect(false, 7777)).rejects.toThrow(
+        /Connection 7777 not found/
+      );
+    });
+  });
+
   // ── abort() ───────────────────────────────────────────────────────────
 
   describe("abort()", () => {

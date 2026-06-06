@@ -62,10 +62,13 @@ export interface ConnectOptions {
   /** Maximum number of SDP polling attempts before giving up. Default: 6. */
   maxAttempts?: number;
   /**
-   * When true, sends `resume_track` for every recvonly track immediately
-   * after the connection is established, causing the backend to begin
-   * streaming those tracks. When false (default), recvonly tracks start
-   * paused and must be resumed individually via `resumeTrack()`.
+   * When true (default), sends `resume_track` for every recvonly track
+   * immediately after the connection is established, causing the backend to
+   * begin streaming those tracks — this preserves the pre-multi-connection
+   * behaviour where output tracks flow automatically on connect. Set to false
+   * to keep recvonly tracks paused on connect and resume them individually via
+   * `resumeTrack()` (e.g. multi-connection apps that only subscribe to a
+   * subset of peers).
    */
   autoResumeTracks?: boolean;
   /**
@@ -75,6 +78,18 @@ export interface ConnectOptions {
    * `connect()` must be valid for the account that owns the session.
    */
   sessionId?: string;
+  /**
+   * Use a specific WebRTC connection id instead of minting one. When omitted
+   * (default), the transport registers a fresh connection (`POST .../connections`)
+   * and the server mints the id. When set, the transport skips registration and
+   * sends its SDP offer directly to that connection — so the id must already have
+   * been registered under this session (e.g. a backend called `POST .../connections`
+   * and handed the id to this client) and must still be open.
+   *
+   * `connect()` rejects if the id is invalid (out of the server's accepted range)
+   * or if no open connection with that id exists for the session.
+   */
+  connectionId?: number;
 }
 
 /**

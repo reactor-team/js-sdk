@@ -48,6 +48,12 @@ const MAX_BACKOFF_MS = 15_000;
 const BACKOFF_MULTIPLIER = 2;
 const DEFAULT_MAX_POLL_ATTEMPTS = 6;
 
+// Accepted range for a server-minted connection id, mirroring the Coordinator's
+// validation (`connection_id > 1000 && <= 9999`). Used to fail fast on an
+// obviously invalid caller-supplied id before hitting the network.
+const MIN_CONNECTION_ID = 1000;
+const MAX_CONNECTION_ID = 9999;
+
 /**
  * Debounce window for coalescing trickle ICE candidates into a single
  * POST. Browsers fire {@link RTCPeerConnection.onicecandidate} in bursts
@@ -321,6 +327,22 @@ export class WebRTCTransportClient implements TransportClient {
 
     if (response.status !== 202) {
       const errorText = await response.text();
+      // A caller-supplied connection id that the server doesn't recognise (or
+      // that has already been closed) surfaces here as a 404; an out-of-range
+      // id as a 400. Make those actionable rather than a bare status dump.
+      if (response.status === 404) {
+        throw new Error(
+          `[WebRTCTransport] Connection ${connectionId} not found or already ` +
+            `closed (404). A supplied connectionId must reference a connection ` +
+            `registered under this session (POST .../connections) that is still ` +
+            `open. ${errorText}`
+        );
+      }
+      if (response.status === 400) {
+        throw new Error(
+          `[WebRTCTransport] Connection ${connectionId} rejected (400): ${errorText}`
+        );
+      }
       throw new Error(`Failed to send SDP offer: ${response.status} ${errorText}`);
     }
 
@@ -551,7 +573,7 @@ export class WebRTCTransportClient implements TransportClient {
     console.debug("[WebRTCTransport] SDP offer prepared");
   }
 
-  async connect(reconnect: boolean = false): Promise<void> {
+  async connect(reconnect: boolean = false, connectionId?: number): Promise<void> {
     if (!this.pendingSdpOffer || !this.pendingTrackMapping) {
       throw new Error(
         "[WebRTCTransport] No prepared connection. Call prepare() first."
@@ -563,9 +585,24 @@ export class WebRTCTransportClient implements TransportClient {
     this.pendingSdpOffer = undefined;
     this.pendingTrackMapping = undefined;
 
-    // For a fresh connection, register to obtain an integer connection id.
-    // For a reconnect, reuse the existing id (PUT replaces the SDP on the same slot).
-    if (!reconnect || this.connectionId === undefined) {
+    if (connectionId !== undefined) {
+      // Caller supplied a connection id (e.g. a backend pre-registered it via
+      // POST .../connections and handed it over). Adopt it and skip
+      // registration — the server validates existence when we send the offer.
+      if (
+        !Number.isInteger(connectionId) ||
+        connectionId <= MIN_CONNECTION_ID ||
+        connectionId > MAX_CONNECTION_ID
+      ) {
+        throw new Error(
+          `[WebRTCTransport] Invalid connectionId ${connectionId}: must be an ` +
+            `integer in (${MIN_CONNECTION_ID}, ${MAX_CONNECTION_ID}]`
+        );
+      }
+      this.connectionId = connectionId;
+    } else if (!reconnect || this.connectionId === undefined) {
+      // For a fresh connection, register to obtain an integer connection id.
+      // For a reconnect, reuse the existing id (PUT replaces the SDP on the same slot).
       this.connectionId = await this.registerConnection();
     }
 

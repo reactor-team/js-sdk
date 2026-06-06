@@ -84,8 +84,11 @@ export interface TransportClient {
    *
    * @param reconnect If true, signals a reconnection to an existing
    *   session rather than an initial connection.
+   * @param connectionId If provided, adopt this pre-registered connection id
+   *   instead of minting a new one. The id must already exist (and be open)
+   *   under the session; otherwise `connect()` rejects.
    */
-  connect(reconnect?: boolean): Promise<void>;
+  connect(reconnect?: boolean, connectionId?: number): Promise<void>;
 
   /**
    * Tears down the transport connection and releases all resources.

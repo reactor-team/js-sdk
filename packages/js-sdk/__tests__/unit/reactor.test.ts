@@ -478,7 +478,7 @@ describe("Reactor", () => {
       await r.disconnect();
     });
 
-    it("does not call resumeTrack when autoResumeTracks is false (default)", async () => {
+    it("calls resumeTrack for all recvonly tracks by default (autoResumeTracks defaults to true)", async () => {
       const r = new Reactor({ modelName: "echo" });
       const { CoordinatorClient } = await import("../../src/core/CoordinatorClient");
       vi.mocked(CoordinatorClient).mockImplementationOnce(function (this: any) {
@@ -486,6 +486,24 @@ describe("Reactor", () => {
       });
 
       await r.connect("jwt");
+      transportHandlers["statusChanged"]?.("connected");
+
+      expect(mockTransportClient.resumeTrack).toHaveBeenCalledWith("main_video");
+      expect(mockTransportClient.resumeTrack).toHaveBeenCalledWith("main_audio");
+      expect(mockTransportClient.resumeTrack).not.toHaveBeenCalledWith("webcam");
+
+      await r.disconnect();
+    });
+
+    it("does not call resumeTrack when autoResumeTracks is explicitly false", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      const { CoordinatorClient } = await import("../../src/core/CoordinatorClient");
+      vi.mocked(CoordinatorClient).mockImplementationOnce(function (this: any) {
+        return mockCoordinator();
+      });
+
+      await r.connect("jwt", { autoResumeTracks: false });
+      transportHandlers["statusChanged"]?.("connected");
 
       expect(mockTransportClient.resumeTrack).not.toHaveBeenCalled();
 
