@@ -6,6 +6,7 @@
  * channel messaging, track publishing, and stats collection.
  */
 
+import { AwaitQueue } from "awaitqueue";
 import * as webrtc from "../utils/webrtc";
 import type {
   TransportClient,
@@ -106,9 +107,12 @@ export class WebRTCTransportClient implements TransportClient {
 
   private transceiverMap: Map<string, TransceiverEntry> = new Map();
   private publishedTracks: Map<string, MediaStreamTrack> = new Map();
-  // Serializes local pause/resume renegotiations so they never overlap — see
-  // enqueueDirectionChange.
-  private directionChangeChain: Promise<void> = Promise.resolve();
+  // Serializes all SDP renegotiations (pause/resume direction changes) and gates
+  // them behind the connection-ready task. Reset on each prepare() call.
+  private peerConnectionQueue = new AwaitQueue();
+  // Resolves the connection-ready gate task pushed in prepare(). Called by
+  // checkFullyConnected() once all three ready conditions are met.
+  private readyGateResolve: (() => void) | undefined;
   private pendingControlRequests = new Map<string, {
     resolve: () => void;
     reject: (err: Error) => void;
@@ -503,6 +507,14 @@ export class WebRTCTransportClient implements TransportClient {
     this.dataChannelOpen = false;
     this.controlChannelOpen = false;
 
+    // Fresh queue for this connection. The first task is the connection-ready
+    // gate; every pause/resume renegotiation waits behind it.
+    this.peerConnectionQueue.stop();
+    this.peerConnectionQueue = new AwaitQueue();
+    this.peerConnectionQueue
+      .push(() => new Promise<void>((resolve) => { this.readyGateResolve = resolve; }))
+      .catch(() => {});
+
     const iceServers = this.cachedIceServers
       ? await this.cachedIceServers
       : await this.fetchIceServers();
@@ -598,6 +610,10 @@ export class WebRTCTransportClient implements TransportClient {
       pending.reject(new Error("[WebRTCTransport] Disconnected while waiting for response"));
     }
     this.pendingControlRequests.clear();
+
+    // Abandon the ready gate and any queued direction changes.
+    this.readyGateResolve = undefined;
+    this.peerConnectionQueue.stop();
 
     this.connectionId = undefined;
     this.transceiverMap.clear();
@@ -717,52 +733,29 @@ export class WebRTCTransportClient implements TransportClient {
   }
 
   pauseTrack(name: string): void {
-    const entry = this.transceiverMap.get(name);
-    if (entry?.transceiver?.mid) {
-      entry.transceiver.direction = "inactive";
-      this.enqueueDirectionChange(entry.transceiver.mid, "inactive").catch((e) => {
-        console.warn("[WebRTCTransport] Failed to apply pause direction:", e);
-      });
-    }
-    this.sendControlMessage("pause_track", { name });
+    this.peerConnectionQueue.push(async () => {
+      const entry = this.transceiverMap.get(name);
+      if (entry?.transceiver?.mid) {
+        entry.transceiver.direction = "inactive";
+        await this.applyDirectionLocally(entry.transceiver.mid, "inactive");
+      }
+      this.sendControlMessage("pause_track", { name });
+    }).catch((e) => {
+      console.warn("[WebRTCTransport] Failed to pause track:", e);
+    });
   }
 
   resumeTrack(name: string): void {
-    if (this.status !== "connected") {
-      console.log("[WebRTCTransport] Cannot resume track", name, " - not connected, skipping");
-      return;
-    }
-
-    const entry = this.transceiverMap.get(name);
-    if (entry?.transceiver?.mid) {
-      entry.transceiver.direction = entry.direction;
-      this.enqueueDirectionChange(entry.transceiver.mid, entry.direction).catch((e) => {
-        console.warn("[WebRTCTransport] Failed to apply resume direction:", e);
-      });
-    }
-    this.sendControlMessage("resume_track", { name });
-  }
-
-  /**
-   * Serializes local pause/resume renegotiations. Each direction change munges
-   * the local offer + remote answer and re-applies both; auto-resume fires one
-   * per recvonly track (and re-fires on every `trackReceived`), so several land
-   * at once. Run concurrently they read each other's half-applied SDP and drop
-   * `setRemoteDescription()` into the `stable` state — the
-   * "Called in wrong state: stable" error — leaving the track flagged resumed
-   * but never actually renegotiated, so no frames arrive. Chaining keeps each
-   * offer/answer pair atomic; a failure is swallowed on the chain so it can't
-   * wedge later changes.
-   */
-  private enqueueDirectionChange(
-    mid: string,
-    localDirection: RTCRtpTransceiverDirection,
-  ): Promise<void> {
-    const run = this.directionChangeChain
-      .catch(() => {})
-      .then(() => this.applyDirectionLocally(mid, localDirection));
-    this.directionChangeChain = run.catch(() => {});
-    return run;
+    this.peerConnectionQueue.push(async () => {
+      const entry = this.transceiverMap.get(name);
+      if (entry?.transceiver?.mid) {
+        entry.transceiver.direction = entry.direction;
+        await this.applyDirectionLocally(entry.transceiver.mid, entry.direction);
+      }
+      this.sendControlMessage("resume_track", { name });
+    }).catch((e) => {
+      console.warn("[WebRTCTransport] Failed to resume track:", e);
+    });
   }
 
   private async applyDirectionLocally(
@@ -958,6 +951,9 @@ export class WebRTCTransportClient implements TransportClient {
     if (this.peerConnected && this.dataChannelOpen && this.controlChannelOpen) {
       this.setStatus("connected");
       this.startStatsPolling();
+      // Unblock all queued direction changes — the peer connection is now usable.
+      this.readyGateResolve!();
+      this.readyGateResolve = undefined;
     }
   }
 
