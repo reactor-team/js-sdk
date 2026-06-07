@@ -517,7 +517,10 @@ export class Reactor {
         sessionPollingMs = performance.now() - tParallel;
 
         this.sessionResponse = sessionResponse;
-        this.capabilities = { ...sessionResponse.capabilities!, tracks: this.tracks };
+        this.capabilities = {
+          ...sessionResponse.capabilities!,
+          tracks: this.tracks,
+        };
         this.emit("capabilitiesReceived", this.capabilities);
 
         const tConnect = performance.now();
@@ -534,7 +537,10 @@ export class Reactor {
 
         this.sessionResponse = sessionResponse;
         this.tracks = sessionResponse.capabilities!.tracks;
-        this.capabilities = { ...sessionResponse.capabilities!, tracks: this.tracks };
+        this.capabilities = {
+          ...sessionResponse.capabilities!,
+          tracks: this.tracks,
+        };
         this.emit("capabilitiesReceived", this.capabilities);
 
         const protocol = sessionResponse.selected_transport!.protocol;

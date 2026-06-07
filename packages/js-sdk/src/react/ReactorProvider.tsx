@@ -153,7 +153,6 @@ export function ReactorProvider({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
 
-
   useEffect(() => {
     if (firstRender.current) {
       firstRender.current = false;

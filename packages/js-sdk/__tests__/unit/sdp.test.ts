@@ -577,7 +577,9 @@ describe("sanitize()", () => {
       "a=rtpmap:111 opus/48000/2",
     ].join("\r\n");
     const out = sanitize(sdp);
-    const audioMLines = out.split("\r\n").filter((l) => l.startsWith("m=audio"));
+    const audioMLines = out
+      .split("\r\n")
+      .filter((l) => l.startsWith("m=audio"));
     expect(audioMLines).toHaveLength(2);
     // First audio keeps (or gets) a dynamic-range PT; second must use a different one
     const pt0 = Number(audioMLines[0]!.match(/SAVPF (\d+)/)?.[1]);
@@ -600,14 +602,11 @@ describe("sanitize()", () => {
         "m=video 9 UDP/TLS/RTP/SAVPF 42 43",
         "a=rtpmap:42 H264/90000",
         "a=rtpmap:43 rtx/90000",
-        "a=fmtp:43 apt=42",
+        "a=fmtp:43 apt=42"
       );
     }
     for (let i = 0; i < 8; i++) {
-      lines.push(
-        "m=audio 9 UDP/TLS/RTP/SAVPF 8",
-        "a=rtpmap:8 opus/48000/2",
-      );
+      lines.push("m=audio 9 UDP/TLS/RTP/SAVPF 8", "a=rtpmap:8 opus/48000/2");
     }
     const out = sanitize(lines.join("\r\n"));
 
@@ -635,13 +634,13 @@ describe("sanitize()", () => {
         "m=video 9 UDP/TLS/RTP/SAVPF 96 97",
         "a=rtpmap:96 H264/90000",
         "a=rtpmap:97 rtx/90000",
-        "a=fmtp:97 apt=96",
+        "a=fmtp:97 apt=96"
       );
     }
     for (let i = 0; i < 8; i++) {
       lines.push(
         "m=audio 9 UDP/TLS/RTP/SAVPF 111",
-        "a=rtpmap:111 opus/48000/2",
+        "a=rtpmap:111 opus/48000/2"
       );
     }
     const out = sanitize(lines.join("\r\n"));

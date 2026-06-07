@@ -300,7 +300,7 @@ export function parseMessage(data: unknown): unknown {
  * sendonly ↔ recvonly; sendrecv and inactive are symmetric.
  */
 export function complementDirection(
-  direction: RTCRtpTransceiverDirection,
+  direction: RTCRtpTransceiverDirection
 ): RTCRtpTransceiverDirection {
   if (direction === "sendonly") return "recvonly";
   if (direction === "recvonly") return "sendonly";
@@ -317,7 +317,7 @@ export function complementDirection(
 export function replaceSdpDirectionForMid(
   sdp: string,
   mid: string,
-  direction: RTCRtpTransceiverDirection,
+  direction: RTCRtpTransceiverDirection
 ): string {
   // Split on the lookahead so each media section retains its leading \r\n.
   const [session, ...mediaSections] = sdp.split(/(?=\r\nm=)/);
@@ -326,7 +326,7 @@ export function replaceSdpDirectionForMid(
     if (!section.includes(`\r\na=mid:${mid}\r\n`)) return section;
     return section.replace(
       /\r\na=(sendonly|recvonly|sendrecv|inactive)\r\n/,
-      `\r\na=${direction}\r\n`,
+      `\r\na=${direction}\r\n`
     );
   });
 

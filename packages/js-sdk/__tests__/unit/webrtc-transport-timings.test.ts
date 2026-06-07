@@ -14,7 +14,8 @@ function createMockPeerConnection() {
     }),
     setLocalDescription: vi.fn(),
     setRemoteDescription: vi.fn(),
-    createDataChannel: vi.fn()
+    createDataChannel: vi
+      .fn()
       .mockReturnValueOnce({
         onopen: null as ((ev: Event) => void) | null,
         onclose: null,

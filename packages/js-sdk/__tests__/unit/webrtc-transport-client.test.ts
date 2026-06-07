@@ -122,7 +122,8 @@ describe("WebRTCTransportClient", () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 201,
-      json: () => Promise.resolve({ connection_id: connectionId, track_map: {} }),
+      json: () =>
+        Promise.resolve({ connection_id: connectionId, track_map: {} }),
     });
   }
 
@@ -352,7 +353,9 @@ describe("WebRTCTransportClient", () => {
       await client.connect(true);
 
       // call[0] = ICE servers, call[1] = SDP offer PUT (no registration)
-      expect(mockFetch.mock.calls[1][0]).toContain("/connections/1234/sdp_params");
+      expect(mockFetch.mock.calls[1][0]).toContain(
+        "/connections/1234/sdp_params"
+      );
       expect(mockFetch.mock.calls[1][1].method).toBe("PUT");
     });
 

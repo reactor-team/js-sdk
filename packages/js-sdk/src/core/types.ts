@@ -217,7 +217,9 @@ export type IceServer = z.infer<typeof IceServerSchema>;
 export type IceServersResponse = z.infer<typeof IceServersResponseSchema>;
 
 export type WebRTCSdpOfferRequest = z.infer<typeof WebRTCSdpOfferRequestSchema>;
-export type WebRTCSdpOfferResponse = z.infer<typeof WebRTCSdpOfferResponseSchema>;
+export type WebRTCSdpOfferResponse = z.infer<
+  typeof WebRTCSdpOfferResponseSchema
+>;
 export type WebRTCSdpAnswerResponse = z.infer<
   typeof WebRTCSdpAnswerResponseSchema
 >;

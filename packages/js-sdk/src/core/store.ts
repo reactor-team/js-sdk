@@ -222,7 +222,10 @@ export const createReactorStore = (
         }
 
         // Merge provider-level defaults with call-time overrides (call-time wins).
-        const resolvedOptions: ConnectOptions = { ...get().connectOptions, ...options };
+        const resolvedOptions: ConnectOptions = {
+          ...get().connectOptions,
+          ...options,
+        };
 
         console.debug("[ReactorStore] Connect called.");
 

@@ -424,9 +424,21 @@ describe("Reactor", () => {
       capabilities: {
         protocol_version: "1.0",
         tracks: [
-          { name: "main_video", kind: "video" as const, direction: "recvonly" as const },
-          { name: "main_audio", kind: "audio" as const, direction: "recvonly" as const },
-          { name: "webcam", kind: "video" as const, direction: "sendonly" as const },
+          {
+            name: "main_video",
+            kind: "video" as const,
+            direction: "recvonly" as const,
+          },
+          {
+            name: "main_audio",
+            kind: "audio" as const,
+            direction: "recvonly" as const,
+          },
+          {
+            name: "webcam",
+            kind: "video" as const,
+            direction: "sendonly" as const,
+          },
         ],
       },
     };
@@ -442,7 +454,8 @@ describe("Reactor", () => {
 
     it("always prepares all tracks (sendonly and recvonly)", async () => {
       const r = new Reactor({ modelName: "echo" });
-      const { CoordinatorClient } = await import("../../src/core/CoordinatorClient");
+      const { CoordinatorClient } =
+        await import("../../src/core/CoordinatorClient");
       vi.mocked(CoordinatorClient).mockImplementationOnce(function (this: any) {
         return mockCoordinator();
       });
@@ -460,7 +473,8 @@ describe("Reactor", () => {
 
     it("calls resumeTrack for all recvonly tracks when autoResumeTracks is true", async () => {
       const r = new Reactor({ modelName: "echo" });
-      const { CoordinatorClient } = await import("../../src/core/CoordinatorClient");
+      const { CoordinatorClient } =
+        await import("../../src/core/CoordinatorClient");
       vi.mocked(CoordinatorClient).mockImplementationOnce(function (this: any) {
         return mockCoordinator();
       });
@@ -471,16 +485,23 @@ describe("Reactor", () => {
       // not from connect() itself — simulate the transport becoming ready.
       transportHandlers["statusChanged"]?.("connected");
 
-      expect(mockTransportClient.resumeTrack).toHaveBeenCalledWith("main_video");
-      expect(mockTransportClient.resumeTrack).toHaveBeenCalledWith("main_audio");
-      expect(mockTransportClient.resumeTrack).not.toHaveBeenCalledWith("webcam");
+      expect(mockTransportClient.resumeTrack).toHaveBeenCalledWith(
+        "main_video"
+      );
+      expect(mockTransportClient.resumeTrack).toHaveBeenCalledWith(
+        "main_audio"
+      );
+      expect(mockTransportClient.resumeTrack).not.toHaveBeenCalledWith(
+        "webcam"
+      );
 
       await r.disconnect();
     });
 
     it("calls resumeTrack for all recvonly tracks by default (autoResumeTracks defaults to true)", async () => {
       const r = new Reactor({ modelName: "echo" });
-      const { CoordinatorClient } = await import("../../src/core/CoordinatorClient");
+      const { CoordinatorClient } =
+        await import("../../src/core/CoordinatorClient");
       vi.mocked(CoordinatorClient).mockImplementationOnce(function (this: any) {
         return mockCoordinator();
       });
@@ -488,16 +509,23 @@ describe("Reactor", () => {
       await r.connect("jwt");
       transportHandlers["statusChanged"]?.("connected");
 
-      expect(mockTransportClient.resumeTrack).toHaveBeenCalledWith("main_video");
-      expect(mockTransportClient.resumeTrack).toHaveBeenCalledWith("main_audio");
-      expect(mockTransportClient.resumeTrack).not.toHaveBeenCalledWith("webcam");
+      expect(mockTransportClient.resumeTrack).toHaveBeenCalledWith(
+        "main_video"
+      );
+      expect(mockTransportClient.resumeTrack).toHaveBeenCalledWith(
+        "main_audio"
+      );
+      expect(mockTransportClient.resumeTrack).not.toHaveBeenCalledWith(
+        "webcam"
+      );
 
       await r.disconnect();
     });
 
     it("does not call resumeTrack when autoResumeTracks is explicitly false", async () => {
       const r = new Reactor({ modelName: "echo" });
-      const { CoordinatorClient } = await import("../../src/core/CoordinatorClient");
+      const { CoordinatorClient } =
+        await import("../../src/core/CoordinatorClient");
       vi.mocked(CoordinatorClient).mockImplementationOnce(function (this: any) {
         return mockCoordinator();
       });
