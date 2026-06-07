@@ -68,27 +68,55 @@ export function ReactorView({
       hasAudioTrack: !!audioMediaTrack,
     });
 
-    if (videoRef.current && mediaStream) {
-      console.debug("[ReactorView] Attaching media stream to element");
+    const el = videoRef.current;
+    if (!el || !mediaStream) {
+      console.debug("[ReactorView] No tracks or element to attach");
+      return;
+    }
+
+    // (Re-)bind the stream to the element and start playback. Setting
+    // `srcObject = null` first forces the element to re-initialise its decode
+    // pipeline so it re-requests a keyframe — needed when re-attaching a track
+    // that started rendering black (see the unmute handler below).
+    const attach = (reset: boolean) => {
       try {
-        videoRef.current.srcObject = mediaStream;
-        videoRef.current.play().catch((e) => {
+        if (reset) el.srcObject = null;
+        el.srcObject = mediaStream;
+        el.play().catch((e) => {
           console.warn("[ReactorView] Auto-play failed:", e);
         });
-        console.debug("[ReactorView] Media stream attached successfully");
       } catch (error) {
         console.error("[ReactorView] Failed to attach media stream:", error);
       }
+    };
 
-      return () => {
-        console.debug("[ReactorView] Detaching media stream from element");
-        if (videoRef.current) {
-          videoRef.current.srcObject = null;
-        }
-      };
-    } else {
-      console.debug("[ReactorView] No tracks or element to attach");
-    }
+    console.debug("[ReactorView] Attaching media stream to element");
+    attach(false);
+
+    // A recvonly track negotiated while the server has it paused arrives
+    // `muted` (no RTP). When the server starts sending — e.g. on auto-resume's
+    // `resume_track` — the track fires `unmute`, but the element was attached
+    // and play()'d while the track was empty, so some browsers keep showing
+    // black on the existing srcObject until a fresh attach. Without this, the
+    // only way to render an auto-resumed track was a manual pause/resume (which
+    // renegotiated a brand-new track for us to attach). Re-attach on `unmute`
+    // so auto-resumed tracks render on their own.
+    const onUnmute = () => {
+      console.debug(
+        "[ReactorView] Track unmuted — re-attaching to render incoming media"
+      );
+      attach(true);
+    };
+    const tracks = mediaStream.getTracks();
+    for (const t of tracks) t.addEventListener("unmute", onUnmute);
+
+    return () => {
+      console.debug("[ReactorView] Detaching media stream from element");
+      for (const t of tracks) t.removeEventListener("unmute", onUnmute);
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+    };
   }, [mediaStream]);
 
   return (
