@@ -64,6 +64,8 @@ vi.mock("../../src/core/WebRTCTransportClient", () => ({
       sendCommand: vi.fn(),
       publishTrack: vi.fn().mockResolvedValue(undefined),
       unpublishTrack: vi.fn().mockResolvedValue(undefined),
+      pauseTrack: vi.fn(),
+      resumeTrack: vi.fn(),
       on: vi.fn((event: string, handler: any) => {
         transportHandlers[event] = handler;
       }),
@@ -411,6 +413,129 @@ describe("Reactor", () => {
       expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining("No active session")
       );
+    });
+  });
+
+  // ── autoResumeTracks option ───────────────────────────────────────────
+
+  describe("connect() track negotiation and autoResumeTracks", () => {
+    const MIXED_TRACKS_RESPONSE = {
+      ...MOCK_FULL_SESSION_RESPONSE,
+      capabilities: {
+        protocol_version: "1.0",
+        tracks: [
+          {
+            name: "main_video",
+            kind: "video" as const,
+            direction: "recvonly" as const,
+          },
+          {
+            name: "main_audio",
+            kind: "audio" as const,
+            direction: "recvonly" as const,
+          },
+          {
+            name: "webcam",
+            kind: "video" as const,
+            direction: "sendonly" as const,
+          },
+        ],
+      },
+    };
+
+    function mockCoordinator() {
+      return {
+        createSession: vi.fn().mockResolvedValue(MOCK_INITIAL_RESPONSE),
+        pollSessionReady: vi.fn().mockResolvedValue(MIXED_TRACKS_RESPONSE),
+        terminateSession: vi.fn().mockResolvedValue(undefined),
+        abort: vi.fn(),
+      };
+    }
+
+    it("always prepares all tracks (sendonly and recvonly)", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      const { CoordinatorClient } =
+        await import("../../src/core/CoordinatorClient");
+      vi.mocked(CoordinatorClient).mockImplementationOnce(function (this: any) {
+        return mockCoordinator();
+      });
+
+      await r.connect("jwt");
+
+      expect(mockTransportClient.prepare).toHaveBeenCalledWith([
+        { name: "main_video", kind: "video", direction: "recvonly" },
+        { name: "main_audio", kind: "audio", direction: "recvonly" },
+        { name: "webcam", kind: "video", direction: "sendonly" },
+      ]);
+
+      await r.disconnect();
+    });
+
+    it("calls resumeTrack for all recvonly tracks when autoResumeTracks is true", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      const { CoordinatorClient } =
+        await import("../../src/core/CoordinatorClient");
+      vi.mocked(CoordinatorClient).mockImplementationOnce(function (this: any) {
+        return mockCoordinator();
+      });
+
+      await r.connect("jwt", { autoResumeTracks: true });
+
+      // resumeTrack is sent from the statusChanged:connected handler,
+      // not from connect() itself — simulate the transport becoming ready.
+      transportHandlers["statusChanged"]?.("connected");
+
+      expect(mockTransportClient.resumeTrack).toHaveBeenCalledWith(
+        "main_video"
+      );
+      expect(mockTransportClient.resumeTrack).toHaveBeenCalledWith(
+        "main_audio"
+      );
+      expect(mockTransportClient.resumeTrack).not.toHaveBeenCalledWith(
+        "webcam"
+      );
+
+      await r.disconnect();
+    });
+
+    it("calls resumeTrack for all recvonly tracks by default (autoResumeTracks defaults to true)", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      const { CoordinatorClient } =
+        await import("../../src/core/CoordinatorClient");
+      vi.mocked(CoordinatorClient).mockImplementationOnce(function (this: any) {
+        return mockCoordinator();
+      });
+
+      await r.connect("jwt");
+      transportHandlers["statusChanged"]?.("connected");
+
+      expect(mockTransportClient.resumeTrack).toHaveBeenCalledWith(
+        "main_video"
+      );
+      expect(mockTransportClient.resumeTrack).toHaveBeenCalledWith(
+        "main_audio"
+      );
+      expect(mockTransportClient.resumeTrack).not.toHaveBeenCalledWith(
+        "webcam"
+      );
+
+      await r.disconnect();
+    });
+
+    it("does not call resumeTrack when autoResumeTracks is explicitly false", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      const { CoordinatorClient } =
+        await import("../../src/core/CoordinatorClient");
+      vi.mocked(CoordinatorClient).mockImplementationOnce(function (this: any) {
+        return mockCoordinator();
+      });
+
+      await r.connect("jwt", { autoResumeTracks: false });
+      transportHandlers["statusChanged"]?.("connected");
+
+      expect(mockTransportClient.resumeTrack).not.toHaveBeenCalled();
+
+      await r.disconnect();
     });
   });
 });

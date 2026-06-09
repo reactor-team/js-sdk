@@ -151,7 +151,7 @@ function computeCodecRemapForMedia(
     return remap;
   }
   const relocate = [...tracked].filter(
-    (p) => p < DYNAMIC_PT_MIN || p > DYNAMIC_PT_MAX
+    (p) => p < DYNAMIC_PT_MIN || p > DYNAMIC_PT_MAX || forbidden.has(p)
   );
   if (relocate.length === 0) {
     return remap;
@@ -427,7 +427,11 @@ function stripTelephoneEventsPreserveOrder(sdp: string): string {
 
 function transformOfferSdpCodecDynamicPts(sdp: string): string {
   const session = parse(sdp);
-  if (!session.media.some(mediaSectionNeedsSanitizedPtRelocate)) {
+  // Skip entirely only when no section carries any tracked codec at all.
+  // The weaker condition (vs. mediaSectionNeedsSanitizedPtRelocate) is intentional:
+  // a section whose codec PT is already in [96,127] still needs relocation when
+  // that PT conflicts with a prior section's PT in BUNDLE mode.
+  if (!session.media.some((m) => collectSanitizedCodecPayloadSet(m) !== null)) {
     return sdp;
   }
 

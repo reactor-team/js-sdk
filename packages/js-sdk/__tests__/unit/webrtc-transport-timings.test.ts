@@ -14,7 +14,7 @@ function createMockPeerConnection() {
     }),
     setLocalDescription: vi.fn(),
     setRemoteDescription: vi.fn(),
-    createDataChannel: vi.fn().mockReturnValue({
+    createDataChannel: vi.fn().mockImplementation((label?: string) => ({
       onopen: null as ((ev: Event) => void) | null,
       onclose: null,
       onerror: null,
@@ -22,7 +22,8 @@ function createMockPeerConnection() {
       readyState: "connecting",
       close: vi.fn(),
       send: vi.fn(),
-    }),
+      label: label ?? "data",
+    })),
     close: vi.fn(),
     getSenders: vi.fn().mockReturnValue([]),
     getReceivers: vi.fn().mockReturnValue([]),
@@ -102,6 +103,11 @@ describe("WebRTCTransportClient connection timings", () => {
       ok: true,
       json: () => Promise.resolve(ICE_SERVERS_RESPONSE),
     });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 201,
+      json: () => Promise.resolve({ connection_id: 1234, track_map: {} }),
+    });
     mockFetch.mockResolvedValueOnce({ ok: true, status: 202 });
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -124,9 +130,15 @@ describe("WebRTCTransportClient connection timings", () => {
     mockPC.connectionState = "connected";
     mockPC.onconnectionstatechange!();
 
-    const dc = mockPC.createDataChannel.mock.results[0].value;
+    const channels = mockPC.createDataChannel.mock.results.map(
+      (r: any) => r.value
+    );
+    const dc = channels.find((c: any) => c.label === "data");
+    const cc = channels.find((c: any) => c.label === "control");
     dc.readyState = "open";
     dc.onopen(new Event("open"));
+    cc.readyState = "open";
+    cc.onopen(new Event("open"));
 
     const timings = client.getTransportTimings();
     expect(timings).toBeDefined();
@@ -157,9 +169,15 @@ describe("WebRTCTransportClient connection timings", () => {
 
     mockPC.connectionState = "connected";
     mockPC.onconnectionstatechange!();
-    const dc = mockPC.createDataChannel.mock.results[0].value;
+    const channels = mockPC.createDataChannel.mock.results.map(
+      (r: any) => r.value
+    );
+    const dc = channels.find((c: any) => c.label === "data");
+    const cc = channels.find((c: any) => c.label === "control");
     dc.readyState = "open";
     dc.onopen(new Event("open"));
+    cc.readyState = "open";
+    cc.onopen(new Event("open"));
 
     expect(client.getTransportTimings()).toBeDefined();
 

@@ -558,6 +558,106 @@ describe("sanitize()", () => {
     }
   });
 
+  it("in-range codec PT already used by a prior section is remapped to avoid BUNDLE conflict", () => {
+    // Both audio sections have Opus at PT 111 (already in dynamic range).
+    // The second section must not keep 111 — it would collide with the first in BUNDLE mode.
+    const sdp = [
+      "v=0",
+      "m=video 9 UDP/TLS/RTP/SAVPF 42 43",
+      "a=rtpmap:42 H264/90000",
+      "a=rtpmap:43 rtx/90000",
+      "a=fmtp:43 apt=42",
+      "m=audio 9 UDP/TLS/RTP/SAVPF 111",
+      "a=rtpmap:111 opus/48000/2",
+      "m=video 9 UDP/TLS/RTP/SAVPF 42 43",
+      "a=rtpmap:42 H264/90000",
+      "a=rtpmap:43 rtx/90000",
+      "a=fmtp:43 apt=42",
+      "m=audio 9 UDP/TLS/RTP/SAVPF 111",
+      "a=rtpmap:111 opus/48000/2",
+    ].join("\r\n");
+    const out = sanitize(sdp);
+    const audioMLines = out
+      .split("\r\n")
+      .filter((l) => l.startsWith("m=audio"));
+    expect(audioMLines).toHaveLength(2);
+    // First audio keeps (or gets) a dynamic-range PT; second must use a different one
+    const pt0 = Number(audioMLines[0]!.match(/SAVPF (\d+)/)?.[1]);
+    const pt1 = Number(audioMLines[1]!.match(/SAVPF (\d+)/)?.[1]);
+    expect(pt0).toBeGreaterThanOrEqual(96);
+    expect(pt0).toBeLessThanOrEqual(127);
+    expect(pt1).toBeGreaterThanOrEqual(96);
+    expect(pt1).toBeLessThanOrEqual(127);
+    expect(pt0).not.toBe(pt1);
+  });
+
+  it("16-track offer (8 video + 8 audio, below-range PTs): every section lands in [96,127] with no duplicates", () => {
+    // 8 video sections: H264 at PT 42 + rtx at PT 43
+    // 8 audio sections: Opus at PT 8
+    // All primaries are below 96, so they all need relocating.
+    // The [96,127] range (32 slots) can accommodate all 16 without exhaustion.
+    const lines: string[] = ["v=0"];
+    for (let i = 0; i < 8; i++) {
+      lines.push(
+        "m=video 9 UDP/TLS/RTP/SAVPF 42 43",
+        "a=rtpmap:42 H264/90000",
+        "a=rtpmap:43 rtx/90000",
+        "a=fmtp:43 apt=42"
+      );
+    }
+    for (let i = 0; i < 8; i++) {
+      lines.push("m=audio 9 UDP/TLS/RTP/SAVPF 8", "a=rtpmap:8 opus/48000/2");
+    }
+    const out = sanitize(lines.join("\r\n"));
+
+    const primaryPts = out
+      .split("\r\n")
+      .filter((l) => l.startsWith("m=video") || l.startsWith("m=audio"))
+      .map((l) => Number(l.match(/SAVPF (\d+)/)?.[1]));
+
+    expect(primaryPts).toHaveLength(16);
+    for (const pt of primaryPts) {
+      expect(pt).toBeGreaterThanOrEqual(96);
+      expect(pt).toBeLessThanOrEqual(127);
+    }
+    // No two sections share a primary PT (BUNDLE safety)
+    expect(new Set(primaryPts).size).toBe(16);
+  });
+
+  it("16-track offer (8 video + 8 audio, already in-range PTs): remaps duplicates across sections", () => {
+    // All sections start with the codec already in [96,127]: H264=96 and Opus=111.
+    // Without the forbidden.has(p) fix every section would keep its original PT,
+    // producing 8 duplicate PT-96 entries and 8 duplicate PT-111 entries in BUNDLE mode.
+    const lines: string[] = ["v=0"];
+    for (let i = 0; i < 8; i++) {
+      lines.push(
+        "m=video 9 UDP/TLS/RTP/SAVPF 96 97",
+        "a=rtpmap:96 H264/90000",
+        "a=rtpmap:97 rtx/90000",
+        "a=fmtp:97 apt=96"
+      );
+    }
+    for (let i = 0; i < 8; i++) {
+      lines.push(
+        "m=audio 9 UDP/TLS/RTP/SAVPF 111",
+        "a=rtpmap:111 opus/48000/2"
+      );
+    }
+    const out = sanitize(lines.join("\r\n"));
+
+    const primaryPts = out
+      .split("\r\n")
+      .filter((l) => l.startsWith("m=video") || l.startsWith("m=audio"))
+      .map((l) => Number(l.match(/SAVPF (\d+)/)?.[1]));
+
+    expect(primaryPts).toHaveLength(16);
+    for (const pt of primaryPts) {
+      expect(pt).toBeGreaterThanOrEqual(96);
+      expect(pt).toBeLessThanOrEqual(127);
+    }
+    expect(new Set(primaryPts).size).toBe(16);
+  });
+
   it("later video m-line avoids PTs already assigned to an earlier video m-line", () => {
     const sdp = [
       "v=0",

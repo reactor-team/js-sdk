@@ -2,7 +2,22 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { WebRTCTransportClient } from "../../src/core/WebRTCTransportClient";
 import type { TrackCapability } from "../../src/core/types";
 
+function makeMockChannel(label: string) {
+  return {
+    onopen: null as any,
+    onclose: null as any,
+    onerror: null as any,
+    onmessage: null as any,
+    readyState: "connecting" as RTCDataChannelState,
+    close: vi.fn(),
+    send: vi.fn(),
+    label,
+  };
+}
+
 function createMockPC() {
+  const dataChannel = makeMockChannel("data");
+  const controlChannel = makeMockChannel("control");
   return {
     addTransceiver: vi.fn().mockReturnValue({
       sender: { replaceTrack: vi.fn().mockResolvedValue(undefined) },
@@ -16,16 +31,11 @@ function createMockPC() {
     }),
     setLocalDescription: vi.fn(),
     setRemoteDescription: vi.fn(),
-    createDataChannel: vi.fn().mockReturnValue({
-      onopen: null,
-      onclose: null,
-      onerror: null,
-      onmessage: null,
-      readyState: "connecting",
-      close: vi.fn(),
-      send: vi.fn(),
-      label: "data",
-    }),
+    createDataChannel: vi
+      .fn()
+      .mockImplementation((label?: string) =>
+        label === "control" ? controlChannel : dataChannel
+      ),
     close: vi.fn(),
     getSenders: vi.fn().mockReturnValue([]),
     getReceivers: vi.fn().mockReturnValue([]),
@@ -51,6 +61,10 @@ function createMockPC() {
 
 const MOCK_TRACKS: TrackCapability[] = [
   { name: "main_video", kind: "video", direction: "recvonly" },
+];
+
+const SENDONLY_TRACKS: TrackCapability[] = [
+  { name: "webcam", kind: "video", direction: "sendonly" },
 ];
 
 const ICE_SERVERS_RESPONSE = {
@@ -108,10 +122,16 @@ describe("WebRTCTransportClient (extended)", () => {
     });
   }
 
-  function setupFullConnect() {
+  function setupFullConnect(connectionId = 1234) {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve(ICE_SERVERS_RESPONSE),
+    });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 201,
+      json: () =>
+        Promise.resolve({ connection_id: connectionId, track_map: {} }),
     });
     mockFetch.mockResolvedValueOnce({ ok: true, status: 202 });
     mockFetch.mockResolvedValueOnce({
@@ -122,15 +142,26 @@ describe("WebRTCTransportClient (extended)", () => {
   }
 
   function getDataChannel() {
-    return mockPC.createDataChannel.mock.results[0].value;
+    return mockPC.createDataChannel.mock.results
+      .map((r: any) => r.value)
+      .find((c: any) => c.label === "data");
+  }
+
+  function getControlChannel() {
+    return mockPC.createDataChannel.mock.results
+      .map((r: any) => r.value)
+      .find((c: any) => c.label === "control");
   }
 
   function simulateConnected() {
     const dc = getDataChannel();
+    const cc = getControlChannel();
     mockPC.connectionState = "connected";
     mockPC.onconnectionstatechange();
     dc.readyState = "open";
     dc.onopen();
+    cc.readyState = "open";
+    cc.onopen();
   }
 
   async function connectClient(client: WebRTCTransportClient) {
@@ -233,8 +264,11 @@ describe("WebRTCTransportClient (extended)", () => {
       client.on("statusChanged", handler);
 
       const dc = getDataChannel();
+      const cc = getControlChannel();
       dc.readyState = "open";
       dc.onopen();
+      cc.readyState = "open";
+      cc.onopen();
 
       mockPC.connectionState = "connected";
       mockPC.onconnectionstatechange();
@@ -276,8 +310,11 @@ describe("WebRTCTransportClient (extended)", () => {
       mockPC.onconnectionstatechange();
 
       const dc = getDataChannel();
+      const cc = getControlChannel();
       dc.readyState = "open";
       dc.onopen();
+      cc.readyState = "open";
+      cc.onopen();
 
       expect(client.getStatus()).toBe("connected");
     });
@@ -285,9 +322,8 @@ describe("WebRTCTransportClient (extended)", () => {
     it("onclose stops ping", async () => {
       const client = createClient();
       await connectClient(client);
+      simulateConnected();
       const dc = getDataChannel();
-      dc.readyState = "open";
-      dc.onopen();
 
       vi.advanceTimersByTime(5_000);
       expect(dc.send).toHaveBeenCalled();
@@ -354,6 +390,24 @@ describe("WebRTCTransportClient (extended)", () => {
     });
   });
 
+  // ── data channel creation order (legacy runtime back-compat) ──────────
+
+  describe("data channel creation order", () => {
+    it("creates the control channel before the main data channel", async () => {
+      const client = createClient();
+      await connectClient(client);
+
+      // A pre-multi-connection runtime collapses every inbound channel onto a
+      // single `self._data_channel` (last-write-wins). Creating `control`
+      // first makes that converge on our main data channel, so both send and
+      // receive ride it natively.
+      const labels = mockPC.createDataChannel.mock.calls.map(
+        (c: any[]) => c[0] ?? "data"
+      );
+      expect(labels).toEqual(["control", "data"]);
+    });
+  });
+
   // ── checkFullyConnected ───────────────────────────────────────────────
 
   describe("checkFullyConnected", () => {
@@ -368,10 +422,13 @@ describe("WebRTCTransportClient (extended)", () => {
       mockPC.onconnectionstatechange();
       expect(client.getStatus()).not.toBe("connected");
 
-      // Data channel open second — now both ready
+      // Data + control channels open — now all three conditions met
       const dc = getDataChannel();
+      const cc = getControlChannel();
       dc.readyState = "open";
       dc.onopen();
+      cc.readyState = "open";
+      cc.onopen();
       expect(client.getStatus()).toBe("connected");
       expect(handler).toHaveBeenCalledWith("connected");
     });
@@ -380,11 +437,12 @@ describe("WebRTCTransportClient (extended)", () => {
   // ── reconnect via prepare + connect("PUT") ─────────────
 
   describe("reconnect (prepare + connect PUT)", () => {
-    it("tears down old connection and creates new one with PUT", async () => {
+    it("reuses existing connection_id and sends PUT without re-registering", async () => {
       const client = createClient();
       await connectClient(client);
       simulateConnected();
 
+      // Re-prepare and reconnect: ICE + PUT sdp_params + GET sdp_params (no registration)
       mockFetch.mockReset();
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -400,7 +458,160 @@ describe("WebRTCTransportClient (extended)", () => {
       await client.prepare(MOCK_TRACKS);
       await client.connect(true);
 
+      // call[0] = ICE, call[1] = PUT sdp_params (skips registration)
+      expect(mockFetch.mock.calls[1][0]).toContain(
+        "/connections/1234/sdp_params"
+      );
       expect(mockFetch.mock.calls[1][1].method).toBe("PUT");
+    });
+  });
+
+  // ── publishTrack() / unpublishTrack() control messages ───────────────
+
+  describe("publishTrack() and unpublishTrack() control messages", () => {
+    async function connectSendonly(client: WebRTCTransportClient) {
+      setupFullConnect();
+      await client.prepare(SENDONLY_TRACKS);
+      await client.connect();
+      simulateConnected();
+    }
+
+    function getControlMessages(cc: ReturnType<typeof getControlChannel>) {
+      return cc.send.mock.calls.map((c: any) => JSON.parse(c[0]));
+    }
+
+    function drainMicrotasks() {
+      return Promise.resolve().then(() => Promise.resolve());
+    }
+
+    function sendResponse(
+      cc: ReturnType<typeof getControlChannel>,
+      requestId: string,
+      method: string,
+      accepted: boolean,
+      reason?: string
+    ) {
+      const msg: any = { type: "response", method, request_id: requestId };
+      if (accepted) {
+        msg.data = {};
+      } else {
+        msg.error = {
+          code: "PUBLISHER_SLOT_TAKEN",
+          message: reason ?? "publisher slot already taken",
+        };
+      }
+      cc.onmessage({ data: JSON.stringify(msg) });
+    }
+
+    it("sends publish_track as request and resolves when backend accepts", async () => {
+      const client = createClient();
+      await connectSendonly(client);
+
+      const cc = getControlChannel();
+      cc.send.mockClear();
+
+      const publishPromise = client.publishTrack(
+        "webcam",
+        {} as MediaStreamTrack
+      );
+      await drainMicrotasks();
+
+      const msgs = getControlMessages(cc);
+      const msg = msgs.find(
+        (m: any) => m.type === "request" && m.method === "publish_track"
+      );
+      expect(msg).toBeDefined();
+      expect(msg.data).toEqual({ name: "webcam" });
+      expect(msg.request_id).toBeDefined();
+
+      sendResponse(cc, msg.request_id, "publish_track", true);
+      await publishPromise;
+    });
+
+    it("rejects and rolls back when backend returns error response", async () => {
+      const client = createClient();
+      await connectSendonly(client);
+
+      const cc = getControlChannel();
+      const publishPromise = client.publishTrack(
+        "webcam",
+        {} as MediaStreamTrack
+      );
+      await drainMicrotasks();
+
+      const msg = getControlMessages(cc).find(
+        (m: any) => m.type === "request" && m.method === "publish_track"
+      );
+      sendResponse(
+        cc,
+        msg.request_id,
+        "publish_track",
+        false,
+        "publisher slot already taken"
+      );
+
+      await expect(publishPromise).rejects.toThrow(
+        "publisher slot already taken"
+      );
+    });
+
+    it("sends unpublish_track as notification after unpublishing", async () => {
+      const client = createClient();
+      await connectSendonly(client);
+
+      const cc = getControlChannel();
+
+      // First publish (with response)
+      const publishPromise = client.publishTrack(
+        "webcam",
+        {} as MediaStreamTrack
+      );
+      await drainMicrotasks();
+      const publishMsg = getControlMessages(cc).find(
+        (m: any) => m.type === "request" && m.method === "publish_track"
+      );
+      sendResponse(cc, publishMsg.request_id, "publish_track", true);
+      await publishPromise;
+
+      cc.send.mockClear();
+
+      await client.unpublishTrack("webcam");
+
+      const msg = getControlMessages(cc).find(
+        (m: any) => m.type === "notification" && m.event === "unpublish_track"
+      );
+      expect(msg).toBeDefined();
+      expect(msg.data).toEqual({ name: "webcam" });
+    });
+
+    it("does not send unpublish_track when unpublishing a track that was never published", async () => {
+      const client = createClient();
+      await connectSendonly(client);
+
+      const cc = getControlChannel();
+      cc.send.mockClear();
+
+      await client.unpublishTrack("webcam");
+
+      const msgs = getControlMessages(cc);
+      expect(
+        msgs.find((m: any) => m.event === "unpublish_track")
+      ).toBeUndefined();
+    });
+
+    it("rejects with timeout when no ack is received", async () => {
+      const client = createClient();
+      await connectSendonly(client);
+
+      const publishPromise = client.publishTrack(
+        "webcam",
+        {} as MediaStreamTrack
+      );
+      await drainMicrotasks();
+
+      vi.advanceTimersByTime(11_000);
+
+      await expect(publishPromise).rejects.toThrow("timed out");
     });
   });
 

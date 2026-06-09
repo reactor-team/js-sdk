@@ -62,6 +62,8 @@ vi.mock("../../src/core/WebRTCTransportClient", () => ({
       sendCommand: vi.fn(),
       publishTrack: vi.fn().mockResolvedValue(undefined),
       unpublishTrack: vi.fn().mockResolvedValue(undefined),
+      pauseTrack: vi.fn(),
+      resumeTrack: vi.fn(),
       on: vi.fn((event: string, handler: any) => {
         transportHandlers[event] = handler;
       }),

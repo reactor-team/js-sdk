@@ -109,6 +109,9 @@ export function ReactorProvider({
   // State to trigger re-renders when store changes
   const [_storeVersion, setStoreVersion] = useState(0);
 
+  // Destructure connectOptions with defaults
+  const { autoConnect = false, ...pollingOptions } = connectOptions ?? {};
+
   if (storeRef.current === undefined) {
     console.debug("[ReactorProvider] Creating new reactor store");
     // We create the store without autoconnecting, to avoid duplicate connections.
@@ -117,33 +120,37 @@ export function ReactorProvider({
       initReactorStore({
         ...props,
         jwtToken: jwtSource,
+        connectOptions: pollingOptions,
       })
     );
     console.debug("[ReactorProvider] Reactor store created successfully");
   }
 
-  // Destructure connectOptions with defaults
-  const { autoConnect = false, ...pollingOptions } = connectOptions ?? {};
-
   const { apiUrl, modelName, local } = props;
   const maxAttempts = pollingOptions.maxAttempts;
+  const { autoResumeTracks } = pollingOptions;
 
-  // Handle page unload (refresh, close, navigate away) with non-recoverable disconnect
+  // Keep connectOptions in the store in sync when provider props change without
+  // tearing the store down (e.g. toggling autoResumeTracks while disconnected).
+  useEffect(() => {
+    storeRef.current?.setState({ connectOptions: pollingOptions });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoResumeTracks, maxAttempts]);
+
+  // On page unload, perform a non-recoverable disconnect. The session's
+  // creator tears the session down (DELETE), matching the pre-multi-connection
+  // behaviour; a client that adopted an existing session (connect({ sessionId }))
+  // only closes its own transport and leaves the session alive for its owner.
+  // This gating lives in Reactor.disconnect() via the `createdSession` flag, so
+  // passing `false` here is safe for both roles. We can't await during unload,
+  // so the DELETE is best-effort (same as before).
   useEffect(() => {
     const handleBeforeUnload = () => {
-      console.debug(
-        "[ReactorProvider] Page unloading, performing non-recoverable disconnect"
-      );
-      // Call disconnect synchronously - we can't await here as the page is unloading
-      // The disconnect(false) ensures non-recoverable cleanup (stops session, clears state)
       storeRef.current?.getState().internal.reactor.disconnect(false);
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
 
   useEffect(() => {
@@ -203,6 +210,7 @@ export function ReactorProvider({
         modelName,
         local,
         jwtToken: jwtSource,
+        connectOptions: pollingOptions,
       } satisfies ReactorInitializationProps)
     );
 

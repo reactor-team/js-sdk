@@ -70,6 +70,8 @@ vi.mock("../../src/core/WebRTCTransportClient", () => ({
       sendCommand: vi.fn(),
       publishTrack: vi.fn().mockResolvedValue(undefined),
       unpublishTrack: vi.fn().mockResolvedValue(undefined),
+      pauseTrack: vi.fn(),
+      resumeTrack: vi.fn(),
       on: vi.fn((event: string, handler: any) => {
         transportHandlers[event] = handler;
       }),
@@ -171,7 +173,7 @@ describe("Reactor (extended)", () => {
       await r.disconnect();
     });
 
-    it("emits TRACK_PUBLISH_FAILED on error", async () => {
+    it("emits TRACK_PUBLISH_FAILED and rejects on error", async () => {
       const r = new Reactor({ modelName: "echo" });
       await connectAndReady(r);
 
@@ -183,7 +185,9 @@ describe("Reactor (extended)", () => {
       r.on("error", errorHandler);
       vi.spyOn(console, "error").mockImplementation(() => {});
 
-      await r.publishTrack("webcam", {} as MediaStreamTrack);
+      await expect(
+        r.publishTrack("webcam", {} as MediaStreamTrack)
+      ).rejects.toThrow("publish error");
 
       expect(errorHandler).toHaveBeenCalledWith(
         expect.objectContaining({ code: "TRACK_PUBLISH_FAILED" })

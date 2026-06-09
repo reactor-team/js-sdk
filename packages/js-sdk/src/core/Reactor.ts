@@ -56,12 +56,22 @@ export class Reactor {
   private sessionExpiration?: number;
   private local: boolean;
   private sessionId?: string;
+  /**
+   * True only when the active session was created by THIS connect flow
+   * (via `createSession()`). False when the session was adopted via
+   * `connect({ sessionId })`. We must never DELETE a session we did not
+   * create — another client (or the backend that created it) owns its
+   * lifecycle, so on disconnect/teardown/error an adopting client tears
+   * down its own transport but leaves the session alive.
+   */
+  private createdSession = false;
   private connectStartTime?: number;
   private connectionTimings?: ConnectionTimings;
 
   private capabilities?: Capabilities;
   private tracks: TrackCapability[] = [];
   private presetTracks?: TrackCapability[];
+  private autoResumeTracks = false;
   private sessionResponse?: SessionResponse;
   // Cached so clip surfaces (player, download button, hook) can
   // reach the same token source without re-threading `getJwt`.
@@ -333,6 +343,7 @@ export class Reactor {
         "gpu",
         true
       );
+      throw error;
     }
   }
 
@@ -348,6 +359,14 @@ export class Reactor {
         true
       );
     }
+  }
+
+  pauseTrack(name: string): void {
+    this.transportClient?.pauseTrack(name);
+  }
+
+  resumeTrack(name: string): void {
+    this.transportClient?.resumeTrack(name);
   }
 
   /**
@@ -449,12 +468,16 @@ export class Reactor {
       if (options?.sessionId) {
         await this.coordinatorClient.adoptSession(options.sessionId);
         sessionId = options.sessionId;
+        // Adopted, not created — we don't own this session's lifecycle.
+        this.createdSession = false;
         console.debug("[Reactor] Attaching to existing session:", sessionId);
       } else {
         const tSession = performance.now();
         const initialResponse = await this.coordinatorClient.createSession();
         sessionCreationMs = performance.now() - tSession;
         sessionId = initialResponse.session_id;
+        // We created it, so we own teardown (DELETE) of this session.
+        this.createdSession = true;
         console.debug(
           "[Reactor] Session created:",
           sessionId,
@@ -479,23 +502,29 @@ export class Reactor {
       let sessionPollingMs: number;
       let transportConnectingMs: number;
 
+      this.autoResumeTracks = options?.autoResumeTracks ?? true;
+
       if (this.presetTracks) {
         // 2a. Parallel path: tracks are known at build time, so we can
         //     prepare the transport while waiting for the Runtime.
+        this.tracks = this.presetTracks;
+
         const tParallel = performance.now();
         const [sessionResponse] = await Promise.all([
           this.coordinatorClient.pollSessionReady(),
-          this.transportClient.prepare(this.presetTracks),
+          this.transportClient.prepare(this.tracks),
         ]);
         sessionPollingMs = performance.now() - tParallel;
 
         this.sessionResponse = sessionResponse;
-        this.capabilities = sessionResponse.capabilities!;
-        this.tracks = this.presetTracks;
+        this.capabilities = {
+          ...sessionResponse.capabilities!,
+          tracks: this.tracks,
+        };
         this.emit("capabilitiesReceived", this.capabilities);
 
         const tConnect = performance.now();
-        await this.transportClient.connect();
+        await this.transportClient.connect(false, options?.connectionId);
         transportConnectingMs = performance.now() - tConnect;
       } else {
         // 2b. Sequential path: tracks come from the poll response, but
@@ -507,8 +536,11 @@ export class Reactor {
         sessionPollingMs = performance.now() - tPoll;
 
         this.sessionResponse = sessionResponse;
-        this.capabilities = sessionResponse.capabilities!;
         this.tracks = sessionResponse.capabilities!.tracks;
+        this.capabilities = {
+          ...sessionResponse.capabilities!,
+          tracks: this.tracks,
+        };
         this.emit("capabilitiesReceived", this.capabilities);
 
         const protocol = sessionResponse.selected_transport!.protocol;
@@ -518,7 +550,7 @@ export class Reactor {
 
         const tTransport = performance.now();
         await this.transportClient.prepare(this.tracks);
-        await this.transportClient.connect();
+        await this.transportClient.connect(false, options?.connectionId);
         transportConnectingMs = performance.now() - tTransport;
       }
 
@@ -578,6 +610,15 @@ export class Reactor {
       switch (status) {
         case "connected":
           this.finalizeConnectionTimings();
+
+          if (this.autoResumeTracks) {
+            for (const track of this.tracks) {
+              if (track.direction === "recvonly") {
+                this.resumeTrack(track.name);
+              }
+            }
+          }
+
           this.setStatus("ready");
           break;
         case "disconnected":
@@ -600,6 +641,14 @@ export class Reactor {
       (name: string, track: MediaStreamTrack, stream: MediaStream) => {
         if (this.transportClient !== client) return;
         this.emit("trackReceived", name, track, stream);
+
+        if (this.autoResumeTracks) {
+          for (const track of this.tracks) {
+            if (track.direction === "recvonly") {
+              this.resumeTrack(track.name);
+            }
+          }
+        }
       }
     );
 
@@ -625,10 +674,21 @@ export class Reactor {
     this.transportClient?.abort();
 
     if (this.coordinatorClient && !recoverable) {
-      try {
-        await this.coordinatorClient.terminateSession();
-      } catch (error) {
-        console.error("[Reactor] Error terminating session:", error);
+      // Only the session's creator may DELETE it. A client that adopted an
+      // existing session (connect({ sessionId })) tears down its own
+      // transport but must leave the session running for its real owner —
+      // this guard applies to every non-recoverable path (explicit
+      // disconnect, transport error, connect-failure cleanup, unmount).
+      if (this.createdSession) {
+        try {
+          await this.coordinatorClient.terminateSession();
+        } catch (error) {
+          console.error("[Reactor] Error terminating session:", error);
+        }
+      } else {
+        console.debug(
+          "[Reactor] Adopted session (not the creator) — skipping DELETE, leaving it alive"
+        );
       }
       this.coordinatorClient = undefined;
     }
@@ -652,6 +712,7 @@ export class Reactor {
       this.capabilities = undefined;
       this.tracks = [];
       this.sessionResponse = undefined;
+      this.createdSession = false;
     }
   }
 

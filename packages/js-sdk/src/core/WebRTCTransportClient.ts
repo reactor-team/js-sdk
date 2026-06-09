@@ -6,6 +6,7 @@
  * channel messaging, track publishing, and stats collection.
  */
 
+import { AwaitQueue } from "awaitqueue";
 import * as webrtc from "../utils/webrtc";
 import type {
   TransportClient,
@@ -24,6 +25,7 @@ import {
   type IceCandidate,
   type IceCandidatesRequest,
   IceServersResponseSchema,
+  WebRTCSdpOfferResponseSchema,
   WebRTCSdpAnswerResponseSchema,
   REACTOR_WEBRTC_VERSION,
   REACTOR_SDK_VERSION,
@@ -45,6 +47,12 @@ const INITIAL_BACKOFF_MS = 200;
 const MAX_BACKOFF_MS = 15_000;
 const BACKOFF_MULTIPLIER = 2;
 const DEFAULT_MAX_POLL_ATTEMPTS = 6;
+
+// Accepted range for a server-minted connection id, mirroring the Coordinator's
+// validation (`connection_id > 1000 && <= 9999`). Used to fail fast on an
+// obviously invalid caller-supplied id before hitting the network.
+const MIN_CONNECTION_ID = 1000;
+const MAX_CONNECTION_ID = 9999;
 
 /**
  * Debounce window for coalescing trickle ICE candidates into a single
@@ -97,6 +105,7 @@ export class WebRTCTransportClient implements TransportClient {
   private eventListeners: Map<TransportEvent, Set<EventHandler>> = new Map();
   private peerConnection: RTCPeerConnection | undefined;
   private dataChannel: RTCDataChannel | undefined;
+  private controlChannel: RTCDataChannel | undefined;
   private status: TransportStatus = "disconnected";
   private pingInterval: ReturnType<typeof setInterval> | undefined;
   private statsInterval: ReturnType<typeof setInterval> | undefined;
@@ -104,8 +113,24 @@ export class WebRTCTransportClient implements TransportClient {
 
   private transceiverMap: Map<string, TransceiverEntry> = new Map();
   private publishedTracks: Map<string, MediaStreamTrack> = new Map();
+  // Serializes all SDP renegotiations (pause/resume direction changes) and gates
+  // them behind the connection-ready task. Reset on each prepare() call.
+  private peerConnectionQueue = new AwaitQueue();
+  // Resolves the connection-ready gate task pushed in prepare(). Called by
+  // checkFullyConnected() once all three ready conditions are met.
+  private readyGateResolve: (() => void) | undefined;
+  private pendingControlRequests = new Map<
+    string,
+    {
+      resolve: () => void;
+      reject: (err: Error) => void;
+      timeout: ReturnType<typeof setTimeout>;
+    }
+  >();
+  private controlRequestCounter = 0;
   private peerConnected = false;
   private dataChannelOpen = false;
+  private controlChannelOpen = false;
 
   private iceStartTime?: number;
   private iceNegotiationMs?: number;
@@ -113,6 +138,7 @@ export class WebRTCTransportClient implements TransportClient {
   private sdpPollingMs?: number;
   private sdpPollingAttempts?: number;
 
+  private connectionId: number | undefined;
   private pendingSdpOffer?: string;
   private pendingTrackMapping?: TrackMappingEntry[];
   private cachedIceServers?: Promise<RTCIceServer[]>;
@@ -245,14 +271,41 @@ export class WebRTCTransportClient implements TransportClient {
     return iceServers;
   }
 
+  private async registerConnection(): Promise<number> {
+    console.debug("[WebRTCTransport] Registering connection...");
+
+    const response = await fetch(`${this.transportBaseUrl}/connections`, {
+      method: "POST",
+      headers: await this.getHeaders(),
+      signal: this.signal,
+    });
+
+    await this.checkVersionMismatch(response);
+
+    if (response.status !== 201) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to register connection: ${response.status} ${errorText}`
+      );
+    }
+
+    const data = await response.json();
+    const connectionId: number = data.connection_id;
+    console.debug(
+      `[WebRTCTransport] Connection registered: id=${connectionId}`
+    );
+    return connectionId;
+  }
+
   private async sendSdpOffer(
+    connectionId: number,
     sdpOffer: string,
     trackMapping: TrackMappingEntry[],
-    method: "POST" | "PUT" = "POST"
+    reconnect: boolean = false
   ): Promise<void> {
+    const method = reconnect ? "PUT" : "POST";
     console.debug(
-      `[WebRTCTransport] Sending SDP offer (${method}) for session:`,
-      this.sessionId
+      `[WebRTCTransport] Sending SDP offer (${method}) connection=${connectionId}`
     );
 
     const requestBody: WebRTCSdpOfferRequest = {
@@ -264,20 +317,39 @@ export class WebRTCTransportClient implements TransportClient {
       track_mapping: trackMapping,
     };
 
-    const response = await fetch(`${this.transportBaseUrl}/sdp_params`, {
-      method,
-      headers: {
-        ...(await this.getHeaders()),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-      signal: this.signal,
-    });
+    const response = await fetch(
+      `${this.transportBaseUrl}/connections/${connectionId}/sdp_params`,
+      {
+        method,
+        headers: {
+          ...(await this.getHeaders()),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+        signal: this.signal,
+      }
+    );
 
     await this.checkVersionMismatch(response);
 
     if (response.status !== 202) {
       const errorText = await response.text();
+      // A caller-supplied connection id that the server doesn't recognise (or
+      // that has already been closed) surfaces here as a 404; an out-of-range
+      // id as a 400. Make those actionable rather than a bare status dump.
+      if (response.status === 404) {
+        throw new Error(
+          `[WebRTCTransport] Connection ${connectionId} not found or already ` +
+            `closed (404). A supplied connectionId must reference a connection ` +
+            `registered under this session (POST .../connections) that is still ` +
+            `open. ${errorText}`
+        );
+      }
+      if (response.status === 400) {
+        throw new Error(
+          `[WebRTCTransport] Connection ${connectionId} rejected (400): ${errorText}`
+        );
+      }
       throw new Error(
         `Failed to send SDP offer: ${response.status} ${errorText}`
       );
@@ -290,6 +362,13 @@ export class WebRTCTransportClient implements TransportClient {
     candidates: IceCandidate[],
     is_final: boolean
   ): Promise<void> {
+    if (this.connectionId === undefined) {
+      console.debug(
+        "[WebRTCTransport] ICE candidates dropped: no active connection"
+      );
+      return;
+    }
+
     console.debug(
       `[WebRTCTransport] Sending ICE candidates (count=${candidates.length}, is_final=${is_final})`
     );
@@ -303,15 +382,18 @@ export class WebRTCTransportClient implements TransportClient {
       },
     };
 
-    const response = await fetch(`${this.transportBaseUrl}/ice_candidates`, {
-      method: "POST",
-      headers: {
-        ...(await this.getHeaders()),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-      signal: this.signal,
-    });
+    const response = await fetch(
+      `${this.transportBaseUrl}/connections/${this.connectionId}/ice_candidates`,
+      {
+        method: "POST",
+        headers: {
+          ...(await this.getHeaders()),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+        signal: this.signal,
+      }
+    );
 
     await this.checkVersionMismatch(response);
 
@@ -323,7 +405,6 @@ export class WebRTCTransportClient implements TransportClient {
     }
 
     console.debug("[WebRTCTransport] ICE candidates accepted (202)");
-    return;
   }
 
   /**
@@ -363,8 +444,12 @@ export class WebRTCTransportClient implements TransportClient {
     this.pendingIceCandidates = [];
   }
 
-  private async pollSdpAnswer(): Promise<WebRTCSdpAnswerResponse> {
+  private async pollSdpAnswer(
+    connectionId: number
+  ): Promise<WebRTCSdpAnswerResponse> {
     console.debug("[WebRTCTransport] Polling for SDP answer...");
+
+    const pollUrl = `${this.transportBaseUrl}/connections/${connectionId}/sdp_params`;
 
     const pollStart = performance.now();
     let backoffMs = INITIAL_BACKOFF_MS;
@@ -386,7 +471,7 @@ export class WebRTCTransportClient implements TransportClient {
         `[WebRTCTransport] SDP poll attempt ${attempt}/${this.maxPollAttempts}`
       );
 
-      const response = await fetch(`${this.transportBaseUrl}/sdp_params`, {
+      const response = await fetch(pollUrl, {
         method: "GET",
         headers: await this.getHeaders(),
         signal: this.signal,
@@ -445,12 +530,30 @@ export class WebRTCTransportClient implements TransportClient {
       this.dataChannel.close();
       this.dataChannel = undefined;
     }
+    if (this.controlChannel) {
+      this.controlChannel.close();
+      this.controlChannel = undefined;
+    }
     if (this.peerConnection) {
       webrtc.closePeerConnection(this.peerConnection);
       this.peerConnection = undefined;
     }
     this.peerConnected = false;
     this.dataChannelOpen = false;
+    this.controlChannelOpen = false;
+
+    // Fresh queue for this connection. The first task is the connection-ready
+    // gate; every pause/resume renegotiation waits behind it.
+    this.peerConnectionQueue.stop();
+    this.peerConnectionQueue = new AwaitQueue();
+    this.peerConnectionQueue
+      .push(
+        () =>
+          new Promise<void>((resolve) => {
+            this.readyGateResolve = resolve;
+          })
+      )
+      .catch(() => {});
 
     const iceServers = this.cachedIceServers
       ? await this.cachedIceServers
@@ -459,6 +562,19 @@ export class WebRTCTransportClient implements TransportClient {
 
     this.peerConnection = webrtc.createPeerConnection({ iceServers });
     this.setupPeerConnectionHandlers();
+
+    // Create the control channel BEFORE the main data channel. A
+    // pre-multi-connection runtime doesn't discriminate channels by label and
+    // collapses every inbound channel onto a single `self._data_channel`
+    // (last-write-wins), using it for both sending and binding its receive
+    // handler. Creating `control` first means that single channel converges on
+    // our main data channel, so both directions ride it natively. Newer
+    // runtimes key on the channel label, so the order is irrelevant to them.
+    this.controlChannel = webrtc.createDataChannel(
+      this.peerConnection,
+      "control"
+    );
+    this.setupControlChannelHandlers();
 
     this.dataChannel = webrtc.createDataChannel(this.peerConnection);
     this.setupDataChannelHandlers();
@@ -485,23 +601,50 @@ export class WebRTCTransportClient implements TransportClient {
     console.debug("[WebRTCTransport] SDP offer prepared");
   }
 
-  async connect(reconnect: boolean = false): Promise<void> {
+  async connect(
+    reconnect: boolean = false,
+    connectionId?: number
+  ): Promise<void> {
     if (!this.pendingSdpOffer || !this.pendingTrackMapping) {
       throw new Error(
         "[WebRTCTransport] No prepared connection. Call prepare() first."
       );
     }
 
-    const method = reconnect ? "PUT" : "POST";
-
     const sdpOffer = this.pendingSdpOffer;
     const trackMapping = this.pendingTrackMapping;
     this.pendingSdpOffer = undefined;
     this.pendingTrackMapping = undefined;
 
-    await this.sendSdpOffer(sdpOffer, trackMapping, method);
+    if (connectionId !== undefined) {
+      // Caller supplied a connection id (e.g. a backend pre-registered it via
+      // POST .../connections and handed it over). Adopt it and skip
+      // registration — the server validates existence when we send the offer.
+      if (
+        !Number.isInteger(connectionId) ||
+        connectionId <= MIN_CONNECTION_ID ||
+        connectionId > MAX_CONNECTION_ID
+      ) {
+        throw new Error(
+          `[WebRTCTransport] Invalid connectionId ${connectionId}: must be an ` +
+            `integer in (${MIN_CONNECTION_ID}, ${MAX_CONNECTION_ID}]`
+        );
+      }
+      this.connectionId = connectionId;
+    } else if (!reconnect || this.connectionId === undefined) {
+      // For a fresh connection, register to obtain an integer connection id.
+      // For a reconnect, reuse the existing id (PUT replaces the SDP on the same slot).
+      this.connectionId = await this.registerConnection();
+    }
 
-    const answerResponse = await this.pollSdpAnswer();
+    await this.sendSdpOffer(
+      this.connectionId,
+      sdpOffer,
+      trackMapping,
+      reconnect
+    );
+
+    const answerResponse = await this.pollSdpAnswer(this.connectionId);
 
     this.iceStartTime = performance.now();
     await webrtc.setRemoteDescription(
@@ -525,14 +668,33 @@ export class WebRTCTransportClient implements TransportClient {
       this.dataChannel = undefined;
     }
 
+    if (this.controlChannel) {
+      this.controlChannel.close();
+      this.controlChannel = undefined;
+    }
+
     if (this.peerConnection) {
       webrtc.closePeerConnection(this.peerConnection);
       this.peerConnection = undefined;
     }
 
+    for (const [, pending] of this.pendingControlRequests) {
+      clearTimeout(pending.timeout);
+      pending.reject(
+        new Error("[WebRTCTransport] Disconnected while waiting for response")
+      );
+    }
+    this.pendingControlRequests.clear();
+
+    // Abandon the ready gate and any queued direction changes.
+    this.readyGateResolve = undefined;
+    this.peerConnectionQueue.stop();
+
+    this.connectionId = undefined;
     this.transceiverMap.clear();
     this.peerConnected = false;
     this.dataChannelOpen = false;
+    this.controlChannelOpen = false;
     this.resetTransportTimings();
     this.setStatus("disconnected");
     console.debug("[WebRTCTransport] Disconnected");
@@ -607,6 +769,145 @@ export class WebRTCTransportClient implements TransportClient {
     }
   }
 
+  private sendControlMessage(command: string, data: any, reqId?: string): void {
+    if (!this.controlChannel) {
+      console.warn("[WebRTCTransport] Control channel not available");
+      return;
+    }
+    try {
+      if (this.controlChannel.readyState !== "open") {
+        throw new Error(
+          `Control channel not open: ${this.controlChannel.readyState}`
+        );
+      }
+      this.controlChannel.send(
+        JSON.stringify({ type: "notification", event: command, data })
+      );
+    } catch (error) {
+      console.warn("[WebRTCTransport] Failed to send control message:", error);
+    }
+  }
+
+  private sendControlRequest(
+    method: string,
+    data: any,
+    timeoutMs: number = 10_000
+  ): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const requestId = `ctrl_${++this.controlRequestCounter}`;
+      const timeout = setTimeout(() => {
+        this.pendingControlRequests.delete(requestId);
+        reject(new Error(`[WebRTCTransport] Request "${method}" timed out`));
+      }, timeoutMs);
+      this.pendingControlRequests.set(requestId, { resolve, reject, timeout });
+      try {
+        if (!this.controlChannel || this.controlChannel.readyState !== "open") {
+          throw new Error("Control channel not available");
+        }
+        this.controlChannel.send(
+          JSON.stringify({
+            type: "request",
+            method,
+            request_id: requestId,
+            data,
+          })
+        );
+      } catch (error) {
+        clearTimeout(timeout);
+        this.pendingControlRequests.delete(requestId);
+        reject(error);
+      }
+    });
+  }
+
+  pauseTrack(name: string): void {
+    this.peerConnectionQueue
+      .push(async () => {
+        const entry = this.transceiverMap.get(name);
+        if (entry?.transceiver?.mid) {
+          entry.transceiver.direction = "inactive";
+          await this.applyDirectionLocally(entry.transceiver.mid, "inactive");
+        }
+        this.sendControlMessage("pause_track", { name });
+      })
+      .catch((e) => {
+        console.warn("[WebRTCTransport] Failed to pause track:", e);
+      });
+  }
+
+  resumeTrack(name: string): void {
+    this.peerConnectionQueue
+      .push(async () => {
+        const entry = this.transceiverMap.get(name);
+        if (entry?.transceiver?.mid) {
+          entry.transceiver.direction = entry.direction;
+          await this.applyDirectionLocally(
+            entry.transceiver.mid,
+            entry.direction
+          );
+        }
+        this.sendControlMessage("resume_track", { name });
+      })
+      .catch((e) => {
+        console.warn("[WebRTCTransport] Failed to resume track:", e);
+      });
+  }
+
+  private async applyDirectionLocally(
+    mid: string,
+    localDirection: RTCRtpTransceiverDirection
+  ): Promise<void> {
+    const pc = this.peerConnection;
+    if (!pc) return;
+
+    // Idempotent: if the transceiver already negotiated this direction there's
+    // nothing to do. This collapses the repeated auto-resume calls (one per
+    // track, re-fired on every `trackReceived`) into at most one real
+    // renegotiation instead of a storm of same-direction re-offers.
+    const tx = pc.getTransceivers().find((t) => t.mid === mid);
+    if (tx && tx.currentDirection === localDirection) return;
+
+    // The chain guarantees the previous change settled back to "stable"; if
+    // something left us mid-negotiation, bail rather than throw — the next
+    // queued change retries from a clean state.
+    if (pc.signalingState !== "stable") return;
+
+    const localSdp = pc.localDescription?.sdp;
+    const remoteSdp = pc.remoteDescription?.sdp;
+    if (!localSdp || !remoteSdp) return;
+
+    const modifiedLocal = webrtc.replaceSdpDirectionForMid(
+      localSdp,
+      mid,
+      localDirection
+    );
+    const modifiedRemote = webrtc.replaceSdpDirectionForMid(
+      remoteSdp,
+      mid,
+      webrtc.complementDirection(localDirection)
+    );
+
+    try {
+      await pc.setLocalDescription(
+        new RTCSessionDescription({ type: "offer", sdp: modifiedLocal })
+      );
+      await pc.setRemoteDescription(
+        new RTCSessionDescription({ type: "answer", sdp: modifiedRemote })
+      );
+    } catch (e) {
+      // Roll back a half-applied offer so the connection returns to "stable"
+      // and the next queued direction change can proceed cleanly.
+      if (pc.signalingState === "have-local-offer") {
+        try {
+          await pc.setLocalDescription({ type: "rollback" });
+        } catch {
+          // Best-effort; nothing more we can do here.
+        }
+      }
+      throw e;
+    }
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Track Publishing
   // ─────────────────────────────────────────────────────────────────────────
@@ -638,6 +939,7 @@ export class WebRTCTransportClient implements TransportClient {
       );
     }
 
+    await this.sendControlRequest("publish_track", { name });
     await entry.transceiver.sender.replaceTrack(track);
     this.publishedTracks.set(name, track);
     console.debug(`[WebRTCTransport] Track "${name}" published successfully`);
@@ -649,6 +951,7 @@ export class WebRTCTransportClient implements TransportClient {
 
     try {
       await entry.transceiver.sender.replaceTrack(null);
+      this.sendControlMessage("unpublish_track", { name });
       console.debug(
         `[WebRTCTransport] Track "${name}" unpublished successfully`
       );
@@ -744,9 +1047,12 @@ export class WebRTCTransportClient implements TransportClient {
   // ─────────────────────────────────────────────────────────────────────────
 
   private checkFullyConnected(): void {
-    if (this.peerConnected && this.dataChannelOpen) {
+    if (this.peerConnected && this.dataChannelOpen && this.controlChannelOpen) {
       this.setStatus("connected");
       this.startStatsPolling();
+      // Unblock all queued direction changes — the peer connection is now usable.
+      this.readyGateResolve!();
+      this.readyGateResolve = undefined;
     }
   }
 
@@ -889,6 +1195,51 @@ export class WebRTCTransportClient implements TransportClient {
           error
         );
       }
+    };
+  }
+
+  private setupControlChannelHandlers(): void {
+    if (!this.controlChannel) return;
+
+    this.controlChannel.onopen = () => {
+      console.debug("[WebRTCTransport] Control channel open");
+      this.controlChannelOpen = true;
+      this.checkFullyConnected();
+    };
+
+    this.controlChannel.onclose = () => {
+      console.debug("[WebRTCTransport] Control channel closed");
+      this.controlChannelOpen = false;
+    };
+
+    this.controlChannel.onerror = (error) => {
+      console.error("[WebRTCTransport] Control channel error:", error);
+    };
+
+    this.controlChannel.onmessage = (event) => {
+      const raw = webrtc.parseMessage(event.data) as any;
+      if (raw?.type === "response") {
+        const requestId = raw?.request_id as string | undefined;
+        if (requestId) {
+          const pending = this.pendingControlRequests.get(requestId);
+          if (pending) {
+            clearTimeout(pending.timeout);
+            this.pendingControlRequests.delete(requestId);
+            if (raw?.error) {
+              pending.reject(
+                new Error(
+                  `[WebRTCTransport] ${raw.method ?? "request"} failed: ${raw.error.message ?? "unknown error"}`
+                )
+              );
+            } else {
+              pending.resolve();
+            }
+          }
+        }
+        return;
+      }
+
+      console.debug("[WebRTCTransport] Received control message:", raw);
     };
   }
 }

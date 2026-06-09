@@ -165,9 +165,16 @@ export const WebRTCSdpOfferRequestSchema = z.object({
   track_mapping: z.array(TrackMappingEntrySchema),
 });
 
+// POST/PUT /sessions/{id}/transport/webrtc/sdp_params — Response (202)
+// connection_id is returned by multi-connection runtimes; absent on older servers.
+export const WebRTCSdpOfferResponseSchema = z.object({
+  connection_id: z.number().optional(),
+});
+
 // GET /sessions/{id}/transport/webrtc/sdp_params — Response (200)
 export const WebRTCSdpAnswerResponseSchema = z.object({
   sdp_answer: z.string(),
+  connection_id: z.number().optional(),
 });
 
 export const IceCandidateSchema = z.object({
@@ -210,6 +217,9 @@ export type IceServer = z.infer<typeof IceServerSchema>;
 export type IceServersResponse = z.infer<typeof IceServersResponseSchema>;
 
 export type WebRTCSdpOfferRequest = z.infer<typeof WebRTCSdpOfferRequestSchema>;
+export type WebRTCSdpOfferResponse = z.infer<
+  typeof WebRTCSdpOfferResponseSchema
+>;
 export type WebRTCSdpAnswerResponse = z.infer<
   typeof WebRTCSdpAnswerResponseSchema
 >;
