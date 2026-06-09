@@ -14,28 +14,16 @@ function createMockPeerConnection() {
     }),
     setLocalDescription: vi.fn(),
     setRemoteDescription: vi.fn(),
-    createDataChannel: vi
-      .fn()
-      .mockReturnValueOnce({
-        onopen: null as ((ev: Event) => void) | null,
-        onclose: null,
-        onerror: null,
-        onmessage: null,
-        readyState: "connecting",
-        close: vi.fn(),
-        send: vi.fn(),
-        label: "data",
-      })
-      .mockReturnValueOnce({
-        onopen: null as ((ev: Event) => void) | null,
-        onclose: null,
-        onerror: null,
-        onmessage: null,
-        readyState: "connecting",
-        close: vi.fn(),
-        send: vi.fn(),
-        label: "control",
-      }),
+    createDataChannel: vi.fn().mockImplementation((label?: string) => ({
+      onopen: null as ((ev: Event) => void) | null,
+      onclose: null,
+      onerror: null,
+      onmessage: null,
+      readyState: "connecting",
+      close: vi.fn(),
+      send: vi.fn(),
+      label: label ?? "data",
+    })),
     close: vi.fn(),
     getSenders: vi.fn().mockReturnValue([]),
     getReceivers: vi.fn().mockReturnValue([]),
@@ -142,8 +130,11 @@ describe("WebRTCTransportClient connection timings", () => {
     mockPC.connectionState = "connected";
     mockPC.onconnectionstatechange!();
 
-    const dc = mockPC.createDataChannel.mock.results[0].value;
-    const cc = mockPC.createDataChannel.mock.results[1].value;
+    const channels = mockPC.createDataChannel.mock.results.map(
+      (r: any) => r.value
+    );
+    const dc = channels.find((c: any) => c.label === "data");
+    const cc = channels.find((c: any) => c.label === "control");
     dc.readyState = "open";
     dc.onopen(new Event("open"));
     cc.readyState = "open";
@@ -178,8 +169,11 @@ describe("WebRTCTransportClient connection timings", () => {
 
     mockPC.connectionState = "connected";
     mockPC.onconnectionstatechange!();
-    const dc = mockPC.createDataChannel.mock.results[0].value;
-    const cc = mockPC.createDataChannel.mock.results[1].value;
+    const channels = mockPC.createDataChannel.mock.results.map(
+      (r: any) => r.value
+    );
+    const dc = channels.find((c: any) => c.label === "data");
+    const cc = channels.find((c: any) => c.label === "control");
     dc.readyState = "open";
     dc.onopen(new Event("open"));
     cc.readyState = "open";

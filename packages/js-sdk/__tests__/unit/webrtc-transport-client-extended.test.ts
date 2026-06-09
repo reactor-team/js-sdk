@@ -33,8 +33,9 @@ function createMockPC() {
     setRemoteDescription: vi.fn(),
     createDataChannel: vi
       .fn()
-      .mockReturnValueOnce(dataChannel)
-      .mockReturnValueOnce(controlChannel),
+      .mockImplementation((label?: string) =>
+        label === "control" ? controlChannel : dataChannel
+      ),
     close: vi.fn(),
     getSenders: vi.fn().mockReturnValue([]),
     getReceivers: vi.fn().mockReturnValue([]),
@@ -141,11 +142,15 @@ describe("WebRTCTransportClient (extended)", () => {
   }
 
   function getDataChannel() {
-    return mockPC.createDataChannel.mock.results[0].value;
+    return mockPC.createDataChannel.mock.results
+      .map((r: any) => r.value)
+      .find((c: any) => c.label === "data");
   }
 
   function getControlChannel() {
-    return mockPC.createDataChannel.mock.results[1].value;
+    return mockPC.createDataChannel.mock.results
+      .map((r: any) => r.value)
+      .find((c: any) => c.label === "control");
   }
 
   function simulateConnected() {
@@ -382,6 +387,24 @@ describe("WebRTCTransportClient (extended)", () => {
         { type: "old_format", value: 42 },
         "application"
       );
+    });
+  });
+
+  // ── data channel creation order (legacy runtime back-compat) ──────────
+
+  describe("data channel creation order", () => {
+    it("creates the control channel before the main data channel", async () => {
+      const client = createClient();
+      await connectClient(client);
+
+      // A pre-multi-connection runtime collapses every inbound channel onto a
+      // single `self._data_channel` (last-write-wins). Creating `control`
+      // first makes that converge on our main data channel, so both send and
+      // receive ride it natively.
+      const labels = mockPC.createDataChannel.mock.calls.map(
+        (c: any[]) => c[0] ?? "data"
+      );
+      expect(labels).toEqual(["control", "data"]);
     });
   });
 

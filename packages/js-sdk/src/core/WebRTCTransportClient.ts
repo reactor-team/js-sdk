@@ -563,14 +563,21 @@ export class WebRTCTransportClient implements TransportClient {
     this.peerConnection = webrtc.createPeerConnection({ iceServers });
     this.setupPeerConnectionHandlers();
 
-    this.dataChannel = webrtc.createDataChannel(this.peerConnection);
-    this.setupDataChannelHandlers();
-
+    // Create the control channel BEFORE the main data channel. A
+    // pre-multi-connection runtime doesn't discriminate channels by label and
+    // collapses every inbound channel onto a single `self._data_channel`
+    // (last-write-wins), using it for both sending and binding its receive
+    // handler. Creating `control` first means that single channel converges on
+    // our main data channel, so both directions ride it natively. Newer
+    // runtimes key on the channel label, so the order is irrelevant to them.
     this.controlChannel = webrtc.createDataChannel(
       this.peerConnection,
       "control"
     );
     this.setupControlChannelHandlers();
+
+    this.dataChannel = webrtc.createDataChannel(this.peerConnection);
+    this.setupDataChannelHandlers();
 
     this.transceiverMap.clear();
     for (const track of tracks) {
