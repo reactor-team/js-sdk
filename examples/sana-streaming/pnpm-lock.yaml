@@ -10,10 +10,13 @@ importers:
     dependencies:
       '@reactor-team/js-sdk':
         specifier: 2.11.2
-        version: 2.11.2(react@19.2.7)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.7))
+        version: 2.11.2(hls.js@1.6.16)(react@19.2.7)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.7))
       '@reactor-team/ui':
         specifier: ^1.4.1
         version: 1.4.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      hls.js:
+        specifier: ^1.6.0
+        version: 1.6.16
       next:
         specifier: ^15.5.0
         version: 15.5.19(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -23,6 +26,9 @@ importers:
       react-dom:
         specifier: ^19.1.0
         version: 19.2.7(react@19.2.7)
+      zustand:
+        specifier: ^5.0.6
+        version: 5.0.14(@types/react@19.2.17)(react@19.2.7)
     devDependencies:
       '@tailwindcss/postcss':
         specifier: ^4.1.0
@@ -395,6 +401,9 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
+  hls.js@1.6.16:
+    resolution: {integrity: sha512-VSIRpLfRwlAAdGL4wiTucx2ScRipo0ed1FBatWkyt832jC4CReKstga6yIhYVwGu9LOBjuX9wzmRMeQdBJtzEA==}
+
   jiti@2.7.0:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
@@ -745,13 +754,15 @@ snapshots:
   '@next/swc-win32-x64-msvc@15.5.19':
     optional: true
 
-  '@reactor-team/js-sdk@2.11.2(react@19.2.7)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.7))':
+  '@reactor-team/js-sdk@2.11.2(hls.js@1.6.16)(react@19.2.7)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.7))':
     dependencies:
       mp4box: 2.3.0
       react: 19.2.7
       sdp-transform: 3.0.0
       zod: 4.4.3
       zustand: 5.0.14(@types/react@19.2.17)(react@19.2.7)
+    optionalDependencies:
+      hls.js: 1.6.16
 
   '@reactor-team/ui@1.4.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
@@ -857,6 +868,8 @@ snapshots:
       tapable: 2.3.3
 
   graceful-fs@4.2.11: {}
+
+  hls.js@1.6.16: {}
 
   jiti@2.7.0: {}
 

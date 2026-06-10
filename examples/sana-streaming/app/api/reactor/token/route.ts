@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 // How long we ask Reactor to make the JWT valid for. The server caps
 // this at its configured maximum (currently 6h), so asking for more
-// is harmless — you just get the server max back.
+// is harmless - you just get the server max back.
 const TOKEN_LIFETIME_SECONDS = 6 * 60 * 60;
 
 // Safety margin on the cache lifetime so an in-flight request doesn't
@@ -15,7 +15,7 @@ const CACHE_SKEW_SECONDS = 60;
 // Why GET and not POST?
 //   POST responses are not cached by browsers. We expose this route
 //   as GET so the browser's HTTP cache can serve repeat calls
-//   transparently — no localStorage, no JWT parsing in client code.
+//   transparently - no localStorage, no JWT parsing in client code.
 //   The route handler still POSTs to Reactor internally.
 //
 // Why `private`?
