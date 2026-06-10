@@ -94,14 +94,25 @@ describe("Reactor connection timings", () => {
     const r = new Reactor({ modelName: "echo" });
     await connectAndReady(r);
 
-    const stats = r.getStats();
-    expect(stats).toBeDefined();
-    expect(stats!.connectionTimings).toBeDefined();
+    const t = r.getConnectionTimings();
+    expect(t).toBeDefined();
+    expect(t!.sessionCreationMs).toBeGreaterThanOrEqual(0);
+    expect(t!.transportConnectingMs).toBeGreaterThanOrEqual(0);
+    expect(t!.totalMs).toBeGreaterThanOrEqual(0);
 
-    const t = stats!.connectionTimings!;
-    expect(t.sessionCreationMs).toBeGreaterThanOrEqual(0);
-    expect(t.transportConnectingMs).toBeGreaterThanOrEqual(0);
-    expect(t.totalMs).toBeGreaterThanOrEqual(0);
+    await r.disconnect();
+  });
+
+  it("getConnectionTimings() is available before transport stats are polled", async () => {
+    const r = new Reactor({ modelName: "echo" });
+    await r.connect("jwt");
+    mockTransportClient.getStats.mockReturnValue(undefined);
+    transportHandlers["statusChanged"]("connected");
+
+    expect(r.getStats()).toBeUndefined();
+    expect(
+      r.getConnectionTimings()?.transportConnectingMs
+    ).toBeGreaterThanOrEqual(0);
 
     await r.disconnect();
   });
@@ -126,14 +137,14 @@ describe("Reactor connection timings", () => {
     await r.disconnect();
   });
 
-  it("clears connectionTimings on disconnect (getStats)", async () => {
+  it("clears connectionTimings on disconnect", async () => {
     const r = new Reactor({ modelName: "echo" });
     await connectAndReady(r);
 
-    expect(r.getStats()!.connectionTimings).toBeDefined();
+    expect(r.getConnectionTimings()).toBeDefined();
 
     await r.disconnect();
-    expect(r.getStats()).toBeUndefined();
+    expect(r.getConnectionTimings()).toBeUndefined();
   });
 
   it("clears connectionTimings from statsUpdate events after disconnect", async () => {
@@ -153,12 +164,11 @@ describe("Reactor connection timings", () => {
     const r = new Reactor({ modelName: "echo" });
     await r.connect("jwt");
 
-    const stats = r.getStats();
-    expect(stats).toBeDefined();
-    const t = stats!.connectionTimings!;
-    expect(t.sessionCreationMs).toBeGreaterThanOrEqual(0);
-    expect(t.transportConnectingMs).toBeGreaterThanOrEqual(0);
-    expect(t.totalMs).toBe(0);
+    const t = r.getConnectionTimings();
+    expect(t).toBeDefined();
+    expect(t!.sessionCreationMs).toBeGreaterThanOrEqual(0);
+    expect(t!.transportConnectingMs).toBeGreaterThanOrEqual(0);
+    expect(t!.totalMs).toBe(0);
 
     await r.disconnect();
   });
