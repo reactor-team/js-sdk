@@ -12,8 +12,8 @@ importers:
         specifier: ^13.0.2
         version: 13.0.2
       prettier:
-        specifier: ^3.6.2
-        version: 3.8.1
+        specifier: ^3.8.4
+        version: 3.8.4
       secretlint:
         specifier: ^13.0.2
         version: 13.0.2
@@ -80,8 +80,8 @@ importers:
         specifier: ^1.6.0
         version: 1.6.16
       prettier:
-        specifier: ^3.6.2
-        version: 3.8.1
+        specifier: ^3.8.4
+        version: 3.8.4
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(postcss@8.5.15)(tsx@4.21.0)(typescript@5.9.3)
@@ -1418,8 +1418,8 @@ packages:
     resolution: {integrity: sha512-FfR8sjd4em2T6fb3I2MwAJU7HWVMr9zba+enmQeeWFfCbm+UOC/0X4DS8XtpUTMwWMGbjKYP7xjfNekzyGmB3A==}
     engines: {node: ^10 || ^12 || >=14}
 
-  prettier@3.8.1:
-    resolution: {integrity: sha512-UOnG6LftzbdaHZcKoPFtOcCKztrQ57WkHDeRD9t/PTQtmT0NHSeWWepj6pS0z/N7+08BHFDQVUrfmfMRcZwbMg==}
+  prettier@3.8.4:
+    resolution: {integrity: sha512-N2MylSdi48+5N/6S5j+maeHbUSIzzZ5uOcX5Hm4QpV8Dkb1HFjfAKTKX6yNPJQD9AhcT3ifHNB66tWTTJDi11Q==}
     engines: {node: '>=14'}
     hasBin: true
 
@@ -2929,7 +2929,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  prettier@3.8.1: {}
+  prettier@3.8.4: {}
 
   rc-config-loader@4.1.4:
     dependencies:
