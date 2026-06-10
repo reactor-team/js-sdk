@@ -10,7 +10,7 @@
  *   bg-active / text-active                 → "connected/running" green
  *   font-sans / font-mono                   → Aeonik + IBM Plex Mono
  *
- * We deliberately don't import the lib's React components — those
+ * We deliberately don't import the lib's React components - those
  * use hooks internally and force consumers into "use client". The
  * CSS vars are pure design tokens with no runtime cost.
  */
