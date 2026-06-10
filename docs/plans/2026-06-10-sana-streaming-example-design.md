@@ -27,22 +27,28 @@ Tracks: input `camera` (live), output `main_video`.
 ## Key architectural decisions
 
 ### Generic SDK, no typed model package
+
 `@reactor-models/sana-streaming` does not exist on npm. Unlike the siblings (which use typed `@reactor-models/<model>` packages), this example uses the generic `@reactor-team/js-sdk` directly:
 `<ReactorProvider getJwt={fetchToken} modelName="sana-streaming">` (default `apiUrl` `https://api.reactor.inc`), with `useReactor` selectors, `useReactorMessage`, and `<ReactorView track="main_video">`. This is the one necessary divergence from siblings. Bonus: it means the example depends on nothing unpublished, which de-risks the Sunday release.
 
 ### Theming follows siblings
+
 Use `@reactor-team/ui` brand/active tokens via `@theme` in `globals.css`, plus the shared `ui/` primitives (Button, Panel, Icon, IconButton, SegmentedToggle, `cn` / `EYEBROW` / `PANEL` / `FOCUS_RING`), zinc surfaces, gold "brand" accent. Dropped from the demo: self-hosted Aeonik / Suisse fonts, gold-shimmer button, noise shadows, Reactor/NVIDIA logos, and `lucide-react` (replaced by the `ui/Icon` set - play / pause / reset all exist).
 
 ### Connection follows siblings
+
 No `autoConnect`. A `StatusBadge` Connect/Disconnect surfaces the `disconnected → connecting → waiting → ready` machine, built on `useReactor((s) => ({ status, lastError, connect, disconnect }))`.
 
 ### Auth follows siblings
+
 `app/api/reactor/token` GET route (sibling copy): requests a 6h token, returns it with `Cache-Control: private, max-age=<until-expiry>`. The sana coordinator caps the TTL to its server max, so the cache window self-adjusts and the SDK refreshes via `getJwt` on reconnect. Env reduces to just `REACTOR_API_KEY` (drops the demo's `REACTOR_SERVER` / `NEXT_PUBLIC_REACTOR_SERVER` / `NEXT_PUBLIC_MODEL_NAME`). Pointing at dev is a documented one-liner (set `apiUrl` + a dev key), not an env knob.
 
 ### Structure follows siblings
+
 `app/components/`, `app/lib/`, relative imports, committed `next-env.d.ts`, `pnpm-workspace.yaml` (`packages: []`), `skill/SKILL.md`, `README.md`, server `page.tsx` gating on `REACTOR_API_KEY` → `<SanaStreamingApp/>` or `<SetupRequired/>`.
 
 ### SnapClip
+
 Include `SnapClip.tsx` unchanged from longlive-v2 (model-agnostic, base SDK). Works only if the deployed sana-streaming runtime has recording enabled - verify in the smoke test; remove if not. Failures route to an inline error line, so an unsupported runtime degrades gracefully rather than crashing.
 
 ## Constraints carried verbatim (do NOT "fix" - document in SKILL.md)

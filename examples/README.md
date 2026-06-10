@@ -2,11 +2,12 @@
 
 Self-contained, runnable Next.js apps built on `@reactor-team/js-sdk` and the typed per-model packages. These are the same templates that `npx create-reactor-app` scaffolds — each folder here can be cloned, installed, and run independently.
 
-| Example                         | Model                                                                                      | Highlights                                                                                                                                                                                                                                                                         |
-| ------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`helios/`](./helios)           | [`@reactor-models/helios`](https://www.npmjs.com/package/@reactor-models/helios)           | Continuous prompt-driven video generation. Curated text and image scenes, mid-stream prompt hot-swap via `setPrompt`, atomic `setConditioning({ prompt, image })` for image-to-video, snap-clip recording, design tokens from `@reactor-team/ui`.                                  |
-| [`lingbot/`](./lingbot)         | [`@reactor-models/lingbot`](https://www.npmjs.com/package/@reactor-models/lingbot)         | Interactive world model. Pick a starting image, drive the scene with WASD, layer in curated dynamic events (rain, fog, …) as live prompt swaps, snap-clip recording.                                                                                                               |
-| [`longlive-v2/`](./longlive-v2) | [`@reactor-models/longlive-v2`](https://www.npmjs.com/package/@reactor-models/longlive-v2) | Multi-shot **director's storyboard**. Compose shots (`set_shot`) and cuts (`scene_cut`) on a chunk timeline, schedule beats with `schedule_shot` / `schedule_scene_cut`, then direct live. Surfaces the per-scene 48-chunk budget and how cuts extend length. Snap-clip recording. |
+| Example                               | Model                                                                                                          | Highlights                                                                                                                                                                                                                                                                         |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`helios/`](./helios)                 | [`@reactor-models/helios`](https://www.npmjs.com/package/@reactor-models/helios)                               | Continuous prompt-driven video generation. Curated text and image scenes, mid-stream prompt hot-swap via `setPrompt`, atomic `setConditioning({ prompt, image })` for image-to-video, snap-clip recording, design tokens from `@reactor-team/ui`.                                  |
+| [`lingbot/`](./lingbot)               | [`@reactor-models/lingbot`](https://www.npmjs.com/package/@reactor-models/lingbot)                             | Interactive world model. Pick a starting image, drive the scene with WASD, layer in curated dynamic events (rain, fog, …) as live prompt swaps, snap-clip recording.                                                                                                               |
+| [`longlive-v2/`](./longlive-v2)       | [`@reactor-models/longlive-v2`](https://www.npmjs.com/package/@reactor-models/longlive-v2)                     | Multi-shot **director's storyboard**. Compose shots (`set_shot`) and cuts (`scene_cut`) on a chunk timeline, schedule beats with `schedule_shot` / `schedule_scene_cut`, then direct live. Surfaces the per-scene 48-chunk budget and how cuts extend length. Snap-clip recording. |
+| [`sana-streaming/`](./sana-streaming) | [`@reactor-team/js-sdk`](https://www.npmjs.com/package/@reactor-team/js-sdk) (generic; no typed model package) | Streaming **V2V editor**. Live webcam transform via manual `camera` publish, file-clip editing with side-by-side compare, mid-stream re-prompting, seed control, snap-clip recording.                                                                                              |
 
 ## Running an example
 
@@ -29,6 +30,7 @@ API keys come from [reactor.inc/account/api-keys](https://www.reactor.inc/accoun
 npx create-reactor-app my-app --model helios
 npx create-reactor-app my-app --model lingbot
 npx create-reactor-app my-app --model longlive-v2
+npx create-reactor-app my-app --model sana-streaming
 ```
 
 `create-reactor-app` pulls from this folder on `main`, so anything that lands here ships to the CLI on the next release of `create-reactor-app`.
@@ -37,5 +39,6 @@ npx create-reactor-app my-app --model longlive-v2
 
 - Standalone Next.js 15 + React 19 + Tailwind v4 + TypeScript projects.
 - Pinned to `@reactor-team/js-sdk` ^2.10.1 (the `getJwt` resolver + flat-MP4 clip download patterns).
+- `sana-streaming/` pins `@reactor-team/js-sdk` to exactly `2.11.2` (a deployed-runtime constraint) and uses the base SDK directly instead of a typed `@reactor-models/*` package; see its `skill/SKILL.md`.
 - Each example carries a `skill/SKILL.md` — a self-contained agent skill that captures every design decision, gotcha, and extension pattern needed to grow the example into a real product. Read it before changing the example.
 - One model per folder. Folder name = model identifier used by `create-reactor-app --model <name>`.

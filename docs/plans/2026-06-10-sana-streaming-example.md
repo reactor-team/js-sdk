@@ -9,11 +9,13 @@
 **Tech Stack:** Next.js 15 (App Router), React 19, Tailwind v4, `@reactor-team/js-sdk@2.11.2` (exact pin), `@reactor-team/ui@^1.4.1`, TypeScript.
 
 **Reference paths:**
+
 - House idiom (copy-from): `/Users/whp/Reactor/js-sdk/examples/longlive-v2`
 - Behavioral reference (rewrite-from): `/Users/whp/Reactor/sana-streaming-demo`
 - New example (create): `/Users/whp/Reactor/js-sdk/examples/sana-streaming`
 
 **Conventions:**
+
 - No em-dashes in prose or comments (repo owner preference).
 - No AI attribution in commit messages.
 - Per-task verification gate: `cd examples/sana-streaming && pnpm build` must succeed (Next.js build runs the type-checker). Use `pnpm dev` for visual checks. There is no test runner.
@@ -47,6 +49,7 @@ cp examples/longlive-v2/pnpm-workspace.yaml examples/sana-streaming/pnpm-workspa
 **Step 2:** Verify the six files exist. No content changes needed (none reference the model name).
 
 **Step 3:** Commit.
+
 ```bash
 git add examples/sana-streaming
 git commit -m "scaffold(sana-streaming): config skeleton from longlive-v2"
@@ -87,11 +90,13 @@ git commit -m "scaffold(sana-streaming): config skeleton from longlive-v2"
 ```
 
 **Step 2:** Write `.env.example` (single var, matching siblings):
+
 ```
 REACTOR_API_KEY=rk_your_api_key_here
 ```
 
 **Step 3:** Commit.
+
 ```bash
 git add examples/sana-streaming/package.json examples/sana-streaming/.env.example
 git commit -m "scaffold(sana-streaming): package.json (SDK pinned 2.11.2) + env example"
@@ -100,13 +105,16 @@ git commit -m "scaffold(sana-streaming): package.json (SDK pinned 2.11.2) + env 
 ### Task 0.3: Install and lock
 
 **Step 1:** Install in the example's own workspace (the `pnpm-workspace.yaml` makes it its own root):
+
 ```bash
 cd /Users/whp/Reactor/js-sdk/examples/sana-streaming
 pnpm install
 ```
+
 Expected: resolves cleanly and writes `pnpm-lock.yaml`. If `@reactor-team/ui` reports a peer conflict against `@reactor-team/js-sdk@2.11.2`, STOP and report the exact peer range before proceeding (do not bump the SDK pin without confirming the runtime implications in the design doc).
 
 **Step 2:** Commit the lockfile (deterministic install is required for the release):
+
 ```bash
 cd /Users/whp/Reactor/js-sdk
 git add examples/sana-streaming/pnpm-lock.yaml
@@ -132,6 +140,7 @@ cp examples/longlive-v2/app/components/ui/*.{ts,tsx} examples/sana-streaming/app
 **Step 2:** `Icon.tsx` already includes `play`, `pause`, `reset`, `x`, `scissors`, `download`, `check` - all sana needs. No change.
 
 **Step 3:** Commit.
+
 ```bash
 git add examples/sana-streaming/app/components/ui
 git commit -m "feat(sana-streaming): shared ui primitives"
@@ -144,6 +153,7 @@ git commit -m "feat(sana-streaming): shared ui primitives"
 **Step 1:** Copy the file. No edits.
 
 **Step 2:** Commit.
+
 ```bash
 git add examples/sana-streaming/app/api
 git commit -m "feat(sana-streaming): JWT token route"
@@ -156,6 +166,7 @@ git commit -m "feat(sana-streaming): JWT token route"
 **Step 1:** Copy the file. No edits.
 
 **Step 2:** Commit.
+
 ```bash
 git add examples/sana-streaming/app/components/SnapClip.tsx
 git commit -m "feat(sana-streaming): snap-clip recording panel"
@@ -168,6 +179,7 @@ git commit -m "feat(sana-streaming): snap-clip recording panel"
 ### Task 2.1: Copy the reducer + data
 
 **Files (create):**
+
 - `app/lib/types.ts` - copy verbatim from `sana-streaming-demo/lib/types.ts` (`SanaMode`, `SanaState`, `DEFAULT_STATE`, `SanaMessage`).
 - `app/lib/state.ts` - copy from `sana-streaming-demo/lib/state.ts`, but change the import to a relative path: `import { SanaState, SanaMessage } from "./types";` (already relative - keep as-is).
 - `app/lib/clips.ts` - copy verbatim (`PRESET_CLIPS`, points at `/clips/replace-background-softly.mp4`).
@@ -176,6 +188,7 @@ git commit -m "feat(sana-streaming): snap-clip recording panel"
 **Step 1:** Copy the four files.
 
 **Step 2:** Copy the preset clip asset:
+
 ```bash
 cp /Users/whp/Reactor/sana-streaming-demo/public/clips/replace-background-softly.mp4 \
    /Users/whp/Reactor/js-sdk/examples/sana-streaming/public/clips/
@@ -184,6 +197,7 @@ cp /Users/whp/Reactor/sana-streaming-demo/public/clips/replace-background-softly
 **Step 3:** Verify imports use relative paths (`./types`), not `@/lib/...`, to match sibling style.
 
 **Step 4:** Commit.
+
 ```bash
 git add examples/sana-streaming/app/lib examples/sana-streaming/public
 git commit -m "feat(sana-streaming): state reducer, preset clips, prompt examples"
@@ -200,6 +214,7 @@ git commit -m "feat(sana-streaming): state reducer, preset clips, prompt example
 **Step 1:** `app/globals.css` - copy from `examples/longlive-v2/app/globals.css` verbatim. It imports tailwind, aliases `--color-brand` / `--color-brand-fg` / `--color-active` and the fonts from `@reactor-team/ui` via `@theme`, and sets the zinc background. No sana-specific change.
 
 **Step 2:** `app/layout.tsx`:
+
 ```tsx
 import type { Metadata } from "next";
 import "@reactor-team/ui/styles.css";
@@ -226,6 +241,7 @@ export default function RootLayout({
 ```
 
 **Step 3:** Commit.
+
 ```bash
 git add examples/sana-streaming/app/globals.css examples/sana-streaming/app/layout.tsx
 git commit -m "feat(sana-streaming): theming + root layout"
@@ -238,6 +254,7 @@ git commit -m "feat(sana-streaming): theming + root layout"
 **Step 1:** `app/SetupRequired.tsx` - copy from `examples/longlive-v2/app/SetupRequired.tsx`. It imports `Header` and `ui` from `./components`. Keep as-is; the only sana coupling is the `Header` import, which Task 4.1 will provide with sana copy.
 
 **Step 2:** `app/page.tsx`:
+
 ```tsx
 import { SanaStreamingApp } from "./SanaStreamingApp";
 import { SetupRequired } from "./SetupRequired";
@@ -255,6 +272,7 @@ export default function Page() {
 ```
 
 **Step 3:** Commit (will not build until Task 3.3 + Phase 4 land the imports; that is fine, commit anyway and let the Phase-4 gate verify).
+
 ```bash
 git add examples/sana-streaming/app/SetupRequired.tsx examples/sana-streaming/app/page.tsx
 git commit -m "feat(sana-streaming): env-gated page + setup landing"
@@ -439,10 +457,12 @@ function Workspace() {
 ```
 
 Notes for the implementer:
+
 - `CommandError` here is a presentational banner (props in), not the longlive self-subscribing version. Task 4.2 builds it to this prop shape. This keeps the decode-failed suppression logic in one place (the shell), matching the demo.
 - The prompt-preset chips in the demo lived in the Sidebar and set the prompt textarea. In this rewrite they live inside `Prompt` (Task 4.5), which owns its own draft text + preset chips, so the shell does not thread prompt text. That is a deliberate simplification; verify presets still send `set_prompt` when ready.
 
 **Step 2:** Commit.
+
 ```bash
 git add examples/sana-streaming/app/SanaStreamingApp.tsx
 git commit -m "feat(sana-streaming): app shell + provider + message routing"
@@ -468,7 +488,12 @@ export function Header() {
         <h1 className="text-sm font-semibold tracking-tight text-zinc-100">
           SANA Streaming
         </h1>
-        <span className={cn(EYEBROW, "hidden border-l border-zinc-800 pl-3 sm:inline")}>
+        <span
+          className={cn(
+            EYEBROW,
+            "hidden border-l border-zinc-800 pl-3 sm:inline",
+          )}
+        >
           Real-time video-to-video
         </span>
       </div>
@@ -495,7 +520,10 @@ export function CommandError({
   onDismiss: () => void;
 }) {
   return (
-    <div className={cn(PANEL, "border-red-900/50 bg-red-950/20 p-3")} role="alert">
+    <div
+      className={cn(PANEL, "border-red-900/50 bg-red-950/20 p-3")}
+      role="alert"
+    >
       <div className="flex items-start justify-between gap-2">
         <span className={cn(EYEBROW, "text-red-500")}>Command failed</span>
         <button
@@ -561,7 +589,9 @@ export function StatusBadge() {
           </Button>
         )}
       </div>
-      {lastError && <p className="mt-2 text-xs text-red-400">{lastError.message}</p>}
+      {lastError && (
+        <p className="mt-2 text-xs text-red-400">{lastError.message}</p>
+      )}
     </Panel>
   );
 }
@@ -604,7 +634,8 @@ export function ModeInput({
     if (state.running) return; // toggle disabled while running
     onModeChange(m);
     // Only send when connected, to avoid queuing a stale set_mode.
-    if (status === "ready") sendCommand("set_mode", { mode: m }).catch(console.error);
+    if (status === "ready")
+      sendCommand("set_mode", { mode: m }).catch(console.error);
   };
 
   return (
@@ -709,7 +740,12 @@ export function Prompt({
         Apply prompt
       </Button>
       {currentPrompt && (
-        <p className={cn(EYEBROW, "mt-2 normal-case tracking-normal text-zinc-500")}>
+        <p
+          className={cn(
+            EYEBROW,
+            "mt-2 normal-case tracking-normal text-zinc-500",
+          )}
+        >
           active: “{currentPrompt}”
         </p>
       )}
@@ -755,11 +791,27 @@ export function Transport({
       <div className="flex items-center gap-2">
         {started &&
           (paused ? (
-            <IconButton icon="play" label="Resume" disabled={notReady} onClick={() => send("resume")} />
+            <IconButton
+              icon="play"
+              label="Resume"
+              disabled={notReady}
+              onClick={() => send("resume")}
+            />
           ) : (
-            <IconButton icon="pause" label="Pause" disabled={notReady} onClick={() => send("pause")} />
+            <IconButton
+              icon="pause"
+              label="Pause"
+              disabled={notReady}
+              onClick={() => send("pause")}
+            />
           ))}
-        <IconButton icon="reset" label="Reset" tone="danger" disabled={notReady} onClick={() => send("reset")} />
+        <IconButton
+          icon="reset"
+          label="Reset"
+          tone="danger"
+          disabled={notReady}
+          onClick={() => send("reset")}
+        />
         <label className="ml-auto flex items-center gap-1.5">
           <span className={EYEBROW}>Seed</span>
           <input
@@ -787,6 +839,7 @@ Commit: `feat(sana-streaming): transport controls + seed`.
 **File:** `app/components/LiveInput.tsx`. Port `sana-streaming-demo/components/LiveInput.tsx` ALMOST VERBATIM. The camera-acquire / `contentHint = "detail"` / manual `publish` / re-publish-on-reconnect / unpublish-on-unmount logic is model-critical and must not change. Only swap the styling: the gold-shimmer Start button becomes `<Button variant="primary" className="w-full">Start live</Button>`, and zinc/brand tokens replace `text-white/40` etc. Keep the self-view `<video>`, the denied/error states, the `acquiring camera…` / `waiting for connection…` hints, and `data-testid="start-live"`.
 
 Critical lines to preserve exactly:
+
 ```ts
 videoTrack.contentHint = "detail"; // hold resolution; adapt framerate
 await publish("camera", videoTrack);
@@ -811,17 +864,21 @@ Commit: `feat(sana-streaming): stage with side-by-side file view`.
 ### Task 4.10: Phase-4 build gate
 
 **Step 1:** Full build (first time all imports resolve):
+
 ```bash
 cd /Users/whp/Reactor/js-sdk/examples/sana-streaming
 pnpm build
 ```
+
 Expected: build succeeds, type-check clean. Fix any type errors (likely: the `useReactor` object-selector, or a missing `lastError` field) before continuing.
 
 **Step 2:** Visual smoke (no key needed to see SetupRequired; with a key to see the app):
+
 ```bash
 pnpm dev
 # visit http://localhost:3000
 ```
+
 Expected without `REACTOR_API_KEY`: the SetupRequired landing renders. With a real `rk_` key in `.env.local`: the app renders, Connect works, status transitions show.
 
 **Step 3:** Commit any fixes from this gate: `fix(sana-streaming): build + type fixes`.
@@ -835,6 +892,7 @@ Expected without `REACTOR_API_KEY`: the SetupRequired landing renders. With a re
 **File:** `examples/sana-streaming/skill/SKILL.md`. Use the sibling SKILL frontmatter format (see `examples/longlive-v2/skill/SKILL.md`). Frontmatter `name: building-sana-streaming-frontends`, description summarizing: extend this cloned sana-streaming app on the generic `@reactor-team/js-sdk`; covers the connection/state model, the live-vs-file mode model, the command/message contract, and the three carried constraints.
 
 Body must capture (fold in `sana-streaming-demo/CLAUDE.md` + `docs/sdk-camera-publish.md`):
+
 - What sana-streaming is (V2V streaming editor; `camera` in, `main_video` out).
 - Why the generic SDK and no `@reactor-models` package.
 - The connection state machine + model-as-source-of-truth reducer.
@@ -880,9 +938,10 @@ pnpm build     # must succeed, type-check clean
 
 Confirm nothing else needs editing for discovery: `packages/create-app` discovers templates live via the GitHub Contents API and `MODEL_MAP` is `{}` (1:1), so `examples/sana-streaming` becomes `--model sana-streaming` automatically once it lands on `main`. No code change required. (Verify by re-reading `packages/create-app/bin/create-reactor-app.ts` if unsure.)
 
-### Task 6.3: Live smoke test (before release; needs a prod rk_ key)
+### Task 6.3: Live smoke test (before release; needs a prod rk\_ key)
 
 With `REACTOR_API_KEY=rk_...` (prod) in `.env.local`, `pnpm dev`, then:
+
 1. Connect; watch status go connecting -> waiting -> ready.
 2. Live mode: allow camera, Start live, confirm transformed frames stream on the stage; change prompt mid-stream and confirm it takes effect about one chunk later.
 3. File mode: pick the preset clip (and a manual upload), Start edit, confirm side-by-side original/result.
@@ -894,6 +953,7 @@ Record results. If the command/message contract has drifted from the demo, fix t
 ---
 
 ## Done criteria
+
 - `pnpm build` clean from a fresh install; lockfile committed.
 - SetupRequired renders without a key; full app renders and connects with a key.
 - Live + file + re-prompt + transport verified against prod.
