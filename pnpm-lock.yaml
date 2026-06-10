@@ -74,8 +74,8 @@ importers:
         specifier: ^19.2.15
         version: 19.2.15
       '@types/sdp-transform':
-        specifier: ^2.15.0
-        version: 2.15.0
+        specifier: ^3.0.0
+        version: 3.0.0
       hls.js:
         specifier: ^1.6.0
         version: 1.6.16
@@ -960,8 +960,8 @@ packages:
   '@types/react@19.2.15':
     resolution: {integrity: sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q==}
 
-  '@types/sdp-transform@2.15.0':
-    resolution: {integrity: sha512-ikIFF0EaYt/2XetIYYVeMj6SB52oVXFasJUXDzWHgzNJS5ep2Pbsu7f8f3Za+dEie8HQtt3Zr9mHYBpWT0XgxQ==}
+  '@types/sdp-transform@3.0.0':
+    resolution: {integrity: sha512-TLwbrRILH3mwnrXgjZLb2LXursBR/dnumGgFWKm8Jw3nTJCAN0g80pvS4KVpXHz4DpYtne762lcXin9GmShGbg==}
 
   '@vitest/expect@4.1.7':
     resolution: {integrity: sha512-1R+tw0ortHEbZDGMymm+pN7/AFQ/RkFFdtd7EN+VBpynKmLbP8A3rpEXdshBJ7+8hQ9zBJh/i1s0yKNtxAnU7w==}
@@ -2475,7 +2475,7 @@ snapshots:
     dependencies:
       csstype: 3.2.3
 
-  '@types/sdp-transform@2.15.0': {}
+  '@types/sdp-transform@3.0.0': {}
 
   '@vitest/expect@4.1.7':
     dependencies:

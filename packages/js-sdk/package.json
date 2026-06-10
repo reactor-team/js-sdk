@@ -75,7 +75,7 @@
     "@roamhq/wrtc": "^0.10.0",
     "@types/node": "^25",
     "@types/react": "^19.2.15",
-    "@types/sdp-transform": "^2.15.0",
+    "@types/sdp-transform": "^3.0.0",
     "hls.js": "^1.6.0",
     "prettier": "^3.8.4",
     "tsup": "^8.5.0",
