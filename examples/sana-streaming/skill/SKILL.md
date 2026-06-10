@@ -1,9 +1,9 @@
 ---
 name: building-sana-streaming-frontends
-description: Extend this cloned SANA Streaming example app - add controls, modes, presets, or stage features on top of the generic `@reactor-team/js-sdk` (no typed model package exists for sana-streaming) without breaking the patterns the existing code uses. Covers the connection / state model (one model-driven reducer, status-gated commands), live webcam mode vs file-upload mode, mid-stream re-prompting (~1 chunk latency), the exact-2.11.2 SDK pin and why bumping it breaks camera publish against the deployed runtime, and the manual camera-publish path with contentHint="detail" that keeps the model pod alive.
+description: Extend this cloned SANA-Streaming example app - add controls, modes, presets, or stage features on top of the generic `@reactor-team/js-sdk` (no typed model package exists for sana-streaming) without breaking the patterns the existing code uses. Covers the connection / state model (one model-driven reducer, status-gated commands), live webcam mode vs file-upload mode, mid-stream re-prompting (~1 chunk latency), the exact-2.11.2 SDK pin and why bumping it breaks camera publish against the deployed runtime, and the manual camera-publish path with contentHint="detail" that keeps the model pod alive.
 ---
 
-# Building on this SANA Streaming app
+# Building on this SANA-Streaming app
 
 This is a reference frontend for sana-streaming, Reactor's SANA V2V streaming video editor. Read this before extending it so you keep the patterns the code already uses, and so you do not "fix" the three constraints at the bottom.
 

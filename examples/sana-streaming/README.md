@@ -1,4 +1,4 @@
-# SANA Streaming
+# SANA-Streaming
 
 A Next.js + TypeScript reference frontend for **sana-streaming** - Reactor's SANA V2V streaming video editor.
 

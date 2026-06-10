@@ -1,4 +1,4 @@
-// Self-contained design tokens + helpers for the SANA Streaming example.
+// Self-contained design tokens + helpers for the SANA-Streaming example.
 // Class-string constants (composed inline) keep every card, label, and
 // focus ring identical across components - the same discipline as the
 // webapp's design-system tokens, scaled down. No dependencies.

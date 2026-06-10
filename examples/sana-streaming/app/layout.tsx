@@ -3,7 +3,7 @@ import "@reactor-team/ui/styles.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SANA Streaming",
+  title: "SANA-Streaming",
   description: "Real-time video-to-video editing with Reactor + SANA",
 };
 
