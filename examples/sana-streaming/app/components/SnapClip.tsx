@@ -14,7 +14,7 @@ import { Button, cn, EYEBROW, Icon, PANEL, Panel } from "./ui";
 //
 // Captures the last `durationSeconds` of the live session and pops a
 // modal with the SDK's built-in <ClipPlayer> preview and a download
-// button. Drops into the sidebar of any example app — it does not
+// button. Drops into the sidebar of any example app - it does not
 // depend on the typed model package at all, only @reactor-team/js-sdk.
 //
 // Recording is a base-SDK feature: it works the same way for every
@@ -26,11 +26,11 @@ import { Button, cn, EYEBROW, Icon, PANEL, Panel } from "./ui";
 // a new model example.
 //
 // `<ClipPlayer>` and `<ClipDownloadButton>` auto-inherit the JWT
-// resolver from `<LongliveV2Provider getJwt={…} />` via React context
+// resolver from `<ReactorProvider getJwt={…} />` via React context
 // (`@reactor-team/js-sdk` ≥ 2.10.1). No `getJwt` prop needed here.
 // The one case where you would still pass it explicitly is when the
 // clip UI renders through a portal outside the provider subtree (e.g.
-// a Sonner toast living in `app/layout.tsx`) — capture the resolver
+// a Sonner toast living in `app/layout.tsx`) - capture the resolver
 // with `reactor.getJwtResolver()` at action time and thread it down.
 //
 // As of `@reactor-team/js-sdk` ≥ 2.11.1, `requestClip` /
@@ -38,7 +38,7 @@ import { Button, cn, EYEBROW, Icon, PANEL, Panel } from "./ui";
 // the React store, so the recording surface is reachable via
 // `useReactor((s) => s.requestClip)` without the `s.internal.reactor`
 // escape hatch. The clip components also accept `onError` / `onSuccess`
-// callbacks — this panel routes both player and download failures
+// callbacks - this panel routes both player and download failures
 // into its inline error line, and clears that line when a download
 // completes.
 export interface SnapClipProps {

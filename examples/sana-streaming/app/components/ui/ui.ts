@@ -1,6 +1,6 @@
 // Self-contained design tokens + helpers for the SANA Streaming example.
 // Class-string constants (composed inline) keep every card, label, and
-// focus ring identical across components — the same discipline as the
+// focus ring identical across components - the same discipline as the
 // webapp's design-system tokens, scaled down. No dependencies.
 
 /** Tiny classname joiner (filters falsy). Avoids a clsx/tailwind-merge dep. */
@@ -8,7 +8,7 @@ export function cn(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }
 
-/** Mono uppercase section label — ONE definition, used by every card eyebrow. */
+/** Mono uppercase section label - ONE definition, used by every card eyebrow. */
 export const EYEBROW =
   "font-mono text-[10px] uppercase tracking-wider text-zinc-400";
 
