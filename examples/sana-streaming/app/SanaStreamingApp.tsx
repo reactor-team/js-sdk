@@ -136,8 +136,13 @@ function Workspace() {
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
-      <main className="flex flex-1 flex-col gap-4 p-4 lg:flex-row lg:gap-6 lg:p-6">
-        <aside className="flex w-full flex-col gap-4 lg:w-80 lg:shrink-0">
+      {/* Mobile: the stage is ordered first and pinned (sticky) so the model
+          output stays visible while the controls scroll beneath it. The
+          mobile padding lives on the children, not <main>, so the sticky
+          stage can sit flush against the viewport edge with a solid
+          backdrop. Desktop keeps the sidebar-left / stage-right split. */}
+      <main className="flex flex-1 flex-col lg:flex-row lg:gap-6 lg:p-6">
+        <aside className="order-2 flex w-full flex-col gap-4 p-4 pt-1 lg:order-none lg:w-80 lg:shrink-0 lg:p-0">
           <StatusBadge />
           {commandError && (
             <CommandError
@@ -160,7 +165,7 @@ function Workspace() {
           />
           <SnapClip />
         </aside>
-        <section className="flex flex-1 flex-col gap-4">
+        <section className="order-1 flex flex-col gap-4 max-lg:sticky max-lg:top-0 max-lg:z-10 max-lg:bg-zinc-950/95 max-lg:p-4 max-lg:pb-3 max-lg:backdrop-blur-sm lg:order-none lg:flex-1">
           <Stage
             state={state}
             mode={mode}

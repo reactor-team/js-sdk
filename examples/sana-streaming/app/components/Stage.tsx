@@ -55,11 +55,11 @@ export function Stage({
     return (
       <section
         data-testid="stage-split"
-        className="relative flex flex-1 min-h-0 flex-col gap-3 lg:flex-row"
+        className="relative flex min-h-0 flex-col gap-3 max-lg:h-[40vh] lg:flex-1 lg:flex-row"
       >
         <div
           data-testid="pane-original"
-          className="relative w-full max-lg:aspect-video lg:min-h-0 lg:flex-1 overflow-hidden rounded-lg border border-zinc-800 bg-black"
+          className="relative w-full min-h-0 flex-1 overflow-hidden rounded-lg border border-zinc-800 bg-black"
         >
           <video
             ref={videoRef}
@@ -74,7 +74,7 @@ export function Stage({
         </div>
         <div
           data-testid="pane-transformed"
-          className="relative w-full max-lg:aspect-video lg:min-h-0 lg:flex-1 overflow-hidden rounded-lg border border-zinc-800 bg-black"
+          className="relative w-full min-h-0 flex-1 overflow-hidden rounded-lg border border-zinc-800 bg-black"
         >
           <ReactorView
             track="main_video"
