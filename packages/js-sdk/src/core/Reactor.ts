@@ -753,6 +753,11 @@ export class Reactor {
     return { ...stats, connectionTimings: this.connectionTimings };
   }
 
+  /** Timing breakdown from the most recent connect() handshake. */
+  getConnectionTimings(): ConnectionTimings | undefined {
+    return this.connectionTimings;
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Private State Management
   // ─────────────────────────────────────────────────────────────────────────

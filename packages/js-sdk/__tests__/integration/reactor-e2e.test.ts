@@ -178,6 +178,9 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
 
     await reactor.connect(jwt);
     await waitForStatus(reactor, "ready", 60_000);
+    console.log(
+      `Transport connect time: ${reactor.getConnectionTimings()?.transportConnectingMs.toFixed(2)} ms`
+    );
     await reactor.disconnect();
 
     expect(statuses[0]).toBe("connecting");
