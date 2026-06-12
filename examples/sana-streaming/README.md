@@ -1,8 +1,8 @@
 # SANA-Streaming
 
-A Next.js + TypeScript reference frontend for **sana-streaming** - Reactor's SANA V2V streaming video editor.
+A Next.js + TypeScript reference frontend for [**SANA-Streaming**](https://docs.reactor.inc/model-api-reference/sana-streaming/overview) - Reactor's real-time video **editing** model.
 
-Edit video with a prompt, continuously: point your webcam at the model and watch it transformed in real time, or upload a clip and have it edited and streamed back chunk by chunk next to the original. Re-prompt mid-stream and the new look takes hold about one chunk later. Built directly on the generic [`@reactor-team/js-sdk`](https://www.npmjs.com/package/@reactor-team/js-sdk) - unlike the sibling examples, there is no typed `@reactor-models/sana-streaming` package.
+Where Reactor's other models generate video from a prompt, SANA-Streaming edits the video you bring: describe a change in plain text and the model makes that change while everything you don't mention carries through from the source untouched. Point your webcam at it and watch yourself transformed in real time, or upload a clip and have it edited and streamed back chunk by chunk next to the original. Re-prompt mid-stream and the new edit lands at the next chunk boundary, about a second later. Built directly on the generic [`@reactor-team/js-sdk`](https://www.npmjs.com/package/@reactor-team/js-sdk) - unlike the sibling examples, there is no typed `@reactor-models/sana-streaming` package.
 
 ```
 ┌──────────────────────┬─────────────────────────────────────┐
@@ -29,15 +29,15 @@ Get a **production** API key (`rk_...`) from the [Reactor dashboard](https://rea
 
 ## What you can do with it
 
-- **Live mode** - your webcam is published to the model's `camera` input track and transformed in real time. The model works in ~24-frame chunks; transformed frames stream back as they complete.
+- **Live mode** - your webcam is published to the model's `camera` input track and transformed in real time. Edited frames come back on `main_video` at 1280 × 704 in 24-frame chunks, one every ~1-1.5s.
 - **File mode** - upload a clip of at least 33 frames. The model edits it according to your prompt and streams the result back chunk by chunk, shown side by side with the original.
-- **Steer the prompt** - re-prompt mid-stream at any time; the new prompt takes effect about one chunk later.
+- **Steer the prompt** - re-prompt mid-stream at any time; the new edit lands at the next chunk boundary, with no re-render and no break in the stream. Prompts are editing instructions, not scene descriptions - the [prompt guide](https://docs.reactor.inc/model-api-reference/sana-streaming/prompt-guide) covers how to write edits that land where you aim them.
 - **Transport + seed** - pause / resume / reset the generation, and set a seed.
 - **Snap a clip** - capture the last N seconds of the stream (model-agnostic recording).
 
 ## Architecture at a glance
 
-The model is the **source of truth**: only `state` messages mutate local state, and the UI gates entirely off the reduced `SanaState` (`app/lib/state.ts`). Commands out: `set_mode`, `set_video`, `set_prompt`, `set_seed`, `start`, `pause`, `resume`, `reset`. Tracks: input `camera` (live mode), output `main_video`.
+The model is the **source of truth**: only `state` messages mutate local state, and the UI gates entirely off the reduced `SanaState` (`app/lib/state.ts`). Commands out: `set_mode`, `set_video`, `set_prompt`, `set_seed`, `start`, `pause`, `resume`, `reset`. Tracks: input `camera` (live mode), output `main_video`. The full wire surface - every command, message, and the `state` payload - is documented in the [schema reference](https://docs.reactor.inc/model-api-reference/sana-streaming/schema).
 
 Because there is no typed model package, the app uses the base SDK directly: `<ReactorProvider getJwt={fetchToken} modelName="sana-streaming">`, `useReactor` selectors, `useReactorMessage`, and `<ReactorView track="main_video">`.
 
@@ -61,6 +61,8 @@ Because there is no typed model package, the app uses the base SDK directly: `<R
 ## Going further
 
 `skill/SKILL.md` documents the patterns this app uses - the generic-SDK approach, the connection and state model, the file/live mode model, the carried constraints (the exact SDK pin, manual camera publish with `contentHint = "detail"`, the `set_video` retry), and how to extend the example. Point your coding agent at it when you build on top.
+
+The published docs cover the model itself: the [overview](https://docs.reactor.inc/model-api-reference/sana-streaming/overview) for the conceptual model and quick start, the [schema](https://docs.reactor.inc/model-api-reference/sana-streaming/schema) for every command and message, the [prompt guide](https://docs.reactor.inc/model-api-reference/sana-streaming/prompt-guide) for writing edit instructions, and a [tutorial](https://docs.reactor.inc/model-api-reference/sana-streaming/tutorial) built around this app.
 
 ## Tech stack
 
