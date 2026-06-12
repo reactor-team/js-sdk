@@ -1,28 +1,18 @@
 "use client";
 
 import { useReactor } from "@reactor-team/js-sdk";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button, Panel, cn, EYEBROW, FOCUS_RING } from "./ui";
 import { PROMPT_EXAMPLES } from "../lib/examples";
 
 // Prompt draft + preset chips + the active-prompt readout. Prompts can be
 // changed mid-stream at any time; the model applies them at the next chunk
-// boundary (about one chunk later).
-export function Prompt({
-  currentPrompt,
-  resetNonce,
-}: {
-  currentPrompt: string | null;
-  resetNonce: number;
-}) {
+// boundary (about one chunk later). The parent keys this component on the
+// reset nonce, so a model generation_reset remounts it and clears the draft.
+export function Prompt({ currentPrompt }: { currentPrompt: string | null }) {
   const sendCommand = useReactor((s) => s.sendCommand);
   const status = useReactor((s) => s.status);
   const [text, setText] = useState("");
-
-  // Model reset clears its active prompt; clear the draft to match.
-  useEffect(() => {
-    if (resetNonce > 0) setText("");
-  }, [resetNonce]);
 
   const ready = status === "ready";
   const apply = (prompt: string) => {

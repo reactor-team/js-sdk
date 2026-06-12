@@ -2,7 +2,7 @@
 
 import { useReactor } from "@reactor-team/js-sdk";
 import { Panel, SegmentedToggle } from "./ui";
-import type { SanaMode, SanaState } from "../lib/types";
+import type { SanaMode } from "../lib/types";
 import { LiveInput } from "./LiveInput";
 import { FileInput } from "./FileInput";
 
@@ -10,13 +10,15 @@ import { FileInput } from "./FileInput";
 // component: live unmounts FileInput, file unmounts LiveInput (which
 // unpublishes the camera and stops the webcam).
 export function ModeInput({
-  state,
+  running,
+  hasVideo,
   mode,
   onModeChange,
   onSource,
   resetNonce,
 }: {
-  state: SanaState;
+  running: boolean;
+  hasVideo: boolean;
   mode: SanaMode;
   onModeChange: (m: SanaMode) => void;
   onSource: (url: string) => void;
@@ -26,7 +28,7 @@ export function ModeInput({
   const status = useReactor((s) => s.status);
 
   const handleModeChange = (m: SanaMode) => {
-    if (state.running) return; // toggle disabled while generating
+    if (running) return; // toggle disabled while generating
     // Always update local UI state so the toggle feels instant. Only send
     // the wire command when connected, to avoid queuing a stale set_mode.
     onModeChange(m);
@@ -37,7 +39,7 @@ export function ModeInput({
 
   return (
     <Panel label="Input">
-      <div className={state.running ? "pointer-events-none opacity-40" : ""}>
+      <div className={running ? "pointer-events-none opacity-40" : ""}>
         <SegmentedToggle
           aria-label="Input mode"
           value={mode}
@@ -50,13 +52,15 @@ export function ModeInput({
       </div>
       <div className="mt-3">
         {mode === "live" ? (
-          <LiveInput running={state.running} />
+          <LiveInput running={running} />
         ) : (
+          // Keyed on resetNonce: a model generation_reset remounts FileInput,
+          // clearing its local file selection in step with the model.
           <FileInput
-            hasVideo={state.hasVideo}
-            running={state.running}
+            key={resetNonce}
+            hasVideo={hasVideo}
+            running={running}
             onSource={onSource}
-            resetNonce={resetNonce}
           />
         )}
       </div>

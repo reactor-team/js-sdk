@@ -7,7 +7,7 @@ import {
 } from "@reactor-team/js-sdk";
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_STATE, type SanaMessage, type SanaMode } from "./lib/types";
-import { reduce } from "./lib/state";
+import { isTransientDecodeFailure, reduce } from "./lib/state";
 import { Header } from "./components/Header";
 import { StatusBadge } from "./components/StatusBadge";
 import { CommandError } from "./components/CommandError";
@@ -61,15 +61,14 @@ function Workspace() {
   const [mode, setMode] = useState<SanaMode>("live");
 
   // Object URL of the last uploaded source clip, owned here so Stage can
-  // play it side-by-side. The ref mirrors the state so disconnect/unmount
-  // cleanup can revoke without stale-closure issues.
+  // play it side-by-side. The cleanup effect revokes the previous URL on
+  // every change and on unmount.
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
-  const sourceUrlRef = useRef<string | null>(null);
-  const updateSourceUrl = (url: string | null) => {
-    if (sourceUrlRef.current) URL.revokeObjectURL(sourceUrlRef.current);
-    sourceUrlRef.current = url;
-    setSourceUrl(url);
-  };
+  useEffect(() => {
+    return () => {
+      if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+    };
+  }, [sourceUrl]);
 
   // command_error banner: transient, not part of the reducer.
   const [commandError, setCommandError] = useState<string | null>(null);
@@ -83,8 +82,9 @@ function Workspace() {
     );
   };
 
-  // Bumped on generation_reset so child components can clear their local
-  // UI state (file selection, prompt draft) in step with the model's reset.
+  // Bumped on generation_reset and used as a React key on the children that
+  // hold local draft state (prompt draft, file selection), remounting them
+  // in step with the model's reset.
   const [resetNonce, setResetNonce] = useState(0);
 
   // After reset, black out the stage (the WebRTC view would otherwise freeze
@@ -96,19 +96,15 @@ function Workspace() {
 
   useReactorMessage((msg: SanaMessage) => {
     setState((s) => reduce(s, msg));
-    if (msg.type === "command_error") {
-      const err = msg as Extract<SanaMessage, { type: "command_error" }>;
-      // set_video "decode failed" is a transient model-side probe race that
-      // FileInput auto-retries (and surfaces inline if retries run out).
-      // Don't flash the banner for it.
-      const retriedByFileInput =
-        err.data.command === "set_video" &&
-        err.data.reason.startsWith("decode failed");
-      if (!retriedByFileInput) showCommandError(err.data.reason);
+    // Transient set_video "decode failed" errors are auto-retried by
+    // FileInput (and surfaced inline if retries run out); don't flash the
+    // banner for them.
+    if (msg.type === "command_error" && !isTransientDecodeFailure(msg)) {
+      showCommandError(msg.data.reason);
     }
     if (msg.type === "generation_reset") {
       // Model reset clears its source video + prompt; mirror that locally.
-      updateSourceUrl(null);
+      setSourceUrl(null);
       setResetNonce((n) => n + 1);
       setStageCleared(true);
     }
@@ -119,30 +115,36 @@ function Workspace() {
     if (status === "disconnected") {
       setState(DEFAULT_STATE);
       setCommandError(null);
-      updateSourceUrl(null);
+      setSourceUrl(null);
     }
-    // updateSourceUrl is stable enough for this effect; status is the trigger.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
-  // Clean up the auto-dismiss timer + source object URL on unmount.
+  // Clean up the banner auto-dismiss timer on unmount.
   useEffect(() => {
     return () => {
       if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
-      if (sourceUrlRef.current) URL.revokeObjectURL(sourceUrlRef.current);
     };
   }, []);
 
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
-      {/* Mobile: the stage is ordered first and pinned (sticky) so the model
-          output stays visible while the controls scroll beneath it. The
-          mobile padding lives on the children, not <main>, so the sticky
-          stage can sit flush against the viewport edge with a solid
-          backdrop. Desktop keeps the sidebar-left / stage-right split. */}
-      <main className="flex flex-1 flex-col lg:flex-row lg:gap-6 lg:p-6">
-        <aside className="order-2 flex w-full flex-col gap-4 p-4 pt-1 lg:order-none lg:w-80 lg:shrink-0 lg:p-0">
+      {/* The stage comes first in the DOM: on mobile it is pinned (sticky)
+          on top so the model output stays visible while the controls scroll
+          beneath it, and the mobile padding lives on the children, not
+          <main>, so it can sit flush against the viewport edge with a solid
+          backdrop. lg:flex-row-reverse restores the desktop sidebar-left /
+          stage-right split. */}
+      <main className="flex flex-1 flex-col lg:flex-row-reverse lg:gap-6 lg:p-6">
+        <section className="flex flex-col gap-4 max-lg:sticky max-lg:top-0 max-lg:z-10 max-lg:bg-zinc-950/95 max-lg:p-4 max-lg:pb-3 max-lg:backdrop-blur-sm lg:flex-1">
+          <Stage
+            state={state}
+            mode={mode}
+            sourceUrl={sourceUrl}
+            cleared={stageCleared}
+          />
+        </section>
+        <aside className="flex w-full flex-col gap-4 p-4 pt-1 lg:w-80 lg:shrink-0 lg:p-0">
           <StatusBadge />
           {commandError && (
             <CommandError
@@ -151,13 +153,14 @@ function Workspace() {
             />
           )}
           <ModeInput
-            state={state}
+            running={state.running}
+            hasVideo={state.hasVideo}
             mode={mode}
             onModeChange={setMode}
-            onSource={updateSourceUrl}
+            onSource={setSourceUrl}
             resetNonce={resetNonce}
           />
-          <Prompt currentPrompt={state.currentPrompt} resetNonce={resetNonce} />
+          <Prompt key={resetNonce} currentPrompt={state.currentPrompt} />
           <Transport
             paused={state.paused}
             started={state.started}
@@ -165,14 +168,6 @@ function Workspace() {
           />
           <SnapClip />
         </aside>
-        <section className="order-1 flex flex-col gap-4 max-lg:sticky max-lg:top-0 max-lg:z-10 max-lg:bg-zinc-950/95 max-lg:p-4 max-lg:pb-3 max-lg:backdrop-blur-sm lg:order-none lg:flex-1">
-          <Stage
-            state={state}
-            mode={mode}
-            sourceUrl={sourceUrl}
-            cleared={stageCleared}
-          />
-        </section>
       </main>
     </div>
   );

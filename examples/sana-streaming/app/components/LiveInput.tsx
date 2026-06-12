@@ -2,7 +2,8 @@
 
 import { useReactor } from "@reactor-team/js-sdk";
 import { useEffect, useRef, useState } from "react";
-import { Button } from "./ui";
+import { startGeneration } from "../lib/state";
+import { Button, errorMessage } from "./ui";
 
 // Webcam -> `camera` track, manual publish path (not <WebcamStream/>).
 //
@@ -49,7 +50,7 @@ export function LiveInput({ running }: { running: boolean }) {
         } else if (e instanceof DOMException && e.name === "NotReadableError") {
           setError("Camera is in use by another application.");
         } else {
-          setError(e instanceof Error ? e.message : String(e));
+          setError(errorMessage(e));
         }
         return;
       }
@@ -77,7 +78,7 @@ export function LiveInput({ running }: { running: boolean }) {
         if (!cancelled && status === "ready") setPublished(true);
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+        if (!cancelled) setError(errorMessage(e));
       });
     return () => {
       cancelled = true;
@@ -87,14 +88,9 @@ export function LiveInput({ running }: { running: boolean }) {
   }, [track, status, publish, unpublish]);
 
   const startLive = () => {
-    // set_mode again here keeps the start flow self-contained; the model
-    // treats a repeated set_mode as idempotent.
-    sendCommand("set_mode", { mode: "live" })
-      .then(() => sendCommand("start", {}))
-      .catch((e) => {
-        const msg = e instanceof Error ? e.message : String(e);
-        setError("Start failed: " + msg);
-      });
+    startGeneration(sendCommand, "live").catch((e) => {
+      setError("Start failed: " + errorMessage(e));
+    });
   };
 
   return (

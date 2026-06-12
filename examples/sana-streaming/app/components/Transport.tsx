@@ -1,7 +1,6 @@
 "use client";
 
 import { useReactor } from "@reactor-team/js-sdk";
-import { useEffect, useState } from "react";
 import { Panel, IconButton, cn, EYEBROW } from "./ui";
 
 // Pause/resume/reset + seed. Pause/resume only make sense once generation
@@ -18,11 +17,6 @@ export function Transport({
 }) {
   const sendCommand = useReactor((s) => s.sendCommand);
   const status = useReactor((s) => s.status);
-  const [seed, setSeed] = useState(modelSeed);
-
-  // Keep the local seed in sync when the model reports a new value
-  // (e.g. after a reset or an external set_seed).
-  useEffect(() => setSeed(modelSeed), [modelSeed]);
 
   const notReady = status !== "ready";
   const send = (cmd: string, data: Record<string, unknown> = {}) =>
@@ -56,13 +50,15 @@ export function Transport({
         />
         <label className="ml-auto flex items-center gap-1.5">
           <span className={EYEBROW}>Seed</span>
+          {/* Uncontrolled, keyed to the model-reported seed: a reset or an
+              external set_seed remounts the input with the fresh value. */}
           <input
+            key={modelSeed}
             type="number"
             min={0}
-            value={seed}
+            defaultValue={modelSeed}
             disabled={notReady}
-            onChange={(e) => setSeed(+e.target.value)}
-            onBlur={() => send("set_seed", { seed })}
+            onBlur={(e) => send("set_seed", { seed: +e.target.value })}
             className={cn(
               "w-20 rounded-md border border-zinc-700 bg-zinc-900/40 px-2 py-1 font-mono text-xs text-zinc-200 outline-none transition focus:border-brand/60 disabled:opacity-40",
             )}

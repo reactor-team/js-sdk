@@ -5,10 +5,11 @@ import {
   useReactorMessage,
   type FileRef,
 } from "@reactor-team/js-sdk";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { PRESET_CLIPS, type PresetClip } from "../lib/clips";
+import { startGeneration } from "../lib/state";
 import type { SanaMessage } from "../lib/types";
-import { Button, cn, EYEBROW, FOCUS_RING } from "./ui";
+import { Button, cn, errorMessage, EYEBROW, FOCUS_RING } from "./ui";
 
 // The model's _probe_video forks an ffmpeg subprocess; a race with background
 // gRPC threads in the pod intermittently corrupts the probe and yields a
@@ -21,16 +22,22 @@ const DECODE_RETRIES = 2;
 // upload instantly (frames decode lazily during generation) and replies
 // video_accepted + a state snapshot (has_video: true). The Start button is
 // gated on the lifted state.hasVideo, the model's truth, not local optimism.
+//
+// Clip changes are disabled while a generation is running: the model
+// latches its source at start, so a mid-run set_video would not take
+// effect until the next start and the UI would misleadingly show the new
+// clip. Reset first, then pick a new clip.
+//
+// The parent keys this component on the reset nonce, so a model
+// generation_reset remounts it and clears the local file selection.
 export function FileInput({
   hasVideo,
   running,
   onSource,
-  resetNonce,
 }: {
   hasVideo: boolean;
   running: boolean;
   onSource: (url: string) => void;
-  resetNonce: number;
 }) {
   const sendCommand = useReactor((s) => s.sendCommand);
   const uploadFile = useReactor((s) => s.uploadFile);
@@ -40,14 +47,6 @@ export function FileInput({
   const [fileName, setFileName] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Model reset clears its source video; clear the local selection to match.
-  useEffect(() => {
-    if (resetNonce > 0) {
-      setFileName(null);
-      setError(null);
-    }
-  }, [resetNonce]);
 
   // Last successful upload ref + remaining decode retries (see DECODE_RETRIES).
   const lastRefRef = useRef<FileRef | null>(null);
@@ -81,9 +80,7 @@ export function FileInput({
       setFileName(file.name);
       onSource(URL.createObjectURL(file));
     } catch (err) {
-      setError(
-        "Upload failed: " + (err instanceof Error ? err.message : String(err)),
-      );
+      setError("Upload failed: " + errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -108,22 +105,15 @@ export function FileInput({
       });
       await uploadVideo(file); // uploadVideo owns busy/error from here
     } catch (err) {
-      setError(
-        "Upload failed: " + (err instanceof Error ? err.message : String(err)),
-      );
+      setError("Upload failed: " + errorMessage(err));
       setBusy(false);
     }
   }
 
   const startFile = () => {
-    // set_mode again here keeps the start flow self-contained; the model
-    // treats a repeated set_mode as idempotent (same idiom as LiveInput).
-    sendCommand("set_mode", { mode: "file" })
-      .then(() => sendCommand("start", {}))
-      .catch((e) => {
-        const msg = e instanceof Error ? e.message : String(e);
-        setError("Start failed: " + msg);
-      });
+    startGeneration(sendCommand, "file").catch((e) => {
+      setError("Start failed: " + errorMessage(e));
+    });
   };
 
   return (
@@ -135,7 +125,7 @@ export function FileInput({
             key={clip.id}
             type="button"
             data-testid={`preset-clip-${clip.id}`}
-            disabled={busy || status !== "ready"}
+            disabled={busy || running || status !== "ready"}
             onClick={() => onPresetClick(clip)}
             aria-label={clip.label}
             className={cn(
@@ -157,7 +147,7 @@ export function FileInput({
       <label
         className={cn(
           "flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-zinc-700 px-4 py-6 text-center transition hover:border-zinc-500",
-          (busy || status !== "ready") && "pointer-events-none opacity-50",
+          (busy || running || status !== "ready") && "pointer-events-none opacity-50",
         )}
       >
         <input
@@ -165,7 +155,7 @@ export function FileInput({
           data-testid="file-input"
           type="file"
           accept="video/*"
-          disabled={busy || status !== "ready"}
+          disabled={busy || running || status !== "ready"}
           onChange={onPick}
           className="hidden"
         />
@@ -190,7 +180,7 @@ export function FileInput({
 
       {hasVideo ? (
         <p data-testid="video-accepted" className="text-xs text-zinc-500">
-          video accepted
+          {running ? "video accepted — reset to change the clip" : "video accepted"}
         </p>
       ) : (
         !busy &&

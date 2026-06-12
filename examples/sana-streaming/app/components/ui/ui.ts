@@ -8,6 +8,11 @@ export function cn(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }
 
+/** Normalizes an unknown thrown value for display. */
+export function errorMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
 /** Mono uppercase section label - ONE definition, used by every card eyebrow. */
 export const EYEBROW =
   "font-mono text-[10px] uppercase tracking-wider text-zinc-400";
