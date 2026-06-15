@@ -60,9 +60,10 @@ export function Prompt({ currentPrompt }: { currentPrompt: string | null }) {
       </Button>
       {currentPrompt && (
         <p
+          title={currentPrompt}
           className={cn(
             EYEBROW,
-            "mt-2 normal-case tracking-normal text-zinc-500",
+            "mt-2 line-clamp-2 break-words normal-case tracking-normal text-zinc-500",
           )}
         >
           active: “{currentPrompt}”

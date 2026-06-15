@@ -40,13 +40,13 @@ export function Stage({
   }, [state.running, state.paused, state.hasVideo, sideBySide]);
 
   const statusRow = (
-    <div className="absolute bottom-0 inset-x-0 flex items-center gap-3 bg-gradient-to-t from-black/60 p-3 font-mono text-xs text-zinc-400">
-      <span>
+    <div className="absolute bottom-0 inset-x-0 flex min-w-0 items-center gap-3 bg-gradient-to-t from-black/60 p-3 font-mono text-xs text-zinc-400">
+      <span className="shrink-0">
         {state.running ? (state.paused ? "paused" : "streaming") : "idle"}
       </span>
-      <span>chunk {state.currentChunk}</span>
+      <span className="shrink-0">chunk {state.currentChunk}</span>
       {state.currentPrompt && (
-        <span className="truncate">"{state.currentPrompt}"</span>
+        <span className="min-w-0 flex-1 truncate">"{state.currentPrompt}"</span>
       )}
     </div>
   );

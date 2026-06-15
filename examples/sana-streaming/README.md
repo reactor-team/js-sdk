@@ -7,12 +7,12 @@ Where Reactor's other models generate video from a prompt, SANA-Streaming edits 
 ```
 ┌──────────────────────┬─────────────────────────────────────┐
 │  Status / errors     │                                     │
-│                      │         transformed video           │
-│  Mode: file · live   │    (side-by-side with the original  │
+│  Input               │         transformed video           │
+│   • mode: live/file  │    (side-by-side with the original  │
 │   • webcam / upload  │          in file mode)              │
-│                      ├─────────────────────────────────────┤
-│  Prompt + presets    │  status row (idle/streaming/paused  │
-│  Transport + seed    │          · chunk · prompt)          │
+│   • start → pause/   ├─────────────────────────────────────┤
+│     resume / reset   │  status row (idle/streaming/paused  │
+│  Prompt + presets    │          · chunk · prompt)          │
 │  Snap clip           │                                     │
 └──────────────────────┴─────────────────────────────────────┘
 ```
@@ -32,7 +32,7 @@ Get a **production** API key (`rk_...`) from the [Reactor dashboard](https://rea
 - **Live mode** - your webcam is published to the model's `camera` input track and transformed in real time. Edited frames come back on `main_video` at 1280 × 704 in 24-frame chunks, one every ~1-1.5s.
 - **File mode** - upload a clip of at least 33 frames. The model edits it according to your prompt and streams the result back chunk by chunk, shown side by side with the original.
 - **Steer the prompt** - re-prompt mid-stream at any time; the new edit lands at the next chunk boundary, with no re-render and no break in the stream. Prompts are editing instructions, not scene descriptions - the [prompt guide](https://docs.reactor.inc/model-api-reference/sana-streaming/prompt-guide) covers how to write edits that land where you aim them.
-- **Transport + seed** - pause / resume / reset the generation, and set a seed.
+- **Playback** - once the edit is running, the Input panel turns into pause / resume / reset controls. Set a seed before you start for reproducible results.
 - **Snap a clip** - capture the last N seconds of the stream (model-agnostic recording).
 
 ## Architecture at a glance
@@ -46,11 +46,12 @@ The app talks to the model through the typed SDK: `<SanaStreamingProvider getJwt
 | Path                             | What it is                                                                 |
 | -------------------------------- | -------------------------------------------------------------------------- |
 | `app/SanaStreamingApp.tsx`       | `SanaStreamingProvider` shell + layout + the typed message subscriptions   |
-| `app/components/ModeInput.tsx`   | File/live mode toggle + the active input panel                             |
+| `app/components/ModeInput.tsx`   | The Input panel — phase-aware: setup controls before start, Playback after |
 | `app/components/LiveInput.tsx`   | Webcam capture, manual `publish()` to the `camera` track                   |
 | `app/components/FileInput.tsx`   | Clip upload (at least 33 frames) via `uploadFile` + `setVideo`, with retry |
+| `app/components/Playback.tsx`    | Live-phase pause / resume / reset, shown in the Input panel once started   |
+| `app/components/SeedField.tsx`   | Pre-start seed setting, shown in the Input panel's setup view              |
 | `app/components/Prompt.tsx`      | Prompt textarea + Apply, preset chips, active prompt                       |
-| `app/components/Transport.tsx`   | Pause / resume / reset + seed                                              |
 | `app/components/Stage.tsx`       | `<SanaStreamingMainVideoView>`, side-by-side compare in file mode          |
 | `app/lib/state.ts`               | Reduces the typed `state` message into `SanaState`                         |
 | `app/api/reactor/token/route.ts` | Mints the short-lived JWT server-side                                      |

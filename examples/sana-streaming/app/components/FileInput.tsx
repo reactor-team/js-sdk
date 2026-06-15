@@ -10,32 +10,27 @@ import { PRESET_CLIPS, type PresetClip } from "../lib/clips";
 import { startGeneration } from "../lib/state";
 import { Button, cn, errorMessage, EYEBROW, FOCUS_RING } from "./ui";
 
-// The model's _probe_video forks an ffmpeg subprocess; a race with background
-// gRPC threads in the pod intermittently corrupts the probe and yields a
-// spurious "decode failed" for perfectly valid uploads. Band-aid: resend
-// set_video with the same upload ref a couple of times before surfacing the
-// error. Real fix is model-side (in-process probe); remove this when it lands.
+// An uploaded clip occasionally comes back with a one-off "decode failed"
+// command_error for a perfectly valid file; resend set_video with the same
+// upload ref a couple of times before surfacing the error to the user.
 const DECODE_RETRIES = 2;
 
-// File mode: pick a clip -> uploadFile -> set_video. The model stashes the
-// upload instantly (frames decode lazily during generation) and replies
+// File mode: pick a clip -> uploadFile -> set_video. The model accepts the
+// upload instantly (the clip is consumed as the edit streams) and replies
 // video_accepted + a state snapshot (has_video: true). The Start button is
 // gated on the lifted state.hasVideo, the model's truth, not local optimism.
 //
-// Clip changes are disabled while a generation is running: the model
-// latches its source at start, so a mid-run set_video would not take
-// effect until the next start and the UI would misleadingly show the new
-// clip. Reset first, then pick a new clip.
-//
-// The parent keys this component on the reset nonce, so a model
+// Once a run has started the picker is hidden: the model latches its source at
+// start, so the input is fixed for the run (the Playback control offers reset
+// to switch). The parent keys this component on the reset nonce, so a model
 // generation_reset remounts it and clears the local file selection.
 export function FileInput({
   hasVideo,
-  running,
+  started,
   onSource,
 }: {
   hasVideo: boolean;
-  running: boolean;
+  started: boolean;
   onSource: (url: string) => void;
 }) {
   const { setVideo, uploadFile, setMode, start, status } = useSanaStreaming();
@@ -110,6 +105,22 @@ export function FileInput({
     });
   };
 
+  // Live phase: the picker is hidden (source is latched for the run); show a
+  // compact reminder of which clip is being edited.
+  if (started) {
+    return (
+      <p className="text-xs text-zinc-500">
+        {fileName ? (
+          <>
+            source: <span className="text-zinc-300">{fileName}</span>
+          </>
+        ) : (
+          "editing the selected clip"
+        )}
+      </p>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <span className={cn(EYEBROW)}>preset clips</span>
@@ -119,7 +130,7 @@ export function FileInput({
             key={clip.id}
             type="button"
             data-testid={`preset-clip-${clip.id}`}
-            disabled={busy || running || status !== "ready"}
+            disabled={busy || status !== "ready"}
             onClick={() => onPresetClick(clip)}
             aria-label={clip.label}
             className={cn(
@@ -141,8 +152,7 @@ export function FileInput({
       <label
         className={cn(
           "flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-zinc-700 px-4 py-6 text-center transition hover:border-zinc-500",
-          (busy || running || status !== "ready") &&
-            "pointer-events-none opacity-50",
+          (busy || status !== "ready") && "pointer-events-none opacity-50",
         )}
       >
         <input
@@ -150,7 +160,7 @@ export function FileInput({
           data-testid="file-input"
           type="file"
           accept="video/*"
-          disabled={busy || running || status !== "ready"}
+          disabled={busy || status !== "ready"}
           onChange={onPick}
           className="hidden"
         />
@@ -167,7 +177,7 @@ export function FileInput({
         size="md"
         className="w-full"
         data-testid="start-file"
-        disabled={status !== "ready" || !hasVideo || busy || running}
+        disabled={status !== "ready" || !hasVideo || busy}
         onClick={startFile}
       >
         Start edit
@@ -175,9 +185,7 @@ export function FileInput({
 
       {hasVideo ? (
         <p data-testid="video-accepted" className="text-xs text-zinc-500">
-          {running
-            ? "video accepted — reset to change the clip"
-            : "video accepted"}
+          video accepted
         </p>
       ) : (
         !busy &&

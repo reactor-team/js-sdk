@@ -21,6 +21,8 @@ The prompt is **optional**: with no prompt the model streams the source back nea
 | Flow   | publish → `setMode({mode:"live"})` → `start` | `uploadFile` → `setVideo` → `setMode({mode:"file"})` → `start` |
 | Stage  | single `<SanaStreamingMainVideoView>`        | side-by-side: local source `<video>` + the same view           |
 
+The **Input panel** (`ModeInput`) is phase-aware, driven by the model's `started` flag: before `start` it shows the mode toggle, the webcam/file picker, the Start button, and the seed; once `started` is true it keeps the input slot mounted (so live mode keeps publishing the camera) and swaps the setup controls for `Playback` (pause / resume / reset). Reset returns it to the setup phase. Gate new controls on `started` / `paused` the same way, rather than disabling them in place.
+
 ## The four concepts
 
 | Concept                    | API                                                                                                                                                                      |
@@ -36,7 +38,7 @@ The provider is `<SanaStreamingProvider getJwt={fetchToken}>` (`app/SanaStreamin
 
 The browser sends commands and renders model-reported state; it never tracks generation state optimistically.
 
-- The typed `state` snapshot (`useSanaStreamingState`) is the **only** thing that mutates the reducer. The model sends it on connect, after every accepted command, and at each chunk boundary, so the UI renders from one message instead of accumulating individual events. `app/lib/state.ts:reduce` projects it into `SanaState` (`app/lib/types.ts`): `running`, `started`, `paused`, `currentChunk`, `currentPrompt`, `hasVideo`, `seed`. Every gate in the UI — Start buttons, the mode-toggle disable, transport buttons — keys off this state, not local guesses.
+- The typed `state` snapshot (`useSanaStreamingState`) is the **only** thing that mutates the reducer. The model sends it on connect, after every accepted command, and at each chunk boundary, so the UI renders from one message instead of accumulating individual events. `app/lib/state.ts:reduce` projects it into `SanaState` (`app/lib/types.ts`): `running`, `started`, `paused`, `currentChunk`, `currentPrompt`, `hasVideo`, `seed`. Every gate in the UI — the Input panel's setup-vs-playback phase (`started`), pause-vs-resume (`paused`), Start enablement (`hasVideo`) — keys off this state, not local guesses.
 - Other messages are handled imperatively in the `Workspace` shell, each via its own typed hook: `useSanaStreamingCommandError` → a transient 6s banner (`<CommandError>`), except the retried decode case below; `useSanaStreamingGenerationReset` → clear the source object URL, bump `resetNonce` (children clear their local UI in step), and black out the stage until generation runs again.
 - Reset local state to `DEFAULT_STATE` on full disconnect so a reconnect starts clean.
 
@@ -47,7 +49,7 @@ No `autoConnect` — `<StatusBadge>` surfaces the four-state machine with Connec
 - **Status-gate every control.** Only call command methods when `status === "ready"`.
 - **The start flow is always `setMode` then `start`** — `lib/state.ts:startGeneration` encapsulates it; `LiveInput` and `FileInput` both call it. `setMode` is idempotent, so re-sending it keeps each start flow self-contained.
 - **`setPrompt` is valid any time, including mid-stream.** It applies at the next chunk boundary; the prompt is an editing instruction, not a scene description.
-- **A new control is a new typed method off `useSanaStreaming()`**, gated on `status === "ready"`, enabled/disabled off the reduced `SanaState` (see `Transport` for the smallest example). `setAnchorInterval` is the most obvious not-yet-surfaced knob — it periodically re-grounds the edit on the source clip to limit drift over long runs (every N chunks, `0` to disable); each re-ground may show a brief visible refresh.
+- **A new control is a new typed method off `useSanaStreaming()`**, gated on `status === "ready"`, enabled/disabled off the reduced `SanaState` (see `Playback` for the smallest example). `setAnchorInterval` is the most obvious not-yet-surfaced knob — it periodically re-grounds the edit on the source clip to limit drift over long runs (every N chunks, `0` to disable); each re-ground may show a brief visible refresh.
 
 ## Receiving messages
 

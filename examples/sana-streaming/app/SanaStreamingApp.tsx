@@ -15,7 +15,6 @@ import { StatusBadge } from "./components/StatusBadge";
 import { CommandError } from "./components/CommandError";
 import { ModeInput } from "./components/ModeInput";
 import { Prompt } from "./components/Prompt";
-import { Transport } from "./components/Transport";
 import { Stage } from "./components/Stage";
 import { SnapClip } from "./components/SnapClip";
 
@@ -140,7 +139,7 @@ function Workspace() {
           backdrop. lg:flex-row-reverse restores the desktop sidebar-left /
           stage-right split. */}
       <main className="flex flex-1 flex-col lg:flex-row-reverse lg:gap-6 lg:p-6">
-        <section className="flex flex-col gap-4 max-lg:sticky max-lg:top-0 max-lg:z-10 max-lg:bg-zinc-950/95 max-lg:p-4 max-lg:pb-3 max-lg:backdrop-blur-sm lg:flex-1">
+        <section className="flex flex-col gap-4 max-lg:sticky max-lg:top-0 max-lg:z-10 max-lg:bg-zinc-950/95 max-lg:p-4 max-lg:pb-3 max-lg:backdrop-blur-sm lg:min-w-0 lg:flex-1">
           <Stage
             state={state}
             mode={mode}
@@ -157,19 +156,16 @@ function Workspace() {
             />
           )}
           <ModeInput
-            running={state.running}
             hasVideo={state.hasVideo}
+            started={state.started}
+            paused={state.paused}
             mode={mode}
+            modelSeed={state.seed}
             onModeChange={setMode}
             onSource={setSourceUrl}
             resetNonce={resetNonce}
           />
           <Prompt key={resetNonce} currentPrompt={state.currentPrompt} />
-          <Transport
-            paused={state.paused}
-            started={state.started}
-            modelSeed={state.seed}
-          />
           <SnapClip />
         </aside>
       </main>

@@ -5,20 +5,18 @@ import { useEffect, useRef, useState } from "react";
 import { startGeneration } from "../lib/state";
 import { Button, errorMessage } from "./ui";
 
-// Webcam -> `camera` track, manual publish path (not <WebcamStream/>).
+// Webcam -> `camera` track, manual publish path (not <SanaStreamingCameraView>).
 //
-// We own the MediaStreamTrack so we can set contentHint = "detail": the
-// deployed sana-streaming model assumes a constant frame shape within a
-// chunk, but Chrome's default encoder behavior ramps resolution at stream
-// start (and on bandwidth dips), which crashes the model's _live_session
-// (np.stack shape mismatch). "detail" pins resolution and degrades
-// framerate instead. Switching to file mode unmounts this component,
-// which unpublishes and stops the camera.
-export function LiveInput({ running }: { running: boolean }) {
-  // Manual publish path on purpose: we set contentHint = "detail" on the
-  // track before publishing (see the block comment above). publish/unpublish
-  // come off the typed store, same as the rest of the app. The declarative
-  // <SanaStreamingCameraView> would not let us set the hint first.
+// We own the MediaStreamTrack so we can set contentHint = "detail" before
+// publishing: the model needs a stable camera resolution, but Chrome's encoder
+// ramps resolution at stream start and on bandwidth dips. "detail" holds the
+// resolution steady and trades framerate instead. The declarative
+// <SanaStreamingCameraView> acquires and publishes for you but gives no hook to
+// set the hint, so this component uses the manual publish path. The self-view
+// stays mounted through the whole session (setup and live) so the camera keeps
+// publishing; switching to file mode unmounts it, which unpublishes and stops
+// the webcam.
+export function LiveInput({ started }: { started: boolean }) {
   const { publish, unpublish, setMode, start, status } = useSanaStreaming();
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -125,21 +123,23 @@ export function LiveInput({ running }: { running: boolean }) {
         <p className="text-xs text-red-400">Camera error: {error}</p>
       )}
 
-      <Button
-        variant="primary"
-        size="md"
-        className="w-full"
-        data-testid="start-live"
-        disabled={status !== "ready" || !published || running}
-        onClick={startLive}
-      >
-        Start live
-      </Button>
+      {!started && (
+        <Button
+          variant="primary"
+          size="md"
+          className="w-full"
+          data-testid="start-live"
+          disabled={status !== "ready" || !published}
+          onClick={startLive}
+        >
+          Start live
+        </Button>
+      )}
 
-      {!track && !denied && !error && (
+      {!started && !track && !denied && !error && (
         <p className="text-xs text-zinc-500">acquiring camera…</p>
       )}
-      {track && !published && !denied && !error && (
+      {!started && track && !published && !denied && !error && (
         <p className="text-xs text-zinc-500">waiting for connection…</p>
       )}
     </div>
