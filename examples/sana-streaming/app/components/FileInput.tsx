@@ -1,14 +1,13 @@
 "use client";
 
 import {
-  useReactor,
-  useReactorMessage,
+  useSanaStreaming,
+  useSanaStreamingCommandError,
   type FileRef,
-} from "@reactor-team/js-sdk";
+} from "@reactor-models/sana-streaming";
 import { useRef, useState } from "react";
 import { PRESET_CLIPS, type PresetClip } from "../lib/clips";
 import { startGeneration } from "../lib/state";
-import type { SanaMessage } from "../lib/types";
 import { Button, cn, errorMessage, EYEBROW, FOCUS_RING } from "./ui";
 
 // The model's _probe_video forks an ffmpeg subprocess; a race with background
@@ -39,9 +38,7 @@ export function FileInput({
   running: boolean;
   onSource: (url: string) => void;
 }) {
-  const sendCommand = useReactor((s) => s.sendCommand);
-  const uploadFile = useReactor((s) => s.uploadFile);
-  const status = useReactor((s) => s.status);
+  const { setVideo, uploadFile, setMode, start, status } = useSanaStreaming();
 
   const inputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -52,19 +49,16 @@ export function FileInput({
   const lastRefRef = useRef<FileRef | null>(null);
   const retriesRef = useRef(0);
 
-  useReactorMessage((msg: SanaMessage) => {
-    if (msg.type !== "command_error") return;
-    const { command, reason } = (
-      msg as Extract<SanaMessage, { type: "command_error" }>
-    ).data;
-    if (command !== "set_video" || !reason.startsWith("decode failed")) return;
+  useSanaStreamingCommandError((msg) => {
+    if (msg.command !== "set_video" || !msg.reason.startsWith("decode failed"))
+      return;
     if (retriesRef.current > 0 && lastRefRef.current) {
       retriesRef.current -= 1;
-      sendCommand("set_video", { video: lastRefRef.current }).catch(() => {
-        setError("Upload failed: " + reason);
+      setVideo({ video: lastRefRef.current }).catch(() => {
+        setError("Upload failed: " + msg.reason);
       });
     } else {
-      setError("Upload failed: " + reason);
+      setError("Upload failed: " + msg.reason);
     }
   });
 
@@ -76,7 +70,7 @@ export function FileInput({
       const ref = await uploadFile(file);
       lastRefRef.current = ref;
       retriesRef.current = DECODE_RETRIES;
-      await sendCommand("set_video", { video: ref });
+      await setVideo({ video: ref });
       setFileName(file.name);
       onSource(URL.createObjectURL(file));
     } catch (err) {
@@ -111,7 +105,7 @@ export function FileInput({
   }
 
   const startFile = () => {
-    startGeneration(sendCommand, "file").catch((e) => {
+    startGeneration({ setMode, start }, "file").catch((e) => {
       setError("Start failed: " + errorMessage(e));
     });
   };
@@ -147,7 +141,8 @@ export function FileInput({
       <label
         className={cn(
           "flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-zinc-700 px-4 py-6 text-center transition hover:border-zinc-500",
-          (busy || running || status !== "ready") && "pointer-events-none opacity-50",
+          (busy || running || status !== "ready") &&
+            "pointer-events-none opacity-50",
         )}
       >
         <input
@@ -180,7 +175,9 @@ export function FileInput({
 
       {hasVideo ? (
         <p data-testid="video-accepted" className="text-xs text-zinc-500">
-          {running ? "video accepted — reset to change the clip" : "video accepted"}
+          {running
+            ? "video accepted — reset to change the clip"
+            : "video accepted"}
         </p>
       ) : (
         !busy &&

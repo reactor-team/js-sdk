@@ -1,6 +1,6 @@
 "use client";
 
-import { useReactor } from "@reactor-team/js-sdk";
+import { useSanaStreaming } from "@reactor-models/sana-streaming";
 import { Button, Panel, cn } from "./ui";
 
 // The status badge teaches the four-state connection machine:
@@ -16,10 +16,7 @@ const TONE: Record<string, { dot: string; label: string }> = {
 };
 
 export function StatusBadge() {
-  const status = useReactor((s) => s.status);
-  const lastError = useReactor((s) => s.lastError);
-  const connect = useReactor((s) => s.connect);
-  const disconnect = useReactor((s) => s.disconnect);
+  const { status, lastError, connect, disconnect } = useSanaStreaming();
 
   const tone = TONE[status] ?? TONE.disconnected;
   const idle = status === "disconnected";

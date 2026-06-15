@@ -1,12 +1,14 @@
 "use client";
 
 import {
-  ReactorProvider,
-  useReactor,
-  useReactorMessage,
-} from "@reactor-team/js-sdk";
+  SanaStreamingProvider,
+  useSanaStreaming,
+  useSanaStreamingCommandError,
+  useSanaStreamingGenerationReset,
+  useSanaStreamingState,
+} from "@reactor-models/sana-streaming";
 import { useEffect, useRef, useState } from "react";
-import { DEFAULT_STATE, type SanaMessage, type SanaMode } from "./lib/types";
+import { DEFAULT_STATE, type SanaMode } from "./lib/types";
 import { isTransientDecodeFailure, reduce } from "./lib/state";
 import { Header } from "./components/Header";
 import { StatusBadge } from "./components/StatusBadge";
@@ -17,10 +19,11 @@ import { Transport } from "./components/Transport";
 import { Stage } from "./components/Stage";
 import { SnapClip } from "./components/SnapClip";
 
-// JWT resolver passed to <ReactorProvider getJwt>. The SDK calls this on
-// every Coordinator HTTP hop, so it must be a resolver, not a static string.
-// The /api/reactor/token route returns the JWT with a Cache-Control header,
-// so the browser caches it until it actually expires.
+// JWT resolver passed to <SanaStreamingProvider getJwt>. The provider forwards
+// it to the underlying ReactorProvider, which calls it on every Coordinator
+// HTTP hop, so it must be a resolver, not a static string. The
+// /api/reactor/token route returns the JWT with a Cache-Control header, so the
+// browser caches it until it actually expires.
 async function fetchToken(): Promise<string> {
   const r = await fetch("/api/reactor/token");
   if (!r.ok) {
@@ -31,18 +34,15 @@ async function fetchToken(): Promise<string> {
   return jwt;
 }
 
-// The model name the SDK opens sessions against. sana-streaming has no typed
-// @reactor-models package, so this example drives the generic SDK directly
-// and names the model here.
-const MODEL_NAME = "sana-streaming";
-
 // No `autoConnect`: the user clicks Connect so they see the
 // disconnected -> connecting -> waiting -> ready state machine first-hand.
+// SanaStreamingProvider wraps ReactorProvider with the model name and tracks
+// baked in, so commands and messages are typed all the way down.
 export function SanaStreamingApp() {
   return (
-    <ReactorProvider getJwt={fetchToken} modelName={MODEL_NAME}>
+    <SanaStreamingProvider getJwt={fetchToken}>
       <Workspace />
-    </ReactorProvider>
+    </SanaStreamingProvider>
   );
 }
 
@@ -53,7 +53,7 @@ const BANNER_TTL_MS = 6000;
 // rather than local guesses. Everything else (command_error banner,
 // generation_reset bookkeeping) is handled imperatively here.
 function Workspace() {
-  const status = useReactor((s) => s.status);
+  const { status } = useSanaStreaming();
 
   const [state, setState] = useState(DEFAULT_STATE);
   // Live is the headline feature; land users on it. Start flows send
@@ -94,20 +94,24 @@ function Workspace() {
     if (state.running) setStageCleared(false);
   }, [state.running]);
 
-  useReactorMessage((msg: SanaMessage) => {
+  // The model is the source of truth: only the typed `state` snapshot feeds
+  // the reducer. command_error and generation_reset are handled imperatively
+  // below, each with its own typed hook.
+  useSanaStreamingState((msg) => {
     setState((s) => reduce(s, msg));
-    // Transient set_video "decode failed" errors are auto-retried by
-    // FileInput (and surfaced inline if retries run out); don't flash the
-    // banner for them.
-    if (msg.type === "command_error" && !isTransientDecodeFailure(msg)) {
-      showCommandError(msg.data.reason);
-    }
-    if (msg.type === "generation_reset") {
-      // Model reset clears its source video + prompt; mirror that locally.
-      setSourceUrl(null);
-      setResetNonce((n) => n + 1);
-      setStageCleared(true);
-    }
+  });
+
+  // Transient set_video "decode failed" errors are auto-retried by FileInput
+  // (and surfaced inline if retries run out); don't flash the banner for them.
+  useSanaStreamingCommandError((msg) => {
+    if (!isTransientDecodeFailure(msg)) showCommandError(msg.reason);
+  });
+
+  useSanaStreamingGenerationReset(() => {
+    // Model reset clears its source video + prompt; mirror that locally.
+    setSourceUrl(null);
+    setResetNonce((n) => n + 1);
+    setStageCleared(true);
   });
 
   // Reset local state on full disconnect so a reconnect starts clean.

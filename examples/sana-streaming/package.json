@@ -8,7 +8,8 @@
     "start": "next start"
   },
   "dependencies": {
-    "@reactor-team/js-sdk": "2.11.2",
+    "@reactor-models/sana-streaming": "^0.1.8",
+    "@reactor-team/js-sdk": "^2.12.0",
     "@reactor-team/ui": "^1.4.1",
     "hls.js": "^1.6.0",
     "next": "^15.5.0",

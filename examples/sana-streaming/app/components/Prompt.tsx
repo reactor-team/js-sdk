@@ -1,6 +1,6 @@
 "use client";
 
-import { useReactor } from "@reactor-team/js-sdk";
+import { useSanaStreaming } from "@reactor-models/sana-streaming";
 import { useState } from "react";
 import { Button, Panel, cn, EYEBROW, FOCUS_RING } from "./ui";
 import { PROMPT_EXAMPLES } from "../lib/examples";
@@ -10,14 +10,13 @@ import { PROMPT_EXAMPLES } from "../lib/examples";
 // boundary (about one chunk later). The parent keys this component on the
 // reset nonce, so a model generation_reset remounts it and clears the draft.
 export function Prompt({ currentPrompt }: { currentPrompt: string | null }) {
-  const sendCommand = useReactor((s) => s.sendCommand);
-  const status = useReactor((s) => s.status);
+  const { setPrompt, status } = useSanaStreaming();
   const [text, setText] = useState("");
 
   const ready = status === "ready";
   const apply = (prompt: string) => {
     if (!ready) return;
-    sendCommand("set_prompt", { prompt }).catch(console.error);
+    setPrompt({ prompt }).catch(console.error);
   };
   const applyPreset = (prompt: string) => {
     setText(prompt);

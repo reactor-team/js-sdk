@@ -1,6 +1,6 @@
 "use client";
 
-import { useReactor } from "@reactor-team/js-sdk";
+import { useSanaStreaming } from "@reactor-models/sana-streaming";
 import { useEffect, useRef, useState } from "react";
 import { startGeneration } from "../lib/state";
 import { Button, errorMessage } from "./ui";
@@ -15,10 +15,11 @@ import { Button, errorMessage } from "./ui";
 // framerate instead. Switching to file mode unmounts this component,
 // which unpublishes and stops the camera.
 export function LiveInput({ running }: { running: boolean }) {
-  const sendCommand = useReactor((s) => s.sendCommand);
-  const publish = useReactor((s) => s.publish);
-  const unpublish = useReactor((s) => s.unpublish);
-  const status = useReactor((s) => s.status);
+  // Manual publish path on purpose: we set contentHint = "detail" on the
+  // track before publishing (see the block comment above). publish/unpublish
+  // come off the typed store, same as the rest of the app. The declarative
+  // <SanaStreamingCameraView> would not let us set the hint first.
+  const { publish, unpublish, setMode, start, status } = useSanaStreaming();
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [track, setTrack] = useState<MediaStreamTrack | null>(null);
@@ -88,7 +89,7 @@ export function LiveInput({ running }: { running: boolean }) {
   }, [track, status, publish, unpublish]);
 
   const startLive = () => {
-    startGeneration(sendCommand, "live").catch((e) => {
+    startGeneration({ setMode, start }, "live").catch((e) => {
       setError("Start failed: " + errorMessage(e));
     });
   };

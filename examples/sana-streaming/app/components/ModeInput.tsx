@@ -1,6 +1,6 @@
 "use client";
 
-import { useReactor } from "@reactor-team/js-sdk";
+import { useSanaStreaming } from "@reactor-models/sana-streaming";
 import { Panel, SegmentedToggle } from "./ui";
 import type { SanaMode } from "../lib/types";
 import { LiveInput } from "./LiveInput";
@@ -24,8 +24,7 @@ export function ModeInput({
   onSource: (url: string) => void;
   resetNonce: number;
 }) {
-  const sendCommand = useReactor((s) => s.sendCommand);
-  const status = useReactor((s) => s.status);
+  const { setMode, status } = useSanaStreaming();
 
   const handleModeChange = (m: SanaMode) => {
     if (running) return; // toggle disabled while generating
@@ -33,7 +32,7 @@ export function ModeInput({
     // the wire command when connected, to avoid queuing a stale set_mode.
     onModeChange(m);
     if (status === "ready") {
-      sendCommand("set_mode", { mode: m }).catch(console.error);
+      setMode({ mode: m }).catch(console.error);
     }
   };
 

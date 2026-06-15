@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactorView } from "@reactor-team/js-sdk";
+import { SanaStreamingMainVideoView } from "@reactor-models/sana-streaming";
 import { useEffect, useRef } from "react";
 import type { SanaMode, SanaState } from "../lib/types";
 
@@ -76,8 +76,7 @@ export function Stage({
           data-testid="pane-transformed"
           className="relative w-full min-h-0 flex-1 overflow-hidden rounded-lg border border-zinc-800 bg-black"
         >
-          <ReactorView
-            track="main_video"
+          <SanaStreamingMainVideoView
             videoObjectFit="contain"
             className="absolute inset-0 h-full w-full"
           />
@@ -92,8 +91,7 @@ export function Stage({
 
   return (
     <section className="relative flex-1 min-h-[40vh] lg:min-h-0 overflow-hidden rounded-lg border border-zinc-800 bg-black">
-      <ReactorView
-        track="main_video"
+      <SanaStreamingMainVideoView
         videoObjectFit="contain"
         className="absolute inset-0 h-full w-full"
       />

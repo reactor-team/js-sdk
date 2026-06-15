@@ -1,6 +1,6 @@
 "use client";
 
-import { useReactor } from "@reactor-team/js-sdk";
+import { useSanaStreaming } from "@reactor-models/sana-streaming";
 import { Panel, IconButton, cn, EYEBROW } from "./ui";
 
 // Pause/resume/reset + seed. Pause/resume only make sense once generation
@@ -15,12 +15,9 @@ export function Transport({
   started: boolean;
   modelSeed: number;
 }) {
-  const sendCommand = useReactor((s) => s.sendCommand);
-  const status = useReactor((s) => s.status);
+  const { pause, resume, reset, setSeed, status } = useSanaStreaming();
 
   const notReady = status !== "ready";
-  const send = (cmd: string, data: Record<string, unknown> = {}) =>
-    sendCommand(cmd, data).catch(console.error);
 
   return (
     <Panel label="Transport">
@@ -31,14 +28,14 @@ export function Transport({
               icon="play"
               label="Resume"
               disabled={notReady}
-              onClick={() => send("resume")}
+              onClick={() => resume().catch(console.error)}
             />
           ) : (
             <IconButton
               icon="pause"
               label="Pause"
               disabled={notReady}
-              onClick={() => send("pause")}
+              onClick={() => pause().catch(console.error)}
             />
           ))}
         <IconButton
@@ -46,7 +43,7 @@ export function Transport({
           label="Reset"
           tone="danger"
           disabled={notReady}
-          onClick={() => send("reset")}
+          onClick={() => reset().catch(console.error)}
         />
         <label className="ml-auto flex items-center gap-1.5">
           <span className={EYEBROW}>Seed</span>
@@ -58,7 +55,9 @@ export function Transport({
             min={0}
             defaultValue={modelSeed}
             disabled={notReady}
-            onBlur={(e) => send("set_seed", { seed: +e.target.value })}
+            onBlur={(e) =>
+              setSeed({ seed: +e.target.value }).catch(console.error)
+            }
             className={cn(
               "w-20 rounded-md border border-zinc-700 bg-zinc-900/40 px-2 py-1 font-mono text-xs text-zinc-200 outline-none transition focus:border-brand/60 disabled:opacity-40",
             )}
