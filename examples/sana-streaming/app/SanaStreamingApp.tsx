@@ -9,7 +9,7 @@ import {
 } from "@reactor-models/sana-streaming";
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_STATE, type SanaMode } from "./lib/types";
-import { isTransientDecodeFailure, reduce } from "./lib/state";
+import { reduce } from "./lib/state";
 import { Header } from "./components/Header";
 import { StatusBadge } from "./components/StatusBadge";
 import { CommandError } from "./components/CommandError";
@@ -17,10 +17,11 @@ import { ModeInput } from "./components/ModeInput";
 import { Prompt } from "./components/Prompt";
 import { Stage } from "./components/Stage";
 import { SnapClip } from "./components/SnapClip";
+import { useCameraPublisher } from "./components/useCameraPublisher";
 
 // JWT resolver passed to <SanaStreamingProvider getJwt>. The provider forwards
-// it to the underlying ReactorProvider, which calls it on every Coordinator
-// HTTP hop, so it must be a resolver, not a static string. The
+// it to the underlying ReactorProvider, which calls it on every Reactor API
+// request, so it must be a resolver, not a static string. The
 // /api/reactor/token route returns the JWT with a Cache-Control header, so the
 // browser caches it until it actually expires.
 async function fetchToken(): Promise<string> {
@@ -55,19 +56,32 @@ function Workspace() {
   const { status } = useSanaStreaming();
 
   const [state, setState] = useState(DEFAULT_STATE);
-  // Live is the headline feature; land users on it. Start flows send
-  // set_mode explicitly, so the model's own default does not matter.
-  const [mode, setMode] = useState<SanaMode>("live");
+  // Webcam is the default source; switch to a clip to stream a pre-recorded
+  // video into the model instead. Both feed the same `camera` track.
+  const [mode, setMode] = useState<SanaMode>("webcam");
 
-  // Object URL of the last uploaded source clip, owned here so Stage can
-  // play it side-by-side. The cleanup effect revokes the previous URL on
-  // every change and on unmount.
-  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
+  // The active input source (webcam self-view or the video pane) produces a
+  // track; one owner publishes it to `camera`. See useCameraPublisher.
+  const [camTrack, setCamTrack] = useState<MediaStreamTrack | null>(null);
+  const publishError = useCameraPublisher(camTrack);
+
+  // URL of the clip selected in "video" mode (object URL for a local file, or
+  // a preset's path). Owned here so the stage's input pane can stream it; the
+  // setter revokes the previous object URL.
+  const [videoUrl, setVideoUrlState] = useState<string | null>(null);
+  const setVideoUrl = (url: string | null) =>
+    setVideoUrlState((prev) => {
+      if (prev && prev !== url && prev.startsWith("blob:")) {
+        URL.revokeObjectURL(prev);
+      }
+      return url;
+    });
   useEffect(() => {
     return () => {
-      if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+      if (videoUrl && videoUrl.startsWith("blob:"))
+        URL.revokeObjectURL(videoUrl);
     };
-  }, [sourceUrl]);
+  }, [videoUrl]);
 
   // command_error banner: transient, not part of the reducer.
   const [commandError, setCommandError] = useState<string | null>(null);
@@ -82,8 +96,8 @@ function Workspace() {
   };
 
   // Bumped on generation_reset and used as a React key on the children that
-  // hold local draft state (prompt draft, file selection), remounting them
-  // in step with the model's reset.
+  // hold local draft state (prompt draft), remounting them in step with the
+  // model's reset.
   const [resetNonce, setResetNonce] = useState(0);
 
   // After reset, black out the stage (the WebRTC view would otherwise freeze
@@ -100,15 +114,11 @@ function Workspace() {
     setState((s) => reduce(s, msg));
   });
 
-  // Transient set_video "decode failed" errors are auto-retried by FileInput
-  // (and surfaced inline if retries run out); don't flash the banner for them.
   useSanaStreamingCommandError((msg) => {
-    if (!isTransientDecodeFailure(msg)) showCommandError(msg.reason);
+    showCommandError(msg.reason);
   });
 
   useSanaStreamingGenerationReset(() => {
-    // Model reset clears its source video + prompt; mirror that locally.
-    setSourceUrl(null);
     setResetNonce((n) => n + 1);
     setStageCleared(true);
   });
@@ -118,7 +128,7 @@ function Workspace() {
     if (status === "disconnected") {
       setState(DEFAULT_STATE);
       setCommandError(null);
-      setSourceUrl(null);
+      setVideoUrl(null);
     }
   }, [status]);
 
@@ -143,8 +153,9 @@ function Workspace() {
           <Stage
             state={state}
             mode={mode}
-            sourceUrl={sourceUrl}
+            videoUrl={videoUrl}
             cleared={stageCleared}
+            onTrack={setCamTrack}
           />
         </section>
         <aside className="flex w-full flex-col gap-4 p-4 pt-1 lg:w-80 lg:shrink-0 lg:p-0">
@@ -155,15 +166,20 @@ function Workspace() {
               onDismiss={() => setCommandError(null)}
             />
           )}
+          {publishError && (
+            <p className="text-xs text-red-400">
+              Publish error: {publishError}
+            </p>
+          )}
           <ModeInput
-            hasVideo={state.hasVideo}
             started={state.started}
             paused={state.paused}
             mode={mode}
             modelSeed={state.seed}
+            hasVideoUrl={!!videoUrl}
             onModeChange={setMode}
-            onSource={setSourceUrl}
-            resetNonce={resetNonce}
+            onSelectVideo={(url) => setVideoUrl(url)}
+            onTrack={setCamTrack}
           />
           <Prompt key={resetNonce} currentPrompt={state.currentPrompt} />
           <SnapClip />

@@ -1,6 +1,6 @@
 ---
 name: building-sana-streaming-frontends
-description: Extend this cloned SANA-Streaming example app — add controls, modes, presets, or stage features on top of `@reactor-models/sana-streaming` without breaking the patterns the existing code uses. Covers the SDK connection / events / messages model, the live-webcam vs file-upload modes, the single model-driven reducer fed by the typed `state` hook, mid-stream re-prompting (~1 chunk latency), and the two small behaviors to preserve — the camera publish hint and the set_video retry.
+description: Extend this cloned SANA-Streaming example app — add controls, presets, or stage features on top of `@reactor-models/sana-streaming` without breaking the patterns the existing code uses. Covers the SDK connection / events / messages model, the two input sources (webcam and a streamed video clip) that both feed the `camera` track, the single model-driven reducer fed by the typed `state` hook, mid-stream re-prompting (~1 chunk latency), and the behaviors to preserve — the camera publish hint and streaming a clip in rather than uploading it.
 ---
 
 # Building on this SANA-Streaming app
@@ -9,28 +9,35 @@ This is a reference frontend for sana-streaming, Reactor's real-time video-to-vi
 
 ## What sana-streaming is
 
-A continuous video editor you steer with text. You give it a source — your **webcam** (live) or an **uploaded clip** (file) — and a prompt describing a change; the model applies that change while everything you don't mention carries through from the source. Edited frames stream back on the `main_video` track in 24-frame chunks (~1–1.5s each).
+A continuous video editor you steer with text. You stream a source into the model on the `camera` track — either your **webcam** or a **pre-recorded clip** — and a prompt describes a change; the model applies that change while everything you don't mention carries through from the source. Edited frames stream back on the `main_video` track in 24-frame chunks (~1–1.5s each).
 
-The prompt is **optional**: with no prompt the model streams the source back nearly untouched; set or change one — at any time, including mid-stream — to steer the edit. A mid-stream prompt change lands at the next chunk boundary, about one chunk later. The source video is the only hard requirement to start in file mode; live mode needs only the published camera.
+The prompt is **optional**: with no prompt the model streams the source back nearly untouched; set or change one — at any time, including mid-stream — to steer the edit. A mid-stream prompt change lands at the next chunk boundary, about one chunk later.
 
-## The two input modes
+## The two input sources
 
-|        | **live**                                     | **file**                                                       |
-| ------ | -------------------------------------------- | -------------------------------------------------------------- |
-| Source | webcam published to the `camera` track       | uploaded clip, **at least 33 frames**                          |
-| Flow   | publish → `setMode({mode:"live"})` → `start` | `uploadFile` → `setVideo` → `setMode({mode:"file"})` → `start` |
-| Stage  | single `<SanaStreamingMainVideoView>`        | side-by-side: local source `<video>` + the same view           |
+Both sources publish to the **same `camera` track**; the model only ever runs its live path. The difference is purely client-side — what media you put on the track.
 
-The **Input panel** (`ModeInput`) is phase-aware, driven by the model's `started` flag: before `start` it shows the mode toggle, the webcam/file picker, the Start button, and the seed; once `started` is true it keeps the input slot mounted (so live mode keeps publishing the camera) and swaps the setup controls for `Playback` (pause / resume / reset). Reset returns it to the setup phase. Gate new controls on `started` / `paused` the same way, rather than disabling them in place.
+|        | **webcam**                                  | **video**                                                    |
+| ------ | ------------------------------------------- | ------------------------------------------------------------ |
+| Source | `getUserMedia` → the live webcam track      | a chosen clip, played in a `<video>` and `captureStream()`'d |
+| Flow   | produce track → `setMode("live")` → `start` | pick clip → produce track → `setMode("live")` → `start`      |
+| Where  | `WebcamSource` self-view in the Input panel | `VideoSource` is the left pane in the stage                  |
+| Stage  | single edited-output pane                   | split: your source clip (left) + edited output (right)       |
+
+A selected video is **streamed, not uploaded**: `VideoSource` plays it and exposes its `captureStream()` track, so the video pane is literally the frames the model edits — the two stage panes share one feed and can't drift apart. The webcam self-view sits in the Input panel (it has no separate "before" to compare), so webcam mode is a single edited pane.
+
+The **Input panel** (`ModeInput`) is phase-aware on the model's `started` flag: before `start` it shows the source toggle, the webcam self-view or the video picker, the seed, and Start; once `started` is true it swaps the setup controls for `Playback` (pause / resume / reset). In webcam mode the self-view stays mounted across the transition so the camera keeps streaming `camera`. Gate new controls on `started` / `paused` the same way, rather than disabling them in place.
+
+> **`setMode("live")` is a transition shim.** The currently-deployed model still defaults to a file path, so the start flow sends `set_mode("live")` first. When the live-only model ships (no `set_mode` / `set_video`), drop that call in `lib/state.ts:startGeneration`.
 
 ## The four concepts
 
-| Concept                    | API                                                                                                                                                                      |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Connection**             | `useSanaStreaming()` → `status`, `connect()`, `disconnect()`, `lastError`. Four states: disconnected → connecting → waiting → ready.                                     |
-| **Events (you send)**      | `useSanaStreaming()` → `setMode`, `setVideo`, `setPrompt`, `setSeed`, `setAnchorInterval`, `start`, `pause`, `resume`, `reset` (+ `uploadFile`, `publish`, `unpublish`). |
-| **Messages (you receive)** | `useSanaStreamingState((msg) => …)`, `useSanaStreamingCommandError((msg) => …)`, `useSanaStreamingGenerationReset((msg) => …)`, and a hook per other message.            |
-| **Tracks**                 | `<SanaStreamingMainVideoView />` — pre-bound `<ReactorView track="main_video">`. Input is the `camera` track (live mode).                                                |
+| Concept                    | API                                                                                                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Connection**             | `useSanaStreaming()` → `status`, `connect()`, `disconnect()`, `lastError`. Four states: disconnected → connecting → waiting → ready.                          |
+| **Events (you send)**      | `useSanaStreaming()` → `setMode`, `setPrompt`, `setSeed`, `setAnchorInterval`, `start`, `pause`, `resume`, `reset` (+ `publish` / `unpublish`).               |
+| **Messages (you receive)** | `useSanaStreamingState((msg) => …)`, `useSanaStreamingCommandError((msg) => …)`, `useSanaStreamingGenerationReset((msg) => …)`, and a hook per other message. |
+| **Tracks**                 | `<SanaStreamingMainVideoView />` — pre-bound `<ReactorView track="main_video">` for output. Input is the `camera` track you `publish` into.                   |
 
 The provider is `<SanaStreamingProvider getJwt={fetchToken}>` (`app/SanaStreamingApp.tsx`): the model name and tracks are baked in, and every base-provider prop (`getJwt`, `connectOptions`, `apiUrl`, …) passes straight through.
 
@@ -38,8 +45,8 @@ The provider is `<SanaStreamingProvider getJwt={fetchToken}>` (`app/SanaStreamin
 
 The browser sends commands and renders model-reported state; it never tracks generation state optimistically.
 
-- The typed `state` snapshot (`useSanaStreamingState`) is the **only** thing that mutates the reducer. The model sends it on connect, after every accepted command, and at each chunk boundary, so the UI renders from one message instead of accumulating individual events. `app/lib/state.ts:reduce` projects it into `SanaState` (`app/lib/types.ts`): `running`, `started`, `paused`, `currentChunk`, `currentPrompt`, `hasVideo`, `seed`. Every gate in the UI — the Input panel's setup-vs-playback phase (`started`), pause-vs-resume (`paused`), Start enablement (`hasVideo`) — keys off this state, not local guesses.
-- Other messages are handled imperatively in the `Workspace` shell, each via its own typed hook: `useSanaStreamingCommandError` → a transient 6s banner (`<CommandError>`), except the retried decode case below; `useSanaStreamingGenerationReset` → clear the source object URL, bump `resetNonce` (children clear their local UI in step), and black out the stage until generation runs again.
+- The typed `state` snapshot (`useSanaStreamingState`) is the **only** thing that mutates the reducer. The model sends it on connect, after every accepted command, and at each chunk boundary, so the UI renders from one message instead of accumulating individual events. `app/lib/state.ts:reduce` projects it into `SanaState` (`app/lib/types.ts`): `running`, `started`, `paused`, `currentChunk`, `currentPrompt`, `seed`. Every gate in the UI — the Input panel's setup-vs-playback phase (`started`), pause-vs-resume (`paused`) — keys off this state, not local guesses.
+- Other messages are handled imperatively in the `Workspace` shell, each via its own typed hook: `useSanaStreamingCommandError` → a transient 6s banner (`<CommandError>`); `useSanaStreamingGenerationReset` → bump `resetNonce` (children clear their local UI in step) and black out the stage until generation runs again.
 - Reset local state to `DEFAULT_STATE` on full disconnect so a reconnect starts clean.
 
 No `autoConnect` — `<StatusBadge>` surfaces the four-state machine with Connect/Disconnect buttons so the lifecycle is visible. Flip on `connectOptions={{ autoConnect: true }}` for a production app.
@@ -47,35 +54,34 @@ No `autoConnect` — `<StatusBadge>` surfaces the four-state machine with Connec
 ## Sending events — rules
 
 - **Status-gate every control.** Only call command methods when `status === "ready"`.
-- **The start flow is always `setMode` then `start`** — `lib/state.ts:startGeneration` encapsulates it; `LiveInput` and `FileInput` both call it. `setMode` is idempotent, so re-sending it keeps each start flow self-contained.
+- **The start flow is `setMode("live")` then `start`** — `lib/state.ts:startGeneration` encapsulates it; both sources call it (see the shim note above).
 - **`setPrompt` is valid any time, including mid-stream.** It applies at the next chunk boundary; the prompt is an editing instruction, not a scene description.
-- **A new control is a new typed method off `useSanaStreaming()`**, gated on `status === "ready"`, enabled/disabled off the reduced `SanaState` (see `Playback` for the smallest example). `setAnchorInterval` is the most obvious not-yet-surfaced knob — it periodically re-grounds the edit on the source clip to limit drift over long runs (every N chunks, `0` to disable); each re-ground may show a brief visible refresh.
+- **A new control is a new typed method off `useSanaStreaming()`**, gated on `status === "ready"`, enabled/disabled off the reduced `SanaState` (see `Playback` for the smallest example). `setAnchorInterval` is the most obvious not-yet-surfaced knob — it periodically re-grounds the edit on the source to limit drift over long runs (every N chunks, `0` to disable); each re-ground may show a brief visible refresh.
 
 ## Receiving messages
 
 Each message has its own typed hook; subscribe to only the ones you care about, and the handler gets the fully-typed message (flat fields, no `.data` envelope).
 
-| Message (hook)                                         | Role                                                                                                                                              |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `state` (`useSanaStreamingState`)                      | **The only reducer input.** Full snapshot.                                                                                                        |
-| `command_error` (`useSanaStreamingCommandError`)       | `{ command, reason }`. Always surface it, except the retried decode case.                                                                         |
-| `video_accepted` (`useSanaStreamingVideoAccepted`)     | Source clip accepted (instantly, whatever its length — it's consumed as the edit streams). Informational; gate Start on `state.hasVideo` instead. |
-| `prompt_accepted` (`useSanaStreamingPromptAccepted`)   | Informational ack of `setPrompt`.                                                                                                                 |
-| `chunk_complete` (`useSanaStreamingChunkComplete`)     | Per-chunk progress. Informational.                                                                                                                |
-| `generation_started` / `_complete` (matching hooks)    | Informational lifecycle markers.                                                                                                                  |
-| `generation_reset` (`useSanaStreamingGenerationReset`) | Handled imperatively in the shell (clear source, reset children, blank stage).                                                                    |
+| Message (hook)                                         | Role                                                             |
+| ------------------------------------------------------ | ---------------------------------------------------------------- |
+| `state` (`useSanaStreamingState`)                      | **The only reducer input.** Full snapshot.                       |
+| `command_error` (`useSanaStreamingCommandError`)       | `{ command, reason }`. Always surface it (the shell banners it). |
+| `prompt_accepted` (`useSanaStreamingPromptAccepted`)   | Informational ack of `setPrompt`.                                |
+| `chunk_complete` (`useSanaStreamingChunkComplete`)     | Per-chunk progress. Informational.                               |
+| `generation_started` / `_complete` (matching hooks)    | Informational lifecycle markers.                                 |
+| `generation_reset` (`useSanaStreamingGenerationReset`) | Handled imperatively in the shell (reset children, blank stage). |
 
-Anything that should change what the UI shows belongs in the reducer, fed only by `state`. Informational messages can be consumed anywhere (see `FileInput`'s retry listener). `useSanaStreamingMessage` is a catch-all over the whole `SanaStreamingMessage` union (handy for devtools).
+Anything that should change what the UI shows belongs in the reducer, fed only by `state`. `useSanaStreamingMessage` is a catch-all over the whole `SanaStreamingMessage` union (handy for devtools).
 
 ## Two behaviors to preserve
 
-### 1. Live mode publishes the camera with a content hint — keep the manual path.
+### 1. One owner publishes the `camera` track, with a content hint.
 
-`LiveInput` acquires the webcam itself and sets `track.contentHint = "detail"` **before** `publish("camera", track)`. The model expects a stable camera resolution; `"detail"` tells the browser to hold resolution steady and trade framerate instead of ramping resolution up and down. The declarative `<SanaStreamingCameraView>` acquires and publishes for you but gives no hook to set the hint, so this component uses the manual `publish` / `unpublish` path. Switching to file mode unmounts `LiveInput`, which unpublishes and stops the camera.
+`WebcamSource` and `VideoSource` only _produce_ a track and hand it up via `onTrack`; a single owner — `useCameraPublisher` in `Stage` — publishes whichever track is current. Each source sets `track.contentHint = "detail"` first: the model expects a stable resolution, and `"detail"` tells the browser to hold resolution steady and trade framerate instead of ramping it up and down (the declarative `<SanaStreamingCameraView>` gives no hook to set the hint, which is why we publish manually). The publisher **always unpublishes before publishing**, so switching sources can't race into `publisher slot already taken` — the prior source's slot is freed first. Keep this single-owner shape if you add another input source.
 
-### 2. `FileInput` retries `setVideo` on a transient "decode failed".
+### 2. A video source is streamed, not uploaded.
 
-An uploaded clip occasionally comes back with a one-off `command_error` whose reason starts with `"decode failed"`. `FileInput` (via `useSanaStreamingCommandError`) just re-sends `setVideo` with the same upload ref up to `DECODE_RETRIES` times before surfacing the error inline, and the shell hides the banner for exactly this case (`isTransientDecodeFailure` in `lib/state.ts`) so the retry is invisible.
+`VideoSource` plays the chosen clip in a muted, looping `<video>` and publishes its `captureStream()` track as `camera`. Playback is driven off the model's run state — paused at frame 0 while set up (a still poster that also seeds the published track), playing from the top once `started`, pausing/resuming in step. Because the published track _is_ the element you see, the source and edited panes stay in lockstep (offset only by the model's processing latency).
 
 ## Capturing clips
 
@@ -85,14 +91,14 @@ An uploaded clip occasionally comes back with a one-off `command_error` whose re
 
 - Reaching for the base SDK for sana-streaming-specific calls — use the typed `useSanaStreaming()` methods. The recording surface in `<SnapClip>` is the one intentional exception.
 - Sending a command before `status === "ready"`.
-- Gating Start on a local "I uploaded a file" flag instead of the model's `state.hasVideo`.
-- Swapping `LiveInput` for `<SanaStreamingCameraView>` and losing the `contentHint` (see behavior 1).
+- Uploading a video instead of streaming it — there is no `setVideo`; a clip goes in on the `camera` track like the webcam (see behavior 2).
+- Swapping a source for `<SanaStreamingCameraView>` and losing the `contentHint` (see behavior 1).
 - Forgetting to reset local state on disconnect, so a reconnect shows stale data.
 - Single-line prompts — write a clear edit instruction (what changes, and what stays).
 
 ## Checklist for a new control
 
-1. Decide its mode/phase and gate visibility off the reduced `SanaState`.
+1. Decide its phase (setup vs live) and gate visibility off the reduced `SanaState`.
 2. Status-gate every command on `status === "ready"`.
 3. Use the typed `useSanaStreaming()` methods; subscribe via the per-message hooks.
 4. Keep model state in the reducer (fed only by `state`); keep local UI drafts resettable on `resetNonce`.

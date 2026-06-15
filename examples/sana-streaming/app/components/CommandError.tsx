@@ -1,9 +1,8 @@
 import { cn, EYEBROW, FOCUS_RING, PANEL } from "./ui";
 
 // Surfaces command_error messages from the model. The shell owns the
-// message subscription, the auto-dismiss TTL, and the one suppression
-// (set_video "decode failed", which FileInput retries silently); this
-// component is purely presentational.
+// message subscription and the auto-dismiss TTL; this component is purely
+// presentational.
 export function CommandError({
   message,
   onDismiss,

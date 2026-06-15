@@ -1,90 +1,107 @@
 "use client";
 
 import { useSanaStreaming } from "@reactor-models/sana-streaming";
-import { Panel, SegmentedToggle } from "./ui";
+import { Button, Panel, SegmentedToggle } from "./ui";
 import type { SanaMode } from "../lib/types";
-import { LiveInput } from "./LiveInput";
-import { FileInput } from "./FileInput";
+import { startGeneration } from "../lib/state";
 import { Playback } from "./Playback";
 import { SeedField } from "./SeedField";
+import { VideoPicker } from "./VideoPicker";
+import { WebcamSource } from "./WebcamSource";
 
-// The Input panel is phase-aware, driven by the model's `started` flag:
+// The Input panel. Phase-aware on the model's `started` flag:
 //
-//   - Setup (!started): mode toggle + the active input slot (webcam or file
-//     picker) with its Start button, plus the seed setting.
-//   - Live (started): the same input slot stays mounted — so live mode keeps
-//     publishing the camera — but the Start control is replaced by Playback
-//     (pause / resume / reset), and the mode toggle + seed are hidden.
+//   - Setup (!started): pick the source (webcam / video), choose a clip in
+//     video mode, set the seed, and Start.
+//   - Live (started): the Start control is replaced by Playback.
 //
-// Switching modes swaps the child component: live unmounts FileInput, file
-// unmounts LiveInput (which unpublishes the camera and stops the webcam).
+// In webcam mode the self-view lives here and stays mounted across the start
+// transition, so the camera keeps streaming `camera` while generation runs. In
+// video mode the clip preview lives in the stage instead; this panel only picks
+// it. Both sources stream into the same `camera` track, so Start is always the
+// model's live path (startGeneration sends set_mode("live") then start).
 export function ModeInput({
-  hasVideo,
   started,
   paused,
   mode,
   modelSeed,
+  hasVideoUrl,
   onModeChange,
-  onSource,
-  resetNonce,
+  onSelectVideo,
+  onTrack,
 }: {
-  hasVideo: boolean;
   started: boolean;
   paused: boolean;
   mode: SanaMode;
   modelSeed: number;
+  hasVideoUrl: boolean;
   onModeChange: (m: SanaMode) => void;
-  onSource: (url: string) => void;
-  resetNonce: number;
+  onSelectVideo: (url: string, name: string) => void;
+  onTrack: (track: MediaStreamTrack | null) => void;
 }) {
-  const { setMode, status } = useSanaStreaming();
+  const { setMode, start, status } = useSanaStreaming();
+  const ready = status === "ready";
 
   const handleModeChange = (m: SanaMode) => {
-    if (started) return; // mode is fixed once a run has started — reset to switch
-    // Always update local UI state so the toggle feels instant. Only send
-    // the wire command when connected, to avoid queuing a stale set_mode.
+    if (started) return; // source is fixed once a run has started — reset to switch
     onModeChange(m);
-    if (status === "ready") {
-      setMode({ mode: m }).catch(console.error);
-    }
+  };
+
+  const onStart = () => {
+    startGeneration({ setMode, start }).catch(console.error);
   };
 
   return (
     <Panel label="Input">
       {!started && (
         <SegmentedToggle
-          aria-label="Input mode"
+          aria-label="Input source"
           value={mode}
           onChange={handleModeChange}
           options={[
-            { value: "live", label: "Live" },
-            { value: "file", label: "File" },
+            { value: "webcam", label: "Webcam" },
+            { value: "video", label: "Video" },
           ]}
         />
       )}
 
-      <div className={started ? "" : "mt-3"}>
-        {mode === "live" ? (
-          <LiveInput started={started} />
-        ) : (
-          // Keyed on resetNonce: a model generation_reset remounts FileInput,
-          // clearing its local file selection in step with the model.
-          <FileInput
-            key={resetNonce}
-            hasVideo={hasVideo}
-            started={started}
-            onSource={onSource}
-          />
-        )}
-      </div>
+      {mode === "webcam" ? (
+        <div className={started ? "" : "mt-3"}>
+          <WebcamSource onTrack={onTrack} />
+        </div>
+      ) : (
+        !started && (
+          <div className="mt-3">
+            <VideoPicker onSelect={onSelectVideo} />
+          </div>
+        )
+      )}
 
       {started ? (
         <div className="mt-3">
           <Playback paused={paused} />
         </div>
       ) : (
-        <div className="mt-3">
+        <div className="mt-3 flex flex-col gap-3">
+          <Button
+            variant="primary"
+            size="md"
+            className="w-full"
+            data-testid="start"
+            disabled={!ready || (mode === "video" && !hasVideoUrl)}
+            onClick={onStart}
+          >
+            Start
+          </Button>
           <SeedField modelSeed={modelSeed} />
+          {!ready ? (
+            <p className="text-xs text-zinc-500">connect to start</p>
+          ) : (
+            mode === "video" &&
+            !hasVideoUrl && (
+              <p className="text-xs text-zinc-500">pick a clip to stream</p>
+            )
+          )}
         </div>
       )}
     </Panel>
