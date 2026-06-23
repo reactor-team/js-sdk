@@ -25,6 +25,8 @@ Pick a starting image, watch it come alive as a continuous video stream, and dri
 
 ## Quick start
 
+> **Start a standalone project:** `npx create-reactor-app my-app --model=lingbot` scaffolds this example into a fresh app — no clone needed. The steps below are for running it in-place from a monorepo checkout.
+
 You'll need a Reactor API key — grab one at [reactor.inc/account/api-keys](https://www.reactor.inc/account/api-keys). It starts with `rk_`.
 
 ```bash

@@ -1,6 +1,24 @@
 {
   "name": "create-reactor-app",
   "version": "2.1.1",
+  "description": "Scaffold a real-time AI video app with the Reactor SDK in seconds. Starter templates for Helios and other world models — run `npx create-reactor-app`.",
+  "keywords": [
+    "reactor",
+    "create-reactor-app",
+    "scaffold",
+    "starter",
+    "template",
+    "boilerplate",
+    "cli",
+    "npx",
+    "create-app",
+    "sdk",
+    "react",
+    "real-time",
+    "video",
+    "ai",
+    "world-models"
+  ],
   "bin": {
     "create-reactor-app": "dist/bin/create-reactor-app.js"
   },
