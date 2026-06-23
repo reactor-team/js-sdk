@@ -16,7 +16,7 @@ npm install @reactor-team/js-sdk
 ## Quick Start
 
 ```bash
-npx create-reactor-app my-app
+npx create-reactor-app my-app --model=helios
 cd my-app
 npm run dev
 ```

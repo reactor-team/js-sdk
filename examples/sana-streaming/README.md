@@ -19,6 +19,8 @@ Where Reactor's other models generate video from a prompt, SANA-Streaming edits 
 
 ## Quick start
 
+> **Start a standalone project:** `npx create-reactor-app my-app --model=sana-streaming` scaffolds this example into a fresh app — no clone needed. The steps below are for running it in-place from a monorepo checkout.
+
 ```bash
 cp .env.example .env.local  # then add your REACTOR_API_KEY
 pnpm install
