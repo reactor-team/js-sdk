@@ -3,7 +3,7 @@
     "target": "ES6",
     "module": "ESNext",
     "lib": ["DOM", "ESNext"],
-    "moduleResolution": "Node",
+    "moduleResolution": "Bundler",
     "declaration": true,
     "emitDeclarationOnly": true,
     "declarationMap": true,
@@ -14,7 +14,9 @@
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "stripInternal": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "ignoreDeprecations": "6.0",
+    "types": ["node"]
   },
   "include": ["src", "bin", "package.json"]
 }
