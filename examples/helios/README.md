@@ -26,6 +26,8 @@ Connect, send a prompt, and watch the model produce a continuous video stream yo
 
 ## Quick start
 
+> **Start a standalone project:** `npx create-reactor-app my-app --model=helios` scaffolds this example into a fresh app — no clone needed. The steps below are for running it in-place from a monorepo checkout.
+
 You'll need a Reactor API key — grab one at [reactor.inc/account/api-keys](https://www.reactor.inc/account/api-keys). It starts with `rk_`.
 
 ```bash

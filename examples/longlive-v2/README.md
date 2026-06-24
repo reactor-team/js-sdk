@@ -21,6 +21,8 @@ Direct a video like a storyboard: set an opening shot, then compose **shots** (s
 
 ## Quick start
 
+> **Start a standalone project:** `npx create-reactor-app my-app --model=longlive-v2` scaffolds this example into a fresh app — no clone needed. The steps below are for running it in-place from a monorepo checkout.
+
 ```bash
 cp .env.example .env        # then add your REACTOR_API_KEY
 pnpm install

@@ -173,6 +173,10 @@ describe("Reactor", () => {
       expect(r.getStats()).toBeUndefined();
     });
 
+    it("getConnectionTimings() returns undefined when not connected", () => {
+      expect(r.getConnectionTimings()).toBeUndefined();
+    });
+
     it("getCapabilities() returns undefined initially", () => {
       expect(r.getCapabilities()).toBeUndefined();
     });

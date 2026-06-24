@@ -12,7 +12,7 @@ jobs:
   publish-sdk:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -24,13 +24,26 @@ jobs:
 
       - run: pnpm install
       - run: pnpm build
-      - run: npm publish --access public
+
+      # Both jobs run on every release, but a js-sdk tag (vX.Y.Z) and a
+      # create-app tag (create-app/vX.Y.Z) only ever bump one of the two
+      # packages. Publish solely when this package's version isn't on the
+      # registry yet, so the unrelated job no-ops instead of failing on a
+      # "cannot publish over previously published version" conflict.
+      - name: Publish if version is new
         working-directory: packages/js-sdk
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if npm view "@reactor-team/js-sdk@${version}" version >/dev/null 2>&1; then
+            echo "@reactor-team/js-sdk@${version} already published; skipping."
+          else
+            npm publish --access public --provenance
+          fi
 
   publish-create-app:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -42,5 +55,13 @@ jobs:
 
       - run: pnpm install
       - run: pnpm --filter create-reactor-app build
-      - run: npm publish --access public
+
+      - name: Publish if version is new
         working-directory: packages/create-app
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if npm view "create-reactor-app@${version}" version >/dev/null 2>&1; then
+            echo "create-reactor-app@${version} already published; skipping."
+          else
+            npm publish --access public --provenance
+          fi
