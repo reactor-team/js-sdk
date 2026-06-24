@@ -205,6 +205,49 @@ export type CreateSessionResponse = z.infer<typeof CreateSessionResponseSchema>;
 export type SessionResponse = z.infer<typeof SessionResponseSchema>;
 export type Capabilities = z.infer<typeof CapabilitiesSchema>;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Model Schema (OpenAPI document)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** One OpenAPI operation (the `post` of an event/webhook path item). */
+export interface ModelSchemaOperation {
+  operationId?: string;
+  summary?: string;
+  description?: string;
+  requestBody?: {
+    required?: boolean;
+    content?: Record<string, { schema?: Record<string, unknown> }>;
+  };
+  responses?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+/** An OpenAPI path item; the runtime only populates `post`. */
+export interface ModelSchemaPathItem {
+  post?: ModelSchemaOperation;
+  [key: string]: unknown;
+}
+
+/**
+ * The model's OpenAPI 3.1 schema, returned by the runtime in response to a
+ * `requestSchema` runtime-channel command. This is a pass-through of the
+ * runtime's document, not a shape the SDK reshapes: client-triggerable
+ * events live under `paths` as `POST /events/<name>` operations, outbound
+ * model messages under `webhooks`, and media tracks under `x-reactor.tracks`.
+ * Read the parts you need.
+ */
+export interface ModelSchema {
+  openapi: string;
+  info: { title: string; version: string; description?: string };
+  paths?: Record<string, ModelSchemaPathItem>;
+  webhooks?: Record<string, ModelSchemaPathItem>;
+  "x-reactor"?: {
+    tracks?: Array<{ name: string; kind: string; direction: string }>;
+  };
+  components?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 export type SessionInfoResponse = z.infer<typeof SessionInfoResponseSchema>;
 export type TerminateSessionRequest = z.infer<
   typeof TerminateSessionRequestSchema
