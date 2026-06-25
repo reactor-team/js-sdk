@@ -48,6 +48,19 @@ export interface ReactorActions {
   disconnect(recoverable?: boolean): Promise<void>;
   publish(name: string, track: MediaStreamTrack): Promise<void>;
   unpublish(name: string): Promise<void>;
+  /**
+   * Ask the runtime to stop processing a recvonly track. Top-level
+   * alias for `internal.reactor.pauseTrack(…)` — lifted onto the store
+   * so consumers don't have to reach through `internal.reactor`. See
+   * {@link Reactor.pauseTrack}.
+   */
+  pauseTrack(name: string): void;
+  /**
+   * Ask the runtime to resume a previously paused recvonly track.
+   * Top-level alias for `internal.reactor.resumeTrack(…)`. See
+   * {@link Reactor.resumeTrack}.
+   */
+  resumeTrack(name: string): void;
   reconnect(options?: ConnectOptions): Promise<void>;
   uploadFile(file: File | Blob, options?: { name?: string }): Promise<FileRef>;
   /**
@@ -282,6 +295,8 @@ export const createReactorStore = (
           throw error;
         }
       },
+      pauseTrack: (name: string) => get().internal.reactor.pauseTrack(name),
+      resumeTrack: (name: string) => get().internal.reactor.resumeTrack(name),
       reconnect: async (options?: ConnectOptions) => {
         console.debug("[ReactorStore] Reconnecting");
         try {
