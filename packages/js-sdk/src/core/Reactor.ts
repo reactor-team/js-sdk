@@ -15,7 +15,7 @@ import { LocalCoordinatorClient } from "./LocalCoordinatorClient";
 import { type TransportClient, type TransportStatus } from "./TransportClient";
 import { WebRTCTransportClient } from "./WebRTCTransportClient";
 import {
-  type Capabilities,
+  type ModelSchema,
   type SessionResponse,
   type TrackCapability,
   REACTOR_WEBRTC_VERSION,
@@ -68,7 +68,7 @@ export class Reactor {
   private connectStartTime?: number;
   private connectionTimings?: ConnectionTimings;
 
-  private capabilities?: Capabilities;
+  private schema?: ModelSchema;
   private tracks: TrackCapability[] = [];
   private presetTracks?: TrackCapability[];
   private autoResumeTracks = false;
@@ -517,11 +517,6 @@ export class Reactor {
         sessionPollingMs = performance.now() - tParallel;
 
         this.sessionResponse = sessionResponse;
-        this.capabilities = {
-          ...sessionResponse.capabilities!,
-          tracks: this.tracks,
-        };
-        this.emit("capabilitiesReceived", this.capabilities);
 
         const tConnect = performance.now();
         await this.transportClient.connect(false, options?.connectionId);
@@ -537,11 +532,6 @@ export class Reactor {
 
         this.sessionResponse = sessionResponse;
         this.tracks = sessionResponse.capabilities!.tracks;
-        this.capabilities = {
-          ...sessionResponse.capabilities!,
-          tracks: this.tracks,
-        };
-        this.emit("capabilitiesReceived", this.capabilities);
 
         const protocol = sessionResponse.selected_transport!.protocol;
         if (protocol !== "webrtc") {
@@ -596,11 +586,19 @@ export class Reactor {
       if (scope === "application") {
         this.emit("message", message);
       } else if (scope === "runtime") {
-        // Just emit — `RecordingClient` and any app-level
-        // `runtimeMessage` listeners are subscribers via `on()`.
-        // Content moderation events arrive as `{ type: "moderation",
-        // data: ModerationEvent }`; apps filter on `type` rather than
-        // subscribing to a dedicated SDK event.
+        // The model's OpenAPI schema arrives here as the reply to the
+        // `requestSchema` we send on ready; cache it and surface a typed
+        // event. Everything else (moderation, recording, …) flows on as a
+        // generic `runtimeMessage` that consumers filter by `type`.
+        if (
+          message &&
+          typeof message === "object" &&
+          message.type === "modelSchema" &&
+          message.data
+        ) {
+          this.schema = message.data as ModelSchema;
+          this.emit("schemaReceived", this.schema);
+        }
         this.emit("runtimeMessage", message);
       }
     });
@@ -620,6 +618,11 @@ export class Reactor {
           }
 
           this.setStatus("ready");
+          // The command/event schema is not part of the HTTP session
+          // response; request it over the runtime channel now that the
+          // data channel is live. The reply lands in the `runtime` branch
+          // above as a `modelSchema` message.
+          void this.sendCommand("requestSchema", {}, "runtime");
           break;
         case "disconnected":
           this.disconnect(true);
@@ -709,7 +712,7 @@ export class Reactor {
     if (!recoverable) {
       this.setSessionExpiration(undefined);
       this.setSessionId(undefined);
-      this.capabilities = undefined;
+      this.schema = undefined;
       this.tracks = [];
       this.sessionResponse = undefined;
       this.createdSession = false;
@@ -739,8 +742,13 @@ export class Reactor {
     return this.lastError;
   }
 
-  getCapabilities(): Capabilities | undefined {
-    return this.capabilities;
+  /**
+   * The model's OpenAPI schema (events, outbound messages, tracks),
+   * received over the runtime channel shortly after the session becomes
+   * ready. `undefined` until the `schemaReceived` event has fired.
+   */
+  getSchema(): ModelSchema | undefined {
+    return this.schema;
   }
 
   getSessionInfo(): SessionResponse | undefined {

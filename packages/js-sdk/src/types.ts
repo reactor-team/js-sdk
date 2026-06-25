@@ -16,6 +16,9 @@ export type {
   TrackCapability,
   CommandCapability,
   Capabilities,
+  ModelSchema,
+  ModelSchemaPathItem,
+  ModelSchemaOperation,
   SessionResponse,
 } from "./core/types";
 
@@ -141,7 +144,7 @@ export type ReactorEvent =
   | "trackReceived" // (name: string, track: MediaStreamTrack, stream: MediaStream)
   | "error" //error events with ReactorError details
   | "sessionExpirationChanged" //session expiration has changed
-  | "capabilitiesReceived" //server capabilities received after session creation
+  | "schemaReceived" //model OpenAPI schema received over the runtime channel
   | "statsUpdate"; //WebRTC stats update (RTT, etc.)
 
 /**

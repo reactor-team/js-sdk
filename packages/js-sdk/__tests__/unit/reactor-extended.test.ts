@@ -440,7 +440,7 @@ describe("Reactor (extended)", () => {
       await r.disconnect(false);
       expect(r.getSessionId()).toBeUndefined();
       expect(r.getStats()).toBeUndefined();
-      expect(r.getCapabilities()).toBeUndefined();
+      expect(r.getSchema()).toBeUndefined();
       expect(r.getSessionInfo()).toBeUndefined();
     });
 

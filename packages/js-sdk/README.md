@@ -219,7 +219,7 @@ For models with a published typed SDK, prefer [`@reactor-models/<name>`](https:/
 | Surface                                                                                                                          | Where it lives                                                              |
 | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | `Reactor`                                                                                                                        | [Reactor class](https://docs.reactor.inc/api-reference/reactor-class)       |
-| `<ReactorProvider>`, `<ReactorView>`, `<WebcamStream>`, `<ReactorController>`                                                    | [React components](https://docs.reactor.inc/api-reference/react-components) |
+| `<ReactorProvider>`, `<ReactorView>`, `<WebcamStream>`                                                                           | [React components](https://docs.reactor.inc/api-reference/react-components) |
 | `useReactor`, `useReactorMessage`, `useStats`                                                                                    | [React hooks](https://docs.reactor.inc/api-reference/react-hooks)           |
 | `<ClipPlayer>`, `<ClipDownloadButton>`, `useClipDownload`, `RecordingClient`, `RecordingError`, `fetchPlaylist`, `parsePlaylist` | [Recordings](https://docs.reactor.inc/concepts/recordings)                  |
 

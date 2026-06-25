@@ -177,8 +177,8 @@ describe("Reactor", () => {
       expect(r.getConnectionTimings()).toBeUndefined();
     });
 
-    it("getCapabilities() returns undefined initially", () => {
-      expect(r.getCapabilities()).toBeUndefined();
+    it("getSchema() returns undefined initially", () => {
+      expect(r.getSchema()).toBeUndefined();
     });
 
     it("getSessionInfo() returns undefined initially", () => {
@@ -239,33 +239,35 @@ describe("Reactor", () => {
       await r.disconnect();
     });
 
-    it("emits capabilitiesReceived after session ready", async () => {
+    it("requests the schema and stores the modelSchema reply", async () => {
       const r = new Reactor({ modelName: "echo" });
-      const capHandler = vi.fn();
-      r.on("capabilitiesReceived", capHandler);
+      const schemaHandler = vi.fn();
+      r.on("schemaReceived", schemaHandler);
 
       await r.connect("jwt-token");
-
-      expect(capHandler).toHaveBeenCalledWith(
-        expect.objectContaining({
-          protocol_version: "1.0",
-          tracks: expect.arrayContaining([
-            expect.objectContaining({ name: "main_video" }),
-          ]),
-        })
+      // Drive the transport to "ready" so the auto requestSchema fires.
+      transportHandlers.statusChanged("connected");
+      expect(mockTransportClient.sendCommand).toHaveBeenCalledWith(
+        "requestSchema",
+        {},
+        "runtime",
+        undefined
       );
-      await r.disconnect();
-    });
 
-    it("stores capabilities after connect", async () => {
-      const r = new Reactor({ modelName: "echo" });
-      await r.connect("jwt-token");
+      const doc = {
+        openapi: "3.1.0",
+        info: { title: "echo", version: "v1.0.0" },
+        paths: {
+          "/events/set_prompt": { post: { operationId: "set_prompt" } },
+        },
+      };
+      transportHandlers.message({ type: "modelSchema", data: doc }, "runtime");
 
-      const caps = r.getCapabilities();
-      expect(caps).toBeDefined();
-      expect(caps!.tracks).toHaveLength(1);
-      expect(caps!.tracks[0].name).toBe("main_video");
+      expect(schemaHandler).toHaveBeenCalledWith(doc);
+      expect(r.getSchema()).toEqual(doc);
+
       await r.disconnect();
+      expect(r.getSchema()).toBeUndefined();
     });
 
     it("stores session info after connect", async () => {

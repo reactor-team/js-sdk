@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { Reactor, DEFAULT_BASE_URL } from "../../src/core/Reactor";
-import type { ReactorStatus, Capabilities } from "../../src/types";
+import type { ReactorStatus } from "../../src/types";
 
 const API_KEY = process.env.REACTOR_API_KEY;
 const COORDINATOR_URL = process.env.REACTOR_COORDINATOR_URL ?? DEFAULT_BASE_URL;
@@ -105,25 +105,19 @@ describe.skipIf(!API_KEY)("Reactor E2E — echo model", () => {
     expect(sessionId!.length).toBeGreaterThan(0);
   }, 90_000);
 
-  it("receives capabilities after session creation", async () => {
+  it("discovers tracks after session creation", async () => {
     const jwt = await fetchTestToken(API_KEY!, COORDINATOR_URL);
     reactor = new Reactor({
       modelName: MODEL,
       apiUrl: COORDINATOR_URL,
     });
 
-    let receivedCaps: Capabilities | undefined;
-    reactor.on("capabilitiesReceived", (caps: Capabilities) => {
-      receivedCaps = caps;
-    });
-
     await reactor.connect(jwt);
     await waitForStatus(reactor, "ready", 60_000);
 
-    expect(receivedCaps).toBeDefined();
-    expect(receivedCaps!.tracks).toBeDefined();
-    expect(receivedCaps!.tracks.length).toBeGreaterThan(0);
-    expect(reactor.getCapabilities()).toBeDefined();
+    const tracks = reactor.getSessionInfo()?.capabilities?.tracks;
+    expect(tracks).toBeDefined();
+    expect(tracks!.length).toBeGreaterThan(0);
   }, 90_000);
 
   // ── Commands ───────────────────────────────────────────────────────────
