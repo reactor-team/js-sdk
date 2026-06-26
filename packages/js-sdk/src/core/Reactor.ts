@@ -31,18 +31,39 @@ const TrackHintSchema = z.object({
   direction: z.enum(["recvonly", "sendonly"]),
 });
 
+const MediaStatsMonitorOptionsSchema = z.object({
+  minAggregateQos: z.number().min(0).max(10).default(DEFAULT_MIN_AGGREGATE_QOS),
+  sustainedDegradationMs: z
+    .number()
+    .min(0)
+    .default(DEFAULT_SUSTAINED_DEGRADATION_MS),
+  alertBackoffMs: z.number().min(0).default(DEFAULT_ALERT_BACKOFF_MS),
+  degradedMessage: z.string().default(DEFAULT_DEGRADED_NETWORK_MESSAGE),
+  enabled: z.boolean().optional().default(true),
+});
+
 const OptionsSchema = z.object({
   apiUrl: z.string().default(DEFAULT_BASE_URL),
   modelName: z.string(),
   local: z.boolean().default(false),
   modelTracks: z.array(TrackHintSchema).optional(),
+  mediaStatsMonitor: MediaStatsMonitorOptionsSchema.optional(),
 });
 export type Options = z.input<typeof OptionsSchema>;
 
 export { FileRef } from "./FileRef";
 import { FileRef } from "./FileRef";
 import { RecordingClient } from "./RecordingClient";
+import { MediaStatsClient } from "./MediaStatsClient";
 import type { Clip, DownloadClipOptions } from "../utils/recording";
+import {
+  DEFAULT_ALERT_BACKOFF_MS,
+  DEFAULT_DEGRADED_NETWORK_MESSAGE,
+  DEFAULT_MIN_AGGREGATE_QOS,
+  DEFAULT_SUSTAINED_DEGRADATION_MS,
+  RuntimeMediaStatsMessageType,
+  type MediaStatsMonitorOptions,
+} from "../utils/mediaStats";
 
 type EventHandler = (...args: any[]) => void;
 
@@ -82,6 +103,9 @@ export class Reactor {
   /** Per-Reactor recording client. See {@link RecordingClient}. */
   readonly recording: RecordingClient;
 
+  /** Per-Reactor media stats monitor. See {@link MediaStatsClient}. */
+  readonly mediaStats: MediaStatsClient;
+
   constructor(options: Options) {
     const validatedOptions = OptionsSchema.parse(options);
     this.coordinatorUrl = validatedOptions.apiUrl;
@@ -108,6 +132,20 @@ export class Reactor {
       getStatus: () => this.status,
       getCoordinatorBaseUrl: () => this.coordinatorUrl,
     });
+
+    this.mediaStats = new MediaStatsClient(
+      {
+        onRuntimeMessage: () => () => {},
+        onStatusChanged: (handler) => {
+          this.on("statusChanged", handler);
+          return () => this.off("statusChanged", handler);
+        },
+        emitRuntimeMessage: (message) => {
+          this.emit("runtimeMessage", message);
+        },
+      },
+      validatedOptions.mediaStatsMonitor as MediaStatsMonitorOptions | undefined
+    );
   }
 
   private eventListeners: Map<ReactorEvent, Set<EventHandler>> = new Map();
@@ -598,6 +636,15 @@ export class Reactor {
         ) {
           this.schema = message.data as ModelSchema;
           this.emit("schemaReceived", this.schema);
+        }
+        if (
+          message &&
+          typeof message === "object" &&
+          message.type === RuntimeMediaStatsMessageType.MEDIA_STATS &&
+          this.mediaStats.isEnabled()
+        ) {
+          this.mediaStats.deliver(message);
+          return;
         }
         this.emit("runtimeMessage", message);
       }

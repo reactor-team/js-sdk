@@ -192,3 +192,30 @@ export interface ModerationEvent {
   /** Short human-readable summary suitable for UI rendering. */
   message: string;
 }
+
+/**
+ * Severity tier of a client-synthesized alert delivered as the inner
+ * payload of a `runtimeMessage` with `type === "alert"`.
+ */
+export type RuntimeAlertLevel = "warn" | "error" | "fatal";
+
+/**
+ * Inner payload of a `runtimeMessage` with `type === "alert"`.
+ *
+ * Emitted by the SDK (e.g. when sustained low video QoS is detected).
+ * Apps receive it by subscribing to `runtimeMessage` and filtering on
+ * `type`, or via {@link useReactorInternalMessage}:
+ *
+ *     reactor.on("runtimeMessage", (m) => {
+ *       if (m?.type === "alert") {
+ *         const payload = m.data as RuntimeAlert;
+ *         // ...render banner, log, etc.
+ *       }
+ *     });
+ */
+export interface RuntimeAlert {
+  /** Severity tier. */
+  level: RuntimeAlertLevel;
+  /** Short human-readable summary suitable for UI rendering. */
+  message: string;
+}

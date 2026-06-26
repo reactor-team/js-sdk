@@ -897,7 +897,7 @@ export class WebRTCTransportClient implements TransportClient {
     } catch (e) {
       // Roll back a half-applied offer so the connection returns to "stable"
       // and the next queued direction change can proceed cleanly.
-      if (pc.signalingState === "have-local-offer") {
+      if ((pc.signalingState as RTCSignalingState) === "have-local-offer") {
         try {
           await pc.setLocalDescription({ type: "rollback" });
         } catch {

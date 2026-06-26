@@ -34,6 +34,20 @@ export {
   RecordingClient,
 } from "./core/RecordingClient";
 export type { RecordingClientHost } from "./core/RecordingClient";
+// Media stats monitor + stateless primitives.
+export {
+  DEFAULT_ALERT_BACKOFF_MS,
+  DEFAULT_DEGRADED_NETWORK_MESSAGE,
+  DEFAULT_MIN_AGGREGATE_QOS,
+  DEFAULT_SUSTAINED_DEGRADATION_MS,
+  RuntimeMediaStatsMessageType,
+} from "./utils/mediaStats";
+export type {
+  MediaStatsMonitorOptions,
+  MediaStatsPayload,
+} from "./utils/mediaStats";
+export { MediaStatsClient } from "./core/MediaStatsClient";
+export type { MediaStatsClientHost } from "./core/MediaStatsClient";
 export type { ReactorStore } from "./core/store";
 export type { JwtResolver, JwtSource } from "./core/auth";
 export { normalizeJwtSource } from "./core/auth";
