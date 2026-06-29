@@ -17,7 +17,7 @@
   "packageManager": "pnpm@10.12.1",
   "devDependencies": {
     "@secretlint/secretlint-rule-preset-recommend": "^13.0.2",
-    "prettier": "^3.8.4",
+    "prettier": "^3.9.3",
     "secretlint": "^13.0.2"
   }
 }
