@@ -57,7 +57,7 @@
   "packageManager": "pnpm@10.12.1",
   "dependencies": {
     "awaitqueue": "^3.3.0",
-    "mp4box": "^2.3.0",
+    "mp4box": "^2.4.1",
     "sdp-transform": "^3.0.0",
     "zod": "^4.4.3"
   },
