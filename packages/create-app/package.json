@@ -42,7 +42,7 @@
     "simple-git": "^3.36.0"
   },
   "devDependencies": {
-    "@types/node": "^25.9.1",
+    "@types/node": "^26.1.0",
     "tsup": "^8.0.1",
     "typescript": "^6.0.3"
   },
