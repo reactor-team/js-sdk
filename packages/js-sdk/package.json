@@ -73,7 +73,7 @@
   },
   "devDependencies": {
     "@roamhq/wrtc": "^0.10.0",
-    "@types/node": "^25",
+    "@types/node": "^26",
     "@types/react": "^19.2.15",
     "@types/sdp-transform": "^2.15.0",
     "hls.js": "^1.6.0",
