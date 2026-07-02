@@ -1,13 +1,13 @@
-// Curated starting scenes for the Lingbot demo.
+// Curated starting scenes for the Lingbot 2 demo.
 //
 // Each scene bundles together a reference image and an initial prompt.
-// Lingbot requires BOTH a prompt AND an image before generation can
+// Lingbot 2 requires BOTH a prompt AND an image before generation can
 // start, so the natural "one click to begin" surface is an
 // image+prompt pair.
 //
 // PROMPT STYLE — why each prompt is a long paragraph, not a tagline:
 //
-// Lingbot produces dramatically more coherent scenes when prompts
+// Lingbot 2 produces dramatically more coherent scenes when prompts
 // describe the subject, the environment, the camera framing AND the
 // motion style in full. Single-sentence prompts produce visually
 // unstable output because the model has to invent everything else
@@ -17,9 +17,10 @@
 // third-person rear-view camera — the camera tracks the subject from
 // behind, and arrow-key look-input turns the SUBJECT'S heading
 // rather than orbiting the camera. That phrasing is what lets the
-// model interpret the realtime movement commands (set_movement,
-// set_look_horizontal, set_look_vertical) as character / vehicle
-// actions, not as edits to the camera.
+// model interpret the realtime movement commands
+// (set_move_longitudinal, set_move_lateral, set_look_horizontal,
+// set_look_vertical) as character / vehicle actions, not as edits to
+// the camera.
 //
 // The prompts are adapted from the curated scenarios in
 // reactor-team/public-demos.

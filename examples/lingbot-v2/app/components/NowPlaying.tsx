@@ -2,32 +2,49 @@
 
 import { useEffect, useState } from "react";
 import {
-  useLingbot,
-  useLingbotState,
-  type LingbotStateMessage,
-} from "@reactor-models/lingbot";
+  useLingbotV2,
+  useLingbotV2State,
+  useLingbotV2GenerationStarted,
+  useLingbotV2GenerationComplete,
+  useLingbotV2GenerationReset,
+  type LingbotV2StateMessage,
+} from "@reactor-models/lingbot-v2";
 
 // Live-phase panel. Renders only while the model is generating.
 //
-// Lingbot emits a `state` snapshot after every command and every
+// Lingbot 2 emits a `state` snapshot after every command and every
 // completed chunk. We hold the latest snapshot in useState and read
 // fields off it — single source of truth for the running scene, no
 // event aggregation needed.
+//
+// The one thing the snapshot does NOT carry is the run length:
+// `chunk_num` (total chunks in the current run) arrives once, on
+// `generation_started`. We capture it so the chunk counter can read
+// "chunk 12 / 48" instead of a bare index, and drop it when the run
+// ends (`generation_complete` — the auto-restarted next run announces
+// its own `generation_started`) or the session resets.
 //
 // When `snapshot.started === false` (never started, or just reset),
 // this component renders null and the setup panel (ScenePicker +
 // CustomStart) takes over. That's the phase switch.
 export function NowPlaying() {
-  const { status, pause, resume, reset } = useLingbot();
-  const [snapshot, setSnapshot] = useState<LingbotStateMessage | null>(null);
+  const { status, pause, resume, reset } = useLingbotV2();
+  const [snapshot, setSnapshot] = useState<LingbotV2StateMessage | null>(null);
+  const [chunkNum, setChunkNum] = useState<number | null>(null);
 
-  useLingbotState((msg) => setSnapshot(msg));
+  useLingbotV2State((msg) => setSnapshot(msg));
+  useLingbotV2GenerationStarted((msg) => setChunkNum(msg.chunk_num));
+  useLingbotV2GenerationComplete(() => setChunkNum(null));
+  useLingbotV2GenerationReset(() => setChunkNum(null));
 
   // Clear on disconnect. The SDK doesn't emit a final `state` message
   // when the session ends, so without this we'd keep showing the
   // previous session's state across a reconnect.
   useEffect(() => {
-    if (status !== "ready") setSnapshot(null);
+    if (status !== "ready") {
+      setSnapshot(null);
+      setChunkNum(null);
+    }
   }, [status]);
 
   if (status !== "ready" || !snapshot?.started) return null;
@@ -51,7 +68,10 @@ export function NowPlaying() {
       </p>
 
       <div className="mt-3 flex gap-3 text-[11px] text-zinc-500">
-        <span>chunk {snapshot.current_chunk}</span>
+        <span>
+          chunk {snapshot.current_chunk}
+          {chunkNum !== null && ` / ${chunkNum}`}
+        </span>
         <span>·</span>
         <span className="font-mono">{snapshot.current_action || "still"}</span>
       </div>

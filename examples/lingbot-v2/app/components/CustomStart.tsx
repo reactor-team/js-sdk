@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  useLingbot,
-  useLingbotState,
-  useLingbotImageAccepted,
-  type LingbotStateMessage,
-} from "@reactor-models/lingbot";
+  useLingbotV2,
+  useLingbotV2State,
+  useLingbotV2ImageAccepted,
+  type LingbotV2StateMessage,
+} from "@reactor-models/lingbot-v2";
 
 // Setup-phase panel. Lets the user assemble a custom session: upload
 // their own image, type their own prompt, then click Start.
@@ -22,14 +22,14 @@ import {
 // button (`has_prompt` AND `has_image` on the snapshot) so the user
 // knows what's still missing without having to read error messages.
 export function CustomStart() {
-  const { status, uploadFile, setImage, setPrompt, start } = useLingbot();
-  const [snapshot, setSnapshot] = useState<LingbotStateMessage | null>(null);
+  const { status, uploadFile, setImage, setPrompt, start } = useLingbotV2();
+  const [snapshot, setSnapshot] = useState<LingbotV2StateMessage | null>(null);
   const [text, setText] = useState("");
   const [imageBusy, setImageBusy] = useState<string | null>(null);
 
   const imageReadyRef = useRef<(() => void) | null>(null);
 
-  useLingbotState((msg) => setSnapshot(msg));
+  useLingbotV2State((msg) => setSnapshot(msg));
 
   useEffect(() => {
     if (status !== "ready") {
@@ -38,7 +38,7 @@ export function CustomStart() {
     }
   }, [status]);
 
-  useLingbotImageAccepted(() => {
+  useLingbotV2ImageAccepted(() => {
     if (imageReadyRef.current) {
       imageReadyRef.current();
       imageReadyRef.current = null;

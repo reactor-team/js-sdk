@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
-  useLingbot,
-  useLingbotState,
-  useLingbotImageAccepted,
-  type LingbotStateMessage,
-} from "@reactor-models/lingbot";
+  useLingbotV2,
+  useLingbotV2State,
+  useLingbotV2ImageAccepted,
+  type LingbotV2StateMessage,
+} from "@reactor-models/lingbot-v2";
 import { SCENES, type Scene } from "../lib/scenes";
 
 // Setup-phase panel. Lets the user pick a curated scene and kicks
@@ -32,19 +32,19 @@ import { SCENES, type Scene } from "../lib/scenes";
 // We park the resolver BEFORE calling setImage so we can't miss the
 // ack. Registering the resolver after would race the model's reply.
 export function ScenePicker() {
-  const { status, uploadFile, setImage, setPrompt, start } = useLingbot();
-  const [snapshot, setSnapshot] = useState<LingbotStateMessage | null>(null);
+  const { status, uploadFile, setImage, setPrompt, start } = useLingbotV2();
+  const [snapshot, setSnapshot] = useState<LingbotV2StateMessage | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   const imageReadyRef = useRef<(() => void) | null>(null);
 
-  useLingbotState((msg) => setSnapshot(msg));
+  useLingbotV2State((msg) => setSnapshot(msg));
 
   useEffect(() => {
     if (status !== "ready") setSnapshot(null);
   }, [status]);
 
-  useLingbotImageAccepted(() => {
+  useLingbotV2ImageAccepted(() => {
     if (imageReadyRef.current) {
       imageReadyRef.current();
       imageReadyRef.current = null;

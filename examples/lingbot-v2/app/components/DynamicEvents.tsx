@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  useLingbot,
-  useLingbotState,
-  type LingbotStateMessage,
-} from "@reactor-models/lingbot";
+  useLingbotV2,
+  useLingbotV2State,
+  type LingbotV2StateMessage,
+} from "@reactor-models/lingbot-v2";
 import { DYNAMIC_EVENTS } from "../lib/dynamic-events";
 
 // Live-phase panel — lets the user hot-swap the world by appending a
@@ -35,12 +35,12 @@ import { DYNAMIC_EVENTS } from "../lib/dynamic-events";
 // disconnect, we drop the captured base so the next session starts
 // fresh.
 export function DynamicEvents() {
-  const { status, setPrompt } = useLingbot();
-  const [snapshot, setSnapshot] = useState<LingbotStateMessage | null>(null);
+  const { status, setPrompt } = useLingbotV2();
+  const [snapshot, setSnapshot] = useState<LingbotV2StateMessage | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const basePromptRef = useRef<string | null>(null);
 
-  useLingbotState((msg) => setSnapshot(msg));
+  useLingbotV2State((msg) => setSnapshot(msg));
 
   // Standard snapshot-clear on disconnect. Also drops the captured
   // base prompt so a reconnect doesn't reuse stale state from the

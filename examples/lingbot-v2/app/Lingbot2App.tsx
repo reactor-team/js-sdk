@@ -1,29 +1,27 @@
 "use client";
 
-// LINGBOT 2 — SKELETON DEMO
+// LINGBOT 2 — PUBLIC DEMO
 //
-// This example is the Lingbot 2 public demo skeleton. Lingbot 2's typed
-// SDK (`@reactor-models/lingbot-2`) is not published yet — it's blocked
-// on the typed-SDK codegen (Linear REA-3595). Until it ships, the
-// skeleton reuses the published `@reactor-models/lingbot` package so it
-// installs, builds, and runs today. When the v2 package lands, bump the
-// dependency in package.json and update every `@reactor-models/lingbot`
-// import across `app/` (this file plus the sidebar components) to
-// `@reactor-models/lingbot-2`; the hook/provider surface is intended to be
-// drop-in compatible.
-import { LingbotProvider } from "@reactor-models/lingbot";
+// This example runs on the real Lingbot v2 typed SDK surface. The
+// `@reactor-models/lingbot-v2` package is not published yet, so the
+// generated SDK (v0.1.1) is vendored under `app/sdk/` and tsconfig maps
+// the package specifier there — see `app/sdk/index.ts` for the
+// swap-on-publish steps. Import from `@reactor-models/lingbot-v2` as if
+// the package existed; nothing here changes when it ships.
+import { LingbotV2Provider } from "@reactor-models/lingbot-v2";
 import { Header } from "./components/Header";
 import { StatusBadge } from "./components/StatusBadge";
 import { CommandError } from "./components/CommandError";
 import { NowPlaying } from "./components/NowPlaying";
 import { MovementControls } from "./components/MovementControls";
+import { CameraPose } from "./components/CameraPose";
 import { DynamicEvents } from "./components/DynamicEvents";
 import { ScenePicker } from "./components/ScenePicker";
 import { CustomStart } from "./components/CustomStart";
 import { SnapClip } from "./components/SnapClip";
 import { Video } from "./components/Video";
 
-// JWT resolver passed to <LingbotProvider getJwt>.
+// JWT resolver passed to <LingbotV2Provider getJwt>.
 //
 // `@reactor-team/js-sdk` ≥ 2.10.1 takes a resolver instead of a static
 // string so the SDK can mint a fresh JWT on every Coordinator HTTP hop
@@ -45,7 +43,7 @@ async function fetchToken(): Promise<string> {
   return jwt;
 }
 
-// The client tree. LingbotProvider owns the WebRTC connection lifecycle —
+// The client tree. LingbotV2Provider owns the WebRTC connection lifecycle —
 // it auto-disconnects on unmount and on `beforeunload`, so don't call
 // connect()/disconnect() from a useEffect yourself.
 //
@@ -59,7 +57,7 @@ async function fetchToken(): Promise<string> {
 // session down. Wrapping in `useCallback` is unnecessary.
 export function Lingbot2App() {
   return (
-    <LingbotProvider getJwt={fetchToken}>
+    <LingbotV2Provider getJwt={fetchToken}>
       <div className="flex min-h-screen flex-col">
         <Header />
         <main className="flex flex-1 flex-col gap-4 p-4 lg:flex-row lg:gap-6 lg:p-6">
@@ -68,10 +66,10 @@ export function Lingbot2App() {
            *
            *   - Setup  (waiting):    <ScenePicker />     + <CustomStart />
            *   - Live   (generating): <NowPlaying />      + <MovementControls />
-           *                                              + <DynamicEvents />
+           *                          + <CameraPose />    + <DynamicEvents />
            *
            * Each component subscribes to the snapshot via
-           * `useLingbotState` and returns null when it's not its phase.
+           * `useLingbotV2State` and returns null when it's not its phase.
            * On disconnect, each component also clears its snapshot via
            * a small useEffect — keeps the UI from showing stale data
            * from the previous session after a reconnect.
@@ -91,6 +89,7 @@ export function Lingbot2App() {
             <CommandError />
             <NowPlaying />
             <MovementControls />
+            <CameraPose />
             <DynamicEvents />
             <ScenePicker />
             <CustomStart />
@@ -101,6 +100,6 @@ export function Lingbot2App() {
           </section>
         </main>
       </div>
-    </LingbotProvider>
+    </LingbotV2Provider>
   );
 }

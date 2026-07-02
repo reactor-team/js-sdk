@@ -2,34 +2,41 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
-  useLingbot,
-  useLingbotState,
-  type LingbotStateMessage,
-} from "@reactor-models/lingbot";
+  useLingbotV2,
+  useLingbotV2State,
+  type LingbotV2StateMessage,
+} from "@reactor-models/lingbot-v2";
 
-// Live-phase panel — Lingbot's signature capability.
+// Live-phase panel — Lingbot 2's signature capability.
 //
-// Lingbot is a real-time interactive world model: while it's
+// Lingbot 2 is a real-time interactive world model: while it's
 // generating, the client can stream movement and camera commands
 // that the model picks up at chunk boundaries. The output video
 // reflects those inputs a fraction of a second later, producing the
 // feeling of "driving" the scene.
 //
-// Three commands flow from this component:
-//   - set_movement         "idle" | "forward" | "back" | "strafe_left" | "strafe_right"
-//   - set_look_horizontal  "idle" | "left" | "right"
-//   - set_look_vertical    "idle" | "up" | "down"
+// Four commands flow from this component:
+//   - set_move_longitudinal  "idle" | "forward" | "back"
+//   - set_move_lateral       "idle" | "strafe_left" | "strafe_right"
+//   - set_look_horizontal    "idle" | "left" | "right"
+//   - set_look_vertical      "idle" | "up" | "down"
 //
-// They are mapped to WASD + arrow keys both in the on-screen pad
+// Movement is TWO independent axes in v2 (it was one combined
+// `set_movement` field in v1). W/S drive the longitudinal axis, A/D
+// drive the lateral axis, and both can be active at once — holding
+// W+A produces genuine diagonal movement ("w+a" on the wire). Each
+// axis is tracked as its own local press state and returns to "idle"
+// independently when its key is released.
+//
+// The look axes are mapped to arrow keys, both in the on-screen pad
 // (good for touch / discoverability) AND in a global keyboard
-// listener (good for the actual gameplay feel). Releasing a key
-// returns the corresponding axis to "idle" automatically.
+// listener (good for the actual gameplay feel).
 //
 // We also expose a rotation-speed slider (`set_rotation_speed_deg`,
 // 0–30 deg/latent-frame) — the only "knob" the live phase tweaks.
 //
 // IMPORTANT — UI highlighting reads LOCAL PRESS STATE, not the
-// snapshot. The snapshot.movement / look_* fields lag user input by
+// snapshot. The snapshot.move_* / look_* fields lag user input by
 // a chunk (they reflect what the model is currently using to
 // generate, not what was just pressed) which makes the buttons
 // flicker visibly behind the user's fingers. Local press state is
@@ -37,16 +44,19 @@ import {
 // other hand, is a persistent value with no "release" — that still
 // reads from the snapshot.
 
-type Movement = "idle" | "forward" | "back" | "strafe_left" | "strafe_right";
+type Longitudinal = "idle" | "forward" | "back";
+type Lateral = "idle" | "strafe_left" | "strafe_right";
 type LookH = "idle" | "left" | "right";
 type LookV = "idle" | "up" | "down";
 
-// Keys → axis values. WASD for translation, arrow keys for look.
-// Any additional key bindings (e.g. shift for sprint, gamepad
-// sticks) would be added here.
-const MOVEMENT_KEYS: Record<string, Movement> = {
+// Keys → axis values. WASD for translation (split across the two
+// movement axes), arrow keys for look. Any additional key bindings
+// (e.g. shift for sprint, gamepad sticks) would be added here.
+const LONGITUDINAL_KEYS: Record<string, Longitudinal> = {
   w: "forward",
   s: "back",
+};
+const LATERAL_KEYS: Record<string, Lateral> = {
   a: "strafe_left",
   d: "strafe_right",
 };
@@ -62,28 +72,34 @@ const LOOK_V_KEYS: Record<string, LookV> = {
 export function MovementControls() {
   const {
     status,
-    setMovement,
+    setMoveLongitudinal,
+    setMoveLateral,
     setLookHorizontal,
     setLookVertical,
     setRotationSpeedDeg,
-  } = useLingbot();
-  const [snapshot, setSnapshot] = useState<LingbotStateMessage | null>(null);
+  } = useLingbotV2();
+  const [snapshot, setSnapshot] = useState<LingbotV2StateMessage | null>(null);
 
   // Local "what the user is pressing right now" state. Drives the
   // button highlights so they react instantly instead of waiting for
-  // the next state snapshot to come back from the model.
-  const [pressedMovement, setPressedMovement] = useState<Movement>("idle");
+  // the next state snapshot to come back from the model. One entry
+  // per model axis — longitudinal and lateral are deliberately
+  // separate so a W+A hold highlights both.
+  const [pressedLongitudinal, setPressedLongitudinal] =
+    useState<Longitudinal>("idle");
+  const [pressedLateral, setPressedLateral] = useState<Lateral>("idle");
   const [pressedLookH, setPressedLookH] = useState<LookH>("idle");
   const [pressedLookV, setPressedLookV] = useState<LookV>("idle");
 
-  useLingbotState((msg) => setSnapshot(msg));
+  useLingbotV2State((msg) => setSnapshot(msg));
 
   // Clear on disconnect. Also clear local press state — otherwise
   // a button could remain highlighted across a reconnect.
   useEffect(() => {
     if (status !== "ready") {
       setSnapshot(null);
-      setPressedMovement("idle");
+      setPressedLongitudinal("idle");
+      setPressedLateral("idle");
       setPressedLookH("idle");
       setPressedLookV("idle");
     }
@@ -92,16 +108,24 @@ export function MovementControls() {
   const ready = status === "ready" && snapshot?.started === true;
 
   // Send each axis as a typed event AND update local press state.
-  // We don't try to debounce — Lingbot only consults the value at
+  // We don't try to debounce — Lingbot 2 only consults the value at
   // the next chunk boundary, so sending more frequent updates is
   // harmless. Local state is the source of truth for the UI.
-  const sendMovement = useCallback(
-    (m: Movement) => {
+  const sendLongitudinal = useCallback(
+    (m: Longitudinal) => {
       if (!ready) return;
-      setPressedMovement(m);
-      setMovement({ movement: m });
+      setPressedLongitudinal(m);
+      setMoveLongitudinal({ move_longitudinal: m });
     },
-    [ready, setMovement],
+    [ready, setMoveLongitudinal],
+  );
+  const sendLateral = useCallback(
+    (m: Lateral) => {
+      if (!ready) return;
+      setPressedLateral(m);
+      setMoveLateral({ move_lateral: m });
+    },
+    [ready, setMoveLateral],
   );
   const sendLookH = useCallback(
     (l: LookH) => {
@@ -122,8 +146,10 @@ export function MovementControls() {
 
   // Global keyboard handling. We attach a single keydown/keyup pair
   // to the window so the pad responds even when the user hasn't
-  // clicked into anything. Each axis is tracked independently so
-  // holding W + A simultaneously produces "w+a" on the model.
+  // clicked into anything. Each axis is tracked independently, so
+  // holding W + A keeps both movement axes non-idle and the model
+  // drives diagonally; releasing A returns only the lateral axis to
+  // "idle" while W keeps pushing forward.
   //
   // We deliberately don't filter out repeat events on keydown — the
   // first event sets the axis, subsequent repeats re-send the same
@@ -143,9 +169,12 @@ export function MovementControls() {
         return;
       }
       const k = e.key.toLowerCase();
-      if (MOVEMENT_KEYS[k]) {
+      if (LONGITUDINAL_KEYS[k]) {
         e.preventDefault();
-        sendMovement(MOVEMENT_KEYS[k]);
+        sendLongitudinal(LONGITUDINAL_KEYS[k]);
+      } else if (LATERAL_KEYS[k]) {
+        e.preventDefault();
+        sendLateral(LATERAL_KEYS[k]);
       } else if (LOOK_H_KEYS[k]) {
         e.preventDefault();
         sendLookH(LOOK_H_KEYS[k]);
@@ -157,9 +186,12 @@ export function MovementControls() {
 
     const onKeyUp = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
-      if (MOVEMENT_KEYS[k]) {
+      if (LONGITUDINAL_KEYS[k]) {
         e.preventDefault();
-        sendMovement("idle");
+        sendLongitudinal("idle");
+      } else if (LATERAL_KEYS[k]) {
+        e.preventDefault();
+        sendLateral("idle");
       } else if (LOOK_H_KEYS[k]) {
         e.preventDefault();
         sendLookH("idle");
@@ -175,7 +207,7 @@ export function MovementControls() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [ready, sendMovement, sendLookH, sendLookV]);
+  }, [ready, sendLongitudinal, sendLateral, sendLookH, sendLookV]);
 
   if (status !== "ready" || !snapshot?.started) return null;
 
@@ -186,45 +218,47 @@ export function MovementControls() {
       </label>
 
       <p className="mt-2 text-[11px] leading-snug text-zinc-500">
-        WASD moves the subject. Arrow keys turn the camera. Hold to sustain —
-        release to stop.
+        WASD moves the subject — hold two keys (W+A) to drive diagonally. Arrow
+        keys turn the camera. Hold to sustain — release to stop.
       </p>
 
       <div className="mt-3 grid grid-cols-2 gap-3">
-        {/* Move pad — single axis. */}
+        {/* Move pad — two independent axes sharing one cross: W/S go
+            to set_move_longitudinal, A/D go to set_move_lateral. Both
+            can be held at once for diagonal movement. */}
         <PadFrame
           title="Move"
           legend="W A S D"
           top={
             <PadButton
               label="W"
-              pressed={pressedMovement === "forward"}
-              onPress={() => sendMovement("forward")}
-              onRelease={() => sendMovement("idle")}
+              pressed={pressedLongitudinal === "forward"}
+              onPress={() => sendLongitudinal("forward")}
+              onRelease={() => sendLongitudinal("idle")}
             />
           }
           left={
             <PadButton
               label="A"
-              pressed={pressedMovement === "strafe_left"}
-              onPress={() => sendMovement("strafe_left")}
-              onRelease={() => sendMovement("idle")}
+              pressed={pressedLateral === "strafe_left"}
+              onPress={() => sendLateral("strafe_left")}
+              onRelease={() => sendLateral("idle")}
             />
           }
           right={
             <PadButton
               label="D"
-              pressed={pressedMovement === "strafe_right"}
-              onPress={() => sendMovement("strafe_right")}
-              onRelease={() => sendMovement("idle")}
+              pressed={pressedLateral === "strafe_right"}
+              onPress={() => sendLateral("strafe_right")}
+              onRelease={() => sendLateral("idle")}
             />
           }
           bottom={
             <PadButton
               label="S"
-              pressed={pressedMovement === "back"}
-              onPress={() => sendMovement("back")}
-              onRelease={() => sendMovement("idle")}
+              pressed={pressedLongitudinal === "back"}
+              onPress={() => sendLongitudinal("back")}
+              onRelease={() => sendLongitudinal("idle")}
             />
           }
         />
@@ -291,8 +325,8 @@ export function MovementControls() {
 // A framed 3x3 pad where the four corners are empty, the centre is
 // a non-interactive neutral marker, and each directional slot is
 // supplied as a named prop. Both Move and Look pads share this
-// shape — Move binds all four slots to one axis, Look binds the
-// vertical slots and the horizontal slots to two different axes.
+// shape — each binds its vertical slots and horizontal slots to two
+// different axes.
 function PadFrame({
   title,
   legend,

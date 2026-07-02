@@ -25,7 +25,7 @@ import {
 // a new model example.
 //
 // `<ClipPlayer>` and `<ClipDownloadButton>` auto-inherit the JWT
-// resolver from `<LingbotProvider getJwt={…} />` via React context
+// resolver from `<LingbotV2Provider getJwt={…} />` via React context
 // (`@reactor-team/js-sdk` ≥ 2.10.1). No `getJwt` prop needed here.
 // The one case where you would still pass it explicitly is when the
 // clip UI renders through a portal outside the provider subtree (e.g.
