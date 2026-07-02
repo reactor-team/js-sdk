@@ -1,6 +1,7 @@
 {
   "name": "create-reactor-app",
-  "version": "2.1.2",
+  "version": "2.1.3",
+  "type": "module",
   "description": "Scaffold a real-time AI video app with the Reactor SDK in seconds. Starter templates for Helios and other world models — run `npx create-reactor-app`.",
   "keywords": [
     "reactor",
