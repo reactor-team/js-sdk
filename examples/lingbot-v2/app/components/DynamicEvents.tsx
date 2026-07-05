@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   useLingbotV2,
   useLingbotV2State,
@@ -76,24 +76,62 @@ export function DynamicEvents() {
     }
   }, [snapshot]);
 
+  // Toggle/swap an event by id — the shared path for both clicks and the
+  // number-key shortcuts. Re-selecting the active event reverts to the
+  // pristine base; selecting another swaps which sentence is appended.
+  // Memoized so the keyboard effect below keeps a stable handler and only
+  // re-binds when the active selection changes.
+  const apply = useCallback(
+    async (id: string) => {
+      const base = basePromptRef.current;
+      if (!base) return;
+
+      if (activeId === id) {
+        // Toggle off — back to the pristine scene.
+        setActiveId(null);
+        await setPrompt({ prompt: base });
+        return;
+      }
+
+      const event = DYNAMIC_EVENTS.find((e) => e.id === id);
+      if (!event) return;
+      setActiveId(id);
+      await setPrompt({ prompt: `${base} ${event.text}` });
+    },
+    [activeId, setPrompt],
+  );
+
+  // Number keys 1–N trigger the first N events (N = DYNAMIC_EVENTS.length)
+  // with the same toggle/swap semantics as clicking. It's a discrete
+  // press, not a hold, so we drop key-repeat — otherwise holding a number
+  // would flap the event on and off on every repeat tick.
+  useEffect(() => {
+    const ready = status === "ready" && snapshot?.started === true;
+    if (!ready) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      // Don't hijack keys while the user is typing into a field.
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      const n = Number.parseInt(e.key, 10);
+      if (Number.isNaN(n) || n < 1 || n > DYNAMIC_EVENTS.length) return;
+      e.preventDefault();
+      void apply(DYNAMIC_EVENTS[n - 1].id);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [status, snapshot?.started, apply]);
+
   if (status !== "ready" || !snapshot?.started) return null;
-
-  async function apply(id: string) {
-    const base = basePromptRef.current;
-    if (!base) return;
-
-    if (activeId === id) {
-      // Toggle off — back to the pristine scene.
-      setActiveId(null);
-      await setPrompt({ prompt: base });
-      return;
-    }
-
-    const event = DYNAMIC_EVENTS.find((e) => e.id === id);
-    if (!event) return;
-    setActiveId(id);
-    await setPrompt({ prompt: `${base} ${event.text}` });
-  }
 
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
@@ -102,12 +140,13 @@ export function DynamicEvents() {
       </label>
 
       <p className="mt-1 text-[11px] leading-snug text-zinc-500">
-        Hot-swap the world. Each click sends a fresh prompt — the model picks it
-        up on the next chunk. Re-click to revert.
+        Hot-swap the world. Click a button or press its number key — the model
+        picks up the fresh prompt on the next chunk. Trigger the active one
+        again to revert.
       </p>
 
       <div className="mt-2 grid grid-cols-2 gap-1.5">
-        {DYNAMIC_EVENTS.map((event) => {
+        {DYNAMIC_EVENTS.map((event, index) => {
           const active = activeId === event.id;
           return (
             <button
@@ -130,6 +169,18 @@ export function DynamicEvents() {
               >
                 {event.label}
               </span>
+              {index < 9 && (
+                <kbd
+                  aria-hidden
+                  className={`ml-auto rounded border px-1 font-mono text-[9px] leading-tight ${
+                    active
+                      ? "border-brand/50 text-brand"
+                      : "border-zinc-700 text-zinc-500"
+                  }`}
+                >
+                  {index + 1}
+                </kbd>
+              )}
             </button>
           );
         })}

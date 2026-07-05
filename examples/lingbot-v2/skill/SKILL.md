@@ -80,7 +80,7 @@ The model offers more knobs than this app surfaces. Each one is straightforward 
 | `set_seed`                           | `useLingbotV2().setSeed({ seed })`                          | Setup (read once at `start`) | Non-negative integer. Read once when `start` fires; later changes take effect only after `reset` + new `start`.                                                                                                                                                                                       |
 | Free-form mid-stream prompt textarea | `useLingbotV2().setPrompt({ prompt })`                      | Live                         | `DynamicEvents` (see [Hot-swapping the world via dynamic events](#hot-swapping-the-world-via-dynamic-events)) ships a curated picker. If you want a free-text variant, drop a textarea next to it that sends `setPrompt({ prompt: base + " " + userText })` — re-use the base-prompt capture pattern. |
 | Movement-aware prompt schedule       | (sequence of `setPrompt` calls timed from `chunk_complete`) | Live                         | There is no chunk-level schedule built into the model — emulate it by reacting to `useLingbotV2ChunkComplete` and sending the next prompt yourself when `msg.chunk_index === target`.                                                                                                                 |
-| Multi-frame camera choreography      | `useLingbotV2().setCameraPose({ camera_pose })`             | Live                         | The bundled `CameraPose` panel sends one 6-float delta per chunk. The command also accepts `6 * chunk_size` floats — one delta per latent frame — for within-chunk arcs and eased ramps. See [Directing the camera](#directing-the-camera--set_camera_pose).                                          |
+| Multi-frame camera choreography      | `useLingbotV2().setCameraPose({ camera_pose })`             | Live                         | The bundled `CameraPose` panel demonstrates both payload shapes: constant 6-float velocities for sustained moves, and per-frame profiles streamed chunk-by-chunk (via `chunk_complete` as the clock) for eased one-shot moves. See [Directing the camera](#directing-the-camera--set_camera_pose).    |
 
 A new control is one ~30-line component that drops into the right phase — make it easy to add but don't ship them all.
 
@@ -385,7 +385,9 @@ export interface Scene {
   prompt: string;
 }
 
-export const SCENES: ReadonlyArray<Scene> = [/* ... */];
+export const SCENES: ReadonlyArray<Scene> = [
+  /* ... */
+];
 ```
 
 `ScenePicker` reads `SCENES` → renders each as an image card. Click → image upload → `setImage` → wait → `setPrompt` → `start`.
@@ -535,16 +537,48 @@ The base-prompt capture trick is the reusable bit. Two places it's natural to ex
 
 `set_camera_pose` is Lingbot 2's native low-level camera layer, and the third live-phase surface this app ships (`CameraPose`, presets in [`app/lib/camera-moves.ts`](../app/lib/camera-moves.ts)). It bypasses the high-level look/move axes and feeds motion deltas straight to the camera.
 
+One framing to internalize before authoring anything: **the pose layer is a bias, not a rig**. Lingbot is a world model — there is no ground-truth camera to move. Pose deltas condition the generation toward camera motion, and the text prompt conditions it too. When the two disagree, the model reconciles them stochastically, which is why pose-only moves feel inconsistent (see [Aligning text and pose](#aligning-text-and-pose--prompt-coupling) below).
+
 ### The payload shape
 
-A flat list of floats, length a multiple of 6 — `[rx, ry, rz, tx, ty, tz]` per frame: a small Euler-radian rotation plus a translation, in the camera-local frame.
+A flat list of floats, length a multiple of 6 — `[rx, ry, rz, tx, ty, tz]` per frame: a small Euler-radian rotation plus a translation, in the camera-local frame. Think of it as a **velocity profile, not a position path** — each 6-tuple is how fast the camera moves during one latent frame.
 
-- **6 floats** — one delta applied to the whole chunk. What the bundled presets send; the simplest useful shape.
-- **`6 * chunk_size` floats** — one delta per latent frame, for within-chunk choreography (sweeping arcs, eased ramps).
-- **Any other `6 * k`** — resampled to `chunk_size`.
+The frame follows the **standard computer-vision camera convention**, verified by live calibration (July 2026): `+tx` right, `+ty` DOWN, `+tz` forward into the scene. Y is not up — a positive `ty` sinks the camera, which is the single easiest sign to get wrong coming from graphics. The rotation signs are not yet verified.
+
+- **6 floats** — one delta broadcast to every frame of the chunk (constant velocity). What the sustained presets send; the simplest useful shape.
+- **`6 * chunk_size` floats** — one delta per latent frame, for within-chunk choreography (sweeping arcs, eased ramps). What the one-shot presets send.
+- **Any other `6 * k`** — resampled to `chunk_size`. The bundled profiles are authored at `PROFILE_FRAMES = 16` and let the server resample, so nothing client-side needs to know the real chunk size.
 - **Empty list** — deactivates the layer and hands the camera back to the look axes.
 
-Inputs are sanitized model-side (NaN/Inf → 0, rotations clamped to ±pi, translation to ±100), so a bad payload can't break the session. Still, keep deltas gentle — they re-apply every chunk, so `ry = 0.04` reads as a graceful orbit while `0.4` is a whip-pan.
+Inputs are sanitized model-side (NaN/Inf → 0, rotations clamped to ±pi, translation to ±100), so a bad payload can't break the session. Still, keep velocities gentle — `ry = 0.04` rad/frame reads as a graceful orbit while `0.4` is beyond whip-pan (for scale, the look axes default to 5°/frame ≈ 0.09 rad).
+
+### Chunk clocking — moves longer than one chunk
+
+One `set_camera_pose` call conditions one chunk. A move with a beginning and an end (an eased 6-chunk arc, a 2-chunk whip pan) therefore means **streaming successive slices**, and `chunk_complete` is the clock. The bundled `CameraPose` panel implements the full pattern:
+
+1. On activation, send chunk 0's slice immediately.
+2. On each `useLingbotV2ChunkComplete` tick, advance a cursor and send the next slice.
+3. After the last slice, send `{ camera_pose: [] }` — the move releases the camera automatically.
+
+Keep the cursor in a ref mirrored to state (the subscription outlives any single render, so the handler must not close over stale state). Sustained moves need no ticking — a constant velocity persists server-side until replaced. Timing is chunk-quantized and off by at most one chunk at the start of a move; that's inherent to the transport, not a bug to fix.
+
+The bundled one-shot moves shape their velocities with a sin² envelope (still → peak → still) whose **peak matches the tested sustained speeds** — easing changes the shape of a move, not its top speed. See `envelope()` in [`app/lib/camera-moves.ts`](../app/lib/camera-moves.ts).
+
+There is deliberately **no handheld-shake preset**, and you should resist adding one: this channel conditions per LATENT frame, each spanning several pixel frames, so high-frequency noise doesn't read as camera shake — it reads as the world glitching in a new direction every few frames. If you want organic motion, the viable shape is a very slow rotation-only drift, and even that wants live verification first.
+
+### Aligning text and pose — prompt coupling
+
+The lab scene prompts describe a stationary world — the subject is "locked at the exact centre of the frame at constant size and distance" and "neither the subject nor the camera moves on its own", so look-input orbits the camera around a still subject. A camera move fights that: the pose says "the camera is rising", the prompt says nothing moves, and the model reconciles them stochastically — sometimes a true orbit, sometimes the camera stays put, sometimes a crane-up resolved by dragging the subject along.
+
+The fix is to make both channels tell the same story, in the lab prompts' own vocabulary. Every move carries a `promptHint` — one sentence stating that the CAMERA performs the move while the subject "stays perfectly still" ("The camera orbits steadily around the subject, which stays perfectly still at the exact centre of the frame at constant size and distance as the viewpoint circles it"). On activation, `CameraPose` composes the hint onto the current prompt via `set_prompt`; on release (toggle-off, cancel, or one-shot completion) it strips the hint again. The strip is by verbatim sentence (`stripCameraPromptHints`), which keeps the coupling stateless — no captured base prompt to desync, and switching moves can never stack hints.
+
+Known limitation, accepted deliberately: `DynamicEvents` rebuilds the prompt entirely from its own captured base, so clicking a world event mid-move drops the camera hint. The pose layer keeps running — the move just loses its text reinforcement until re-activated. Coordinating the two surfaces through a shared prompt-composition store would fix it and is not worth the complexity in an example app.
+
+### Calibrating the axes — before trusting any preset
+
+The preset constants encode assumptions about the camera-local frame (which sign of `ty` is up, which way `+ry` yaws). Authored assumptions can be wrong — the original crane-up shipped with `+ty` and craned DOWN. To verify an axis, send raw single-axis `set_camera_pose` probes at preset-scale magnitudes, with NO prompt coupling, and watch what each axis actually does in a live session. Run this once per model version, note the true directions, and correct the preset signs and descriptions to match reality.
+
+Current status: the translation axes are calibrated (see [The payload shape](#the-payload-shape)); the rotation axes (`rx`/`ry`/`rz`) still need a pass.
 
 ### Precedence over the other axes
 
@@ -557,15 +591,18 @@ Say so in the UI (the bundled panel's caption does), because "my arrow keys stop
 
 ### The safety-net pattern
 
-`CameraPose` highlights from local selection state (same rationale as the movement pad), but it also watches the snapshot's `camera_pose_active` flag and drops the local selection whenever the model reports the layer inactive — covering `reset()`, and any other surface clearing the pose. Trust the model over local state for _whether_ the layer is active; use local state only for _which_ preset the user just picked.
+`CameraPose` highlights from local selection state (same rationale as the movement pad), but it also watches the snapshot's `camera_pose_active` flag and drops the local selection whenever the model reports the layer inactive — covering `reset()`, and any other surface clearing the pose. Trust the model over local state for _whether_ the layer is active; use local state only for _which_ preset the user just picked. One caveat with streamed moves: give the check a grace window at cursor 0 — the flag genuinely reads false until the first slice reaches the model, and clearing on it would cancel every move at birth.
 
 ### Adding a new camera move
 
-One entry in [`app/lib/camera-moves.ts`](../app/lib/camera-moves.ts), no component changes. Three authoring rules (the file's comment block has them too):
+One entry in [`app/lib/camera-moves.ts`](../app/lib/camera-moves.ts), no component changes — the panel partitions on `chunks` (`null` = sustained toggle, a number = one-shot with progress). Four authoring rules (the file's comment block has them too):
 
-1. **Keep each delta gentle.** |rotation| ≤ ~0.05 rad and |translation| ≤ ~0.5 per chunk reads as deliberate camera work.
+1. **Keep velocities gentle.** Peak |rotation| ≤ ~0.05 rad/frame and |translation| ≤ ~0.5/frame reads as deliberate camera work. "Whip pan" exceeds this deliberately; it's the exception. Gentler is also more consistent — fast pose motion is more likely to drag the subject along.
 2. **Name the cinematographic move**, not the math — users pick "Orbit", never "+ry −tx".
 3. **One motion idea per preset.** An orbit is yaw + counter-strafe (that's one idea); orbit-while-craning is two presets, not one.
+4. **Write the `promptHint` in the lab prompts' vocabulary.** Say the camera performs the move and the subject "stays perfectly still" — never that the subject moves. One sentence, present continuous, subject-agnostic ("the subject", never "the ant"), removable verbatim. Add "at the exact centre of the frame at constant size and distance" only for framing-preserving moves (orbit, arc); for push-in / crane / reveal, say how the subject's size or position in frame changes instead.
+
+For a one-shot, express it as peak velocities + a chunk count and let `envelope()` do the easing.
 
 ## Capturing clips
 
@@ -719,7 +756,7 @@ Before merging a new control or feature:
 - [ ] Renders `command_error` somewhere visible (the existing `CommandError` component handles this automatically — don't suppress it)
 - [ ] New scenes added to `app/lib/scenes.ts` are paragraph prompts with explicit subject + environment + camera framing
 - [ ] New world events added to `app/lib/dynamic-events.ts` are single sentences describing atmosphere/weather/light (not the subject), written in present-continuous voice so they compose onto any starting scene
-- [ ] New camera presets added to `app/lib/camera-moves.ts` are gentle single-idea deltas named after the cinematographic move, and any pose-driving UI offers an empty-list release and mirrors `camera_pose_active`
+- [ ] New camera presets added to `app/lib/camera-moves.ts` are gentle single-idea velocities named after the cinematographic move (one-shots as peak + chunk count through `envelope()`), carry a subject-stays-still `promptHint` in the lab prompts' vocabulary, and any pose-driving UI offers an empty-list release and mirrors `camera_pose_active`
 - [ ] Brand colors via Tailwind utilities (`bg-brand`, `text-brand`), not hardcoded hex
 - [ ] No imports from `@reactor-team/js-sdk` or `@reactor-team/ui` React components unless absolutely required (recording surface is the documented exception — see [Capturing clips](#capturing-clips))
 - [ ] Keyboard handlers ignore events that originate inside inputs / textareas

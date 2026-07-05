@@ -1,11 +1,18 @@
 // Curated "world events" the user can throw at the live scene.
 //
 // Each entry is a self-contained sentence describing an environmental
-// or atmospheric change ("rain begins", "fog rolls in"). The
+// or atmospheric change ("fog rolls in", "golden sunset"). The
 // DynamicEvents panel appends one of these to the active prompt and
 // hot-swaps the model's prompt mid-stream via `set_prompt`. Lingbot
 // picks up the new prompt on the next chunk and the scene visibly
 // changes — no restart, no flash, the reference image stays put.
+//
+// The set is deliberately small and weather / time-of-day only. We
+// trialed a wider pool (celestial spectacle, airborne particles, and
+// render-style overlays like watercolor / cel-shaded / pixel art), but
+// only these four held up cleanly across every starting scene — the
+// rest either looked like something the model already does on its own
+// or fought the base prompt. Fewer, reliable events beat a long menu.
 //
 // Authoring rules (so events compose cleanly with any starting scene):
 //
@@ -14,14 +21,14 @@
 //      gives the model too little to lock onto.
 //
 //   2. Describe ATMOSPHERE, not the subject. The starting prompt has
-//      already framed the subject (dragon, retriever, rider, 4x4,
-//      boat) and the camera. World events stay in the environmental
-//      layer — weather, light, sky, time-of-day — so they slot onto
-//      any subject without contradicting it.
+//      already framed the subject and the camera, so an event stays in
+//      the environmental layer — weather, light, sky, time-of-day — and
+//      never names or moves the subject, so it slots onto any scene
+//      without contradicting it.
 //
 //   3. Write in the present continuous, matching the starting prompt's
-//      voice. "Rain begins to fall…" composes; "It rained yesterday."
-//      does not.
+//      voice. "Fog rolls in across the scene…" composes; "The fog
+//      cleared an hour ago." does not.
 
 export interface DynamicEvent {
   id: string;
@@ -34,18 +41,6 @@ export interface DynamicEvent {
 }
 
 export const DYNAMIC_EVENTS: ReadonlyArray<DynamicEvent> = [
-  {
-    id: "rain",
-    label: "Rain begins",
-    icon: "🌧️",
-    text: "Rain begins to fall softly across the scene, droplets catching the light and beading on every surface, the air growing humid and the ground darkening as water gathers in puddles.",
-  },
-  {
-    id: "snow",
-    label: "Snow falls",
-    icon: "❄️",
-    text: "Soft snowflakes drift down across the scene, settling on every surface and muffling the world into a quiet, white-edged stillness with cool blue shadows pooling under each object.",
-  },
   {
     id: "fog",
     label: "Fog rolls in",

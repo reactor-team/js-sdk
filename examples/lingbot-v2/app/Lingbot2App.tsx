@@ -58,46 +58,63 @@ async function fetchToken(): Promise<string> {
 export function Lingbot2App() {
   return (
     <LingbotV2Provider getJwt={fetchToken}>
-      <div className="flex min-h-screen flex-col">
+      {/*
+       * Fixed-height app shell. The viewport never scrolls as a whole
+       * (`h-screen` + `overflow-hidden`); instead the sidebar is its own
+       * scroll region on desktop, so its stack of panels can grow past
+       * the viewport while the video stays put and centered in the window.
+       * On mobile (`max-lg`) there aren't two columns to keep in sync, so
+       * <main> just scrolls normally and everything stacks.
+       */}
+      <div className="flex h-screen flex-col overflow-hidden">
         <Header />
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:flex-row lg:gap-6 lg:p-6">
-          {/*
-           * The sidebar has two phases driven by `snapshot.started`:
-           *
-           *   - Setup  (waiting):    <ScenePicker />     + <CustomStart />
-           *   - Live   (generating): <NowPlaying />      + <MovementControls />
-           *                          + <CameraPose />    + <DynamicEvents />
-           *
-           * Each component subscribes to the snapshot via
-           * `useLingbotV2State` and returns null when it's not its phase.
-           * On disconnect, each component also clears its snapshot via
-           * a small useEffect — keeps the UI from showing stale data
-           * from the previous session after a reconnect.
-           *
-           * <DynamicEvents /> is the live-phase prompt-swap surface —
-           * one click appends a curated world-event sentence ("rain
-           * begins", "fog rolls in") to the active prompt and re-sends
-           * via `set_prompt`. The model picks it up on the next chunk.
-           *
-           * <SnapClip /> is model-agnostic — it only needs the base SDK
-           * to capture the last N seconds of the live stream — so it
-           * sits at the bottom of the sidebar and is visible whenever
-           * the connection is `"ready"`.
-           */}
-          <aside className="flex w-full flex-col gap-4 lg:w-80 lg:shrink-0">
-            <StatusBadge />
-            <CommandError />
-            <NowPlaying />
-            <MovementControls />
-            <CameraPose />
-            <DynamicEvents />
-            <ScenePicker />
-            <CustomStart />
-            <SnapClip />
-          </aside>
-          <section className="flex-1">
-            <Video />
-          </section>
+        <main className="flex flex-1 flex-col overflow-y-auto p-4 lg:min-h-0 lg:overflow-hidden lg:p-6">
+          {/* Centered content column — caps width and centers the whole
+              sidebar+video block on wide windows. */}
+          <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 lg:min-h-0 lg:flex-row lg:gap-6">
+            {/*
+             * The sidebar has two phases driven by `snapshot.started`:
+             *
+             *   - Setup  (waiting):    <ScenePicker />     + <CustomStart />
+             *   - Live   (generating): <NowPlaying />      + <MovementControls />
+             *                          + <CameraPose />    + <DynamicEvents />
+             *
+             * Each component subscribes to the snapshot via
+             * `useLingbotV2State` and returns null when it's not its phase.
+             * On disconnect, each component also clears its snapshot via
+             * a small useEffect — keeps the UI from showing stale data
+             * from the previous session after a reconnect.
+             *
+             * <DynamicEvents /> is the live-phase prompt-swap surface —
+             * one click appends a curated world-event sentence ("rain
+             * begins", "fog rolls in") to the active prompt and re-sends
+             * via `set_prompt`. The model picks it up on the next chunk.
+             *
+             * <SnapClip /> is model-agnostic — it only needs the base SDK
+             * to capture the last N seconds of the live stream — so it
+             * sits at the bottom of the sidebar and is visible whenever
+             * the connection is `"ready"`.
+             */}
+            {/* Independent scroll region on desktop — `lg:overflow-y-auto`
+              + `lg:min-h-0` let the panels scroll inside the fixed shell.
+              `lg:pr-1` keeps the scrollbar off the panel borders. */}
+            <aside className="flex w-full flex-col gap-4 lg:min-h-0 lg:w-80 lg:shrink-0 lg:overflow-y-auto lg:pr-1">
+              <StatusBadge />
+              <CommandError />
+              <NowPlaying />
+              <MovementControls />
+              <CameraPose />
+              <DynamicEvents />
+              <ScenePicker />
+              <CustomStart />
+              <SnapClip />
+            </aside>
+            {/* Video fills the remaining space and stays centered in the
+              window; `contain` letterboxes it, so it never scrolls away. */}
+            <section className="flex flex-1 lg:min-h-0">
+              <Video />
+            </section>
+          </div>
         </main>
       </div>
     </LingbotV2Provider>

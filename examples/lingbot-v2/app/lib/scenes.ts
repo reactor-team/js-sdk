@@ -5,25 +5,22 @@
 // start, so the natural "one click to begin" surface is an
 // image+prompt pair.
 //
-// PROMPT STYLE — why each prompt is a long paragraph, not a tagline:
+// These pairs are the raw eval cases exported from the Lingbot 2 lab
+// (case1 + case2): every `imageUrl` is that case's exported first
+// frame, and every `prompt` is its base prompt copied verbatim. Only
+// the `label` / `description` are ours, for the picker.
 //
-// Lingbot 2 produces dramatically more coherent scenes when prompts
-// describe the subject, the environment, the camera framing AND the
-// motion style in full. Single-sentence prompts produce visually
-// unstable output because the model has to invent everything else
-// from scratch each chunk.
+// Every scene here is a fixed-viewpoint (look-only) case: the scene
+// and camera are still, and arrow-key look-input pans or orbits the
+// view only while a key is held — nothing moves on its own. The WASD
+// movement axes have no effect in these prompts; they're steered
+// entirely with the look controls.
 //
-// Each scene's prompt also explicitly describes a strict centred
-// third-person rear-view camera — the camera tracks the subject from
-// behind, and arrow-key look-input turns the SUBJECT'S heading
-// rather than orbiting the camera. That phrasing is what lets the
-// model interpret the realtime movement commands
-// (set_move_longitudinal, set_move_lateral, set_look_horizontal,
-// set_look_vertical) as character / vehicle actions, not as edits to
-// the camera.
-//
-// The prompts are adapted from the curated scenarios in
-// reactor-team/public-demos.
+// PROMPT STYLE — why most prompts are a full paragraph, not a tagline:
+// Lingbot 2 produces dramatically more coherent scenes when a prompt
+// spells out the subject, environment, framing AND how the camera and
+// subject may (or may not) move. Terse prompts leave the model to
+// reinvent everything each chunk, which reads as instability.
 
 export interface Scene {
   id: string;
@@ -35,44 +32,52 @@ export interface Scene {
 
 export const SCENES: ReadonlyArray<Scene> = [
   {
-    id: "dragon_ride",
-    label: "Dragon Flight",
-    description: "Third-person flight over a jungle castle",
-    imageUrl: "/images/dragon_ride.jpg",
+    id: "tilt_city",
+    label: "Tilt-Shift City",
+    description: "Fixed first-person pan over a miniature cityscape",
+    imageUrl: "/images/tilt_city.jpg",
     prompt:
-      "This is a third-person-view video of a colossal dragon — its neck a column of dense obsidian-black scales rippling with muscle, its enormous bat-like wings veined with pulsing crimson, leading edges sharp and dark. Ahead, a towering ancient castle of crumbling stone spires and moss-covered battlements rises above dense jungle canopy, gothic arches half-swallowed by creeping vines. A vast primordial forest stretches in every direction, pale mist drifting between trunks, dappled golden sunlight filtering through humid air, winding river gorges far below. Strict centred third-person rear view: the dragon is locked at the exact centre of the frame. The camera tracks the dragon from above and behind as it moves forward and never rotates around it; arrow-key look-input turns the dragon's heading instead, preserving the rear-view framing. The dragon's wings beat the air with powerful rhythmic strokes — sweeping high on the upstroke until the membranes nearly meet overhead, then driving downward in a thunderous arc. The neck stretches forward into the wind and air streams past the leading edges of the wings as the dragon drives forward through the sky.",
+      "This is a first-person-view video of a detailed miniature cityscape seen from a high angle, featuring a dense cluster of skyscrapers and green spaces. Tilt-shift photography atmosphere. The viewpoint is fixed in place, framing the scene from a single standpoint. Nothing in the scene nor the camera moves on its own; arrow-key look-input is the only source of camera motion, panning the first-person view across the stationary city only while held. The entire model remains perfectly still, with the tiny cars and trees frozen in place.",
   },
   {
-    id: "spring_valley",
-    label: "Spring Valley",
-    description: "Golden retriever in a watercolor meadow",
-    imageUrl: "/images/spring_valley.png",
+    id: "macro_ant",
+    label: "Macro Ant",
+    description: "Orbit a still ant on a dirt path, macro nature",
+    imageUrl: "/images/macro_ant.jpg",
     prompt:
-      "This is a third-person-view video of a golden retriever in a sun-warmed meadow beside a cozy encampment. To the left lies a patterned floral rug on the grass, to the right a weathered stone bench bearing an open book and a small potted seedling, a cardboard box of chew bones at its corner, a lamppost and a hand-lettered wooden signpost flanking the encampment. Wildflower fields roll down toward the open valley ahead, where pink cherry blossoms in full bloom stand among rounded green oaks. Soft layered hills rest against a pale blue spring sky scattered with cottony clouds. Tender hand-painted watercolor storybook atmosphere. Strict centred third-person over-the-shoulder rear view: the retriever is locked at the exact centre of the frame. The camera tracks the retriever from behind as it travels forward and never rotates around the dog; arrow-key look-input turns the retriever's heading instead, preserving the over-the-shoulder framing. The retriever trots forward through the warm meadow grass at an easy pace, paws padding through wildflowers, ears bouncing lightly with each step, tail swinging in a relaxed wag, tongue lolling out the side of its mouth.",
+      "This is a third-person-view video of a reddish-brown ant standing on a dirt path between tall green grass blades. Macro nature atmosphere. The ant is locked at the exact centre of the frame at constant size and distance. Neither the ant nor the camera moves on its own; arrow-key look-input is the only source of camera motion, orbiting the camera around the stationary ant only while held. The ant stands perfectly still on its six legs, the water droplets on the surrounding grass blades frozen in place.",
   },
   {
-    id: "misted_kingdom",
-    label: "Misted Kingdom",
-    description: "Sword-slung rider on horseback toward a far castle",
-    imageUrl: "/images/misted_kingdom.png",
+    id: "swat_alley",
+    label: "SWAT Alley",
+    description: "Orbit a SWAT officer in a noir rain alley",
+    imageUrl: "/images/swat_alley.jpg",
     prompt:
-      "This is a third-person-view video of a sword-slung rider in white tunic and dark sash, hair tied in a high topknot, seated firmly on a brown horse, in an open valley of wildflower meadows. Violet lupines and crimson poppies stretch between weathered boulders; a hamlet of half-timbered cottages, stone watchtowers, and a moss-eaten ruined portal arch stands in the misted middle distance. Far ahead on a craggy peak, a many-spired castle with crimson pennants stands against a vast ringed gas giant and a pale crescent moon in the peach-tinted twilight sky. Painterly fantasy storybook atmosphere. Strict centred third-person over-the-shoulder rear view: the rider and horse are locked at the exact centre of the frame. The camera tracks the pair from behind and slightly above the rider as they travel forward and never rotates around them; arrow-key look-input turns the horse's heading instead, preserving the over-the-shoulder framing. The horse moves forward at a steady walk through the wildflower meadow, hooves padding through lupines and poppies and stirring the valley mist into thin curling wisps, its long braided tail swaying behind. The rider's tunic and sash shift gently with the horse's motion, and the topknot bobs with each step.",
+      "This is a third-person-view video of a SWAT officer in full black tactical gear and helmet, walking away down a wet cobblestone alley. Cinematic noir atmosphere. The officer is locked at the exact centre of the frame at constant size and distance. Neither the officer nor the camera moves on its own; arrow-key look-input is the only source of camera motion, orbiting the camera around the stationary officer only while held. The officer stands perfectly still, the rain and steam held frozen in the air.",
   },
   {
-    id: "citadel_approach",
-    label: "Citadel Approach",
-    description: "Vintage 4x4 rolling through a coral desert canyon",
-    imageUrl: "/images/citadel_approach.png",
+    id: "mounted_warrior",
+    label: "Mounted Warrior",
+    description: "Orbit a green-armored rider over a muddy battlefield",
+    imageUrl: "/images/mounted_warrior.jpg",
     prompt:
-      "This is a third-person-view video of a battered grey-green vintage Defender 4x4 deep in a coral-lit desert canyon. Prickly pear cacti tipped with magenta blooms, scattered red poppies, and weather-pitted boulders dot the open desert floor; smooth ochre dunes sweep up toward towering sandstone mesas that wall the valley on the left. Ahead, a cliff-built sandstone citadel of white-washed houses, crenellated battlements, and slender minarets stands against a hazy peach-orange sunset sky. Warm painterly desert storybook atmosphere. Strict centred third-person rear view: the Defender is locked at the exact centre of the frame at all times — horizontally centred, vertically centred, and the camera sits on a fixed offset directly behind the vehicle's rear axle. The camera tracks the Defender from directly behind as it travels forward and never rotates, orbits, or pans around it under any input. Arrow-key look-input turns the Defender's heading instead, so the rear-view framing is preserved frame-by-frame. The Defender rolls forward across the open desert sand, plumes of pale golden dust kicking up from its tires and trailing behind the rear hatch, the suspension flexing softly as it crests the dunes, faint heat shimmer rising from the tailpipe.",
+      "This is a third-person-view video of a warrior in green armor and a hood, mounted on a brown horse and holding a large curved blade, overlooking a muddy battlefield. Somber, war-torn atmosphere. The warrior and horse are locked at the exact centre of the frame at constant size and distance. Neither the pair nor the camera moves on its own; arrow-key look-input is the only source of camera motion, orbiting the camera around the stationary pair only while held. The warrior and horse stay completely still, the horse's tail and the warrior's cloak hanging undisturbed in the calm air.",
   },
   {
-    id: "storm_crossing",
-    label: "Storm Crossing",
-    description: "Work boat punching through dark north-sea swells",
-    imageUrl: "/images/storm_crossing.png",
+    id: "dragon_reins",
+    label: "Dragon Reins",
+    description: "First-person grip on a green dragon's reins near a castle",
+    imageUrl: "/images/dragon_reins.jpg",
     prompt:
-      "This is a third-person-view video of a battered grey aluminum-hulled work boat — weather-stripped wheelhouse glowing with a single warm yellow cabin lamp, twin whip antennas above, the open wooden deck damp with spray. Slate-grey swells roll under the hull, cool salt mist drifting around the cabin glass. Overhead, dense dark storm clouds fill the entire sky from horizon to horizon, a low heavy charcoal-black ceiling pressing down in oppressive layers and draining the sea of color. Cinematic photorealistic gloomy overcast seascape atmosphere. Strict centred third-person stern view: the boat is locked at the exact centre of the frame with its square transom (flat stern) always facing directly toward the camera and the bow pointing away into the far distance — the camera stays directly behind the boat and never moves to a forward, side, or beam-on angle. The camera tracks the boat from directly astern as it travels through the seas, and rotates with the hull to keep the boat locked at the exact centre of the frame when arrow-key look-input turns the boat's heading. The engines drive at full power, the bow rising over each swell and crashing down into the next trough, a churning white wake boiling astern, salt mist torn back from the deck as the boat punches forward through the seas.",
+      "This is a first-person-view video of a rider’s leather-gloved hands gripping reins on the scaled neck of a green dragon, with a moss-covered stone castle visible in the distance. The dragon remains at the exact centre of the frame at constant size and distance. Neither the dragon nor the camera moves on its own; arrow-key look-input is the only source of camera motion, orbiting around the stable dragon only while held. With no event key pressed, the rider’s hands rest relaxed on the reins, the dragon’s neck steady, and the surrounding jungle foliage motionless.",
+  },
+  {
+    id: "jet_ski",
+    label: "Jet Ski",
+    description: "Orbit a jet ski rider near a palm beach",
+    imageUrl: "/images/jet_ski.jpg",
+    prompt:
+      "This is a third-person-view video of a man in a red life vest seated on a white and red jet ski near a sandy beach with palm trees. The man remains at the exact centre of the frame at constant size and distance. Neither the man nor the camera moves on its own; arrow-key look-input is the only source of camera motion, orbiting around the stable rider only while held. With no event key pressed, the man sits upright on the jet ski, hands resting on the handlebars, ready to operate the vehicle.",
   },
 ];
 
