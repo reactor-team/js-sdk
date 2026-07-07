@@ -2,13 +2,12 @@
 
 // LINGBOT 2 — PUBLIC DEMO
 //
-// This example runs on the real Lingbot v2 typed SDK surface. The
-// `@reactor-models/lingbot-v2` package is not published yet, so the
-// generated SDK (v0.1.1) is vendored under `app/sdk/` and tsconfig maps
-// the package specifier there — see `app/sdk/index.ts` for the
-// swap-on-publish steps. Import from `@reactor-models/lingbot-v2` as if
-// the package existed; nothing here changes when it ships.
-import { LingbotV2Provider } from "@reactor-models/lingbot-v2";
+// This example runs on the published Lingbot 2 typed SDK,
+// `@reactor-models/lingbot-world-2`. It re-exports both the plain
+// client and the React bindings from the package root, so every
+// component here imports the typed provider, hooks, and message types
+// straight from `@reactor-models/lingbot-world-2`.
+import { LingbotWorld2Provider } from "@reactor-models/lingbot-world-2";
 import { Header } from "./components/Header";
 import { StatusBadge } from "./components/StatusBadge";
 import { CommandError } from "./components/CommandError";
@@ -21,7 +20,7 @@ import { CustomStart } from "./components/CustomStart";
 import { SnapClip } from "./components/SnapClip";
 import { Video } from "./components/Video";
 
-// JWT resolver passed to <LingbotV2Provider getJwt>.
+// JWT resolver passed to <LingbotWorld2Provider getJwt>.
 //
 // `@reactor-team/js-sdk` ≥ 2.10.1 takes a resolver instead of a static
 // string so the SDK can mint a fresh JWT on every Coordinator HTTP hop
@@ -43,7 +42,7 @@ async function fetchToken(): Promise<string> {
   return jwt;
 }
 
-// The client tree. LingbotV2Provider owns the WebRTC connection lifecycle —
+// The client tree. LingbotWorld2Provider owns the WebRTC connection lifecycle —
 // it auto-disconnects on unmount and on `beforeunload`, so don't call
 // connect()/disconnect() from a useEffect yourself.
 //
@@ -57,7 +56,7 @@ async function fetchToken(): Promise<string> {
 // session down. Wrapping in `useCallback` is unnecessary.
 export function Lingbot2App() {
   return (
-    <LingbotV2Provider getJwt={fetchToken}>
+    <LingbotWorld2Provider getJwt={fetchToken}>
       {/*
        * Fixed-height app shell. The viewport never scrolls as a whole
        * (`h-screen` + `overflow-hidden`); instead the sidebar is its own
@@ -80,7 +79,7 @@ export function Lingbot2App() {
              *                          + <CameraPose />    + <DynamicEvents />
              *
              * Each component subscribes to the snapshot via
-             * `useLingbotV2State` and returns null when it's not its phase.
+             * `useLingbotWorld2State` and returns null when it's not its phase.
              * On disconnect, each component also clears its snapshot via
              * a small useEffect — keeps the UI from showing stale data
              * from the previous session after a reconnect.
@@ -117,6 +116,6 @@ export function Lingbot2App() {
           </div>
         </main>
       </div>
-    </LingbotV2Provider>
+    </LingbotWorld2Provider>
   );
 }

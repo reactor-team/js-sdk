@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@reactor-models/lingbot-world-2": "^0.2.5",
     "@reactor-team/js-sdk": "^2.12.0",
     "@reactor-team/ui": "^1.4.1",
     "hls.js": "^1.6.0",

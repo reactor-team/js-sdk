@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
-  useLingbotV2,
-  useLingbotV2State,
-  type LingbotV2StateMessage,
-} from "@reactor-models/lingbot-v2";
+  useLingbotWorld2,
+  useLingbotWorld2State,
+  type LingbotWorld2StateMessage,
+} from "@reactor-models/lingbot-world-2";
 
 // Live-phase panel — Lingbot 2's signature capability.
 //
@@ -77,8 +77,8 @@ export function MovementControls() {
     setLookHorizontal,
     setLookVertical,
     setRotationSpeedDeg,
-  } = useLingbotV2();
-  const [snapshot, setSnapshot] = useState<LingbotV2StateMessage | null>(null);
+  } = useLingbotWorld2();
+  const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(null);
 
   // Local "what the user is pressing right now" state. Drives the
   // button highlights so they react instantly instead of waiting for
@@ -91,7 +91,7 @@ export function MovementControls() {
   const [pressedLookH, setPressedLookH] = useState<LookH>("idle");
   const [pressedLookV, setPressedLookV] = useState<LookV>("idle");
 
-  useLingbotV2State((msg) => setSnapshot(msg));
+  useLingbotWorld2State((msg) => setSnapshot(msg));
 
   // Clear on disconnect. Also clear local press state — otherwise
   // a button could remain highlighted across a reconnect.

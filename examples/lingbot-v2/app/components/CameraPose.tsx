@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  useLingbotV2,
-  useLingbotV2ChunkComplete,
-  useLingbotV2State,
-  type LingbotV2StateMessage,
-} from "@reactor-models/lingbot-v2";
+  useLingbotWorld2,
+  useLingbotWorld2ChunkComplete,
+  useLingbotWorld2State,
+  type LingbotWorld2StateMessage,
+} from "@reactor-models/lingbot-world-2";
 import {
   CAMERA_MOVES,
   composeCameraPrompt,
@@ -76,8 +76,8 @@ const SUSTAINED_MOVES = CAMERA_MOVES.filter((m) => m.chunks === null);
 const ONE_SHOT_MOVES = CAMERA_MOVES.filter((m) => m.chunks !== null);
 
 export function CameraPose() {
-  const { status, setCameraPose, setPrompt } = useLingbotV2();
-  const [snapshot, setSnapshot] = useState<LingbotV2StateMessage | null>(null);
+  const { status, setCameraPose, setPrompt } = useLingbotWorld2();
+  const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   // Zero-based chunk cursor within the active move. State (not just a
   // ref) because one-shot buttons render it as progress ("2/6").
@@ -91,9 +91,9 @@ export function CameraPose() {
   // but the subscription lives for the component's lifetime — mirror
   // them in refs so the handler never closes over stale state.
   const activeRef = useRef<{ move: CameraMove; cursor: number } | null>(null);
-  const snapshotRef = useRef<LingbotV2StateMessage | null>(null);
+  const snapshotRef = useRef<LingbotWorld2StateMessage | null>(null);
 
-  useLingbotV2State((msg) => {
+  useLingbotWorld2State((msg) => {
     snapshotRef.current = msg;
     setSnapshot(msg);
   });
@@ -152,7 +152,7 @@ export function CameraPose() {
   // one-shot move: step to the next slice, or release the camera
   // (pose and prompt) when the last slice has played out. Sustained
   // moves don't tick — their constant velocity persists server-side.
-  useLingbotV2ChunkComplete(() => {
+  useLingbotWorld2ChunkComplete(() => {
     const active = activeRef.current;
     if (!active || active.move.chunks === null) return;
 

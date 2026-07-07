@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@reactor-models/lingbot-world-2':
+        specifier: ^0.2.5
+        version: 0.2.5(hls.js@1.6.16)(react@19.2.6)(zustand@5.0.13(@types/react@19.2.14)(react@19.2.6))
       '@reactor-team/js-sdk':
         specifier: ^2.12.0
         version: 2.12.0(hls.js@1.6.16)(react@19.2.6)(zustand@5.0.13(@types/react@19.2.14)(react@19.2.6))
@@ -261,6 +264,11 @@ packages:
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
+
+  '@reactor-models/lingbot-world-2@0.2.5':
+    resolution: {integrity: sha512-rLyGtdBiXEk3koWetamniVJduDcnO9LWOo2S6WJYQyrZ4Moo4OILspGwzJT1P8ovJMK6rZgsxaHIuUVtLCmZgg==}
+    peerDependencies:
+      react: '>=18'
 
   '@reactor-team/js-sdk@2.12.0':
     resolution: {integrity: sha512-64WcP8tmUSbSjdv3joEG9ddJIL6PgK35N2lG8BE6yN153dhMHB4TTVkUxN0OUr6ZF2uXyLUJBHKzPymbp0aRZQ==}
@@ -769,6 +777,15 @@ snapshots:
 
   '@next/swc-win32-x64-msvc@15.5.18':
     optional: true
+
+  '@reactor-models/lingbot-world-2@0.2.5(hls.js@1.6.16)(react@19.2.6)(zustand@5.0.13(@types/react@19.2.14)(react@19.2.6))':
+    dependencies:
+      '@reactor-team/js-sdk': 2.12.0(hls.js@1.6.16)(react@19.2.6)(zustand@5.0.13(@types/react@19.2.14)(react@19.2.6))
+      react: 19.2.6
+    transitivePeerDependencies:
+      - hls.js
+      - supports-color
+      - zustand
 
   '@reactor-team/js-sdk@2.12.0(hls.js@1.6.16)(react@19.2.6)(zustand@5.0.13(@types/react@19.2.14)(react@19.2.6))':
     dependencies:

@@ -1,6 +1,6 @@
 "use client";
 
-import { useLingbotV2 } from "@reactor-models/lingbot-v2";
+import { useLingbotWorld2 } from "@reactor-models/lingbot-world-2";
 
 // The status badge surfaces the four-state connection machine:
 //   disconnected → connecting → waiting → ready
@@ -15,7 +15,7 @@ const TONE: Record<string, { dot: string; label: string }> = {
 };
 
 export function StatusBadge() {
-  const { status, lastError, connect, disconnect } = useLingbotV2();
+  const { status, lastError, connect, disconnect } = useLingbotWorld2();
   const tone = TONE[status] ?? TONE.disconnected;
   const idle = status === "disconnected";
 

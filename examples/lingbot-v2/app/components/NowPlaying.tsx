@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import {
-  useLingbotV2,
-  useLingbotV2State,
-  useLingbotV2GenerationStarted,
-  useLingbotV2GenerationComplete,
-  useLingbotV2GenerationReset,
-  type LingbotV2StateMessage,
-} from "@reactor-models/lingbot-v2";
+  useLingbotWorld2,
+  useLingbotWorld2State,
+  useLingbotWorld2GenerationStarted,
+  useLingbotWorld2GenerationComplete,
+  useLingbotWorld2GenerationReset,
+  type LingbotWorld2StateMessage,
+} from "@reactor-models/lingbot-world-2";
 
 // Live-phase panel. Renders only while the model is generating.
 //
@@ -28,14 +28,14 @@ import {
 // this component renders null and the setup panel (ScenePicker +
 // CustomStart) takes over. That's the phase switch.
 export function NowPlaying() {
-  const { status, pause, resume, reset } = useLingbotV2();
-  const [snapshot, setSnapshot] = useState<LingbotV2StateMessage | null>(null);
+  const { status, pause, resume, reset } = useLingbotWorld2();
+  const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(null);
   const [chunkNum, setChunkNum] = useState<number | null>(null);
 
-  useLingbotV2State((msg) => setSnapshot(msg));
-  useLingbotV2GenerationStarted((msg) => setChunkNum(msg.chunk_num));
-  useLingbotV2GenerationComplete(() => setChunkNum(null));
-  useLingbotV2GenerationReset(() => setChunkNum(null));
+  useLingbotWorld2State((msg) => setSnapshot(msg));
+  useLingbotWorld2GenerationStarted((msg) => setChunkNum(msg.chunk_num));
+  useLingbotWorld2GenerationComplete(() => setChunkNum(null));
+  useLingbotWorld2GenerationReset(() => setChunkNum(null));
 
   // Clear on disconnect. The SDK doesn't emit a final `state` message
   // when the session ends, so without this we'd keep showing the

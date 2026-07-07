@@ -1,6 +1,6 @@
 ---
 name: building-lingbot-2-frontends
-description: Extend this cloned Lingbot 2 example app — add new controls, scenes, knobs, or features on top of the typed `@reactor-models/lingbot-v2` SDK surface (vendored pre-release snapshot in `app/sdk/` until the package publishes) without breaking the patterns the existing code already uses. Covers the SDK's connection / events / messages model, the phase-based UI architecture, the state snapshot pattern, the image-required preconditions and the `image_accepted` wait, the two-axis WASD + arrow-key driving model, the native `set_camera_pose` layer, and prompt design rules for coherent continuous generation.
+description: Extend this cloned Lingbot 2 example app — add new controls, scenes, knobs, or features on top of the published `@reactor-models/lingbot-world-2` typed SDK without breaking the patterns the existing code already uses. Covers the SDK's connection / events / messages model, the phase-based UI architecture, the state snapshot pattern, the image-required preconditions and the `image_accepted` wait, the two-axis WASD + arrow-key driving model, the native `set_camera_pose` layer, and prompt design rules for coherent continuous generation.
 ---
 
 # Building on this Lingbot 2 app
@@ -9,7 +9,7 @@ You've cloned this folder and now you want to extend it — a new control, a new
 
 All the code referenced below already exists in this folder. Read this guide alongside the source.
 
-> **About the vendored SDK.** This app runs on the real Lingbot v2 typed SDK surface (`useLingbotV2`, `LingbotV2Provider`, `LingbotV2MainVideoView`, the `set_*` commands). The `@reactor-models/lingbot-v2` package is not published yet, so a generated snapshot (v0.1.1) is vendored in `app/sdk/` (unmodified apart from repo Prettier formatting) and `tsconfig.json` maps the package specifier to it — components import from `@reactor-models/lingbot-v2` as if the package existed. The snapshot is for this example only, not for redistribution. When the package publishes: add the dependency to `package.json`, delete `app/sdk/`, and remove the `@reactor-models/lingbot-v2` entry from tsconfig `paths` — no component edits. Never hand-edit the two generated files in `app/sdk/`.
+> **About the typed SDK.** This app runs on the published [`@reactor-models/lingbot-world-2`](https://www.npmjs.com/package/@reactor-models/lingbot-world-2) package — the strongly-typed client for the model (`useLingbotWorld2`, `LingbotWorld2Provider`, `LingbotWorld2MainVideoView`, the `set_*` commands). It re-exports both the plain-JavaScript client and the React bindings from its root, so components import the typed provider, hooks, and message types straight from `@reactor-models/lingbot-world-2`. The package is a normal dependency in `package.json` — install it with `pnpm add @reactor-models/lingbot-world-2`.
 
 ## What Lingbot 2 actually is, in three sentences
 
@@ -21,10 +21,10 @@ The frontend's job is to (a) start the generation with a valid image + prompt, (
 
 | Concept        | What it is                                                                         | Hook / API                                                                                                                                                                                                                                                                                         |
 | -------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Connection** | The lifecycle of the model session (`disconnected → connecting → waiting → ready`) | `useLingbotV2().status`, `.connect()`, `.disconnect()`                                                                                                                                                                                                                                             |
-| **Events**     | Things you send TO the model. Always async.                                        | `useLingbotV2().setPrompt({...})`, `.setImage({...})`, `.setMoveLongitudinal({...})`, `.setMoveLateral({...})`, `.setLookHorizontal({...})`, `.setLookVertical({...})`, `.setCameraPose({...})`, `.setRotationSpeedDeg({...})`, `.setSeed({...})`, `.start()`, `.pause()`, `.resume()`, `.reset()` |
-| **Messages**   | Things the model sends BACK to you — including the all-important `state` snapshot. | `useLingbotV2State((m) => …)`, `useLingbotV2CommandError`, `useLingbotV2ImageAccepted`, etc.                                                                                                                                                                                                       |
-| **Tracks**     | The model's video output, rendered as a live `MediaStreamTrack`.                   | `<LingbotV2MainVideoView />`                                                                                                                                                                                                                                                                       |
+| **Connection** | The lifecycle of the model session (`disconnected → connecting → waiting → ready`) | `useLingbotWorld2().status`, `.connect()`, `.disconnect()`                                                                                                                                                                                                                                             |
+| **Events**     | Things you send TO the model. Always async.                                        | `useLingbotWorld2().setPrompt({...})`, `.setImage({...})`, `.setMoveLongitudinal({...})`, `.setMoveLateral({...})`, `.setLookHorizontal({...})`, `.setLookVertical({...})`, `.setCameraPose({...})`, `.setRotationSpeedDeg({...})`, `.setSeed({...})`, `.start()`, `.pause()`, `.resume()`, `.reset()` |
+| **Messages**   | Things the model sends BACK to you — including the all-important `state` snapshot. | `useLingbotWorld2State((m) => …)`, `useLingbotWorld2CommandError`, `useLingbotWorld2ImageAccepted`, etc.                                                                                                                                                                                                       |
+| **Tracks**     | The model's video output, rendered as a live `MediaStreamTrack`.                   | `<LingbotWorld2MainVideoView />`                                                                                                                                                                                                                                                                       |
 
 You almost never have to drop below this surface. If you find yourself reaching for `@reactor-team/js-sdk` directly, stop and re-read the typed hooks list — there's likely a typed hook you're missing. The one documented exception is the recording surface (see [Capturing clips](#capturing-clips) below), which is a base-SDK feature that the typed packages deliberately do not re-export.
 
@@ -77,16 +77,16 @@ The model offers more knobs than this app surfaces. Each one is straightforward 
 
 | Knob                                 | Hook                                                        | Lives in                     | Notes                                                                                                                                                                                                                                                                                                 |
 | ------------------------------------ | ----------------------------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `set_seed`                           | `useLingbotV2().setSeed({ seed })`                          | Setup (read once at `start`) | Non-negative integer. Read once when `start` fires; later changes take effect only after `reset` + new `start`.                                                                                                                                                                                       |
-| Free-form mid-stream prompt textarea | `useLingbotV2().setPrompt({ prompt })`                      | Live                         | `DynamicEvents` (see [Hot-swapping the world via dynamic events](#hot-swapping-the-world-via-dynamic-events)) ships a curated picker. If you want a free-text variant, drop a textarea next to it that sends `setPrompt({ prompt: base + " " + userText })` — re-use the base-prompt capture pattern. |
-| Movement-aware prompt schedule       | (sequence of `setPrompt` calls timed from `chunk_complete`) | Live                         | There is no chunk-level schedule built into the model — emulate it by reacting to `useLingbotV2ChunkComplete` and sending the next prompt yourself when `msg.chunk_index === target`.                                                                                                                 |
-| Multi-frame camera choreography      | `useLingbotV2().setCameraPose({ camera_pose })`             | Live                         | The bundled `CameraPose` panel demonstrates both payload shapes: constant 6-float velocities for sustained moves, and per-frame profiles streamed chunk-by-chunk (via `chunk_complete` as the clock) for eased one-shot moves. See [Directing the camera](#directing-the-camera--set_camera_pose).    |
+| `set_seed`                           | `useLingbotWorld2().setSeed({ seed })`                          | Setup (read once at `start`) | Non-negative integer. Read once when `start` fires; later changes take effect only after `reset` + new `start`.                                                                                                                                                                                       |
+| Free-form mid-stream prompt textarea | `useLingbotWorld2().setPrompt({ prompt })`                      | Live                         | `DynamicEvents` (see [Hot-swapping the world via dynamic events](#hot-swapping-the-world-via-dynamic-events)) ships a curated picker. If you want a free-text variant, drop a textarea next to it that sends `setPrompt({ prompt: base + " " + userText })` — re-use the base-prompt capture pattern. |
+| Movement-aware prompt schedule       | (sequence of `setPrompt` calls timed from `chunk_complete`) | Live                         | There is no chunk-level schedule built into the model — emulate it by reacting to `useLingbotWorld2ChunkComplete` and sending the next prompt yourself when `msg.chunk_index === target`.                                                                                                                 |
+| Multi-frame camera choreography      | `useLingbotWorld2().setCameraPose({ camera_pose })`             | Live                         | The bundled `CameraPose` panel demonstrates both payload shapes: constant 6-float velocities for sustained moves, and per-frame profiles streamed chunk-by-chunk (via `chunk_complete` as the clock) for eased one-shot moves. See [Directing the camera](#directing-the-camera--set_camera_pose).    |
 
 A new control is one ~30-line component that drops into the right phase — make it easy to add but don't ship them all.
 
 ## Auth — `getJwt` resolver + cacheable GET route
 
-Two pieces work together: a Next.js GET route that mints (and caches) the JWT server-side, and a `getJwt` resolver prop on `<LingbotV2Provider>` that calls it on every Coordinator HTTP hop.
+Two pieces work together: a Next.js GET route that mints (and caches) the JWT server-side, and a `getJwt` resolver prop on `<LingbotWorld2Provider>` that calls it on every Coordinator HTTP hop.
 
 ### `getJwt`, not `jwtToken`
 
@@ -96,7 +96,7 @@ Two pieces work together: a Next.js GET route that mints (and caches) the JWT se
 type JwtSource = string | (() => string | Promise<string>);
 ```
 
-The example passes `getJwt={fetchToken}` to `<LingbotV2Provider>`. The SDK then re-invokes that function on every Coordinator HTTP call — `POST /sessions/:id/uploads`, `GET /clips`, ICE refresh, SDP renegotiation — so a token aging out mid-session can't 401 those hops. The legacy `jwtToken="..."` string prop still works but caches one value at construction time and breaks the moment that value expires.
+The example passes `getJwt={fetchToken}` to `<LingbotWorld2Provider>`. The SDK then re-invokes that function on every Coordinator HTTP call — `POST /sessions/:id/uploads`, `GET /clips`, ICE refresh, SDP renegotiation — so a token aging out mid-session can't 401 those hops. The legacy `jwtToken="..."` string prop still works but caches one value at construction time and breaks the moment that value expires.
 
 The provider auto-stabilizes the resolver via `useRef + useMemo`, so the inline arrow form is safe — a parent re-render does **not** tear the session down. Do not wrap it in `useCallback`.
 
@@ -122,11 +122,11 @@ import { useAuth } from "@clerk/nextjs";
 function App() {
   const { getToken } = useAuth();
   return (
-    <LingbotV2Provider
+    <LingbotWorld2Provider
       getJwt={async () => (await getToken({ template: "reactor" })) ?? ""}
     >
       {/* ... */}
-    </LingbotV2Provider>
+    </LingbotWorld2Provider>
   );
 }
 ```
@@ -135,21 +135,21 @@ Returning `""` suppresses the `Authorization` header entirely (use this for loca
 
 ### Configuring autoConnect
 
-`<LingbotV2Provider>` is initialized **without** `autoConnect`. The user clicks "Connect" so they see the `disconnected → connecting → waiting → ready` transitions. If you're shipping a polished product where you'd rather the connection happen on page load:
+`<LingbotWorld2Provider>` is initialized **without** `autoConnect`. The user clicks "Connect" so they see the `disconnected → connecting → waiting → ready` transitions. If you're shipping a polished product where you'd rather the connection happen on page load:
 
 ```tsx
-<LingbotV2Provider getJwt={fetchToken} connectOptions={{ autoConnect: true }}>
+<LingbotWorld2Provider getJwt={fetchToken} connectOptions={{ autoConnect: true }}>
 ```
 
 Just make sure your status indicator still surfaces the intermediate states (`connecting`, `waiting for GPU`) — sessions don't reach `ready` instantly, and you don't want users staring at an unexplained loading state.
 
 ## The state snapshot — your UI's single source of truth
 
-Lingbot 2 emits a `state` message after every command and every completed chunk. Subscribe via `useLingbotV2State`, hold it in `useState`, and read fields off it. **Don't aggregate `chunk_complete`, `generation_started`, `generation_paused` and try to reconstruct state yourself** — the snapshot already contains everything.
+Lingbot 2 emits a `state` message after every command and every completed chunk. Subscribe via `useLingbotWorld2State`, hold it in `useState`, and read fields off it. **Don't aggregate `chunk_complete`, `generation_started`, `generation_paused` and try to reconstruct state yourself** — the snapshot already contains everything.
 
 ```tsx
-const [snapshot, setSnapshot] = useState<LingbotV2StateMessage | null>(null);
-useLingbotV2State((msg) => setSnapshot(msg));
+const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(null);
+useLingbotWorld2State((msg) => setSnapshot(msg));
 ```
 
 Fields you'll actually read:
@@ -180,7 +180,7 @@ useEffect(() => {
 }, [status]);
 ```
 
-When you add a new component that subscribes to `useLingbotV2State`, include this. Three lines, no abstraction needed.
+When you add a new component that subscribes to `useLingbotWorld2State`, include this. Three lines, no abstraction needed.
 
 ### Auto-restart on `generation_complete`
 
@@ -195,11 +195,11 @@ What this means for the UI:
 
 You don't need any code to handle this. Just don't expect `started` to fall on its own.
 
-One thing the snapshot does NOT carry is the run length. If you want a "chunk 12 / 48" progress readout (the `NowPlaying` panel does), capture `chunk_num` from `useLingbotV2GenerationStarted` and drop it on `generation_complete` / `generation_reset` / disconnect — the auto-restarted next run announces its own `generation_started` with a fresh total.
+One thing the snapshot does NOT carry is the run length. If you want a "chunk 12 / 48" progress readout (the `NowPlaying` panel does), capture `chunk_num` from `useLingbotWorld2GenerationStarted` and drop it on `generation_complete` / `generation_reset` / disconnect — the auto-restarted next run announces its own `generation_started` with a fresh total.
 
 ## Sending events — the typed methods
 
-Every event Lingbot 2 accepts has a typed wrapper on `useLingbotV2()`. Always await them; they return a Promise that can reject.
+Every event Lingbot 2 accepts has a typed wrapper on `useLingbotWorld2()`. Always await them; they return a Promise that can reject.
 
 ```tsx
 const {
@@ -216,7 +216,7 @@ const {
   pause,
   resume,
   reset,
-} = useLingbotV2();
+} = useLingbotWorld2();
 
 await setMoveLongitudinal({ move_longitudinal: "forward" });
 await setMoveLateral({ move_lateral: "strafe_left" }); // both axes → diagonal
@@ -237,9 +237,9 @@ v1 had a single combined `set_movement` field; v2 splits it. `set_move_longitudi
 Sending an event when `status !== "ready"` is a no-op with a console warning. Surface this as `disabled` on the button so the user sees what's clickable:
 
 ```tsx
-const { status, setMoveLongitudinal } = useLingbotV2();
-const [snapshot, setSnapshot] = useState<LingbotV2StateMessage | null>(null);
-useLingbotV2State((m) => setSnapshot(m));
+const { status, setMoveLongitudinal } = useLingbotWorld2();
+const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(null);
+useLingbotWorld2State((m) => setSnapshot(m));
 
 const ready = status === "ready" && snapshot?.started === true;
 <button
@@ -278,7 +278,7 @@ await start();
 ```tsx
 const imageReadyRef = useRef<(() => void) | null>(null);
 
-useLingbotV2ImageAccepted(() => {
+useLingbotWorld2ImageAccepted(() => {
   if (imageReadyRef.current) {
     imageReadyRef.current();
     imageReadyRef.current = null;
@@ -314,18 +314,18 @@ The example app exposes mid-stream prompt swap only via the bundled scenes, but 
 
 ## Receiving messages — the typed hooks
 
-`@reactor-models/lingbot-v2` ships one typed subscription hook per message:
+`@reactor-models/lingbot-world-2` ships one typed subscription hook per message:
 
 | Hook                                                                          | Purpose                                                                                                                                                                                                                                                                                                                    |
 | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `useLingbotV2State(handler)`                                                  | The state snapshot. **Use this; almost everything you need is here.**                                                                                                                                                                                                                                                      |
-| `useLingbotV2CommandError(handler)`                                           | A command was rejected (bad preconditions, bad input). Render this somewhere visible.                                                                                                                                                                                                                                      |
-| `useLingbotV2ImageAccepted(handler)`                                          | An uploaded image was successfully processed. Use to coordinate the image→prompt→start chain above.                                                                                                                                                                                                                        |
-| `useLingbotV2PromptAccepted(handler)`                                         | A prompt was queued. Useful for toast notifications.                                                                                                                                                                                                                                                                       |
-| `useLingbotV2ChunkComplete(handler)`                                          | One chunk finished generating. Useful for progress sounds, telemetry, scheduled prompt swaps.                                                                                                                                                                                                                              |
-| `useLingbotV2GenerationStarted` / `Paused` / `Resumed` / `Reset` / `Complete` | Lifecycle transitions. Useful for one-shot reactions (toasts, sounds), but **don't aggregate these into your own state** — read the snapshot instead. The one exception: `generation_started` carries the run totals (`chunk_num`, `frame_num`) that never appear on the snapshot — capture them if you show run progress. |
-| `useLingbotV2Message(handler)`                                                | Catch-all over the typed discriminated union. Useful for devtools / logging.                                                                                                                                                                                                                                               |
-| `useLingbotV2ConditionsReady(handler)`                                        | Fires after each conditioning command with `has_prompt` / `has_image` flags. Lower-level than `image_accepted`; prefer the specific hooks.                                                                                                                                                                                 |
+| `useLingbotWorld2State(handler)`                                                  | The state snapshot. **Use this; almost everything you need is here.**                                                                                                                                                                                                                                                      |
+| `useLingbotWorld2CommandError(handler)`                                           | A command was rejected (bad preconditions, bad input). Render this somewhere visible.                                                                                                                                                                                                                                      |
+| `useLingbotWorld2ImageAccepted(handler)`                                          | An uploaded image was successfully processed. Use to coordinate the image→prompt→start chain above.                                                                                                                                                                                                                        |
+| `useLingbotWorld2PromptAccepted(handler)`                                         | A prompt was queued. Useful for toast notifications.                                                                                                                                                                                                                                                                       |
+| `useLingbotWorld2ChunkComplete(handler)`                                          | One chunk finished generating. Useful for progress sounds, telemetry, scheduled prompt swaps.                                                                                                                                                                                                                              |
+| `useLingbotWorld2GenerationStarted` / `Paused` / `Resumed` / `Reset` / `Complete` | Lifecycle transitions. Useful for one-shot reactions (toasts, sounds), but **don't aggregate these into your own state** — read the snapshot instead. The one exception: `generation_started` carries the run totals (`chunk_num`, `frame_num`) that never appear on the snapshot — capture them if you show run progress. |
+| `useLingbotWorld2Message(handler)`                                                | Catch-all over the typed discriminated union. Useful for devtools / logging.                                                                                                                                                                                                                                               |
+| `useLingbotWorld2ConditionsReady(handler)`                                        | Fires after each conditioning command with `has_prompt` / `has_image` flags. Lower-level than `image_accepted`; prefer the specific hooks.                                                                                                                                                                                 |
 
 ### Always surface `command_error`
 
@@ -335,18 +335,18 @@ The example app exposes mid-stream prompt swap only via the bundled scenes, but 
 "use client";
 import { useState } from "react";
 import {
-  useLingbotV2CommandError,
-  useLingbotV2State,
-} from "@reactor-models/lingbot-v2";
+  useLingbotWorld2CommandError,
+  useLingbotWorld2State,
+} from "@reactor-models/lingbot-world-2";
 
 export function CommandError() {
   const [err, setErr] = useState<{ command: string; reason: string } | null>(
     null,
   );
-  useLingbotV2CommandError((m) =>
+  useLingbotWorld2CommandError((m) =>
     setErr({ command: m.command, reason: m.reason }),
   );
-  useLingbotV2State(() => setErr(null)); // any state update means the user moved on
+  useLingbotWorld2State(() => setErr(null)); // any state update means the user moved on
   if (!err) return null;
   return (
     <div className="error">
@@ -420,8 +420,8 @@ The signature live-phase component in this app is `MovementControls`. The patter
 
 ```tsx
 // 1. Read the snapshot and gate on the live phase.
-const [snapshot, setSnapshot] = useState<LingbotV2StateMessage | null>(null);
-useLingbotV2State((m) => setSnapshot(m));
+const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(null);
+useLingbotWorld2State((m) => setSnapshot(m));
 useEffect(() => {
   if (status !== "ready") setSnapshot(null);
 }, [status]);
@@ -437,7 +437,7 @@ const [pressedLongitudinal, setPressedLongitudinal] =
 
 // 3. Fire-and-forget typed methods on press, with a release handler.
 //    Update local state in the same step so the highlight is instant.
-const { setMoveLongitudinal } = useLingbotV2();
+const { setMoveLongitudinal } = useLingbotWorld2();
 const sendLongitudinal = (m: Longitudinal) => {
   setPressedLongitudinal(m);
   setMoveLongitudinal({ move_longitudinal: m });
@@ -567,7 +567,7 @@ Three authoring rules (the file's comment block has them too):
 The base-prompt capture trick is the reusable bit. Two places it's natural to extend:
 
 - **Free-text mid-stream prompt textarea.** Drop a textarea component next to `DynamicEvents` in the live phase. On submit, send `setPrompt({ prompt: base + " " + userText })` (or just `userText` if you want full prompt replacement).
-- **Scheduled prompts.** React to `useLingbotV2ChunkComplete` and fire the next composed prompt when `msg.chunk_index` hits a target. Use the captured base so the chained prompts stay anchored to the same scene.
+- **Scheduled prompts.** React to `useLingbotWorld2ChunkComplete` and fire the next composed prompt when `msg.chunk_index` hits a target. Use the captured base so the chained prompts stay anchored to the same scene.
 
 ## Directing the camera — `set_camera_pose`
 
@@ -593,7 +593,7 @@ Inputs are sanitized model-side (NaN/Inf → 0, rotations clamped to ±pi, trans
 One `set_camera_pose` call conditions one chunk. A move with a beginning and an end (an eased 6-chunk arc, a 2-chunk whip pan) therefore means **streaming successive slices**, and `chunk_complete` is the clock. The bundled `CameraPose` panel implements the full pattern:
 
 1. On activation, send chunk 0's slice immediately.
-2. On each `useLingbotV2ChunkComplete` tick, advance a cursor and send the next slice.
+2. On each `useLingbotWorld2ChunkComplete` tick, advance a cursor and send the next slice.
 3. After the last slice, send `{ camera_pose: [] }` — the move releases the camera automatically.
 
 Keep the cursor in a ref mirrored to state (the subscription outlives any single render, so the handler must not close over stale state). Sustained moves need no ticking — a constant velocity persists server-side until replaced. Timing is chunk-quantized and off by at most one chunk at the start of a move; that's inherent to the transport, not a bug to fix.
@@ -648,7 +648,7 @@ The example ships a drop-in [`app/components/SnapClip.tsx`](../app/components/Sn
 
 ### When to reach for `@reactor-team/js-sdk` directly
 
-The default rule still applies: do everything via `@reactor-models/lingbot-v2`. But the typed package only re-exports model-specific surface (events, messages, the typed provider/hook). The recording surface is base-SDK only, so for that one feature you import directly:
+The default rule still applies: do everything via `@reactor-models/lingbot-world-2`. But the typed package only re-exports model-specific surface (events, messages, the typed provider/hook). The recording surface is base-SDK only, so for that one feature you import directly:
 
 ```tsx
 import {
@@ -670,13 +670,13 @@ When you scaffold a new component, ask: "Does this depend on Lingbot-specific ev
 2. **Gate on connection status.** `useReactor((s) => s.status)` — return `null` when status is not `"ready"`, so the panel disappears on disconnect just like every other live-only control.
 3. **Catch `RecordingError`.** Recording can fail with typed reasons (`DISCONNECTED`, `RECORDER_DISABLED`, `INVALID_DURATION`, `REQUEST_TIMEOUT`). Surface them inline like `CommandError` does.
 4. **Compose `<ClipPlayer>` + `<ClipDownloadButton>` in a modal, route their errors through callbacks.** Both accept `onError` (and `<ClipDownloadButton>` also accepts `onSuccess(blob)`); `SnapClip` threads them into the same inline error line that `requestClip` failures use. The SDK's components stay usable after disconnect, so the modal keeps working if the session ends mid-preview.
-5. **No `getJwt` plumbing.** Both clip components auto-inherit the resolver from `<LingbotV2Provider getJwt={…}>` via React context (`@reactor-team/js-sdk` ≥ 2.10.1). That is the single source of truth for auth in this app — `SnapClip` doesn't need to know about the JWT route at all.
+5. **No `getJwt` plumbing.** Both clip components auto-inherit the resolver from `<LingbotWorld2Provider getJwt={…}>` via React context (`@reactor-team/js-sdk` ≥ 2.10.1). That is the single source of truth for auth in this app — `SnapClip` doesn't need to know about the JWT route at all.
 
 ### The portal gotcha (Sonner toasts, headless modals)
 
 The context-inheritance only works for components rendered **inside** the provider subtree. `SnapClip`'s modal is a normal child of the panel, so it inherits the resolver fine.
 
-The trap is rendering clip UI through a React portal whose host lives _outside_ `<LingbotV2Provider>` — most commonly a Sonner `<Toaster />` mounted in `app/layout.tsx` as a sibling of `{children}`. The custom-toast tree has no `ReactorContext` in scope, the fallback returns `undefined`, and Coordinator answers the clip download with:
+The trap is rendering clip UI through a React portal whose host lives _outside_ `<LingbotWorld2Provider>` — most commonly a Sonner `<Toaster />` mounted in `app/layout.tsx` as a sibling of `{children}`. The custom-toast tree has no `ReactorContext` in scope, the fallback returns `undefined`, and Coordinator answers the clip download with:
 
 ```
 {"error":"Missing Authorization header"}
@@ -761,9 +761,9 @@ Reach for actual `@reactor-team/ui` components only when you need their behavior
 
 ## Common mistakes when extending
 
-1. **Reaching for `@reactor-team/js-sdk` directly.** Everything Lingbot-specific is on `@reactor-models/lingbot-v2`. If you find yourself reaching for `useReactor((s) => s.internal.reactor)` for a Lingbot event or message, re-read the typed hooks list above. The one allowed exception is the recording surface — see [Capturing clips](#capturing-clips). And on 2.11.1+, even recording is a top-level store action (`s.requestClip` / `s.requestRecording` / `s.downloadClipAsFile`); reach for `s.internal.reactor` only for the few surfaces that aren't lifted yet (`getJwtResolver()`, raw `runtimeMessage` subscriptions).
-2. **Aggregating events to reconstruct state.** Subscribe to `useLingbotV2State` and read fields off the snapshot. Stop folding `chunk_complete` + `generation_started` + `generation_paused` into your own boolean flags.
-3. **Calling `start()` without waiting for image conditioning.** First chunk will flicker. Use `useLingbotV2ImageAccepted` with a one-shot ref resolver.
+1. **Reaching for `@reactor-team/js-sdk` directly.** Everything Lingbot-specific is on `@reactor-models/lingbot-world-2`. If you find yourself reaching for `useReactor((s) => s.internal.reactor)` for a Lingbot event or message, re-read the typed hooks list above. The one allowed exception is the recording surface — see [Capturing clips](#capturing-clips). And on 2.11.1+, even recording is a top-level store action (`s.requestClip` / `s.requestRecording` / `s.downloadClipAsFile`); reach for `s.internal.reactor` only for the few surfaces that aren't lifted yet (`getJwtResolver()`, raw `runtimeMessage` subscriptions).
+2. **Aggregating events to reconstruct state.** Subscribe to `useLingbotWorld2State` and read fields off the snapshot. Stop folding `chunk_complete` + `generation_started` + `generation_paused` into your own boolean flags.
+3. **Calling `start()` without waiting for image conditioning.** First chunk will flicker. Use `useLingbotWorld2ImageAccepted` with a one-shot ref resolver.
 4. **Forgetting to send `idle` on key release.** Movement/look axes hold their last value until you change them. Always pair every `set_move_longitudinal: "forward"` with a `set_move_longitudinal: "idle"` on key-up / mouse-up — per axis, so a released A drops the lateral component without touching W.
 5. **Driving press-and-hold button highlights from the snapshot.** The snapshot lags presses by ~one chunk, so buttons light up half a second after the user clicks them and quick taps don't register visually. Track local press state instead. The snapshot is the source of truth for _persistent_ values (current prompt, rotation speed, started/paused) — not for transient ones.
 6. **Treating `set_image` as a live-phase knob.** It isn't — the image is captured at `start` time and changes during generation have no effect. To swap the world, call `reset()` and start a new session.
@@ -784,7 +784,7 @@ Before merging a new control or feature:
 
 - [ ] Decided which phase it lives in (Setup, Live, or always-on)
 - [ ] Early-return at the top matches that phase (`status === "ready" && snapshot?.started` to hide in live, etc.)
-- [ ] If it subscribes to `useLingbotV2State`, it clears on disconnect via `useEffect`
+- [ ] If it subscribes to `useLingbotWorld2State`, it clears on disconnect via `useEffect`
 - [ ] All interactive controls gate `disabled` on `status === "ready"` (plus `snapshot?.started` for live-phase ones)
 - [ ] All event method calls use the typed wrappers (`setMoveLongitudinal`, not `sendCommand("set_move_longitudinal", …)`) and are `await`ed (or fire-and-forget where appropriate)
 - [ ] If chaining a slow conditioning step before `start()`, awaits the matching `image_accepted` / `prompt_accepted`

@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  useLingbotV2,
-  useLingbotV2State,
-  type LingbotV2StateMessage,
-} from "@reactor-models/lingbot-v2";
+  useLingbotWorld2,
+  useLingbotWorld2State,
+  type LingbotWorld2StateMessage,
+} from "@reactor-models/lingbot-world-2";
 import {
   DYNAMIC_EVENTS,
   composeEventPrompt,
@@ -49,8 +49,8 @@ import { findSceneByPrompt } from "../lib/scenes";
 // disconnect, we drop the captured base so the next session starts
 // fresh.
 export function DynamicEvents() {
-  const { status, setPrompt } = useLingbotV2();
-  const [snapshot, setSnapshot] = useState<LingbotV2StateMessage | null>(null);
+  const { status, setPrompt } = useLingbotWorld2();
+  const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(null);
   const [heldId, setHeldId] = useState<string | null>(null);
   const [basePrompt, setBasePrompt] = useState<string | null>(null);
   // Ref mirrors for the window-level listeners and the async press/
@@ -69,7 +69,7 @@ export function DynamicEvents() {
     setBasePrompt(prompt);
   }, []);
 
-  useLingbotV2State((msg) => setSnapshot(msg));
+  useLingbotWorld2State((msg) => setSnapshot(msg));
 
   // The active event set: the scene's own, when the captured base
   // prompt exactly matches a curated scene that has one; otherwise the

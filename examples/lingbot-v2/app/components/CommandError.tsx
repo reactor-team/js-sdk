@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import {
-  useLingbotV2CommandError,
-  useLingbotV2State,
-} from "@reactor-models/lingbot-v2";
+  useLingbotWorld2CommandError,
+  useLingbotWorld2State,
+} from "@reactor-models/lingbot-world-2";
 
 // Surface command_error messages from the model. Lingbot emits these
 // when a command fails its preconditions — for example, calling
@@ -20,11 +20,11 @@ export function CommandError() {
     reason: string;
   } | null>(null);
 
-  useLingbotV2CommandError((msg) => {
+  useLingbotWorld2CommandError((msg) => {
     setError({ command: msg.command, reason: msg.reason });
   });
 
-  useLingbotV2State(() => {
+  useLingbotWorld2State(() => {
     setError(null);
   });
 
