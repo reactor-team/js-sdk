@@ -44,17 +44,53 @@ export interface Scene {
   events?: ReadonlyArray<DynamicEvent>;
 }
 
+/** Featured scenes shown first in the picker. Unlike the curated batch,
+ * these carry their own lab-authored event set. */
+const FEATURED_SCENES: ReadonlyArray<Scene> = [
+  {
+    id: "paraglider",
+    label: "Paraglider",
+    description: "First-person paraglider soaring above a green valley",
+    imageUrl: "/images/paraglider.jpg",
+    prompt:
+      "This is a first-person-view video from the perspective of a paraglider pilot soaring high above a green valley. The pilot's legs and hands gripping the control toggles remain at the exact centre of the frame at constant size and distance. Neither the pilot nor the camera moves on its own; arrow-key look-input is the only source of camera motion, orbiting around the stable pilot only while held. With no event key pressed, the pilot's legs hang relaxed and the hands hold the toggles steady, ready to steer.",
+    events: [
+      {
+        id: "f_0",
+        label: "Eagle Soars Nearby",
+        icon: "🐾",
+        key: "f",
+        keyLabel: "F",
+        addendum:
+          "The paraglider pilot remains the main subject, suspended high above the valley with legs and hands steady, while a massive golden eagle emerges from the sunlit mountain air to circle slowly to the left, its broad wings catching the thermal currents in wide, rhythmic sweeps that disturb nothing below.",
+      },
+      {
+        id: "g_0",
+        label: "Golden Hour Transition",
+        icon: "🌦️",
+        key: "g",
+        keyLabel: "G",
+        addendum:
+          "The paraglider pilot remains the main subject, suspended high above the valley with legs and hands steady, as the bright, harsh blue daylight slowly mellows into the deep amber glow of sunset, casting long, warm shadows across the distant snow-capped peaks and painting the valley floor in soft, golden light.",
+      },
+      {
+        id: "space_0",
+        label: "Jump",
+        icon: "🦘",
+        key: " ",
+        keyLabel: "Space",
+        addendum:
+          "The current controllable subject springs upward into the air.",
+        finalPrompt:
+          "This is a first-person-view video from the perspective of a paraglider pilot soaring high above a green valley. The pilot's legs and hands gripping the control toggles remain at the exact centre of the frame at constant size and distance. Neither the pilot nor the camera moves on its own; arrow-key look-input is the only source of camera motion, orbiting around the stable pilot only while held. With no event key pressed, the pilot's legs hang relaxed and the hands hold the toggles steady, ready to steer. The current controllable subject springs upward into the air.",
+      },
+    ],
+  },
+];
+
 /** The original curated batch (lab case1 + case2 exports) — no per-scene
  * events; these fall back to the global DYNAMIC_EVENTS set. */
 const CURATED_SCENES: ReadonlyArray<Scene> = [
-  {
-    id: "tilt_city",
-    label: "Tilt-Shift City",
-    description: "Fixed first-person pan over a miniature cityscape",
-    imageUrl: "/images/tilt_city.jpg",
-    prompt:
-      "This is a first-person-view video of a detailed miniature cityscape seen from a high angle, featuring a dense cluster of skyscrapers and green spaces. Tilt-shift photography atmosphere. The viewpoint is fixed in place, framing the scene from a single standpoint. Nothing in the scene nor the camera moves on its own; arrow-key look-input is the only source of camera motion, panning the first-person view across the stationary city only while held. The entire model remains perfectly still, with the tiny cars and trees frozen in place.",
-  },
   {
     id: "macro_ant",
     label: "Macro Ant",
@@ -79,27 +115,14 @@ const CURATED_SCENES: ReadonlyArray<Scene> = [
     prompt:
       "This is a third-person-view video of a warrior in green armor and a hood, mounted on a brown horse and holding a large curved blade, overlooking a muddy battlefield. Somber, war-torn atmosphere. The warrior and horse are locked at the exact centre of the frame at constant size and distance. Neither the pair nor the camera moves on its own; arrow-key look-input is the only source of camera motion, orbiting the camera around the stationary pair only while held. The warrior and horse stay completely still, the horse's tail and the warrior's cloak hanging undisturbed in the calm air.",
   },
-  {
-    id: "dragon_reins",
-    label: "Dragon Reins",
-    description: "First-person grip on a green dragon's reins near a castle",
-    imageUrl: "/images/dragon_reins.jpg",
-    prompt:
-      "This is a first-person-view video of a rider’s leather-gloved hands gripping reins on the scaled neck of a green dragon, with a moss-covered stone castle visible in the distance. The dragon remains at the exact centre of the frame at constant size and distance. Neither the dragon nor the camera moves on its own; arrow-key look-input is the only source of camera motion, orbiting around the stable dragon only while held. With no event key pressed, the rider’s hands rest relaxed on the reins, the dragon’s neck steady, and the surrounding jungle foliage motionless.",
-  },
-  {
-    id: "jet_ski",
-    label: "Jet Ski",
-    description: "Orbit a jet ski rider near a palm beach",
-    imageUrl: "/images/jet_ski.jpg",
-    prompt:
-      "This is a third-person-view video of a man in a red life vest seated on a white and red jet ski near a sandy beach with palm trees. The man remains at the exact centre of the frame at constant size and distance. Neither the man nor the camera moves on its own; arrow-key look-input is the only source of camera motion, orbiting around the stable rider only while held. With no event key pressed, the man sits upright on the jet ski, hands resting on the handlebars, ready to operate the vehicle.",
-  },
 ];
 
-/** Curated batch first, then the full case3 import (unpruned — pick the
- * keepers in case3-scenes.ts). */
-export const SCENES: ReadonlyArray<Scene> = [...CURATED_SCENES, ...CASE3_SCENES];
+/** Featured scene(s) first, then the curated batch, then the case3 import. */
+export const SCENES: ReadonlyArray<Scene> = [
+  ...FEATURED_SCENES,
+  ...CURATED_SCENES,
+  ...CASE3_SCENES,
+];
 
 /** Look up a scene by id. */
 export function findSceneById(id: string | null | undefined): Scene | null {
