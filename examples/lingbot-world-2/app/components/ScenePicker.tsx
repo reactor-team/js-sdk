@@ -33,7 +33,9 @@ import { SCENES, type Scene } from "../lib/scenes";
 // ack. Registering the resolver after would race the model's reply.
 export function ScenePicker() {
   const { status, uploadFile, setImage, setPrompt, start } = useLingbotWorld2();
-  const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(null);
+  const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(
+    null,
+  );
   const [busy, setBusy] = useState<string | null>(null);
 
   const imageReadyRef = useRef<(() => void) | null>(null);

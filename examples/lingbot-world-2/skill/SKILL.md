@@ -19,11 +19,11 @@ The frontend's job is to (a) start the generation with a valid image + prompt, (
 
 ## The four concepts you'll touch
 
-| Concept        | What it is                                                                         | Hook / API                                                                                                                                                                                                                                                                                         |
-| -------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Concept        | What it is                                                                         | Hook / API                                                                                                                                                                                                                                                                                             |
+| -------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Connection** | The lifecycle of the model session (`disconnected → connecting → waiting → ready`) | `useLingbotWorld2().status`, `.connect()`, `.disconnect()`                                                                                                                                                                                                                                             |
 | **Events**     | Things you send TO the model. Always async.                                        | `useLingbotWorld2().setPrompt({...})`, `.setImage({...})`, `.setMoveLongitudinal({...})`, `.setMoveLateral({...})`, `.setLookHorizontal({...})`, `.setLookVertical({...})`, `.setCameraPose({...})`, `.setRotationSpeedDeg({...})`, `.setSeed({...})`, `.start()`, `.pause()`, `.resume()`, `.reset()` |
-| **Messages**   | Things the model sends BACK to you — including the all-important `state` snapshot. | `useLingbotWorld2State((m) => …)`, `useLingbotWorld2CommandError`, `useLingbotWorld2ImageAccepted`, etc.                                                                                                                                                                                                       |
+| **Messages**   | Things the model sends BACK to you — including the all-important `state` snapshot. | `useLingbotWorld2State((m) => …)`, `useLingbotWorld2CommandError`, `useLingbotWorld2ImageAccepted`, etc.                                                                                                                                                                                               |
 | **Tracks**     | The model's video output, rendered as a live `MediaStreamTrack`.                   | `<LingbotWorld2MainVideoView />`                                                                                                                                                                                                                                                                       |
 
 You almost never have to drop below this surface. If you find yourself reaching for `@reactor-team/js-sdk` directly, stop and re-read the typed hooks list — there's likely a typed hook you're missing. The one documented exception is the recording surface (see [Capturing clips](#capturing-clips) below), which is a base-SDK feature that the typed packages deliberately do not re-export.
@@ -77,10 +77,10 @@ The model offers more knobs than this app surfaces. Each one is straightforward 
 
 | Knob                                 | Hook                                                        | Lives in                     | Notes                                                                                                                                                                                                                                                                                                 |
 | ------------------------------------ | ----------------------------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `set_seed`                           | `useLingbotWorld2().setSeed({ seed })`                          | Setup (read once at `start`) | Non-negative integer. Read once when `start` fires; later changes take effect only after `reset` + new `start`.                                                                                                                                                                                       |
-| Free-form mid-stream prompt textarea | `useLingbotWorld2().setPrompt({ prompt })`                      | Live                         | `DynamicEvents` (see [Hot-swapping the world via dynamic events](#hot-swapping-the-world-via-dynamic-events)) ships a curated picker. If you want a free-text variant, drop a textarea next to it that sends `setPrompt({ prompt: base + " " + userText })` — re-use the base-prompt capture pattern. |
-| Movement-aware prompt schedule       | (sequence of `setPrompt` calls timed from `chunk_complete`) | Live                         | There is no chunk-level schedule built into the model — emulate it by reacting to `useLingbotWorld2ChunkComplete` and sending the next prompt yourself when `msg.chunk_index === target`.                                                                                                                 |
-| Multi-frame camera choreography      | `useLingbotWorld2().setCameraPose({ camera_pose })`             | Live                         | The bundled `CameraPose` panel demonstrates both payload shapes: constant 6-float velocities for sustained moves, and per-frame profiles streamed chunk-by-chunk (via `chunk_complete` as the clock) for eased one-shot moves. See [Directing the camera](#directing-the-camera--set_camera_pose).    |
+| `set_seed`                           | `useLingbotWorld2().setSeed({ seed })`                      | Setup (read once at `start`) | Non-negative integer. Read once when `start` fires; later changes take effect only after `reset` + new `start`.                                                                                                                                                                                       |
+| Free-form mid-stream prompt textarea | `useLingbotWorld2().setPrompt({ prompt })`                  | Live                         | `DynamicEvents` (see [Hot-swapping the world via dynamic events](#hot-swapping-the-world-via-dynamic-events)) ships a curated picker. If you want a free-text variant, drop a textarea next to it that sends `setPrompt({ prompt: base + " " + userText })` — re-use the base-prompt capture pattern. |
+| Movement-aware prompt schedule       | (sequence of `setPrompt` calls timed from `chunk_complete`) | Live                         | There is no chunk-level schedule built into the model — emulate it by reacting to `useLingbotWorld2ChunkComplete` and sending the next prompt yourself when `msg.chunk_index === target`.                                                                                                             |
+| Multi-frame camera choreography      | `useLingbotWorld2().setCameraPose({ camera_pose })`         | Live                         | The bundled `CameraPose` panel demonstrates both payload shapes: constant 6-float velocities for sustained moves, and per-frame profiles streamed chunk-by-chunk (via `chunk_complete` as the clock) for eased one-shot moves. See [Directing the camera](#directing-the-camera--set_camera_pose).    |
 
 A new control is one ~30-line component that drops into the right phase — make it easy to add but don't ship them all.
 
@@ -148,7 +148,9 @@ Just make sure your status indicator still surfaces the intermediate states (`co
 LingBot World 2 emits a `state` message after every command and every completed chunk. Subscribe via `useLingbotWorld2State`, hold it in `useState`, and read fields off it. **Don't aggregate `chunk_complete`, `generation_started`, `generation_paused` and try to reconstruct state yourself** — the snapshot already contains everything.
 
 ```tsx
-const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(null);
+const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(
+  null,
+);
 useLingbotWorld2State((msg) => setSnapshot(msg));
 ```
 
@@ -238,7 +240,9 @@ Sending an event when `status !== "ready"` is a no-op with a console warning. Su
 
 ```tsx
 const { status, setMoveLongitudinal } = useLingbotWorld2();
-const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(null);
+const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(
+  null,
+);
 useLingbotWorld2State((m) => setSnapshot(m));
 
 const ready = status === "ready" && snapshot?.started === true;
@@ -316,8 +320,8 @@ The example app exposes mid-stream prompt swap only via the bundled scenes, but 
 
 `@reactor-models/lingbot-world-2` ships one typed subscription hook per message:
 
-| Hook                                                                          | Purpose                                                                                                                                                                                                                                                                                                                    |
-| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Hook                                                                              | Purpose                                                                                                                                                                                                                                                                                                                    |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `useLingbotWorld2State(handler)`                                                  | The state snapshot. **Use this; almost everything you need is here.**                                                                                                                                                                                                                                                      |
 | `useLingbotWorld2CommandError(handler)`                                           | A command was rejected (bad preconditions, bad input). Render this somewhere visible.                                                                                                                                                                                                                                      |
 | `useLingbotWorld2ImageAccepted(handler)`                                          | An uploaded image was successfully processed. Use to coordinate the image→prompt→start chain above.                                                                                                                                                                                                                        |
@@ -420,7 +424,9 @@ The signature live-phase component in this app is `MovementControls`. The patter
 
 ```tsx
 // 1. Read the snapshot and gate on the live phase.
-const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(null);
+const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(
+  null,
+);
 useLingbotWorld2State((m) => setSnapshot(m));
 useEffect(() => {
   if (status !== "ready") setSnapshot(null);

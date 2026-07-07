@@ -135,7 +135,9 @@ export function findSceneById(id: string | null | undefined): Scene | null {
  * the scene, and with it the scene-specific event set. Custom prompts
  * simply miss.
  */
-export function findSceneByPrompt(prompt: string | null | undefined): Scene | null {
+export function findSceneByPrompt(
+  prompt: string | null | undefined,
+): Scene | null {
   if (!prompt) return null;
   return SCENES.find((s) => s.prompt === prompt) ?? null;
 }

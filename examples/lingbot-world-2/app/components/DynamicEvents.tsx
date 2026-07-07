@@ -50,7 +50,9 @@ import { findSceneByPrompt } from "../lib/scenes";
 // fresh.
 export function DynamicEvents() {
   const { status, setPrompt } = useLingbotWorld2();
-  const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(null);
+  const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(
+    null,
+  );
   const [heldId, setHeldId] = useState<string | null>(null);
   const [basePrompt, setBasePrompt] = useState<string | null>(null);
   // Ref mirrors for the window-level listeners and the async press/

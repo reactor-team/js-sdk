@@ -23,7 +23,9 @@ import {
 // knows what's still missing without having to read error messages.
 export function CustomStart() {
   const { status, uploadFile, setImage, setPrompt, start } = useLingbotWorld2();
-  const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(null);
+  const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(
+    null,
+  );
   const [text, setText] = useState("");
   const [imageBusy, setImageBusy] = useState<string | null>(null);
 

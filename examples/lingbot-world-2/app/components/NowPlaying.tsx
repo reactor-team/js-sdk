@@ -29,7 +29,9 @@ import {
 // CustomStart) takes over. That's the phase switch.
 export function NowPlaying() {
   const { status, pause, resume, reset } = useLingbotWorld2();
-  const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(null);
+  const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(
+    null,
+  );
   const [chunkNum, setChunkNum] = useState<number | null>(null);
 
   useLingbotWorld2State((msg) => setSnapshot(msg));

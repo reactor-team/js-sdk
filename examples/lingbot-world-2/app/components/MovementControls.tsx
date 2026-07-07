@@ -78,7 +78,9 @@ export function MovementControls() {
     setLookVertical,
     setRotationSpeedDeg,
   } = useLingbotWorld2();
-  const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(null);
+  const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(
+    null,
+  );
 
   // Local "what the user is pressing right now" state. Drives the
   // button highlights so they react instantly instead of waiting for

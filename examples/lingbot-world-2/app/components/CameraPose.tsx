@@ -77,7 +77,9 @@ const ONE_SHOT_MOVES = CAMERA_MOVES.filter((m) => m.chunks !== null);
 
 export function CameraPose() {
   const { status, setCameraPose, setPrompt } = useLingbotWorld2();
-  const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(null);
+  const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(
+    null,
+  );
   const [activeId, setActiveId] = useState<string | null>(null);
   // Zero-based chunk cursor within the active move. State (not just a
   // ref) because one-shot buttons render it as progress ("2/6").
