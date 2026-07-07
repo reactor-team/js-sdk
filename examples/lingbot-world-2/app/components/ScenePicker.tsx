@@ -13,7 +13,7 @@ import { SCENES, type Scene } from "../lib/scenes";
 // Setup-phase panel. Lets the user pick a curated scene and kicks
 // off generation in one click.
 //
-// Lingbot requires BOTH a prompt AND a reference image before
+// LingBot requires BOTH a prompt AND a reference image before
 // `start` is valid (the model is image-to-video — the reference
 // image anchors the scene). So one curated scene is one image plus
 // one paragraph prompt, baked together.

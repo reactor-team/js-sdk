@@ -1,11 +1,11 @@
-// Curated starting scenes for the Lingbot 2 demo.
+// Curated starting scenes for the LingBot World 2 demo.
 //
 // Each scene bundles together a reference image and an initial prompt.
-// Lingbot 2 requires BOTH a prompt AND an image before generation can
+// LingBot World 2 requires BOTH a prompt AND an image before generation can
 // start, so the natural "one click to begin" surface is an
 // image+prompt pair.
 //
-// All scenes are raw eval cases exported from the Lingbot 2 lab:
+// All scenes are raw eval cases exported from the LingBot World 2 lab:
 // every `imageUrl` is that case's exported first frame, and every
 // `prompt` is its base prompt copied verbatim. Only the `label` /
 // `description` are ours, for the picker. Two batches ship:
@@ -21,7 +21,7 @@
 //     the global set.
 //
 // PROMPT STYLE — why most prompts are a full paragraph, not a tagline:
-// Lingbot 2 produces dramatically more coherent scenes when a prompt
+// LingBot World 2 produces dramatically more coherent scenes when a prompt
 // spells out the subject, environment, framing AND how the camera and
 // subject may (or may not) move. Terse prompts leave the model to
 // reinvent everything each chunk, which reads as instability.

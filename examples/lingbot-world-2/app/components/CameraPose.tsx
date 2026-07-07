@@ -15,7 +15,7 @@ import {
   type CameraMove,
 } from "../lib/camera-moves";
 
-// Live-phase panel — Lingbot 2's native camera-pose layer on a
+// Live-phase panel — LingBot World 2's native camera-pose layer on a
 // clickable surface.
 //
 // Where MovementControls speaks the high-level axes (WASD + look),

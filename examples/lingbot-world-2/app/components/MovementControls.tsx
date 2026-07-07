@@ -7,9 +7,9 @@ import {
   type LingbotWorld2StateMessage,
 } from "@reactor-models/lingbot-world-2";
 
-// Live-phase panel — Lingbot 2's signature capability.
+// Live-phase panel — LingBot World 2's signature capability.
 //
-// Lingbot 2 is a real-time interactive world model: while it's
+// LingBot World 2 is a real-time interactive world model: while it's
 // generating, the client can stream movement and camera commands
 // that the model picks up at chunk boundaries. The output video
 // reflects those inputs a fraction of a second later, producing the
@@ -108,7 +108,7 @@ export function MovementControls() {
   const ready = status === "ready" && snapshot?.started === true;
 
   // Send each axis as a typed event AND update local press state.
-  // We don't try to debounce — Lingbot 2 only consults the value at
+  // We don't try to debounce — LingBot World 2 only consults the value at
   // the next chunk boundary, so sending more frequent updates is
   // harmless. Local state is the source of truth for the UI.
   const sendLongitudinal = useCallback(

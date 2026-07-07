@@ -2,7 +2,7 @@
 
 // LINGBOT 2 — PUBLIC DEMO
 //
-// This example runs on the published Lingbot 2 typed SDK,
+// This example runs on the published LingBot World 2 typed SDK,
 // `@reactor-models/lingbot-world-2`. It re-exports both the plain
 // client and the React bindings from the package root, so every
 // component here imports the typed provider, hooks, and message types
@@ -54,7 +54,7 @@ async function fetchToken(): Promise<string> {
 // `getJwt` is an inline arrow on purpose. The provider auto-stabilizes
 // it via `useRef + useMemo`, so a parent re-render does NOT tear the
 // session down. Wrapping in `useCallback` is unnecessary.
-export function Lingbot2App() {
+export function LingBotWorld2App() {
   return (
     <LingbotWorld2Provider getJwt={fetchToken}>
       {/*

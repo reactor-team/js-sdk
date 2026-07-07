@@ -1,9 +1,9 @@
 ---
-name: building-lingbot-2-frontends
-description: Extend this cloned Lingbot 2 example app — add new controls, scenes, knobs, or features on top of the published `@reactor-models/lingbot-world-2` typed SDK without breaking the patterns the existing code already uses. Covers the SDK's connection / events / messages model, the phase-based UI architecture, the state snapshot pattern, the image-required preconditions and the `image_accepted` wait, the two-axis WASD + arrow-key driving model, the native `set_camera_pose` layer, and prompt design rules for coherent continuous generation.
+name: building-lingbot-world-2-frontends
+description: Extend this cloned LingBot World 2 example app — add new controls, scenes, knobs, or features on top of the published `@reactor-models/lingbot-world-2` typed SDK without breaking the patterns the existing code already uses. Covers the SDK's connection / events / messages model, the phase-based UI architecture, the state snapshot pattern, the image-required preconditions and the `image_accepted` wait, the two-axis WASD + arrow-key driving model, the native `set_camera_pose` layer, and prompt design rules for coherent continuous generation.
 ---
 
-# Building on this Lingbot 2 app
+# Building on this LingBot World 2 app
 
 You've cloned this folder and now you want to extend it — a new control, a new scene, a new model knob, a different UX. This guide explains the patterns the existing code uses and the rules to follow so your additions feel native instead of bolted on.
 
@@ -11,9 +11,9 @@ All the code referenced below already exists in this folder. Read this guide alo
 
 > **About the typed SDK.** This app runs on the published [`@reactor-models/lingbot-world-2`](https://www.npmjs.com/package/@reactor-models/lingbot-world-2) package — the strongly-typed client for the model (`useLingbotWorld2`, `LingbotWorld2Provider`, `LingbotWorld2MainVideoView`, the `set_*` commands). It re-exports both the plain-JavaScript client and the React bindings from its root, so components import the typed provider, hooks, and message types straight from `@reactor-models/lingbot-world-2`. The package is a normal dependency in `package.json` — install it with `pnpm add @reactor-models/lingbot-world-2`.
 
-## What Lingbot 2 actually is, in three sentences
+## What LingBot World 2 actually is, in three sentences
 
-Lingbot 2 is a **continuous, interactive world model**. Given a starting image and a paragraph-length prompt, it produces an unending stream of video on a single track (`main_video`) — there is no "request, get clip, end". While it's generating, the client streams realtime movement and camera commands (`set_move_longitudinal`, `set_move_lateral`, `set_look_horizontal`, `set_look_vertical`, plus the low-level `set_camera_pose`) that the model picks up at chunk boundaries, producing the feeling of "driving" the scene with WASD.
+LingBot World 2 is a **continuous, interactive world model**. Given a starting image and a paragraph-length prompt, it produces an unending stream of video on a single track (`main_video`) — there is no "request, get clip, end". While it's generating, the client streams realtime movement and camera commands (`set_move_longitudinal`, `set_move_lateral`, `set_look_horizontal`, `set_look_vertical`, plus the low-level `set_camera_pose`) that the model picks up at chunk boundaries, producing the feeling of "driving" the scene with WASD.
 
 The frontend's job is to (a) start the generation with a valid image + prompt, (b) keep the user driving it, and (c) gracefully reflect the model's state.
 
@@ -145,7 +145,7 @@ Just make sure your status indicator still surfaces the intermediate states (`co
 
 ## The state snapshot — your UI's single source of truth
 
-Lingbot 2 emits a `state` message after every command and every completed chunk. Subscribe via `useLingbotWorld2State`, hold it in `useState`, and read fields off it. **Don't aggregate `chunk_complete`, `generation_started`, `generation_paused` and try to reconstruct state yourself** — the snapshot already contains everything.
+LingBot World 2 emits a `state` message after every command and every completed chunk. Subscribe via `useLingbotWorld2State`, hold it in `useState`, and read fields off it. **Don't aggregate `chunk_complete`, `generation_started`, `generation_paused` and try to reconstruct state yourself** — the snapshot already contains everything.
 
 ```tsx
 const [snapshot, setSnapshot] = useState<LingbotWorld2StateMessage | null>(null);
@@ -199,7 +199,7 @@ One thing the snapshot does NOT carry is the run length. If you want a "chunk 12
 
 ## Sending events — the typed methods
 
-Every event Lingbot 2 accepts has a typed wrapper on `useLingbotWorld2()`. Always await them; they return a Promise that can reject.
+Every event LingBot World 2 accepts has a typed wrapper on `useLingbotWorld2()`. Always await them; they return a Promise that can reject.
 
 ```tsx
 const {
@@ -273,7 +273,7 @@ await start();
 
 …the model can start generating before the image conditioning has been applied. You'll see a frame or two of pure-prompt output, then the image lands and the scene visibly shifts.
 
-**Fix: wait for the model's acknowledgment between the slow step and `start()`.** Lingbot 2 emits `image_accepted` once the uploaded image has been fully processed:
+**Fix: wait for the model's acknowledgment between the slow step and `start()`.** LingBot World 2 emits `image_accepted` once the uploaded image has been fully processed:
 
 ```tsx
 const imageReadyRef = useRef<(() => void) | null>(null);
@@ -470,7 +470,7 @@ The example wires window-level `keydown` / `keyup` listeners inside `MovementCon
 
 `DynamicEvents` is the second live-phase component the app ships. Where `MovementControls` drives the _subject_ via the typed movement / look methods, `DynamicEvents` mutates the _world_ via curated `setPrompt` hot-swaps. The interaction is **hold-to-apply**: pressing a key (or holding a button) sends the composed event prompt, and releasing re-sends the pristine base — the event lasts exactly as long as the hold. The model picks each swap up on the next chunk and the scene visibly shifts (fog rolls in, the subject jumps) without restarting or losing the reference image.
 
-This is Lingbot 2's signature mid-stream prompt-swap capability put on a surface a non-author can press, and it mirrors the lab runtime's own event model: there, a key press routes the event's addendum through a prompt rewriter and applies the result (`rewrite_applied` in the lab's exported timelines), and the release direct-switches straight back to the base prompt (`direct_switch`). Mid-stream `setPrompt` is fully supported by the model — the reference image stays, only the prose changes.
+This is LingBot World 2's signature mid-stream prompt-swap capability put on a surface a non-author can press, and it mirrors the lab runtime's own event model: there, a key press routes the event's addendum through a prompt rewriter and applies the result (`rewrite_applied` in the lab's exported timelines), and the release direct-switches straight back to the base prompt (`direct_switch`). Mid-stream `setPrompt` is fully supported by the model — the reference image stays, only the prose changes.
 
 ### Which events show — scene-specific sets
 
@@ -571,9 +571,9 @@ The base-prompt capture trick is the reusable bit. Two places it's natural to ex
 
 ## Directing the camera — `set_camera_pose`
 
-`set_camera_pose` is Lingbot 2's native low-level camera layer, and the third live-phase surface this app ships (`CameraPose`, presets in [`app/lib/camera-moves.ts`](../app/lib/camera-moves.ts)). It bypasses the high-level look/move axes and feeds motion deltas straight to the camera.
+`set_camera_pose` is LingBot World 2's native low-level camera layer, and the third live-phase surface this app ships (`CameraPose`, presets in [`app/lib/camera-moves.ts`](../app/lib/camera-moves.ts)). It bypasses the high-level look/move axes and feeds motion deltas straight to the camera.
 
-One framing to internalize before authoring anything: **the pose layer is a bias, not a rig**. Lingbot is a world model — there is no ground-truth camera to move. Pose deltas condition the generation toward camera motion, and the text prompt conditions it too. When the two disagree, the model reconciles them stochastically, which is why pose-only moves feel inconsistent (see [Aligning text and pose](#aligning-text-and-pose--prompt-coupling) below).
+One framing to internalize before authoring anything: **the pose layer is a bias, not a rig**. LingBot is a world model — there is no ground-truth camera to move. Pose deltas condition the generation toward camera motion, and the text prompt conditions it too. When the two disagree, the model reconciles them stochastically, which is why pose-only moves feel inconsistent (see [Aligning text and pose](#aligning-text-and-pose--prompt-coupling) below).
 
 ### The payload shape
 
@@ -642,7 +642,7 @@ For a one-shot, express it as peak velocities + a chunk count and let `envelope(
 
 ## Capturing clips
 
-The Reactor base SDK exposes a recording surface that works for every model: ask for the last N seconds of the live stream, get back a `Clip`, and either preview it with `<ClipPlayer>` or download it with `<ClipDownloadButton>`. The model SDK does not own this — it lives on `@reactor-team/js-sdk` because it is the same call for Lingbot, Helios, and every future model with recording enabled.
+The Reactor base SDK exposes a recording surface that works for every model: ask for the last N seconds of the live stream, get back a `Clip`, and either preview it with `<ClipPlayer>` or download it with `<ClipDownloadButton>`. The model SDK does not own this — it lives on `@reactor-team/js-sdk` because it is the same call for LingBot, Helios, and every future model with recording enabled.
 
 The example ships a drop-in [`app/components/SnapClip.tsx`](../app/components/SnapClip.tsx) panel that wires this together: a "Capture" button that calls `requestClip(durationSeconds)` off the store, opens a modal with the SDK's preview player, and offers an MP4 download. It is **model-agnostic** — the same file ships unchanged in every example.
 
@@ -660,7 +660,7 @@ import {
 } from "@reactor-team/js-sdk";
 ```
 
-When you scaffold a new component, ask: "Does this depend on Lingbot-specific events, messages, or commands?" If yes → typed package only. If no, and it would work the same on any model (recording, generic stats, generic connection state) → `@reactor-team/js-sdk` is fine.
+When you scaffold a new component, ask: "Does this depend on LingBot-specific events, messages, or commands?" If yes → typed package only. If no, and it would work the same on any model (recording, generic stats, generic connection state) → `@reactor-team/js-sdk` is fine.
 
 ### The pattern
 
@@ -761,7 +761,7 @@ Reach for actual `@reactor-team/ui` components only when you need their behavior
 
 ## Common mistakes when extending
 
-1. **Reaching for `@reactor-team/js-sdk` directly.** Everything Lingbot-specific is on `@reactor-models/lingbot-world-2`. If you find yourself reaching for `useReactor((s) => s.internal.reactor)` for a Lingbot event or message, re-read the typed hooks list above. The one allowed exception is the recording surface — see [Capturing clips](#capturing-clips). And on 2.11.1+, even recording is a top-level store action (`s.requestClip` / `s.requestRecording` / `s.downloadClipAsFile`); reach for `s.internal.reactor` only for the few surfaces that aren't lifted yet (`getJwtResolver()`, raw `runtimeMessage` subscriptions).
+1. **Reaching for `@reactor-team/js-sdk` directly.** Everything LingBot-specific is on `@reactor-models/lingbot-world-2`. If you find yourself reaching for `useReactor((s) => s.internal.reactor)` for a LingBot event or message, re-read the typed hooks list above. The one allowed exception is the recording surface — see [Capturing clips](#capturing-clips). And on 2.11.1+, even recording is a top-level store action (`s.requestClip` / `s.requestRecording` / `s.downloadClipAsFile`); reach for `s.internal.reactor` only for the few surfaces that aren't lifted yet (`getJwtResolver()`, raw `runtimeMessage` subscriptions).
 2. **Aggregating events to reconstruct state.** Subscribe to `useLingbotWorld2State` and read fields off the snapshot. Stop folding `chunk_complete` + `generation_started` + `generation_paused` into your own boolean flags.
 3. **Calling `start()` without waiting for image conditioning.** First chunk will flicker. Use `useLingbotWorld2ImageAccepted` with a one-shot ref resolver.
 4. **Forgetting to send `idle` on key release.** Movement/look axes hold their last value until you change them. Always pair every `set_move_longitudinal: "forward"` with a `set_move_longitudinal: "idle"` on key-up / mouse-up — per axis, so a released A drops the lateral component without touching W.

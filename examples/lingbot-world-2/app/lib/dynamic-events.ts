@@ -10,7 +10,7 @@
 // leaps") the user applies by HOLDING a key or button. While held, the
 // DynamicEvents panel hot-swaps the model's prompt mid-stream via
 // `set_prompt` with a composed event prompt; on release it re-sends
-// the pristine base prompt so the scene settles back. Lingbot picks up
+// the pristine base prompt so the scene settles back. LingBot picks up
 // each swap on the next chunk — no restart, no flash, the reference
 // image stays put.
 //

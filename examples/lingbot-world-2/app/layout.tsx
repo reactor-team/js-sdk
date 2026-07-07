@@ -3,9 +3,9 @@ import "@reactor-team/ui/styles.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Lingbot 2 Interactive",
+  title: "LingBot World 2 Interactive",
   description:
-    "Real-time interactive world model with Reactor + Lingbot 2 — drive a scene with WASD",
+    "Real-time interactive world model with Reactor + LingBot World 2 — drive a scene with WASD",
 };
 
 export default function RootLayout({

@@ -12,7 +12,7 @@ import {
 
 // Live-phase panel. Renders only while the model is generating.
 //
-// Lingbot 2 emits a `state` snapshot after every command and every
+// LingBot World 2 emits a `state` snapshot after every command and every
 // completed chunk. We hold the latest snapshot in useState and read
 // fields off it — single source of truth for the running scene, no
 // event aggregation needed.

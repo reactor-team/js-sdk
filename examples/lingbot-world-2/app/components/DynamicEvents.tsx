@@ -18,7 +18,7 @@ import { findSceneByPrompt } from "../lib/scenes";
 // the scene by HOLDING a key or button. Keydown hot-swaps the prompt
 // mid-stream via `set_prompt` with the event's prompt (a finished
 // rewrite applied verbatim, or the addendum composed onto the base);
-// keyup re-sends the pristine base so the scene settles back. Lingbot
+// keyup re-sends the pristine base so the scene settles back. LingBot
 // picks up each swap on the next chunk — no restart, no flash, the
 // reference image stays untouched. This mirrors the lab runtime's
 // current interaction model (press → rewrite applied, release → direct

@@ -6,7 +6,7 @@ import {
   useLingbotWorld2State,
 } from "@reactor-models/lingbot-world-2";
 
-// Surface command_error messages from the model. Lingbot emits these
+// Surface command_error messages from the model. LingBot emits these
 // when a command fails its preconditions — for example, calling
 // `start` before a prompt or an image has been set, or uploading a
 // file that isn't a valid image. Without this component those

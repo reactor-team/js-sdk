@@ -1,6 +1,6 @@
-// Curated camera-pose presets for the Lingbot 2 demo.
+// Curated camera-pose presets for the LingBot World 2 demo.
 //
-// `set_camera_pose` is Lingbot 2's native low-level camera layer: a
+// `set_camera_pose` is LingBot World 2's native low-level camera layer: a
 // flat list of per-frame motion deltas, 6 floats each —
 // `[rx, ry, rz, tx, ty, tz]` (small Euler-radian rotation plus
 // translation, in the camera-local frame). The payload is a VELOCITY
@@ -26,7 +26,7 @@
 // per-frame velocities, so a value that looks subtle on one frame
 // compounds into fast motion over a chunk.
 //
-// THE POSE LAYER IS A BIAS, NOT A RIG. Lingbot is a world model:
+// THE POSE LAYER IS A BIAS, NOT A RIG. LingBot is a world model:
 // there is no ground-truth camera to move. The pose deltas condition
 // the generation toward camera motion, but the text prompt conditions
 // it too — and the lab scene prompts describe a stationary world,
