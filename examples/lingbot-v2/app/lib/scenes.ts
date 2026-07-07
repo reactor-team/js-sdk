@@ -5,16 +5,20 @@
 // start, so the natural "one click to begin" surface is an
 // image+prompt pair.
 //
-// These pairs are the raw eval cases exported from the Lingbot 2 lab
-// (case1 + case2): every `imageUrl` is that case's exported first
-// frame, and every `prompt` is its base prompt copied verbatim. Only
-// the `label` / `description` are ours, for the picker.
+// All scenes are raw eval cases exported from the Lingbot 2 lab:
+// every `imageUrl` is that case's exported first frame, and every
+// `prompt` is its base prompt copied verbatim. Only the `label` /
+// `description` are ours, for the picker. Two batches ship:
 //
-// Every scene here is a fixed-viewpoint (look-only) case: the scene
-// and camera are still, and arrow-key look-input pans or orbits the
-// view only while a key is held — nothing moves on its own. The WASD
-// movement axes have no effect in these prompts; they're steered
-// entirely with the look controls.
+//   - CURATED_SCENES below (case1 + case2): every one a fixed-viewpoint
+//     (look-only) case — the scene and camera are still, arrow-key
+//     look-input pans or orbits only while held, and the WASD movement
+//     axes have no effect. No per-scene events; the DynamicEvents panel
+//     falls back to the global set.
+//
+//   - CASE3_SCENES (generated, see case3-scenes.ts): the full unpruned
+//     case3 export, each with its own lab-authored event set. Mixed
+//     viewpoints — several are moving-subject or traversal scenes.
 //
 // PROMPT STYLE — why most prompts are a full paragraph, not a tagline:
 // Lingbot 2 produces dramatically more coherent scenes when a prompt
@@ -22,15 +26,27 @@
 // subject may (or may not) move. Terse prompts leave the model to
 // reinvent everything each chunk, which reads as instability.
 
+import type { DynamicEvent } from "./dynamic-events";
+import { CASE3_SCENES } from "./case3-scenes";
+
 export interface Scene {
   id: string;
   label: string;
   description: string;
   imageUrl: string;
   prompt: string;
+  /**
+   * Scene-specific world events (the lab authors events per scene —
+   * a zombie belongs in the hospital corridor, not on the jet ski).
+   * When present, the DynamicEvents panel shows these instead of the
+   * global fallback set in dynamic-events.ts.
+   */
+  events?: ReadonlyArray<DynamicEvent>;
 }
 
-export const SCENES: ReadonlyArray<Scene> = [
+/** The original curated batch (lab case1 + case2 exports) — no per-scene
+ * events; these fall back to the global DYNAMIC_EVENTS set. */
+const CURATED_SCENES: ReadonlyArray<Scene> = [
   {
     id: "tilt_city",
     label: "Tilt-Shift City",
@@ -81,8 +97,24 @@ export const SCENES: ReadonlyArray<Scene> = [
   },
 ];
 
+/** Curated batch first, then the full case3 import (unpruned — pick the
+ * keepers in case3-scenes.ts). */
+export const SCENES: ReadonlyArray<Scene> = [...CURATED_SCENES, ...CASE3_SCENES];
+
 /** Look up a scene by id. */
 export function findSceneById(id: string | null | undefined): Scene | null {
   if (!id) return null;
   return SCENES.find((s) => s.id === id) ?? null;
+}
+
+/**
+ * Look up a scene by its exact base prompt. The live-phase panels only
+ * see the session's captured prompt (not which picker card started it),
+ * and curated prompts are used verbatim — so an exact match recovers
+ * the scene, and with it the scene-specific event set. Custom prompts
+ * simply miss.
+ */
+export function findSceneByPrompt(prompt: string | null | undefined): Scene | null {
+  if (!prompt) return null;
+  return SCENES.find((s) => s.prompt === prompt) ?? null;
 }

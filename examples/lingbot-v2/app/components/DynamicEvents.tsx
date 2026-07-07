@@ -1,35 +1,49 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useLingbotV2,
   useLingbotV2State,
   type LingbotV2StateMessage,
 } from "@reactor-models/lingbot-v2";
-import { DYNAMIC_EVENTS } from "../lib/dynamic-events";
+import {
+  DYNAMIC_EVENTS,
+  composeEventPrompt,
+  findEventByKey,
+  type DynamicEvent,
+} from "../lib/dynamic-events";
+import { findSceneByPrompt } from "../lib/scenes";
 
-// Live-phase panel — lets the user hot-swap the world by appending a
-// preset environmental sentence to the active prompt and re-sending
-// via `set_prompt`. Lingbot picks up the new prompt on the next chunk
-// and the scene visibly shifts (rain begins, fog rolls in, etc.) —
-// no restart, no flash, the reference image stays untouched. This
-// is Lingbot's signature mid-stream prompt-swap capability put on a
-// surface a non-author can press.
+// Live-phase panel — lets the user throw transient "world events" at
+// the scene by HOLDING a key or button. Keydown hot-swaps the prompt
+// mid-stream via `set_prompt` with the event's prompt (a finished
+// rewrite applied verbatim, or the addendum composed onto the base);
+// keyup re-sends the pristine base so the scene settles back. Lingbot
+// picks up each swap on the next chunk — no restart, no flash, the
+// reference image stays untouched. This mirrors the lab runtime's
+// current interaction model (press → rewrite applied, release → direct
+// switch back to base); see app/lib/dynamic-events.ts for the full story.
+//
+// Which events show: scenes can carry their own event set (the lab
+// authors events per scene — see case3-scenes.ts), and we recover the
+// scene from the captured base prompt via exact match. Scenes without
+// one, and custom prompts, get the global fallback set.
 //
 // State model (kept deliberately small):
 //
-//   - basePromptRef holds the "scene base" — the prompt the user
-//     started the session with (or selected via the live custom-
-//     prompt path, if you add one). We capture it the first time we
-//     see a `started === true` snapshot and never overwrite it while
-//     the session runs, because the snapshot's `current_prompt` will
-//     reflect OUR composed prompts after the first event lands.
+//   - basePrompt holds the "scene base" — the prompt the user started
+//     the session with. We capture it the first time we see a
+//     `started === true` snapshot and never overwrite it while the
+//     session runs, because the snapshot's `current_prompt` will
+//     reflect OUR composed prompts after the first event lands. State
+//     (not just a ref) because the event list derives from it.
 //
-//   - activeId tracks which event is currently appended. Re-clicking
-//     the same event toggles it off (back to the base scene). Picking
-//     a different event swaps which sentence is appended. There is no
-//     stacking — each press fully determines the next prompt the
-//     model sees, which keeps the wire output unambiguous.
+//   - heldId tracks which event is currently held. One event at a
+//     time — pressing a second key while one is held swaps to it (last
+//     press wins), and releasing a key only reverts if it's the one
+//     that owns the current hold. There is no stacking — each press
+//     fully determines the next prompt the model sees, which keeps the
+//     wire output unambiguous.
 //
 // On `reset()` (snapshot.started flips back to false), or on
 // disconnect, we drop the captured base so the next session starts
@@ -37,10 +51,33 @@ import { DYNAMIC_EVENTS } from "../lib/dynamic-events";
 export function DynamicEvents() {
   const { status, setPrompt } = useLingbotV2();
   const [snapshot, setSnapshot] = useState<LingbotV2StateMessage | null>(null);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [heldId, setHeldId] = useState<string | null>(null);
+  const [basePrompt, setBasePrompt] = useState<string | null>(null);
+  // Ref mirrors for the window-level listeners and the async press/
+  // release handlers, so they see live values without re-binding on
+  // every change. Written imperatively wherever the state changes —
+  // syncing from render would lag a keyup that lands before React
+  // re-renders.
+  const heldIdRef = useRef<string | null>(null);
   const basePromptRef = useRef<string | null>(null);
+  const setHeld = useCallback((id: string | null) => {
+    heldIdRef.current = id;
+    setHeldId(id);
+  }, []);
+  const setBase = useCallback((prompt: string | null) => {
+    basePromptRef.current = prompt;
+    setBasePrompt(prompt);
+  }, []);
 
   useLingbotV2State((msg) => setSnapshot(msg));
+
+  // The active event set: the scene's own, when the captured base
+  // prompt exactly matches a curated scene that has one; otherwise the
+  // global fallback events.
+  const events = useMemo<ReadonlyArray<DynamicEvent>>(() => {
+    const scene = findSceneByPrompt(basePrompt);
+    return scene?.events?.length ? scene.events : DYNAMIC_EVENTS;
+  }, [basePrompt]);
 
   // Standard snapshot-clear on disconnect. Also drops the captured
   // base prompt so a reconnect doesn't reuse stale state from the
@@ -48,63 +85,67 @@ export function DynamicEvents() {
   useEffect(() => {
     if (status !== "ready") {
       setSnapshot(null);
-      basePromptRef.current = null;
-      setActiveId(null);
+      setBase(null);
+      setHeld(null);
     }
-  }, [status]);
+  }, [status, setBase, setHeld]);
 
   // Capture the base prompt on first "started" snapshot. We
-  // deliberately do NOT update `basePromptRef.current` again while
-  // the session is running — once the user clicks an event, the
-  // snapshot's `current_prompt` will be OUR composed prompt, and
-  // re-capturing would lock in the augmented version as the new
-  // "base", making toggle-off impossible.
+  // deliberately do NOT update it again while the session is running —
+  // once the user holds an event, the snapshot's `current_prompt` will
+  // be OUR composed prompt, and re-capturing would lock in the
+  // augmented version as the new "base", making release-to-revert
+  // impossible.
   useEffect(() => {
     if (!snapshot) return;
     if (!snapshot.started) {
       // Reset / not-yet-started — drop captured base so the next
       // `start` re-captures from the new scene.
-      basePromptRef.current = null;
-      setActiveId(null);
+      setBase(null);
+      setHeld(null);
       return;
     }
     if (
       basePromptRef.current === null &&
       typeof snapshot.current_prompt === "string"
     ) {
-      basePromptRef.current = snapshot.current_prompt;
+      setBase(snapshot.current_prompt);
     }
-  }, [snapshot]);
+  }, [snapshot, setBase, setHeld]);
 
-  // Toggle/swap an event by id — the shared path for both clicks and the
-  // number-key shortcuts. Re-selecting the active event reverts to the
-  // pristine base; selecting another swaps which sentence is appended.
-  // Memoized so the keyboard effect below keeps a stable handler and only
-  // re-binds when the active selection changes.
-  const apply = useCallback(
-    async (id: string) => {
+  // Begin holding an event — the shared path for keydown and
+  // pointerdown. Pressing while another event is held swaps to the new
+  // one (last press wins).
+  const press = useCallback(
+    async (event: DynamicEvent) => {
       const base = basePromptRef.current;
       if (!base) return;
+      if (heldIdRef.current === event.id) return;
 
-      if (activeId === id) {
-        // Toggle off — back to the pristine scene.
-        setActiveId(null);
-        await setPrompt({ prompt: base });
-        return;
-      }
-
-      const event = DYNAMIC_EVENTS.find((e) => e.id === id);
-      if (!event) return;
-      setActiveId(id);
-      await setPrompt({ prompt: `${base} ${event.text}` });
+      setHeld(event.id);
+      await setPrompt({ prompt: composeEventPrompt(base, event) });
     },
-    [activeId, setPrompt],
+    [setPrompt, setHeld],
   );
 
-  // Number keys 1–N trigger the first N events (N = DYNAMIC_EVENTS.length)
-  // with the same toggle/swap semantics as clicking. It's a discrete
-  // press, not a hold, so we drop key-repeat — otherwise holding a number
-  // would flap the event on and off on every repeat tick.
+  // Release an event — snap straight back to the pristine base (the
+  // lab's `direct_switch`). Only the event that owns the current hold
+  // may release it, so letting go of a swapped-away key is a no-op.
+  const release = useCallback(
+    async (id: string) => {
+      if (heldIdRef.current !== id) return;
+      setHeld(null);
+      const base = basePromptRef.current;
+      if (!base) return;
+      await setPrompt({ prompt: base });
+    },
+    [setPrompt, setHeld],
+  );
+
+  // Hold keys, per the active event set's slot layout (digits, F, G,
+  // O, Space) — keydown applies, keyup reverts. Key-repeat is dropped
+  // (the press is already latched). Window blur releases too, otherwise
+  // alt-tabbing away mid-hold would leave the event stuck on.
   useEffect(() => {
     const ready = status === "ready" && snapshot?.started === true;
     if (!ready) return;
@@ -121,15 +162,34 @@ export function DynamicEvents() {
       ) {
         return;
       }
-      const n = Number.parseInt(e.key, 10);
-      if (Number.isNaN(n) || n < 1 || n > DYNAMIC_EVENTS.length) return;
+      const event = findEventByKey(events, e.key);
+      if (!event) return;
       e.preventDefault();
-      void apply(DYNAMIC_EVENTS[n - 1].id);
+      void press(event);
+    };
+
+    // No typing-guard on keyup: if focus lands in a field mid-hold,
+    // the release must still get through or the event sticks.
+    const onKeyUp = (e: KeyboardEvent) => {
+      const event = findEventByKey(events, e.key);
+      if (!event) return;
+      void release(event.id);
+    };
+
+    const onBlur = () => {
+      const held = heldIdRef.current;
+      if (held) void release(held);
     };
 
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [status, snapshot?.started, apply]);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, [status, snapshot?.started, events, press, release]);
 
   if (status !== "ready" || !snapshot?.started) return null;
 
@@ -140,45 +200,50 @@ export function DynamicEvents() {
       </label>
 
       <p className="mt-1 text-[11px] leading-snug text-zinc-500">
-        Hot-swap the world. Click a button or press its number key — the model
-        picks up the fresh prompt on the next chunk. Trigger the active one
-        again to revert.
+        Hold a button or its key to throw an event at the scene — the model
+        picks up the swapped prompt on the next chunk. Release to snap back to
+        the base scene.
       </p>
 
       <div className="mt-2 grid grid-cols-2 gap-1.5">
-        {DYNAMIC_EVENTS.map((event, index) => {
-          const active = activeId === event.id;
+        {events.map((event) => {
+          const held = heldId === event.id;
           return (
             <button
               key={event.id}
-              onClick={() => apply(event.id)}
-              className={`group flex items-center gap-2 rounded-md border p-2 text-left transition-colors ${
-                active
+              onPointerDown={() => void press(event)}
+              onPointerUp={() => void release(event.id)}
+              onPointerLeave={() => void release(event.id)}
+              onPointerCancel={() => void release(event.id)}
+              className={`group flex touch-none select-none items-center gap-2 rounded-md border p-2 text-left transition-colors ${
+                held
                   ? "border-brand bg-zinc-900"
                   : "border-zinc-800 bg-zinc-950 hover:border-brand"
               }`}
-              title={event.text}
+              title={event.addendum}
             >
-              <span aria-hidden className="text-base leading-none">
-                {event.icon}
-              </span>
+              {event.icon && (
+                <span aria-hidden className="text-base leading-none">
+                  {event.icon}
+                </span>
+              )}
               <span
                 className={`text-[11px] font-medium ${
-                  active ? "text-brand" : "text-zinc-200 group-hover:text-brand"
+                  held ? "text-brand" : "text-zinc-200 group-hover:text-brand"
                 }`}
               >
                 {event.label}
               </span>
-              {index < 9 && (
+              {event.keyLabel && (
                 <kbd
                   aria-hidden
-                  className={`ml-auto rounded border px-1 font-mono text-[9px] leading-tight ${
-                    active
+                  className={`ml-auto shrink-0 rounded border px-1 font-mono text-[9px] leading-tight ${
+                    held
                       ? "border-brand/50 text-brand"
                       : "border-zinc-700 text-zinc-500"
                   }`}
                 >
-                  {index + 1}
+                  {event.keyLabel}
                 </kbd>
               )}
             </button>

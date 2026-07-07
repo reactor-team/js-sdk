@@ -468,9 +468,36 @@ The example wires window-level `keydown` / `keyup` listeners inside `MovementCon
 
 ## Hot-swapping the world via dynamic events
 
-`DynamicEvents` is the second live-phase component the app ships. Where `MovementControls` drives the _subject_ via the typed movement / look methods, `DynamicEvents` mutates the _world_ via curated `setPrompt` hot-swaps. One click sends a new prompt — the model picks it up on the next chunk and the scene visibly shifts (rain begins, fog rolls in, night falls) without restarting or losing the reference image.
+`DynamicEvents` is the second live-phase component the app ships. Where `MovementControls` drives the _subject_ via the typed movement / look methods, `DynamicEvents` mutates the _world_ via curated `setPrompt` hot-swaps. The interaction is **hold-to-apply**: pressing a key (or holding a button) sends the composed event prompt, and releasing re-sends the pristine base — the event lasts exactly as long as the hold. The model picks each swap up on the next chunk and the scene visibly shifts (fog rolls in, the subject jumps) without restarting or losing the reference image.
 
-This is Lingbot 2's signature mid-stream prompt-swap capability put on a surface a non-author can press. Mid-stream `setPrompt` is fully supported by the model — the reference image stays, only the prose changes.
+This is Lingbot 2's signature mid-stream prompt-swap capability put on a surface a non-author can press, and it mirrors the lab runtime's own event model: there, a key press routes the event's addendum through a prompt rewriter and applies the result (`rewrite_applied` in the lab's exported timelines), and the release direct-switches straight back to the base prompt (`direct_switch`). Mid-stream `setPrompt` is fully supported by the model — the reference image stays, only the prose changes.
+
+### Which events show — scene-specific sets
+
+The lab authors events per scene (a zombie belongs in the hospital corridor, not on the jet ski), so `Scene` carries an optional `events` list and the panel prefers it. The 22 case3-imported scenes ([`app/lib/case3-scenes.ts`](../app/lib/case3-scenes.ts), generated from the lab export) all ship one, on the lab's slot layout: number keys for scene events, `F`/`G` for paired state or atmosphere flips, `O` for attacks, `Space` for jump. Slots with several candidates (`f#0`, `f#1`, …) give the key to the first; the rest are button-only.
+
+The panel recovers the scene from the captured base prompt via exact match (`findSceneByPrompt`) — curated prompts are used verbatim, so this is reliable; custom prompts simply miss and get the global fallback set in [`app/lib/dynamic-events.ts`](../app/lib/dynamic-events.ts).
+
+### Composition — three prompt paths
+
+`composeEventPrompt` picks the highest-fidelity prompt available for a held event:
+
+```ts
+export function composeEventPrompt(base: string, event: DynamicEvent): string {
+  if (event.finalPrompt) return event.finalPrompt;
+  const first = event.addendum.charAt(0);
+  if (first >= "a" && first <= "z") {
+    return `${base} And suddenly, ${event.addendum}`;
+  }
+  return `${base} ${event.addendum}`;
+}
+```
+
+1. **`finalPrompt` — verbatim.** The lab's finished rewrites (`prompt_final: true` in its actions) already restate the whole scene plus the event as one narrative; composing would double the base. This is the validated, highest-fidelity form — prefer authoring it when you can.
+2. **Connective clause — `"And suddenly,"`.** Addenda authored for the connective (lowercase start, like the global fallback events) get the deterministic stand-in for the lab's LLM rewrite. The connective is load-bearing: it tells the model this is an onset layered onto the established scene, not a replacement scene.
+3. **Raw addendum — plain concat.** Everything else (the lab's raw addenda — full sentences or Chinese text) uses the lab's own pre-rewrite concatenation format, `base + " " + addendum`.
+
+If you have a server route to spare, replacing paths 2–3 with a real LLM rewrite (restate the base in "The video presents…" register, then the onset) is the natural upgrade.
 
 ### The base-prompt capture pattern
 
@@ -485,7 +512,7 @@ useEffect(() => {
     // Reset / not-yet-started — drop captured base so the next
     // `start` re-captures from the new scene.
     basePromptRef.current = null;
-    setActiveId(null);
+    setHeldId(null);
     return;
   }
   if (
@@ -497,34 +524,43 @@ useEffect(() => {
 }, [snapshot]);
 ```
 
-The very first `state` snapshot with `started === true` carries the prompt the user picked (or typed). We stash it in a ref. **From then on, the snapshot's `current_prompt` will reflect OUR composed prompts** (`base + " " + event.text`) once the user clicks an event — so re-capturing on every snapshot would lock in the augmented version as the new "base" and toggle-off would become impossible.
+The very first `state` snapshot with `started === true` carries the prompt the user picked (or typed). We stash it in a ref. **From then on, the snapshot's `current_prompt` will reflect OUR composed prompts** (`composeEventPrompt(base, event)`) once the user holds an event — so re-capturing on every snapshot would lock in the augmented version as the new "base" and release-to-revert would become impossible.
 
 The ref clears on `started: false` (reset) and on disconnect, so the next session re-captures from a clean slate. Apply the same pattern any time you want a "stable scene" anchor across mid-stream prompt changes.
 
-### Single-active toggle, not stacking
+### Hold semantics — single hold, release reverts
 
-`DynamicEvents` is deliberately **single-active**: clicking event A sends `base + " " + A.text`; clicking event B sends `base + " " + B.text` (replacing A); clicking A again sends just `base` (toggle off).
+`DynamicEvents` tracks one held event at a time: keydown / pointerdown on A sends A's composed prompt; pressing B while A is held swaps to B (last press wins); releasing the key that owns the hold sends the pristine `base` — releasing a swapped-away key is a no-op. The base prompt is the resting state; an event is transient by construction.
 
-The alternative — stacking events so multiple are appended at once — is more flexible but produces ambiguous prompts and visibly worse output: the model has to reconcile competing instructions ("rain begins" + "night falls" + "fog rolls in") and the result tends to collapse to one of them. Stick with single-active unless you have prose specifically written to compose.
+Three release-path details that matter in practice:
+
+1. **Revert with the captured base verbatim** — that's the direct-switch equivalent, and the model settles back fastest when the resting prompt is byte-identical to what it started with.
+2. **Release on `window` blur too.** Alt-tabbing away mid-hold eats the keyup, and without a blur handler the event sticks on forever.
+3. **No typing-guard on keyup.** Keydown ignores keys landing in inputs (standard), but if focus moves into a field mid-hold, the release must still get through.
+
+Stacking (multiple events applied at once) is deliberately not supported — the model has to reconcile competing instructions ("storm" + "night" + "fog") and the result tends to collapse to one of them. One held event fully determines the next prompt the model sees.
 
 ### Adding a new world event
 
-One entry in [`app/lib/dynamic-events.ts`](../app/lib/dynamic-events.ts), no component changes. The library is a flat list; the component iterates it.
+One entry, no component changes — in a scene's `events` list for a scene-specific event, or in [`app/lib/dynamic-events.ts`](../app/lib/dynamic-events.ts) for the global fallback set. The component iterates whichever list is active.
 
 ```ts
 {
   id: "dust_storm",
   label: "Dust storm",
   icon: "🌪️",
-  text: "A churning dust storm sweeps across the scene, ochre haze swallowing the horizon and grit streaming sideways through the air, every silhouette softened into a tawny silhouette.",
+  key: "5",
+  keyLabel: "5",
+  addendum:
+    "a churning dust storm sweeps across the scene, ochre haze swallowing the horizon and grit streaming sideways through the air.",
 }
 ```
 
 Three authoring rules (the file's comment block has them too):
 
-1. **One sentence per event.** Anything longer competes with the starting prompt and produces garbled output.
-2. **Describe atmosphere, not the subject.** The base prompt already framed the subject and the camera; world events stay in the environmental layer (weather, light, sky, time-of-day) so they slot onto any starting scene without contradicting it.
-3. **Present continuous voice** ("rain begins to fall…"), matching the starting prompts.
+1. **One clause per event, written to follow "And suddenly,"** — lowercase start, present tense. Anything longer competes with the starting prompt and produces garbled output.
+2. **Describe an onset, not a state.** "a thick fog rolls in" gives the model a change to perform; "the scene is foggy" fights the base prompt's established description.
+3. **Stay off the subject and camera** — except deliberate subject actions like the built-in space-bar `jump`, which uses the lab's own addendum verbatim ("the current controllable subject springs upward into the air."). Environmental events stay in the weather / light / sky layer so they slot onto any starting scene without contradicting it.
 
 ### Extending the pattern beyond curated events
 
@@ -572,7 +608,7 @@ The lab scene prompts describe a stationary world — the subject is "locked at 
 
 The fix is to make both channels tell the same story, in the lab prompts' own vocabulary. Every move carries a `promptHint` — one sentence stating that the CAMERA performs the move while the subject "stays perfectly still" ("The camera orbits steadily around the subject, which stays perfectly still at the exact centre of the frame at constant size and distance as the viewpoint circles it"). On activation, `CameraPose` composes the hint onto the current prompt via `set_prompt`; on release (toggle-off, cancel, or one-shot completion) it strips the hint again. The strip is by verbatim sentence (`stripCameraPromptHints`), which keeps the coupling stateless — no captured base prompt to desync, and switching moves can never stack hints.
 
-Known limitation, accepted deliberately: `DynamicEvents` rebuilds the prompt entirely from its own captured base, so clicking a world event mid-move drops the camera hint. The pose layer keeps running — the move just loses its text reinforcement until re-activated. Coordinating the two surfaces through a shared prompt-composition store would fix it and is not worth the complexity in an example app.
+Known limitation, accepted deliberately: `DynamicEvents` rebuilds the prompt entirely from its own captured base, so holding a world event mid-move drops the camera hint (and releasing it drops the hint again if the move re-composed it in between). The pose layer keeps running — the move just loses its text reinforcement until re-activated. Coordinating the two surfaces through a shared prompt-composition store would fix it and is not worth the complexity in an example app.
 
 ### Calibrating the axes — before trusting any preset
 
@@ -738,7 +774,7 @@ Reach for actual `@reactor-team/ui` components only when you need their behavior
 11. **Keyboard listeners that hijack typing in textareas.** Always early-return when `e.target` is an `INPUT` / `TEXTAREA` / contentEditable.
 12. **Single-line prompts.** The model needs paragraph-length prompts with explicit camera framing. Short prompts produce choppy output and ambiguous look-input handling.
 13. **Forgetting `preventDefault()` on arrow keys.** Otherwise the page scrolls every time the user looks around.
-14. **Re-capturing the base prompt on every snapshot.** When you build a component that composes prompts on top of the active scene (like `DynamicEvents`), capture the base prompt ONCE on the first `started` snapshot. The snapshot's `current_prompt` reflects your composed prompt after the first send, so re-capturing locks in the augmented version and breaks toggle-off / revert behaviour. Drop the captured base on `started: false` so the next session re-captures.
+14. **Re-capturing the base prompt on every snapshot.** When you build a component that composes prompts on top of the active scene (like `DynamicEvents`), capture the base prompt ONCE on the first `started` snapshot. The snapshot's `current_prompt` reflects your composed prompt after the first send, so re-capturing locks in the augmented version and breaks release-to-revert behaviour. Drop the captured base on `started: false` so the next session re-captures.
 15. **Folding the two movement axes into one variable.** `move_longitudinal` and `move_lateral` are independent model fields — one shared "movement" state makes W+A impossible and sends spurious `idle`s to the axis you didn't touch. One press-state variable and one release handler per axis.
 16. **Leaving a camera pose active and wondering why look-input died.** An active `camera_pose` rotation overrides the look axes by design. Deactivate with an empty list, and mirror `snapshot.camera_pose_active` in the UI so the state is visible.
 
