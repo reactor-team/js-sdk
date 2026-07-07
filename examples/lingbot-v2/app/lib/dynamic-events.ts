@@ -1,10 +1,10 @@
 // Curated "world events" the user can throw at the live scene.
 //
 // DYNAMIC_EVENTS below is the FALLBACK set — scenes can carry their own
-// event list (`Scene.events`, see case3-scenes.ts for the lab-imported
-// ones), and the panel prefers that when present. These four weather
-// events plus jump serve scenes without one: the original curated
-// scenes and anything the user starts from a custom prompt.
+// event list (`Scene.events`, e.g. the featured Paraglider), and the
+// panel prefers that when present. These four weather events plus jump
+// serve scenes without one: the curated scenes and anything the user
+// starts from a custom prompt.
 //
 // Each entry is a sudden happening ("fog rolls in", "the subject
 // leaps") the user applies by HOLDING a key or button. While held, the
@@ -15,7 +15,7 @@
 // image stays put.
 //
 // COMPOSITION — why "And suddenly," and not plain concatenation:
-// This mirrors the lab's current eval runtime (the case3 export). There,
+// This mirrors the lab's current eval runtime. There,
 // every applied event prompt is a single narrative: the base scene
 // restated, then "And suddenly, <event>". Events authored as bare
 // addenda get LLM-rewritten into that shape before they hit the model

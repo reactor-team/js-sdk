@@ -25,9 +25,9 @@ import { findSceneByPrompt } from "../lib/scenes";
 // switch back to base); see app/lib/dynamic-events.ts for the full story.
 //
 // Which events show: scenes can carry their own event set (the lab
-// authors events per scene — see case3-scenes.ts), and we recover the
-// scene from the captured base prompt via exact match. Scenes without
-// one, and custom prompts, get the global fallback set.
+// authors events per scene — see `Scene.events` in lib/scenes.ts), and
+// we recover the scene from the captured base prompt via exact match.
+// Scenes without one, and custom prompts, get the global fallback set.
 //
 // State model (kept deliberately small):
 //

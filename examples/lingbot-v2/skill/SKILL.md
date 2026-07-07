@@ -474,7 +474,7 @@ This is Lingbot 2's signature mid-stream prompt-swap capability put on a surface
 
 ### Which events show — scene-specific sets
 
-The lab authors events per scene (a zombie belongs in the hospital corridor, not on the jet ski), so `Scene` carries an optional `events` list and the panel prefers it. The 22 case3-imported scenes ([`app/lib/case3-scenes.ts`](../app/lib/case3-scenes.ts), generated from the lab export) all ship one, on the lab's slot layout: number keys for scene events, `F`/`G` for paired state or atmosphere flips, `O` for attacks, `Space` for jump. Slots with several candidates (`f#0`, `f#1`, …) give the key to the first; the rest are button-only.
+The lab authors events per scene (an eagle belongs over the paraglider's valley, not in a rain alley), so `Scene` carries an optional `events` list and the panel prefers it when present. The featured Paraglider ([`app/lib/scenes.ts`](../app/lib/scenes.ts)) ships one, on the lab's slot layout: `F` / `G` for atmosphere or state flips and `Space` for jump (the lab also uses number keys for scene-specific events and `O` for attacks). Where the lab ships several candidates per slot (`f#0`, `f#1`, …) only the first gets the key; the rest are button-only.
 
 The panel recovers the scene from the captured base prompt via exact match (`findSceneByPrompt`) — curated prompts are used verbatim, so this is reliable; custom prompts simply miss and get the global fallback set in [`app/lib/dynamic-events.ts`](../app/lib/dynamic-events.ts).
 

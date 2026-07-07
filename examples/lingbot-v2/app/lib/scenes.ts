@@ -10,15 +10,15 @@
 // `prompt` is its base prompt copied verbatim. Only the `label` /
 // `description` are ours, for the picker. Two batches ship:
 //
-//   - CURATED_SCENES below (case1 + case2): every one a fixed-viewpoint
-//     (look-only) case — the scene and camera are still, arrow-key
-//     look-input pans or orbits only while held, and the WASD movement
-//     axes have no effect. No per-scene events; the DynamicEvents panel
-//     falls back to the global set.
+//   - FEATURED_SCENES: the Paraglider, shown first. It carries its own
+//     lab-authored event set (see `Scene.events`), so the DynamicEvents
+//     panel shows those instead of the global fallback.
 //
-//   - CASE3_SCENES (generated, see case3-scenes.ts): the full unpruned
-//     case3 export, each with its own lab-authored event set. Mixed
-//     viewpoints — several are moving-subject or traversal scenes.
+//   - CURATED_SCENES (case1 + case2): each a fixed-viewpoint (look-only)
+//     case — the scene and camera are still, arrow-key look-input pans
+//     or orbits only while held, and the WASD movement axes have no
+//     effect. No per-scene events; the DynamicEvents panel falls back to
+//     the global set.
 //
 // PROMPT STYLE — why most prompts are a full paragraph, not a tagline:
 // Lingbot 2 produces dramatically more coherent scenes when a prompt
@@ -27,7 +27,6 @@
 // reinvent everything each chunk, which reads as instability.
 
 import type { DynamicEvent } from "./dynamic-events";
-import { CASE3_SCENES } from "./case3-scenes";
 
 export interface Scene {
   id: string;
@@ -37,7 +36,7 @@ export interface Scene {
   prompt: string;
   /**
    * Scene-specific world events (the lab authors events per scene —
-   * a zombie belongs in the hospital corridor, not on the jet ski).
+   * an eagle belongs over the paraglider's valley, not in a rain alley).
    * When present, the DynamicEvents panel shows these instead of the
    * global fallback set in dynamic-events.ts.
    */
@@ -117,11 +116,10 @@ const CURATED_SCENES: ReadonlyArray<Scene> = [
   },
 ];
 
-/** Featured scene(s) first, then the curated batch, then the case3 import. */
+/** Featured scene(s) first, then the curated batch. */
 export const SCENES: ReadonlyArray<Scene> = [
   ...FEATURED_SCENES,
   ...CURATED_SCENES,
-  ...CASE3_SCENES,
 ];
 
 /** Look up a scene by id. */
