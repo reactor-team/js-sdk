@@ -2,7 +2,11 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { ReactorProvider, ReactorView, useReactor } from "@reactor-team/js-sdk";
+import {
+  LingbotWorld2MainVideoView,
+  LingbotWorld2Provider,
+  useLingbotWorld2,
+} from "@reactor-models/lingbot-world-2";
 import { Logo, Nav } from "@reactor-team/ui";
 import { Button } from "@/components/ui/button";
 import { LingbotWorldController } from "@/components/lingbot-world-fast-v1/LingbotWorldController";
@@ -14,12 +18,7 @@ const AUTO_DISCONNECT_MS = 10 * 60 * 1000;
 const API_KEY_STORAGE = "reactor_api_key";
 
 function StatusBar() {
-  const { status, connect, disconnect, sendCommand } = useReactor((state) => ({
-    status: state.status,
-    connect: state.connect,
-    disconnect: state.disconnect,
-    sendCommand: state.sendCommand,
-  }));
+  const { status, connect, disconnect, reset } = useLingbotWorld2();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -67,7 +66,7 @@ function StatusBar() {
           </Button>
         )}
         {status === "ready" && (
-          <Button size="xs" variant="secondary" onClick={() => sendCommand("reset", {}).catch(console.error)}
+          <Button size="xs" variant="secondary" onClick={() => reset().catch(console.error)}
             className="h-7 px-3 font-mono text-xs bg-red-500/15 border-red-500/20 hover:bg-red-500/25 text-red-400">
             Reset
           </Button>
@@ -94,8 +93,7 @@ function MainContent() {
           {/* Video + controls — stacked in the right column */}
           <div className="order-1 flex min-w-0 flex-col gap-4 lg:order-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
             <div className="relative bg-black rounded-xl overflow-hidden border border-white/[0.08] aspect-video">
-              <ReactorView
-                track="main_video"
+              <LingbotWorld2MainVideoView
                 videoObjectFit="contain"
                 style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
               />
@@ -131,9 +129,8 @@ function AppShell({
   const apiUrl = endpoint.local ? localUrl : endpoint.url;
 
   return (
-    <ReactorProvider
+    <LingbotWorld2Provider
       key={`${apiUrl}|${endpoint.local}`}
-      modelName="lingbot-world-2"
       apiUrl={apiUrl}
       local={endpoint.local}
       jwtToken={jwtToken}
@@ -170,7 +167,7 @@ function AppShell({
       </div>
 
       <MainContent />
-    </ReactorProvider>
+    </LingbotWorld2Provider>
   );
 }
 

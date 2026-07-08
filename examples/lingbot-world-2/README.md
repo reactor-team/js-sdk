@@ -5,8 +5,12 @@ image-to-video model on Reactor. Pick or upload a starting image,
 write a prompt, then steer the generated world with WASD movement and
 IJKL camera-rotation controls.
 
-This frontend talks to the LingBot model through the Reactor JS SDK
-([`@reactor-team/js-sdk`](https://www.npmjs.com/package/@reactor-team/js-sdk)).
+This frontend talks to the LingBot model through the strongly-typed
+LingBot World 2 SDK
+([`@reactor-models/lingbot-world-2`](https://www.npmjs.com/package/@reactor-models/lingbot-world-2)),
+which wraps the base Reactor JS SDK
+([`@reactor-team/js-sdk`](https://www.npmjs.com/package/@reactor-team/js-sdk))
+with typed commands, message hooks, and the `main_video` track view.
 
 ## Getting Started
 

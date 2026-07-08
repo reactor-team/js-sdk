@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useReactor, useReactorMessage } from "@reactor-team/js-sdk";
+import {
+  useLingbotWorld2,
+  useLingbotWorld2Message,
+  type LingbotWorld2Message,
+} from "@reactor-models/lingbot-world-2";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -417,13 +421,14 @@ function HoldChip({
 }
 
 export function LingbotWorldController({ className }: { className?: string }) {
-  const { status, sendCommand, uploadFile } = useReactor(
-    (s) => ({
-      status: s.status,
-      sendCommand: s.sendCommand,
-      uploadFile: s.uploadFile,
-    }),
-  );
+  // Typed LingBot World 2 surface. The setter methods (lw2.setPrompt, …) are
+  // per-render wrappers around the store's stable `sendCommand`, so callbacks
+  // keep `sendCommand` as their dependency anchor — a stale `lw2` closure
+  // still drives the same underlying store. Raw `sendCommand` remains in use
+  // only for the commands the published schema doesn't declare yet
+  // (set_kv_cache_reset, trigger_kv_cache_reset).
+  const lw2 = useLingbotWorld2();
+  const { status, sendCommand, uploadFile } = lw2;
 
   const isReady = status === "ready";
 
@@ -741,7 +746,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
     if (next === lastSentPromptRef.current) return;
     lastSentPromptRef.current = next;
     if (isReadyRef.current) {
-      sendCommand("set_prompt", { prompt: next }).catch(console.error);
+      lw2.setPrompt({ prompt: next }).catch(console.error);
     }
   }, [sendCommand]);
   // Ref indirection so the per-chunk message handler can drop the jump
@@ -751,43 +756,44 @@ export function LingbotWorldController({ className }: { className?: string }) {
 
   // ---- Messages from backend ----
 
-  useReactorMessage((raw) => {
-    const msg = raw as { type: string; data?: Record<string, unknown> };
+  useLingbotWorld2Message((raw) => {
+    // The published schema (0.2.5) doesn't declare `workers_ready` yet, so
+    // widen the union locally; every other branch narrows to its typed shape.
+    const msg = raw as
+      | LingbotWorld2Message
+      | { type: "workers_ready"; tsp_size?: number };
     if (!msg?.type) return;
     switch (msg.type) {
       case "workers_ready":
-        setTspSize((msg.data?.tsp_size as number) ?? null);
+        setTspSize(msg.tsp_size ?? null);
         break;
       case "prompt_accepted":
         setHasPrompt(true);
         break;
       case "image_accepted":
         setHasImage(true);
-        setImageInfo({
-          w: (msg.data?.width as number) ?? 0,
-          h: (msg.data?.height as number) ?? 0,
-        });
+        setImageInfo({ w: msg.width, h: msg.height });
         break;
       case "conditions_ready":
-        setHasPrompt(Boolean(msg.data?.has_prompt));
-        setHasImage(Boolean(msg.data?.has_image));
+        setHasPrompt(msg.has_prompt);
+        setHasImage(msg.has_image);
         break;
       case "state":
-        setHasPrompt(Boolean(msg.data?.has_prompt));
-        setHasImage(Boolean(msg.data?.has_image));
-        setIsGenerating(Boolean(msg.data?.running && msg.data?.started));
-        setIsPaused(Boolean(msg.data?.paused));
-        setCameraPoseActive(Boolean(msg.data?.camera_pose_active));
+        setHasPrompt(msg.has_prompt);
+        setHasImage(msg.has_image);
+        setIsGenerating(msg.running && msg.started);
+        setIsPaused(msg.paused);
+        setCameraPoseActive(msg.camera_pose_active);
         break;
       case "generation_started":
         setIsGenerating(true);
         setIsPaused(false);
-        setChunkNum((msg.data?.chunk_num as number) ?? 0);
+        setChunkNum(msg.chunk_num);
         setChunkIndex(0);
         break;
       case "chunk_complete":
-        setChunkIndex((msg.data?.chunk_index as number) ?? 0);
-        setActiveAction((msg.data?.active_action as string) ?? "still");
+        setChunkIndex(msg.chunk_index);
+        setActiveAction(msg.active_action || "still");
         // The crouch dips each last a single chunk. When the release dip ends,
         // drop the "stands up" line too.
         crouchPressDipRef.current = false;
@@ -846,12 +852,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
         }
         setPendingImage(null);
         break;
-      case "command_error": {
-        const cmd = (msg.data?.command as string) ?? "?";
-        const reason = (msg.data?.reason as string) ?? "unknown error";
-        setErrorToast(`${cmd}: ${reason}`);
+      case "command_error":
+        setErrorToast(`${msg.command || "?"}: ${msg.reason || "unknown error"}`);
         break;
-      }
     }
   });
 
@@ -918,7 +921,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
 
   // Sync initial rotation speed to backend on connect
   useEffect(() => {
-    if (isReady) sendCommand("set_rotation_speed_deg", { rotation_speed_deg: rotationSpeed }).catch(console.error);
+    if (isReady) lw2.setRotationSpeedDeg({ rotation_speed_deg: rotationSpeed }).catch(console.error);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady]);
 
@@ -926,7 +929,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
   // so a fresh session reflects the UI state rather than only the config default.
   useEffect(() => {
     if (!isReady) return;
-    sendCommand("set_attn_window", { attn_window: attnWindow }).catch(console.error);
+    lw2.setAttnWindow({ attn_window: attnWindow }).catch(console.error);
     sendCommand("set_kv_cache_reset", { mode: kvCacheResetMode }).catch(console.error);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady]);
@@ -960,7 +963,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
       || rollDirRef.current !== 0 || joyActive || jumpMoving || arrowLooking;
     if (!active) {
       if (poseSentActiveRef.current) {
-        sendCommand("set_camera_pose", { camera_pose: [] }).catch(console.error);
+        lw2.setCameraPose({ camera_pose: [] }).catch(console.error);
         poseSentActiveRef.current = false;
       }
       pendingDYawRef.current = 0;
@@ -1009,7 +1012,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
       const crouchTy = crouchDip ? crouchDip[j] * CROUCH_DIP * JUMP_UP_SIGN : uniformCrouchTy;
       camera_pose.push(rx, ry, rz, tx, jumpTy + crouchTy, tz);
     }
-    sendCommand("set_camera_pose", { camera_pose }).catch(console.error);
+    lw2.setCameraPose({ camera_pose }).catch(console.error);
     poseSentActiveRef.current = true;
   }, [sendCommand]);
   useEffect(() => { sendCameraPoseChunkRef.current = sendCameraPoseChunk; }, [sendCameraPoseChunk]);
@@ -1266,14 +1269,14 @@ export function LingbotWorldController({ className }: { className?: string }) {
     setMoveL(next);
     if (lastSentMoveLRef.current === next) return;
     lastSentMoveLRef.current = next;
-    if (isReadyRef.current) sendCommand("set_move_longitudinal", { move_longitudinal: next }).catch(console.error);
+    if (isReadyRef.current) lw2.setMoveLongitudinal({ move_longitudinal: next }).catch(console.error);
   }, [sendCommand]);
 
   const pushMoveLat = useCallback((next: MoveLat) => {
     setMoveLat(next);
     if (lastSentMoveLatRef.current === next) return;
     lastSentMoveLatRef.current = next;
-    if (isReadyRef.current) sendCommand("set_move_lateral", { move_lateral: next }).catch(console.error);
+    if (isReadyRef.current) lw2.setMoveLateral({ move_lateral: next }).catch(console.error);
   }, [sendCommand]);
 
   const pushLookH = useCallback((next: LookH) => {
@@ -1569,7 +1572,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
     setIsUploading(true);
     try {
       const ref = await uploadFile(pendingImage.file);
-      await sendCommand("set_image", { image: ref });
+      await lw2.setImage({ image: ref });
       setSentImagePreview(pendingImage.previewUrl);
       setHasImage(true);
       setPendingImage((p) =>
@@ -1614,7 +1617,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
 
       // If currently generating or paused, reset first so the new example starts clean
       if (isGenerating || isPaused) {
-        sendCommand("reset", {}).catch(console.error);
+        lw2.reset().catch(console.error);
         setIsGenerating(false);
         setIsPaused(false);
         setHasPrompt(false);
@@ -1636,7 +1639,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
         const blob = await res.blob();
         const file = new File([blob], `${ex.id}.jpg`, { type: blob.type || "image/jpeg" });
         const ref = await uploadFile(file);
-        await sendCommand("set_image", { image: ref });
+        await lw2.setImage({ image: ref });
         setSentImagePreview(ex.image.src);
         setHasImage(true);
 
@@ -1652,7 +1655,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
           basePromptRef.current = "";
           lastSentPromptRef.current = p;
           setPrompt(p);
-          await sendCommand("set_prompt", { prompt: p });
+          await lw2.setPrompt({ prompt: p });
           setHasPrompt(true);
         } else if (ex.pinnedPrompts.length > 0) {
           const p = ex.pinnedPrompts[0].prompt.trim();
@@ -1663,14 +1666,14 @@ export function LingbotWorldController({ className }: { className?: string }) {
             basePromptRef.current = p;
             lastSentPromptRef.current = p;
             setPrompt(p);
-            await sendCommand("set_prompt", { prompt: p });
+            await lw2.setPrompt({ prompt: p });
             setHasPrompt(true);
           }
         }
 
         // Auto-start after a short delay to let the backend process
         await new Promise((r) => setTimeout(r, 1500));
-        await sendCommand("start", {});
+        await lw2.start();
         setIsGenerating(true);
       } catch (err) {
         console.error(err);
@@ -1701,7 +1704,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
   }, [canStart, isReady, isGenerating, hasPrompt, hasImage]);
 
   const sendLifecycle = (cmd: "start" | "pause" | "resume" | "reset") => {
-    sendCommand(cmd, {}).catch((err) => console.error(err));
+    lw2[cmd]().catch((err) => console.error(err));
     if (cmd === "start") setIsGenerating(true);
     if (cmd === "pause") setIsPaused(true);
     if (cmd === "resume") setIsPaused(false);
@@ -1716,19 +1719,19 @@ export function LingbotWorldController({ className }: { className?: string }) {
 
   const pushRotationSpeed = (v: number) => {
     setRotationSpeed(v);
-    if (isReady) sendCommand("set_rotation_speed_deg", { rotation_speed_deg: v }).catch(console.error);
+    if (isReady) lw2.setRotationSpeedDeg({ rotation_speed_deg: v }).catch(console.error);
   };
 
   const pushSeed = (v: number) => {
     setSeed(v);
-    if (isReady) sendCommand("set_seed", { seed: v }).catch(console.error);
+    if (isReady) lw2.setSeed({ seed: v }).catch(console.error);
   };
 
   // DiT attention-window selector (auto / small / large).
   const pushAttnWindow = (w: AttnWindow) => {
     if (attnWindow === w) return;
     setAttnWindow(w);
-    if (isReady) sendCommand("set_attn_window", { attn_window: w }).catch(console.error);
+    if (isReady) lw2.setAttnWindow({ attn_window: w }).catch(console.error);
   };
 
   // KV-cache / RoPE reset mode selector (off / auto / manual).
@@ -1911,7 +1914,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
       clearActiveWorld();
 
       if (isGenerating || isPaused) {
-        sendCommand("reset", {}).catch(console.error);
+        lw2.reset().catch(console.error);
         setIsGenerating(false);
         setIsPaused(false);
         setHasPrompt(false);
@@ -1927,7 +1930,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
         // assume the previously-sent image is still in place.
         if (pendingImage) {
           const ref = await uploadFile(pendingImage.file);
-          await sendCommand("set_image", { image: ref });
+          await lw2.setImage({ image: ref });
           setSentImagePreview(pendingImage.previewUrl);
           setHasImage(true);
           // Don't revoke pendingImage.previewUrl — we just promoted it
@@ -1942,11 +1945,11 @@ export function LingbotWorldController({ className }: { className?: string }) {
         basePromptRef.current = "";
         lastSentPromptRef.current = composed;
         setPrompt(composed);
-        await sendCommand("set_prompt", { prompt: composed });
+        await lw2.setPrompt({ prompt: composed });
         setHasPrompt(true);
 
         await new Promise((r) => setTimeout(r, 1500));
-        await sendCommand("start", {});
+        await lw2.start();
         setIsGenerating(true);
       } catch (err) {
         console.error(err);
@@ -2056,7 +2059,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
       setActiveExampleId(null);
 
       if (isGenerating || isPaused) {
-        sendCommand("reset", {}).catch(console.error);
+        lw2.reset().catch(console.error);
         setIsGenerating(false);
         setIsPaused(false);
         setHasPrompt(false);
@@ -2078,11 +2081,11 @@ export function LingbotWorldController({ className }: { className?: string }) {
             type: blob.type || "image/jpeg",
           });
           const ref = await uploadFile(file);
-          await sendCommand("set_image", { image: ref });
+          await lw2.setImage({ image: ref });
           setSentImagePreview(world.image.src);
         } else if (pendingImage) {
           const ref = await uploadFile(pendingImage.file);
-          await sendCommand("set_image", { image: ref });
+          await lw2.setImage({ image: ref });
           setSentImagePreview(pendingImage.previewUrl);
           // previewUrl was promoted to sentImagePreview — don't revoke it.
           setPendingImage(null);
@@ -2102,11 +2105,11 @@ export function LingbotWorldController({ className }: { className?: string }) {
         basePromptRef.current = "";
         lastSentPromptRef.current = p;
         setPrompt(p);
-        await sendCommand("set_prompt", { prompt: p });
+        await lw2.setPrompt({ prompt: p });
         setHasPrompt(true);
 
         await new Promise((r) => setTimeout(r, 1500));
-        await sendCommand("start", {});
+        await lw2.start();
         setIsGenerating(true);
       } catch (err) {
         console.error(err);
