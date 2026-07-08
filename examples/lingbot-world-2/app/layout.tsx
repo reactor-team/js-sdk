@@ -1,23 +1,19 @@
 import type { Metadata } from "next";
-import "@reactor-team/ui/styles.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "LingBot World 2 Interactive",
-  description:
-    "Real-time interactive world model with Reactor + LingBot World 2 — drive a scene with WASD",
+  title: "LingBot World",
+  description: "Steer a generated world with WASD + arrows from a starting image and prompt.",
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-zinc-950 text-zinc-100 antialiased">
-        {children}
-      </body>
+      <body className="antialiased font-sans">{children}</body>
     </html>
   );
 }
