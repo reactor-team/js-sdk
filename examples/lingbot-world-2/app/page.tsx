@@ -1,34 +1,22 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
+import { useState, useEffect } from "react";
 import {
   LingbotWorld2MainVideoView,
   LingbotWorld2Provider,
   useLingbotWorld2,
 } from "@reactor-models/lingbot-world-2";
-import { Logo, Nav } from "@reactor-team/ui";
 import { Button } from "@/components/ui/button";
-import { LingbotWorldController } from "@/components/lingbot-world-fast-v1/LingbotWorldController";
-import { PasscodeGate } from "@/components/PasscodeGate";
-import { Settings } from "@/components/Settings";
-import { DEFAULT_LOCAL_URL, getDefaultEndpoint, type Endpoint } from "@/lib/endpoints";
+import { Header } from "@/components/Header";
+import { LingbotWorldController } from "@/components/lingbot-world-2/LingbotWorldController";
 
-const AUTO_DISCONNECT_MS = 10 * 60 * 1000;
-const API_KEY_STORAGE = "reactor_api_key";
+// Reactor coordinator the SDK connects to. Override with
+// NEXT_PUBLIC_COORDINATOR_URL in .env.local if you need a different one.
+const API_URL =
+  process.env.NEXT_PUBLIC_COORDINATOR_URL ?? "https://api.reactor.inc";
 
 function StatusBar() {
   const { status, connect, disconnect, reset } = useLingbotWorld2();
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (status === "ready") {
-      timerRef.current = setTimeout(() => disconnect(), AUTO_DISCONNECT_MS);
-    }
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [status, disconnect]);
 
   const dotColor =
     status === "ready" ? "#4ade80" :
@@ -109,138 +97,77 @@ function MainContent() {
   );
 }
 
-function AppShell({
-  jwtToken,
-  endpoint,
-  onEndpointChange,
-  localUrl,
-  onLocalUrlChange,
-  apiKey,
-  onApiKeyChange,
-}: {
-  jwtToken: string | undefined;
-  endpoint: Endpoint;
-  onEndpointChange: (endpoint: Endpoint) => void;
-  localUrl: string;
-  onLocalUrlChange: (url: string) => void;
-  apiKey: string;
-  onApiKeyChange: (key: string) => void;
-}) {
-  const apiUrl = endpoint.local ? localUrl : endpoint.url;
-
+function CenteredNotice({ children }: { children: React.ReactNode }) {
   return (
-    <LingbotWorld2Provider
-      key={`${apiUrl}|${endpoint.local}`}
-      apiUrl={apiUrl}
-      local={endpoint.local}
-      jwtToken={jwtToken}
-      connectOptions={{ autoConnect: true }}
-    >
-      <div className="relative z-10 px-4 sm:px-6 py-3 shrink-0">
-        <Nav
-          className="demos-nav"
-          logo={
-            <Link href="/" className="flex items-center gap-2 text-white/50 hover:text-white/80 transition-colors">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M9 2L4 7L9 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <span className="font-mono text-xs tracking-widest uppercase">Live Demos</span>
-            </Link>
-          }
-          action={<Logo variant="symbol" color="white" height={18} />}
-        />
+    <div className="relative z-10 flex flex-1 items-center justify-center px-6">
+      <div className="max-w-md rounded-xl border border-white/[0.08] bg-white/[0.02] p-6 text-center font-mono text-sm text-white/70">
+        {children}
       </div>
-
-      <div className="relative z-10 shrink-0">
-        <Settings
-          endpoint={endpoint}
-          onEndpointChange={onEndpointChange}
-          localUrl={localUrl}
-          onLocalUrlChange={onLocalUrlChange}
-          apiKey={apiKey}
-          onApiKeyChange={onApiKeyChange}
-        />
-      </div>
-
-      <div className="relative z-10 shrink-0">
-        <StatusBar />
-      </div>
-
-      <MainContent />
-    </LingbotWorld2Provider>
+    </div>
   );
 }
 
-export default function LingbotWorldFastPage() {
-  const [endpoint, setEndpoint] = useState<Endpoint>(getDefaultEndpoint);
-  const [localUrl, setLocalUrl] = useState(DEFAULT_LOCAL_URL);
+export default function LingbotWorld2Page() {
   const [jwtToken, setJwtToken] = useState<string | undefined>(undefined);
-  const [apiKey, setApiKey] = useState("");
+  const [tokenError, setTokenError] = useState<string | null>(null);
 
   useEffect(() => { document.documentElement.classList.add("dark"); }, []);
 
-  // Restore a previously entered key so it survives reloads.
+  // Exchange the server-side REACTOR_API_KEY for a short-lived session JWT.
+  // The key itself never reaches the browser — see app/api/token/route.ts.
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(API_KEY_STORAGE);
-      if (saved) setApiKey(saved);
-    } catch { /* localStorage unavailable */ }
+    let cancelled = false;
+    fetch("/api/token", { method: "POST" })
+      .then(async (r) => {
+        const body = await r.json().catch(() => ({}));
+        if (cancelled) return;
+        if (r.ok && body.jwt) {
+          setJwtToken(body.jwt);
+        } else {
+          setTokenError(body.error ?? `Token request failed (${r.status})`);
+        }
+      })
+      .catch((err) => { if (!cancelled) setTokenError(String(err)); });
+    return () => { cancelled = true; };
   }, []);
 
-  const handleApiKeyChange = (key: string) => {
-    setApiKey(key);
-    try { localStorage.setItem(API_KEY_STORAGE, key); } catch { /* ignore */ }
-  };
-
-  // Mint a JWT for the (production) endpoint. The client key is sent as the
-  // Reactor-API-Key header; /api/token falls back to a server env key if it's
-  // blank. Debounced so typing the key doesn't spam /tokens on every keystroke.
-  useEffect(() => {
-    if (endpoint.local) {
-      setJwtToken(undefined);
-      return;
-    }
-    let cancelled = false;
-    const t = setTimeout(() => {
-      const headers: Record<string, string> = {};
-      const key = apiKey.trim();
-      if (key) headers["Reactor-API-Key"] = key;
-      fetch("/api/token", { method: "POST", headers })
-        .then((r) => r.json())
-        .then(({ jwt }) => { if (!cancelled && jwt) setJwtToken(jwt); })
-        .catch(console.error);
-    }, 400);
-    return () => { cancelled = true; clearTimeout(t); };
-  }, [endpoint, apiKey]);
-
   return (
-    <PasscodeGate>
+    <>
       <style>{`
-        .dot-grid {
-          background-image: radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px);
-          background-size: 28px 28px;
-        }
         @keyframes statusPulse {
           0%, 100% { opacity: 1; } 50% { opacity: 0.4; }
         }
       `}</style>
 
-      <div className="relative h-screen flex flex-col overflow-hidden" style={{ backgroundColor: "#000" }}>
-        <div className="dot-grid absolute inset-0 pointer-events-none" />
-        <div className="absolute inset-0 pointer-events-none" style={{
-          background: "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(199,192,153,0.12), transparent)"
-        }} />
+      <div className="relative h-screen flex flex-col overflow-hidden bg-zinc-950">
+        <Header />
 
-        <AppShell
-          jwtToken={jwtToken}
-          endpoint={endpoint}
-          onEndpointChange={setEndpoint}
-          localUrl={localUrl}
-          onLocalUrlChange={setLocalUrl}
-          apiKey={apiKey}
-          onApiKeyChange={handleApiKeyChange}
-        />
+        {tokenError ? (
+          <CenteredNotice>
+            <p className="text-red-400 mb-2">Could not get a session token.</p>
+            <p>
+              Set <code className="text-white">REACTOR_API_KEY</code> in{" "}
+              <code className="text-white">.env.local</code> and restart the dev
+              server — see the README for details.
+            </p>
+            <p className="mt-3 text-xs text-white/40">{tokenError}</p>
+          </CenteredNotice>
+        ) : !jwtToken ? (
+          <CenteredNotice>Fetching session token…</CenteredNotice>
+        ) : (
+          /* No `autoConnect`: the user clicks Connect so they see the
+             disconnected -> connecting -> waiting -> ready state machine
+             first-hand. The provider owns the connection lifecycle and
+             auto-disconnects on unmount, so we never call connect() from
+             an effect ourselves. */
+          <LingbotWorld2Provider apiUrl={API_URL} jwtToken={jwtToken}>
+            <div className="relative z-10 shrink-0">
+              <StatusBar />
+            </div>
+            <MainContent />
+          </LingbotWorld2Provider>
+        )}
       </div>
-    </PasscodeGate>
+    </>
   );
 }

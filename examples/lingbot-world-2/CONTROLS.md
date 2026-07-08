@@ -18,20 +18,20 @@ The whole design exists because of how the backend combines these — so start t
 
 ## 0. The backend `camera_pose` contract (the physics everything obeys)
 
-Verified against `reactor-models/lingbot-v2/` (`wan/utils/keyboard_action_generator.py`,
-`wan/utils/cam_utils.py`, `config.yml`). Four facts shape every decision below:
+Verified against the model backend's action-generator and camera-utils
+implementation. Four facts shape every decision below:
 
-1. **Granularity is per‑LATENT, not per‑chunk.** A chunk is `chunk_size = 3` latents
-   (`config.yml`), and the VAE temporal stride is 4, so **3 latents ≈ 12 pixel frames**.
+1. **Granularity is per‑LATENT, not per‑chunk.** The backend's chunk size is 3
+   latents, and the VAE temporal stride is 4, so **3 latents ≈ 12 pixel frames**.
    The client sends `k` deltas of 6 floats; if `k == 3` the backend uses them
-   **one‑to‑one** (`_resample_deltas`), one delta per latent. If `k == 1` it repeats the
+   **one‑to‑one**, one delta per latent. If `k == 1` it repeats the
    single delta across the chunk. ⇒ **We send 18 floats/chunk to steer each latent
    independently.**
 
 2. **Axis convention is OpenCV y‑down: `−ty = UP`, `+ty = DOWN`.** In code this is
    `JUMP_UP_SIGN = -1`; "up" intent maps to a negative `ty`.
 
-3. **Translation is per‑chunk MAX‑NORM normalized** (`cam_utils.py`): the chunk's
+3. **Translation is per‑chunk MAX‑NORM normalized**: the chunk's
    translation vectors are divided by the single largest per‑frame norm in the chunk.
    Consequences:
    - **Absolute magnitude is erased.** Sending `ty = 0.3` vs `ty = 100` gives the same
@@ -44,7 +44,7 @@ Verified against `reactor-models/lingbot-v2/` (`wan/utils/keyboard_action_genera
      within‑chunk (3‑latent) shape is exact.
 
 4. **Translation ADDS to the WASD action; rotation OVERRIDES the look/arrow keys**
-   (`keyboard_action_generator.py`, comment "rot override, trans add"). So a `camera_pose`
+   (the backend's rule is "rot override, trans add"). So a `camera_pose`
    with `ty=down, tx=tz=0` does **not** erase forward — the backend sums the WASD
    forward in. (This is why crouch does not need to re‑send forward; see §3.)
 
@@ -188,7 +188,7 @@ relative).
 > **Heads‑up — `hold` (jump *or* crouch) freezes arrow‑look on the current backend.**
 > A sustained vertical `hold` sends a `camera_pose` every chunk, and the backend's
 > `camera_pose` contract is *"when active, rotation OVERRIDES look_horizontal /
-> look_vertical"* (`keyboard_action_generator.py`, `model_types.py`) — even when the pose
+> look_vertical"* — even when the pose
 > carries **zero** rotation. So while you hold Space (`hold`) or C (`hold`), the arrow
 > keys can't rotate until the backend is changed to only override when the pose actually
 > carries rotation. Mouse‑look is unaffected (it *does* carry rotation).
@@ -205,7 +205,7 @@ relative).
 
 | Concern | Where |
 | --- | --- |
-| All input handling, pose emission, modes | `components/lingbot-world-fast-v1/LingbotWorldController.tsx` |
+| All input handling, pose emission, modes | `components/lingbot-world-2/LingbotWorldController.tsx` |
 | Per‑chunk `camera_pose` builder (per‑latent `ty`) | `sendCameraPoseChunk()` |
 | Prompt composition + active vertical sentence | `recomputePromptAndSend()` |
 | Jump press/release + charge meter + arc | `onJumpDown` / `onJumpUp` / charge‑meter `useEffect` |
@@ -213,9 +213,8 @@ relative).
 | Arc / dip advancement + consumption | `case "chunk_complete"` in the message handler |
 | Charge / crouch pattern defaults + editors | `defaultChargePattern` / `defaultCrouchPatterns`, `cycleChargeCell` / `cycleCrouchCell` |
 | Prompt model + `composePrompt` | `lib/lingbot-world-prompts.ts` |
-| Prompt segments (incl. `vertical`) | `components/lingbot-world-fast-v1/prompt-segments.ts` |
-| Per‑example prompt editing UI | `components/lingbot-world-fast-v1/LayeredSceneEditor.tsx` ("Vertical" tab) |
-| Key backend contract | `reactor-models/lingbot-v2/wan/utils/{keyboard_action_generator,cam_utils}.py`, `config.yml` |
+| Prompt segments (incl. `vertical`) | `components/lingbot-world-2/prompt-segments.ts` |
+| Per‑example prompt editing UI | `components/lingbot-world-2/LayeredSceneEditor.tsx` ("Vertical" tab) |
 
 **Tunables** (top of `LingbotWorldController.tsx`): `CHUNK_LATENTS`, `NUM_CHARGE_LEVELS`,
 `LEVEL_DWELL_MS`, `JUMP_SPEED`, `JUMP_UP_SIGN`, `CROUCH_DIP`.

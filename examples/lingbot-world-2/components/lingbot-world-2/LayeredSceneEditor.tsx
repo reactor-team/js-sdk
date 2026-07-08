@@ -17,7 +17,7 @@ import {
   composePromptSegments,
   resolveSelection,
   type SegmentKind,
-} from "@/components/lingbot-world-fast-v1/prompt-segments";
+} from "@/components/lingbot-world-2/prompt-segments";
 
 // ---- Registry mutation helpers (order-preserving) ----
 

@@ -10,13 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
-  DEFAULT_EXAMPLES,
+  EXAMPLES,
   STRUCTURED_EXAMPLES,
   composePrompt,
   cloneScene,
   emptyScene,
   scenesEqual,
-  type ExampleSnapshot,
+  type StructuredExample,
   type StructuredScene,
 } from "@/lib/lingbot-world-prompts";
 
@@ -24,14 +24,8 @@ import {
 // layered scene. Custom has no pristine constant to fall back to; an
 // "edited" state simply means a non-empty override exists.
 const CUSTOM_SCENE_ID = "__custom__";
-import { LayeredSceneEditor } from "@/components/lingbot-world-fast-v1/LayeredSceneEditor";
-import { LivePromptInspector } from "@/components/lingbot-world-fast-v1/LivePromptInspector";
-import {
-  parseWorldJson,
-  buildRoomScene,
-  exitsFrom,
-  type UploadedWorld,
-} from "@/lib/lingbot-world-import";
+import { LayeredSceneEditor } from "@/components/lingbot-world-2/LayeredSceneEditor";
+import { LivePromptInspector } from "@/components/lingbot-world-2/LivePromptInspector";
 
 type MoveL = "idle" | "forward" | "back";
 type MoveLat = "idle" | "strafe_left" | "strafe_right";
@@ -42,35 +36,8 @@ type LookV = "idle" | "up" | "down";
 // StructuredScene. Clicking an example loads its override (if any) rather
 // than the pristine constant, so edits survive across re-clicks and
 // reloads. "Reset to example" inside the editor deletes the override.
-const OVERRIDES_STORAGE_KEY = "lingbot-world-fast-v1:overrides:v1";
-// Uploaded multi-room worlds (converted from world-builder JSON), keyed by
-// world id. Separate store from overrides — worlds are a different shape and
-// have their own lifecycle (upload / navigate / remove).
-const WORLDS_STORAGE_KEY = "lingbot-world-fast-v1:worlds:v1";
+const OVERRIDES_STORAGE_KEY = "lingbot-world-2:overrides:v1";
 const MAX_EVENTS = 9;
-
-// A world "enter" shares the single loadingExampleId slot with the built-in
-// examples (so every existing busy-check covers it too); this namespaces the
-// world id into that slot at the one write + one read site.
-const worldLoadingId = (id: string) => `__world__:${id}`;
-
-// Validate a parsed object is an UploadedWorld shape — used when hydrating the
-// worlds store from localStorage.
-function isUploadedWorld(v: unknown): v is UploadedWorld {
-  if (!v || typeof v !== "object") return false;
-  const w = v as Record<string, unknown>;
-  return (
-    typeof w.id === "string" &&
-    typeof w.name === "string" &&
-    typeof w.entranceState === "string" &&
-    Array.isArray(w.stateOrder) &&
-    !!w.states &&
-    typeof w.states === "object" &&
-    Array.isArray(w.transitions) &&
-    !!w.image &&
-    typeof w.image === "object"
-  );
-}
 
 // Validate a parsed object is a StructuredScene shape — used when
 // hydrating from localStorage.
@@ -130,8 +97,8 @@ const ARROW_LOOK_SPEED = ROLL_SPEED;  // per-frame radians of yaw/pitch while an
 const JUMP_SPEED = 1.0;               // per-frame up-translation while held (magnitude
                                       // is washed out by per-chunk normalization)
 const JOY_SPEED = 1.0;                // per-frame translation magnitude at full joystick deflect
-// Camera-local "up" sign for Jump. Verified by Andy: characters dove DOWN
-// with +1, so up is -1 in this model's local-Y convention.
+// Camera-local "up" sign for Jump. Empirically verified against the backend:
+// characters dove DOWN with +1, so up is -1 in this model's local-Y convention.
 const JUMP_UP_SIGN = -1;
 
 // ---- Orbit mode (Phase 1: horizontal) ----
@@ -196,7 +163,7 @@ const CROUCH_DIP = 0.5;
 // (mirror of JUMP_SPEED for jump "hold"). Magnitude is normalized per-chunk on the
 // backend, so this mainly sets the down:forward ratio when walking down while W.
 const CROUCH_SPEED = 1.0;
-const CROUCH_PATTERN_STORAGE = "lingbot_crouch_patterns";
+const CROUCH_PATTERN_STORAGE = "lingbot-world-2:crouch-patterns:v1";
 // Crouch is a press+release action. Two hand-editable one-chunk patterns (grid
 // popup, CHUNK_LATENTS cells each, +1 up / 0 still / -1 down): "press" fires on
 // C-down (a downward dip), "release" fires on C-up (the reverse, standing
@@ -226,7 +193,7 @@ const CHUNK_LATENTS = 3;
 // what you see is exactly what you fire. Release at level k → a k-chunk arc.
 const NUM_CHARGE_LEVELS = 3;         // 1, 2, or 3 chunks
 const LEVEL_DWELL_MS = 400;          // time held on each level before stepping
-const CHARGE_PATTERNS_STORAGE = "lingbot_charge_patterns";
+const CHARGE_PATTERNS_STORAGE = "lingbot-world-2:charge-patterns:v1";
 
 // Each charge level's arc is a hand-editable per-latent plan (edited in the
 // per-level grid popup): an array of length level*CHUNK_LATENTS where each latent
@@ -432,7 +399,6 @@ export function LingbotWorldController({ className }: { className?: string }) {
 
   const isReady = status === "ready";
 
-  const [prompt, setPrompt] = useState("");
   const [sentImagePreview, setSentImagePreview] = useState<string | null>(null);
   const [imageInfo, setImageInfo] = useState<{ w: number; h: number } | null>(null);
   const [pendingImage, setPendingImage] = useState<
@@ -614,68 +580,6 @@ export function LingbotWorldController({ className }: { className?: string }) {
   const overridesRef = useRef<Record<string, StructuredScene>>({});
   useEffect(() => { overridesRef.current = overrides; }, [overrides]);
 
-  // ---- Uploaded multi-room worlds ----
-  //
-  // Worlds run through a parallel path to the built-in examples: the room
-  // you're currently in is compiled to the active `scene`, and taking a
-  // transition swaps that scene + re-sends set_prompt (persistent walk-through).
-  const [worlds, setWorlds] = useState<Record<string, UploadedWorld>>({});
-  const [worldsLoaded, setWorldsLoaded] = useState(false);
-  const [activeWorldId, setActiveWorldId] = useState<string | null>(null);
-  const [currentRoom, setCurrentRoom] = useState<string | null>(null);
-  const [worldError, setWorldError] = useState<string | null>(null);
-  // Refs so the keyboard handler (number keys = exits) reads the latest world
-  // and room without being in its dependency array.
-  const activeWorldRef = useRef<UploadedWorld | null>(null);
-  const currentRoomRef = useRef<string | null>(null);
-  const enterRoomRef = useRef<(roomName: string) => void>(() => {});
-  const worldFileInputRef = useRef<HTMLInputElement>(null);
-
-  // Leave any active uploaded world: clears both the render state and the
-  // keyboard-handler refs. Called from every path that switches the active
-  // source (reset / disconnect / apply example / apply custom / remove world).
-  const clearActiveWorld = useCallback(() => {
-    activeWorldRef.current = null;
-    currentRoomRef.current = null;
-    setActiveWorldId(null);
-    setCurrentRoom(null);
-  }, []);
-
-  // Restore uploaded worlds from localStorage on mount.
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(WORLDS_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as unknown;
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-          const out: Record<string, UploadedWorld> = {};
-          for (const [id, val] of Object.entries(parsed as Record<string, unknown>)) {
-            if (isUploadedWorld(val)) out[id] = val;
-          }
-          setWorlds(out);
-        }
-      }
-    } catch {}
-    setWorldsLoaded(true);
-  }, []);
-
-  useEffect(() => {
-    if (!worldsLoaded) return;
-    try {
-      if (Object.keys(worlds).length > 0) {
-        localStorage.setItem(WORLDS_STORAGE_KEY, JSON.stringify(worlds));
-      } else {
-        localStorage.removeItem(WORLDS_STORAGE_KEY);
-      }
-    } catch {}
-  }, [worlds, worldsLoaded]);
-
-  useEffect(() => {
-    if (!worldError) return;
-    const id = setTimeout(() => setWorldError(null), 5000);
-    return () => clearTimeout(id);
-  }, [worldError]);
-
   // Returns the user-edited scene for an example if one exists, else a
   // freshly cloned copy of the pristine constant. Always returns a fresh
   // clone so the caller can mutate it without touching the source. For
@@ -699,7 +603,6 @@ export function LingbotWorldController({ className }: { className?: string }) {
   useEffect(() => { isReadyRef.current = isReady; }, [isReady]);
   const isApplyingExampleRef = useRef(false);
 
-  const basePromptRef = useRef<string>("");
   const lastSentPromptRef = useRef<string>("");
   // Mirror of the React `scene` state. Key handlers and recompose run
   // synchronously and need a ref-current value rather than the captured
@@ -730,18 +633,15 @@ export function LingbotWorldController({ className }: { className?: string }) {
     // Mirror it into state so the "Show prompt" inspector reflects it live.
     setVerticalPrompt(vp);
 
-    let next: string;
-    if (sceneRef.current) {
-      const isMoving = moveLStackRef.current.length > 0 || moveLatStackRef.current.length > 0;
-      next = composePrompt(
-        sceneRef.current,
-        isMoving,
-        heldSlotsRef.current,
-        vp,
-      ).trim();
-    } else {
-      next = [basePromptRef.current, vp].map((s) => s.trim()).filter(Boolean).join(" ");
-    }
+    // No active scene → nothing to compose (prompts only flow from scenes).
+    if (!sceneRef.current) return;
+    const isMoving = moveLStackRef.current.length > 0 || moveLatStackRef.current.length > 0;
+    const next = composePrompt(
+      sceneRef.current,
+      isMoving,
+      heldSlotsRef.current,
+      vp,
+    ).trim();
     if (!next) return;
     if (next === lastSentPromptRef.current) return;
     lastSentPromptRef.current = next;
@@ -836,17 +736,14 @@ export function LingbotWorldController({ className }: { className?: string }) {
         setSentImagePreview(null);
         setImageInfo(null);
         setChunkIndex(0);
-        basePromptRef.current = "";
         lastSentPromptRef.current = "";
         heldSlotsRef.current = [];
         setHeldSlots([]);
         sceneRef.current = null;
         setScene(null);
         setActiveExampleId(null);
-        clearActiveWorld();
         // Overrides persist across resets (they're per-example presets,
-        // not session state); only clear the modal if it was open.
-        setPrompt("");
+        // not session state).
         if (pendingImage && pendingImage.previewUrl.startsWith("blob:")) {
           URL.revokeObjectURL(pendingImage.previewUrl);
         }
@@ -881,7 +778,6 @@ export function LingbotWorldController({ className }: { className?: string }) {
       lookHDirRef.current = 0;
       lookVDirRef.current = 0;
       lastSentPromptRef.current = "";
-      basePromptRef.current = "";
       sceneRef.current = null;
       heldSlotsRef.current = [];
       setHeldSlots([]);
@@ -903,8 +799,6 @@ export function LingbotWorldController({ className }: { className?: string }) {
       setCharging(false); setChargeLevel(0);
       setScene(null);
       setActiveExampleId(null);
-      clearActiveWorld();
-      setPrompt("");
       setSentImagePreview(null);
       setImageInfo(null);
       setLoadingExampleId(null);
@@ -917,7 +811,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
       // Note: do NOT clear overrides on disconnect; they're a presets
       // store that should persist across sessions.
     }
-  }, [status, clearActiveWorld]);
+  }, [status]);
 
   // Sync initial rotation speed to backend on connect
   useEffect(() => {
@@ -1473,16 +1367,6 @@ export function LingbotWorldController({ className }: { className?: string }) {
       const slot = keyToHoldSlot(e.key);
       if (slot !== undefined) {
         e.preventDefault();
-        // When an uploaded world is active, number keys take the current
-        // room's exits (persistent nav) instead of the hold-key events.
-        const w = activeWorldRef.current;
-        if (w) {
-          blurFocusedNonTyping();
-          const exits = exitsFrom(w, currentRoomRef.current ?? w.entranceState);
-          const target = exits[slot];
-          if (target) enterRoomRef.current(target);
-          return;
-        }
         holdPress(slot);
         return;
       }
@@ -1508,8 +1392,6 @@ export function LingbotWorldController({ className }: { className?: string }) {
       if (e.key === "q" || e.key === "Q" || e.key === "e" || e.key === "E") { setRoll(0); return; }
       const slot = keyToHoldSlot(e.key);
       if (slot !== undefined) {
-        // World rooms latch (persistent) — nothing to release on keyup.
-        if (activeWorldRef.current) return;
         holdRelease(slot);
         return;
       }
@@ -1586,16 +1468,25 @@ export function LingbotWorldController({ className }: { className?: string }) {
     }
   };
 
-  // ---- Auto-send example: uploads image, sends prompt, starts generation ----
+  // ---- Apply a scene: uploads image, sends prompt, starts generation ----
 
-  const applyExample = useCallback(async (ex: ExampleSnapshot) => {
-    if (!isReady || isUploading) return;
-
-    // Blur the example button (or whatever was just clicked) so subsequent
-    // arrow-key presses don't scroll the sidebar's overflow container.
-    // Without this, focus stays on the clicked button and the browser
-    // treats arrow-key presses inside the scrollable ancestor as scroll
-    // input alongside our window-level look handler.
+  // Shared flow behind both the Quick Start examples and the custom scene:
+  // clear held inputs, reset a running generation, upload the starting image,
+  // send the composed prompt, and auto-start.
+  const applyScene = useCallback(async (opts: {
+    id: string;
+    scene: StructuredScene;
+    image:
+      | { kind: "url"; src: string; name: string }
+      | { kind: "file"; file: File; previewUrl: string }
+      | { kind: "keep" };  // reuse the already-sent image
+    errorLabel: string;
+  }) => {
+    // Blur whatever was just clicked so subsequent arrow-key presses don't
+    // scroll the sidebar's overflow container. Without this, focus stays on
+    // the clicked button and the browser treats arrow-key presses inside the
+    // scrollable ancestor as scroll input alongside our window-level look
+    // handler.
     if (typeof document !== "undefined") {
       (document.activeElement as HTMLElement | null)?.blur?.();
     }
@@ -1612,64 +1503,55 @@ export function LingbotWorldController({ className }: { className?: string }) {
       heldSlotsRef.current = [];
       setHeldSlots([]);
       sceneRef.current = null;
-      // Switching to a built-in example leaves any active uploaded world.
-      clearActiveWorld();
 
-      // If currently generating or paused, reset first so the new example starts clean
+      // If currently generating or paused, reset first so the new scene starts clean
       if (isGenerating || isPaused) {
         lw2.reset().catch(console.error);
         setIsGenerating(false);
         setIsPaused(false);
         setHasPrompt(false);
         setHasImage(false);
-        setSentImagePreview(null);
-        setImageInfo(null);
-        basePromptRef.current = "";
+        if (opts.image.kind !== "keep") {
+          setSentImagePreview(null);
+          setImageInfo(null);
+        }
         lastSentPromptRef.current = "";
         // Give the backend time to process the reset before we send new data
         await new Promise((r) => setTimeout(r, 600));
       }
 
-      setLoadingExampleId(ex.id);
+      setLoadingExampleId(opts.id);
 
       try {
-        // Upload the image
-        const res = await fetch(ex.image.src);
-        if (!res.ok) throw new Error(`Failed to load image (${res.status})`);
-        const blob = await res.blob();
-        const file = new File([blob], `${ex.id}.jpg`, { type: blob.type || "image/jpeg" });
-        const ref = await uploadFile(file);
-        await lw2.setImage({ image: ref });
-        setSentImagePreview(ex.image.src);
-        setHasImage(true);
-
-        // Resolve the example's scene through the override store: if the
-        // user has edited this example before, those edits are applied
-        // from the start. Otherwise the pristine constant is used.
-        const effective = effectiveSceneFor(ex.id);
-        if (effective) {
-          sceneRef.current = effective;
-          setScene(effective);
-          setActiveExampleId(ex.id);
-          const p = composePrompt(effective, false, []);
-          basePromptRef.current = "";
-          lastSentPromptRef.current = p;
-          setPrompt(p);
-          await lw2.setPrompt({ prompt: p });
-          setHasPrompt(true);
-        } else if (ex.pinnedPrompts.length > 0) {
-          const p = ex.pinnedPrompts[0].prompt.trim();
-          if (p) {
-            sceneRef.current = null;
-            setScene(null);
-            setActiveExampleId(null);
-            basePromptRef.current = p;
-            lastSentPromptRef.current = p;
-            setPrompt(p);
-            await lw2.setPrompt({ prompt: p });
-            setHasPrompt(true);
-          }
+        // Upload the starting image ("keep" assumes the previously-sent
+        // image is still in place).
+        if (opts.image.kind === "url") {
+          const res = await fetch(opts.image.src);
+          if (!res.ok) throw new Error(`Failed to load image (${res.status})`);
+          const blob = await res.blob();
+          const file = new File([blob], opts.image.name, { type: blob.type || "image/jpeg" });
+          const ref = await uploadFile(file);
+          await lw2.setImage({ image: ref });
+          setSentImagePreview(opts.image.src);
+          setHasImage(true);
+        } else if (opts.image.kind === "file") {
+          const ref = await uploadFile(opts.image.file);
+          await lw2.setImage({ image: ref });
+          setSentImagePreview(opts.image.previewUrl);
+          setHasImage(true);
+          // Don't revoke the previewUrl — it was just promoted to
+          // sentImagePreview, so the URL is still in use.
+          setPendingImage(null);
         }
+
+        // Send the scene's composed prompt
+        sceneRef.current = opts.scene;
+        setScene(opts.scene);
+        setActiveExampleId(opts.id);
+        const p = composePrompt(opts.scene, false, []).trim();
+        lastSentPromptRef.current = p;
+        await lw2.setPrompt({ prompt: p });
+        setHasPrompt(true);
 
         // Auto-start after a short delay to let the backend process
         await new Promise((r) => setTimeout(r, 1500));
@@ -1677,14 +1559,29 @@ export function LingbotWorldController({ className }: { className?: string }) {
         setIsGenerating(true);
       } catch (err) {
         console.error(err);
-        setErrorToast(err instanceof Error ? err.message : "Failed to apply example");
+        setErrorToast(err instanceof Error ? err.message : opts.errorLabel);
       } finally {
         setLoadingExampleId(null);
       }
     } finally {
       isApplyingExampleRef.current = false;
     }
-  }, [isReady, isUploading, isGenerating, isPaused, uploadFile, sendCommand, pushMoveL, pushMoveLat, pushLookH, pushLookV, effectiveSceneFor, clearActiveWorld]);
+  }, [isGenerating, isPaused, uploadFile, sendCommand, pushMoveL, pushMoveLat, pushLookH, pushLookV]);
+
+  const applyExample = useCallback(async (ex: StructuredExample) => {
+    if (!isReady || isUploading) return;
+    // Resolve the example's scene through the override store: if the user
+    // has edited this example before, those edits are applied from the
+    // start. Otherwise the pristine constant is used.
+    const effective = effectiveSceneFor(ex.id);
+    if (!effective) return;
+    await applyScene({
+      id: ex.id,
+      scene: effective,
+      image: { kind: "url", src: ex.image.src, name: `${ex.id}.jpg` },
+      errorLabel: "Failed to apply example",
+    });
+  }, [isReady, isUploading, effectiveSceneFor, applyScene]);
 
   // ---- Lifecycle ----
 
@@ -1894,233 +1791,15 @@ export function LingbotWorldController({ className }: { className?: string }) {
       setErrorToast("Pick a starting image before applying.");
       return;
     }
-
-    if (typeof document !== "undefined") {
-      (document.activeElement as HTMLElement | null)?.blur?.();
-    }
-
-    isApplyingExampleRef.current = true;
-    try {
-      moveLStackRef.current = [];
-      moveLatStackRef.current = [];
-      pushMoveL("idle");
-      pushMoveLat("idle");
-      pushLookH("idle");
-      pushLookV("idle");
-      heldSlotsRef.current = [];
-      setHeldSlots([]);
-      sceneRef.current = null;
-      // Applying the custom scene leaves any active uploaded world.
-      clearActiveWorld();
-
-      if (isGenerating || isPaused) {
-        lw2.reset().catch(console.error);
-        setIsGenerating(false);
-        setIsPaused(false);
-        setHasPrompt(false);
-        setHasImage(false);
-        basePromptRef.current = "";
-        lastSentPromptRef.current = "";
-        await new Promise((r) => setTimeout(r, 600));
-      }
-
-      setLoadingExampleId(CUSTOM_SCENE_ID);
-      try {
-        // Upload the pending image if the user just picked one; otherwise
-        // assume the previously-sent image is still in place.
-        if (pendingImage) {
-          const ref = await uploadFile(pendingImage.file);
-          await lw2.setImage({ image: ref });
-          setSentImagePreview(pendingImage.previewUrl);
-          setHasImage(true);
-          // Don't revoke pendingImage.previewUrl — we just promoted it
-          // to sentImagePreview, so the URL is still in use.
-          setPendingImage(null);
-        }
-
-        const cloned = cloneScene(customScene);
-        sceneRef.current = cloned;
-        setScene(cloned);
-        setActiveExampleId(CUSTOM_SCENE_ID);
-        basePromptRef.current = "";
-        lastSentPromptRef.current = composed;
-        setPrompt(composed);
-        await lw2.setPrompt({ prompt: composed });
-        setHasPrompt(true);
-
-        await new Promise((r) => setTimeout(r, 1500));
-        await lw2.start();
-        setIsGenerating(true);
-      } catch (err) {
-        console.error(err);
-        setErrorToast(err instanceof Error ? err.message : "Failed to apply custom scene");
-      } finally {
-        setLoadingExampleId(null);
-      }
-    } finally {
-      isApplyingExampleRef.current = false;
-    }
-  }, [isReady, isUploading, isGenerating, isPaused, pendingImage, sentImagePreview, uploadFile, sendCommand, pushMoveL, pushMoveLat, pushLookH, pushLookV, clearActiveWorld]);
-
-  // ---- Uploaded world runtime ----
-
-  const saveWorld = useCallback((world: UploadedWorld) => {
-    setWorlds((w) => ({ ...w, [world.id]: world }));
-  }, []);
-
-  const removeWorld = useCallback((id: string) => {
-    if (typeof window !== "undefined") {
-      const ok = window.confirm(
-        `Remove "${worlds[id]?.name ?? id}" from your uploaded worlds?`,
-      );
-      if (!ok) return;
-    }
-    setWorlds((w) => {
-      if (!(id in w)) return w;
-      const next = { ...w };
-      delete next[id];
-      return next;
+    await applyScene({
+      id: CUSTOM_SCENE_ID,
+      scene: cloneScene(customScene),
+      image: pendingImage
+        ? { kind: "file", file: pendingImage.file, previewUrl: pendingImage.previewUrl }
+        : { kind: "keep" },
+      errorLabel: "Failed to apply custom scene",
     });
-    if (id === activeWorldId) clearActiveWorld();
-  }, [worlds, activeWorldId, clearActiveWorld]);
-
-  // Read a picked JSON file, validate + convert it, and store the world.
-  const onWorldFile = useCallback(async (file: File) => {
-    setWorldError(null);
-    try {
-      const text = await file.text();
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(text);
-      } catch {
-        setWorldError("Could not parse the file as JSON.");
-        return;
-      }
-      const result = parseWorldJson(parsed);
-      if (!result.ok) {
-        setWorldError(result.error);
-        return;
-      }
-      saveWorld(result.world);
-    } catch (err) {
-      setWorldError(err instanceof Error ? err.message : "Failed to read the file.");
-    } finally {
-      if (worldFileInputRef.current) worldFileInputRef.current.value = "";
-    }
-  }, [saveWorld]);
-
-  // Navigate within the currently active world (button / number-key exits).
-  // Reads the active world from the ref so it also works from the keyboard
-  // handler. Swaps the active scene to the target room and re-sends the prompt —
-  // a persistent walk-through, not a hold-to-preview.
-  const navigateToRoom = useCallback((roomName: string) => {
-    const world = activeWorldRef.current;
-    if (!world || !(roomName in world.states)) return;
-    if (typeof document !== "undefined") {
-      (document.activeElement as HTMLElement | null)?.blur?.();
-    }
-    const roomScene = buildRoomScene(world, roomName);
-    sceneRef.current = roomScene;
-    setScene(roomScene);
-    currentRoomRef.current = roomName;
-    setCurrentRoom(roomName);
-    heldSlotsRef.current = [];
-    setHeldSlots([]);
-    recomputePromptAndSend();
-  }, [recomputePromptAndSend]);
-  useEffect(() => { enterRoomRef.current = navigateToRoom; }, [navigateToRoom]);
-
-  // Apply an uploaded world: upload its entrance image, enter the entrance
-  // room, and start generating. Mirrors applyExample but drives the world path.
-  const applyWorld = useCallback(async (world: UploadedWorld) => {
-    if (!isReady || isUploading) return;
-    if (!world.image.src && !pendingImage) {
-      setWorldError(
-        "This world has no starting image — pick one with “Choose image” in the Custom scene card first.",
-      );
-      return;
-    }
-
-    if (typeof document !== "undefined") {
-      (document.activeElement as HTMLElement | null)?.blur?.();
-    }
-
-    isApplyingExampleRef.current = true;
-    try {
-      moveLStackRef.current = [];
-      moveLatStackRef.current = [];
-      pushMoveL("idle");
-      pushMoveLat("idle");
-      pushLookH("idle");
-      pushLookV("idle");
-      heldSlotsRef.current = [];
-      setHeldSlots([]);
-      sceneRef.current = null;
-      setActiveExampleId(null);
-
-      if (isGenerating || isPaused) {
-        lw2.reset().catch(console.error);
-        setIsGenerating(false);
-        setIsPaused(false);
-        setHasPrompt(false);
-        setHasImage(false);
-        basePromptRef.current = "";
-        lastSentPromptRef.current = "";
-        await new Promise((r) => setTimeout(r, 600));
-      }
-
-      setLoadingExampleId(worldLoadingId(world.id));
-      try {
-        // Upload the entrance image (world-bundled URL, or the user-picked
-        // pending image if the world had none).
-        if (world.image.src) {
-          const res = await fetch(world.image.src);
-          if (!res.ok) throw new Error(`Failed to load image (${res.status})`);
-          const blob = await res.blob();
-          const file = new File([blob], `${world.id}.jpg`, {
-            type: blob.type || "image/jpeg",
-          });
-          const ref = await uploadFile(file);
-          await lw2.setImage({ image: ref });
-          setSentImagePreview(world.image.src);
-        } else if (pendingImage) {
-          const ref = await uploadFile(pendingImage.file);
-          await lw2.setImage({ image: ref });
-          setSentImagePreview(pendingImage.previewUrl);
-          // previewUrl was promoted to sentImagePreview — don't revoke it.
-          setPendingImage(null);
-        }
-        setHasImage(true);
-
-        // Enter the entrance room and send its prompt.
-        const room = world.entranceState;
-        const roomScene = buildRoomScene(world, room);
-        sceneRef.current = roomScene;
-        setScene(roomScene);
-        activeWorldRef.current = world;
-        currentRoomRef.current = room;
-        setActiveWorldId(world.id);
-        setCurrentRoom(room);
-        const p = composePrompt(roomScene, false, []).trim();
-        basePromptRef.current = "";
-        lastSentPromptRef.current = p;
-        setPrompt(p);
-        await lw2.setPrompt({ prompt: p });
-        setHasPrompt(true);
-
-        await new Promise((r) => setTimeout(r, 1500));
-        await lw2.start();
-        setIsGenerating(true);
-      } catch (err) {
-        console.error(err);
-        setErrorToast(err instanceof Error ? err.message : "Failed to apply world");
-      } finally {
-        setLoadingExampleId(null);
-      }
-    } finally {
-      isApplyingExampleRef.current = false;
-    }
-  }, [isReady, isUploading, isGenerating, isPaused, pendingImage, uploadFile, sendCommand, pushMoveL, pushMoveLat, pushLookH, pushLookV]);
+  }, [isReady, isUploading, pendingImage, sentImagePreview, applyScene]);
 
   // ---- Render: sidebar (Quick Start + Custom) ----
 
@@ -2141,7 +1820,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
   const sidebar = sidebarContent ?? (
     <div className="flex flex-col gap-4">
       {/* Examples — click to auto-send image + prompt + start */}
-      {DEFAULT_EXAMPLES.length > 0 && (
+      {EXAMPLES.length > 0 && (
         <div className="flex flex-col gap-2">
           <span className="text-xs font-mono uppercase tracking-widest text-primary">
             Quick Start
@@ -2153,7 +1832,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
             revert.
           </p>
           <div className="flex flex-col gap-2">
-            {DEFAULT_EXAMPLES.map((ex) => {
+            {EXAMPLES.map((ex) => {
               const isActive = activeExampleId === ex.id;
               const isLoading = loadingExampleId === ex.id;
               const override = overrides[ex.id];
@@ -2253,208 +1932,6 @@ export function LingbotWorldController({ className }: { className?: string }) {
           </div>
         </div>
       )}
-
-      <div className="border-t border-white/[0.06]" />
-
-      {/* Upload world — bring a multi-room world exported as JSON. Rooms map
-          to a persistent walk-through: click Enter to load the entrance room +
-          start; then take the exit buttons (or number keys) to walk between
-          rooms while generating. */}
-      {(() => {
-        const worldList = Object.values(worlds);
-        const activeWorld = activeWorldId ? worlds[activeWorldId] : null;
-        const exits =
-          activeWorld && currentRoom ? exitsFrom(activeWorld, currentRoom) : [];
-        const worldBusy = !isReady || isUploading || !!loadingExampleId;
-        return (
-          <div className="flex flex-col gap-3">
-            <span className="text-xs font-mono uppercase tracking-widest text-primary">
-              Upload world
-            </span>
-            <p className="text-[10px] text-white/40 leading-snug">
-              Import a multi-room world JSON. Click <strong>Enter</strong> to load
-              its entrance room and start; then walk between rooms with the exit
-              buttons (or number keys 1–9).
-            </p>
-
-            <input
-              ref={worldFileInputRef}
-              type="file"
-              accept=".json,application/json"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onWorldFile(f);
-              }}
-            />
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => worldFileInputRef.current?.click()}
-                className="font-mono text-[10px]"
-              >
-                ⬆ Upload world JSON
-              </Button>
-            </div>
-
-            {worldError && (
-              <div className="rounded border border-red-500/30 bg-red-500/10 px-3 py-2 font-mono text-[10px] text-red-300 leading-snug">
-                {worldError}
-              </div>
-            )}
-
-            {worldList.length > 0 && (
-              <div className="flex flex-col gap-2">
-                {worldList.map((world) => {
-                  const isActive = activeWorldId === world.id;
-                  const isLoading = loadingExampleId === worldLoadingId(world.id);
-                  const roomCount = world.stateOrder.length;
-                  return (
-                    <div
-                      key={world.id}
-                      className={cn(
-                        "flex flex-col rounded-lg border transition-all",
-                        isActive
-                          ? "border-amber-300/60 bg-amber-300/10"
-                          : "border-white/10 bg-white/[0.03]",
-                      )}
-                    >
-                      <div className="flex items-stretch gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => applyWorld(world)}
-                          disabled={worldBusy}
-                          title="Enter this world (loads entrance image + room and starts generation)"
-                          className={cn(
-                            "relative flex items-center gap-3 flex-1 min-w-0 p-2 text-left rounded-l-lg",
-                            "disabled:opacity-50 disabled:cursor-not-allowed",
-                          )}
-                        >
-                          <div className="relative shrink-0 w-24 h-14 rounded-md overflow-hidden border border-white/10 bg-black/30">
-                            {world.image.src ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={world.image.src}
-                                alt={world.image.label}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center font-mono text-[9px] text-white/30">
-                                no image
-                              </div>
-                            )}
-                            {isLoading && (
-                              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                                <div className="w-4 h-4 border-2 border-amber-300 border-t-transparent rounded-full animate-spin" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                            <span className="font-mono text-sm text-white font-medium truncate">
-                              {world.name}
-                            </span>
-                            {world.description && (
-                              <span className="font-mono text-[10px] text-white/50 leading-snug line-clamp-2">
-                                {world.description}
-                              </span>
-                            )}
-                            <span className="font-mono text-[9px] text-white/40">
-                              {roomCount} room{roomCount === 1 ? "" : "s"} ·{" "}
-                              {world.transitions.length} transition
-                              {world.transitions.length === 1 ? "" : "s"}
-                            </span>
-                          </div>
-                          {isActive && (
-                            <div className="shrink-0 w-2 h-2 rounded-full bg-amber-300" />
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removeWorld(world.id)}
-                          title={`Remove "${world.name}" from your uploaded worlds`}
-                          aria-label={`Remove ${world.name}`}
-                          className={cn(
-                            "shrink-0 w-9 flex items-center justify-center rounded-r-lg border-l border-white/5",
-                            "font-mono text-sm text-white/55 hover:text-red-300 hover:bg-white/[0.06] transition-colors",
-                          )}
-                        >
-                          ×
-                        </button>
-                      </div>
-
-                      {/* Persistent walk-through navigation for the active world */}
-                      {isActive && currentRoom && (
-                        <div className="flex flex-col gap-1.5 border-t border-amber-300/20 p-2">
-                          <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">
-                            In: <span className="text-amber-200">{currentRoom}</span>
-                          </span>
-                          {exits.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {exits.map((to, i) => (
-                                <button
-                                  key={to}
-                                  type="button"
-                                  onClick={() => navigateToRoom(to)}
-                                  disabled={!isReady}
-                                  title={`Walk to ${to}${i < 9 ? ` (key ${i + 1})` : ""}`}
-                                  className={cn(
-                                    "flex items-center gap-1 rounded-full border px-2 py-1 font-mono text-[10px] transition-colors",
-                                    "border-amber-300/40 bg-amber-300/10 text-amber-100 hover:bg-amber-300/20",
-                                    "disabled:opacity-40 disabled:cursor-not-allowed",
-                                  )}
-                                >
-                                  {i < 9 && (
-                                    <span className="inline-flex h-3.5 min-w-3.5 items-center justify-center rounded border border-amber-300/40 bg-amber-300/15 px-0.5 text-[8px] font-bold">
-                                      {i + 1}
-                                    </span>
-                                  )}
-                                  <span className="truncate max-w-[120px]">→ {to}</span>
-                                </button>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="font-mono text-[10px] text-white/40">
-                              No exits from here — use “Jump to any room”.
-                            </span>
-                          )}
-
-                          {/* Escape hatch: the transition graph can dead-end, so
-                              always allow jumping to any room. */}
-                          <details className="group">
-                            <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden font-mono text-[9px] uppercase tracking-wider text-white/35 hover:text-white/60">
-                              ▸ Jump to any room
-                            </summary>
-                            <div className="mt-1.5 flex flex-wrap gap-1">
-                              {activeWorld?.stateOrder.map((r) => (
-                                <button
-                                  key={r}
-                                  type="button"
-                                  onClick={() => navigateToRoom(r)}
-                                  disabled={!isReady || r === currentRoom}
-                                  className={cn(
-                                    "rounded-full border px-2 py-0.5 font-mono text-[10px] transition-colors",
-                                    r === currentRoom
-                                      ? "border-amber-300/50 bg-amber-300/15 text-amber-200"
-                                      : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10",
-                                    "disabled:cursor-default",
-                                  )}
-                                >
-                                  {r}
-                                </button>
-                              ))}
-                            </div>
-                          </details>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })()}
 
       <div className="border-t border-white/[0.06]" />
 

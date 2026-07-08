@@ -1,36 +1,19 @@
-// Defaults used the first time a user loads /lingbot-world-fast-v1. After
-// that, edits made through the in-page editor are persisted to localStorage
-// and survive reloads. The "Reset to defaults" button wipes overrides.
+// The structured prompt model behind the example scenes, plus the pure
+// composePrompt() function that flattens a scene to the prose string sent
+// via set_prompt. Edits made through the in-page editor are persisted to
+// localStorage and survive reloads; ↺ on a card wipes its override.
 //
 // The default examples (see lingbot-cases-examples.ts) are converted from
-// the eval-harness "lingbot-cases" corpus, one StructuredExample per case,
-// each with up to 4 hold-key events (keys 1..4) plus an optional jump
-// prompt. Add more hold presets in the in-page editor if needed (keys 5..9).
+// the "lingbot-cases" corpus, one StructuredExample per case, each with
+// hold-key events (keys 1..9) plus optional jump/crouch/stand prompts.
 
 import { LINGBOT_CASES_EXAMPLE_LIST } from "@/lib/lingbot-cases-examples";
 
-export interface NamedPrompt {
-  name: string;
-  prompt: string;
-}
-
-// Preset starting-image thumbnails. Click to load as pending; the user
-// confirms with "Send image". URLs are served out of public-demos/public/.
+// A starting-image thumbnail for an example card. URLs are served out of
+// this app's public/ directory.
 export interface ImagePreset {
   label: string;
   src: string;
-}
-
-// A complete scenario in one click: starting image + pinned prompts + hold
-// prompts. Applying replaces the current preset lists and stages the image
-// as a pending upload (user still confirms with "Send image").
-export interface ExampleSnapshot {
-  id: string;
-  name: string;
-  description?: string;
-  image: ImagePreset;
-  pinnedPrompts: NamedPrompt[];
-  holdPrompts: NamedPrompt[];
 }
 
 // Structured / orthogonal authoring form.
@@ -257,52 +240,13 @@ export function emptyScene(): StructuredScene {
   };
 }
 
-// Derive the legacy ExampleSnapshot shape from a StructuredExample so the
-// existing controller / chip UI can keep reading from DEFAULT_EXAMPLES while
-// the runtime composer is being wired up. Each derived hold-prompt is the
-// full base + static-movement + event composition (so pressing the chip
-// without WASD held still produces a coherent standalone prompt).
-export function structuredExampleToSnapshot(
-  ex: StructuredExample,
-): ExampleSnapshot {
-  return {
-    id: ex.id,
-    name: ex.name,
-    description: ex.description,
-    image: ex.image,
-    pinnedPrompts: [
-      { name: ex.name, prompt: composePrompt(ex.scene, false, []) },
-    ],
-    holdPrompts: ex.scene.events.map((e, i) => ({
-      name: e.name,
-      prompt: composePrompt(ex.scene, false, [i]),
-    })),
-  };
-}
+// The example scenarios are sourced from the "lingbot-cases" corpus rather
+// than hand-authored here; see lingbot-cases-examples.ts for the conversion
+// (base_prompt -> base.default, per-slot actions -> events, "space" slot ->
+// jumpPrompt) and provenance notes.
+export const EXAMPLES: StructuredExample[] = LINGBOT_CASES_EXAMPLE_LIST;
 
-// The 11 example scenarios are sourced from the eval-harness "lingbot-cases"
-// corpus rather than hand-authored here; see lingbot-cases-examples.ts for
-// the conversion (base_prompt -> base.default, per-slot actions -> events,
-// "space" slot -> jumpPrompt) and provenance notes.
-const STRUCTURED_EXAMPLE_LIST: StructuredExample[] = LINGBOT_CASES_EXAMPLE_LIST;
-
-export const DEFAULT_EXAMPLES: ExampleSnapshot[] =
-  STRUCTURED_EXAMPLE_LIST.map(structuredExampleToSnapshot);
-
-// Examples available to the runtime composer. The controller looks up
-// scenes by example id and recomposes set_prompt strings as movement /
-// hold-key state changes.
+// The same examples keyed by id. The controller looks up scenes by example
+// id and recomposes set_prompt strings as movement / hold-key state changes.
 export const STRUCTURED_EXAMPLES: Record<string, StructuredExample> =
-  Object.fromEntries(STRUCTURED_EXAMPLE_LIST.map((ex) => [ex.id, ex]));
-
-// Initial state: both preset lists are empty. Users populate them either by
-// clicking one of the examples above or by adding their own via ✎ Edit
-// presets. "Reset to defaults" wipes back to this empty state.
-export const DEFAULT_HOLD_PRESETS: NamedPrompt[] = [];
-export const DEFAULT_CLICK_PRESETS: NamedPrompt[] = [];
-
-// Standalone image presets — the images from every example, still offered
-// as one-click image loaders independent of the prompt presets.
-export const DEFAULT_IMAGE_PRESETS: ImagePreset[] = DEFAULT_EXAMPLES.map(
-  (e) => e.image,
-);
+  Object.fromEntries(EXAMPLES.map((ex) => [ex.id, ex]));

@@ -1,4 +1,4 @@
-// Example scenarios sourced from the eval-harness "lingbot-cases" corpus
+// Example scenarios sourced from the "lingbot-cases" corpus
 // (case1/{0036,0038}, case2/{1012}).
 //
 // The scene DATA lives one-file-per-example under ./lingbot-cases/<slug>.json
@@ -13,7 +13,7 @@
 // dynamic} = framing selected by WASD state (static orbits look-input around
 // the centred subject, dynamic is rear-view tracking); movement.default.
 // {static,dynamic} = idle vs. forward motion; each non-jump action slot
-// (keys 1..4) is one append-mode event clause. composePrompt() concatenates
+// (keys 1..9) is one append-mode event clause. composePrompt() concatenates
 // the active selection at runtime. Source images live at
 // public/lingbot-cases/<id>.jpg.
 

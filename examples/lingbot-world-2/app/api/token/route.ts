@@ -1,30 +1,19 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
-export async function POST(request: NextRequest) {
-  const headerKey = request.headers.get("Reactor-API-Key");
-  const apiKey =
-    headerKey ||
-    process.env.REACTOR_API_KEY ||
-    process.env.NEXT_PUBLIC_REACTOR_API_KEY;
-
-  let baseUrl: string | undefined;
-  try {
-    const body = await request.json();
-    baseUrl = body?.baseUrl;
-  } catch {
-    // existing demos call POST /api/token with no body
-  }
-  baseUrl =
-    baseUrl ||
-    process.env.NEXT_PUBLIC_COORDINATOR_URL ||
-    "https://api.reactor.inc";
-
+// Exchanges the server-side REACTOR_API_KEY for a short-lived session JWT.
+// Keeping the exchange on the server means the API key never ships to the
+// browser — the client only ever sees the JWT.
+export async function POST() {
+  const apiKey = process.env.REACTOR_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
       { error: "REACTOR_API_KEY is not configured" },
       { status: 500 },
     );
   }
+
+  const baseUrl =
+    process.env.NEXT_PUBLIC_COORDINATOR_URL || "https://api.reactor.inc";
 
   const response = await fetch(`${baseUrl}/tokens`, {
     method: "POST",
