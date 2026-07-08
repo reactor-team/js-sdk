@@ -119,7 +119,9 @@ function EventRow({
     >
       <div className="flex items-center gap-2 flex-wrap">
         {state === "compatible" && (
-          <span className={cn("w-2 h-2 rounded-full shrink-0", eventPalette.dot)} />
+          <span
+            className={cn("w-2 h-2 rounded-full shrink-0", eventPalette.dot)}
+          />
         )}
         <span className="inline-flex h-5 w-5 items-center justify-center rounded border border-white/20 bg-white/10 font-mono text-[10px] font-bold text-white/85">
           {index + 1}
@@ -128,12 +130,19 @@ function EventRow({
           {event.name.trim() || "(unnamed)"}
         </span>
         {state === "compatible" && (
-          <span className={cn("font-mono text-[9px] uppercase tracking-wider rounded px-1.5 py-0.5", eventPalette.bgStrong, eventPalette.text)}>
+          <span
+            className={cn(
+              "font-mono text-[9px] uppercase tracking-wider rounded px-1.5 py-0.5",
+              eventPalette.bgStrong,
+              eventPalette.text,
+            )}
+          >
             held · contributing
           </span>
         )}
         {state === "suppressed" && (
-          <span className="font-mono text-[9px] uppercase tracking-wider rounded bg-red-400/20 text-red-300 px-1.5 py-0.5"
+          <span
+            className="font-mono text-[9px] uppercase tracking-wider rounded bg-red-400/20 text-red-300 px-1.5 py-0.5"
             title="Held, but its baseVersion doesn't match the active base — composePrompt skips this event"
           >
             held · suppressed
@@ -142,7 +151,9 @@ function EventRow({
         <div className="ml-auto flex items-center gap-1">
           <VersionPill version={event.baseVersion ?? DEFAULT_LAYER_VERSION} />
           <VersionPill version={event.cameraVersion ?? DEFAULT_LAYER_VERSION} />
-          <VersionPill version={event.movementVersion ?? DEFAULT_LAYER_VERSION} />
+          <VersionPill
+            version={event.movementVersion ?? DEFAULT_LAYER_VERSION}
+          />
         </div>
       </div>
       <ProseBlock
@@ -177,7 +188,13 @@ export function LivePromptInspector({
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.isContentEditable)
+      )
+        return;
       onClose();
     };
     window.addEventListener("keydown", onKey);
@@ -225,10 +242,20 @@ export function LivePromptInspector({
             )}
             title="True while any WASD key is held"
           >
-            <span className={cn("w-1.5 h-1.5 rounded-full", isMoving ? "bg-amber-300" : "bg-white/30")} />
+            <span
+              className={cn(
+                "w-1.5 h-1.5 rounded-full",
+                isMoving ? "bg-amber-300" : "bg-white/30",
+              )}
+            />
             isMoving·{String(isMoving)}
           </span>
-          <Button size="xs" variant="ghost" onClick={onClose} className="shrink-0 h-7 px-2 font-mono text-[10px]">
+          <Button
+            size="xs"
+            variant="ghost"
+            onClick={onClose}
+            className="shrink-0 h-7 px-2 font-mono text-[10px]"
+          >
             ✕
           </Button>
         </div>
@@ -257,7 +284,15 @@ export function LivePromptInspector({
                   doesn't have to scroll down to figure out what each
                   color means. */}
               <div className="flex items-center gap-2 flex-wrap font-mono text-[10px] text-white/55">
-                {(["base", "camera", "movement", "event", "vertical"] as SegmentKind[]).map((k) => {
+                {(
+                  [
+                    "base",
+                    "camera",
+                    "movement",
+                    "event",
+                    "vertical",
+                  ] as SegmentKind[]
+                ).map((k) => {
                   const c = SEGMENT_PALETTE[k];
                   return (
                     <span key={k} className="inline-flex items-center gap-1.5">
@@ -328,7 +363,8 @@ export function LivePromptInspector({
               <div className="flex items-center gap-3 flex-wrap">
                 <SectionLabel>events</SectionLabel>
                 <span className="font-mono text-[10px] text-white/35">
-                  {heldSlots.length} held · {sel.compatible.length} contributing · {sel.suppressed.length} suppressed
+                  {heldSlots.length} held · {sel.compatible.length} contributing
+                  · {sel.suppressed.length} suppressed
                 </span>
               </div>
               {scene.events.length === 0 && (
@@ -360,17 +396,29 @@ export function LivePromptInspector({
               <p className="font-mono text-[11px] leading-relaxed text-white/55">
                 <code className="text-amber-300/80">composePrompt</code> joins{" "}
                 <code>base[{sel.activeBase}]</code>,{" "}
-                <code>camera[{sel.activeCamera}].{isMoving ? "dynamic" : "static"}</code>,{" "}
-                <code>movement[{sel.activeMovement}].{isMoving ? "dynamic" : "static"}</code>
+                <code>
+                  camera[{sel.activeCamera}].{isMoving ? "dynamic" : "static"}
+                </code>
+                ,{" "}
+                <code>
+                  movement[{sel.activeMovement}].
+                  {isMoving ? "dynamic" : "static"}
+                </code>
                 {sel.compatible.length > 0 && (
-                  <> and the details of {sel.compatible.length} compatible event{sel.compatible.length === 1 ? "" : "s"}</>
+                  <>
+                    {" "}
+                    and the details of {sel.compatible.length} compatible event
+                    {sel.compatible.length === 1 ? "" : "s"}
+                  </>
                 )}
                 .
                 {sel.suppressed.length > 0 && (
                   <>
-                    {" "}{sel.suppressed.length} event{sel.suppressed.length === 1 ? "" : "s"} held but suppressed because the{" "}
-                    <code>baseVersion</code> doesn&apos;t match the active base{" "}
-                    <code>{sel.activeBase}</code>.
+                    {" "}
+                    {sel.suppressed.length} event
+                    {sel.suppressed.length === 1 ? "" : "s"} held but suppressed
+                    because the <code>baseVersion</code> doesn&apos;t match the
+                    active base <code>{sel.activeBase}</code>.
                   </>
                 )}
               </p>

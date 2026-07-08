@@ -80,9 +80,11 @@ export function resolveSelection(
     .map((slot) => ({ slot, event: scene.events[slot] }))
     .filter((x): x is { slot: number; event: NamedEvent } => Boolean(x.event));
 
-  const activeBase = heldEvents.length > 0
-    ? (heldEvents[heldEvents.length - 1].event.baseVersion ?? DEFAULT_LAYER_VERSION)
-    : DEFAULT_LAYER_VERSION;
+  const activeBase =
+    heldEvents.length > 0
+      ? (heldEvents[heldEvents.length - 1].event.baseVersion ??
+        DEFAULT_LAYER_VERSION)
+      : DEFAULT_LAYER_VERSION;
 
   const compatible = heldEvents.filter(
     (h) => (h.event.baseVersion ?? DEFAULT_LAYER_VERSION) === activeBase,
@@ -100,8 +102,10 @@ export function resolveSelection(
     : DEFAULT_LAYER_VERSION;
 
   const baseProse = scene.base[activeBase] ?? scene.base[DEFAULT_LAYER_VERSION];
-  const cameraVariant = scene.camera[activeCamera] ?? scene.camera[DEFAULT_LAYER_VERSION];
-  const movementVariant = scene.movement[activeMovement] ?? scene.movement[DEFAULT_LAYER_VERSION];
+  const cameraVariant =
+    scene.camera[activeCamera] ?? scene.camera[DEFAULT_LAYER_VERSION];
+  const movementVariant =
+    scene.movement[activeMovement] ?? scene.movement[DEFAULT_LAYER_VERSION];
 
   return {
     activeBase,

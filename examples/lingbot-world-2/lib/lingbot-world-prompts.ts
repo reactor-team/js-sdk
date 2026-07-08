@@ -163,12 +163,11 @@ export function composePrompt(
   // (default when nothing is held). Events tagged for other base
   // versions are suppressed because their detail was authored against a
   // different world.
-  const activeBase = heldEvents.length > 0
-    ? baseVersionOf(heldEvents[heldEvents.length - 1])
-    : DEFAULT_LAYER_VERSION;
-  const compatible = heldEvents.filter(
-    (e) => baseVersionOf(e) === activeBase,
-  );
+  const activeBase =
+    heldEvents.length > 0
+      ? baseVersionOf(heldEvents[heldEvents.length - 1])
+      : DEFAULT_LAYER_VERSION;
+  const compatible = heldEvents.filter((e) => baseVersionOf(e) === activeBase);
 
   // Within the compatible set, camera and movement versions are taken
   // from the most-recently-pressed compatible event's choices. This

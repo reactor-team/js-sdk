@@ -34,7 +34,11 @@ function renameKey<T>(
   return out;
 }
 
-function setKey<T>(reg: Record<string, T>, key: string, value: T): Record<string, T> {
+function setKey<T>(
+  reg: Record<string, T>,
+  key: string,
+  value: T,
+): Record<string, T> {
   return { ...reg, [key]: value };
 }
 
@@ -129,7 +133,10 @@ function diffShotRegistry(
   const staticChanged = new Set<string>();
   const dynamicChanged = new Set<string>();
   for (const [k, v] of Object.entries(scene)) {
-    if (!(k in pristine)) { added.add(k); continue; }
+    if (!(k in pristine)) {
+      added.add(k);
+      continue;
+    }
     if (v.static !== pristine[k].static) staticChanged.add(k);
     if (v.dynamic !== pristine[k].dynamic) dynamicChanged.add(k);
   }
@@ -165,16 +172,26 @@ function diffEvent(scene: NamedEvent, pristine: NamedEvent): EventDiff {
     detailStaticChanged = true;
     detailDynamicChanged = true;
   }
-  const detailChanged = detailTypeChanged || detailStaticChanged || detailDynamicChanged;
+  const detailChanged =
+    detailTypeChanged || detailStaticChanged || detailDynamicChanged;
 
   const nameChanged = scene.name !== pristine.name;
-  const baseVersionChanged = (scene.baseVersion ?? DEFAULT_LAYER_VERSION) !== (pristine.baseVersion ?? DEFAULT_LAYER_VERSION);
-  const cameraVersionChanged = (scene.cameraVersion ?? DEFAULT_LAYER_VERSION) !== (pristine.cameraVersion ?? DEFAULT_LAYER_VERSION);
-  const movementVersionChanged = (scene.movementVersion ?? DEFAULT_LAYER_VERSION) !== (pristine.movementVersion ?? DEFAULT_LAYER_VERSION);
+  const baseVersionChanged =
+    (scene.baseVersion ?? DEFAULT_LAYER_VERSION) !==
+    (pristine.baseVersion ?? DEFAULT_LAYER_VERSION);
+  const cameraVersionChanged =
+    (scene.cameraVersion ?? DEFAULT_LAYER_VERSION) !==
+    (pristine.cameraVersion ?? DEFAULT_LAYER_VERSION);
+  const movementVersionChanged =
+    (scene.movementVersion ?? DEFAULT_LAYER_VERSION) !==
+    (pristine.movementVersion ?? DEFAULT_LAYER_VERSION);
 
   const any =
-    nameChanged || baseVersionChanged || cameraVersionChanged ||
-    movementVersionChanged || detailChanged;
+    nameChanged ||
+    baseVersionChanged ||
+    cameraVersionChanged ||
+    movementVersionChanged ||
+    detailChanged;
 
   return {
     state: any ? "edited" : "same",
@@ -215,7 +232,10 @@ function computeSceneDiff(
     camera: diffShotRegistry(scene.camera, pristine.camera),
     movement: diffShotRegistry(scene.movement, pristine.movement),
     events,
-    eventsRemovedCount: Math.max(0, pristine.events.length - scene.events.length),
+    eventsRemovedCount: Math.max(
+      0,
+      pristine.events.length - scene.events.length,
+    ),
   };
 }
 
@@ -327,7 +347,9 @@ function VersionKeyInput({
   const [draft, setDraft] = useState(value);
   const [error, setError] = useState<string | null>(null);
   // Sync external rename / re-mount
-  useEffect(() => { setDraft(value); }, [value]);
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
 
   const commit = () => {
     const next = draft.trim();
@@ -362,7 +384,9 @@ function VersionKeyInput({
           error && "border-red-500/60",
         )}
       />
-      {error && <span className="font-mono text-[10px] text-red-400/80">{error}</span>}
+      {error && (
+        <span className="font-mono text-[10px] text-red-400/80">{error}</span>
+      )}
     </div>
   );
 }
@@ -406,10 +430,17 @@ function VersionCard({
           onCommit={onRename}
         />
         {status === "added" && (
-          <DiffMark variant="new" label="added" title="This version key isn't in the pristine example." />
+          <DiffMark
+            variant="new"
+            label="added"
+            title="This version key isn't in the pristine example."
+          />
         )}
         {status === "edited" && (
-          <DiffMark variant="edited" title="Content under this version differs from the pristine example." />
+          <DiffMark
+            variant="edited"
+            title="Content under this version differs from the pristine example."
+          />
         )}
         {isDefault && (
           <span className="font-mono text-[10px] text-white/35">
@@ -526,10 +557,17 @@ function ShotPanel({
 }) {
   const entries = Object.entries(registry);
   const keys = entries.map(([k]) => k);
-  const updateField = (key: string, field: keyof ShotVariant, value: string) => {
+  const updateField = (
+    key: string,
+    field: keyof ShotVariant,
+    value: string,
+  ) => {
     const prev = registry[key];
     onChange(
-      setKey(registry, key, { ...prev, [field]: value }) as LayerRegistry<ShotVariant>,
+      setKey(registry, key, {
+        ...prev,
+        [field]: value,
+      }) as LayerRegistry<ShotVariant>,
     );
   };
   const remove = (key: string) =>
@@ -537,7 +575,10 @@ function ShotPanel({
   const add = () => {
     const key = uniqueKey(registry, "variant");
     onChange(
-      setKey(registry, key, { static: "", dynamic: "" }) as LayerRegistry<ShotVariant>,
+      setKey(registry, key, {
+        static: "",
+        dynamic: "",
+      }) as LayerRegistry<ShotVariant>,
     );
   };
 
@@ -554,9 +595,9 @@ function ShotPanel({
           </>
         ) : (
           <>
-            Subject motion. <strong>Static</strong> = subject is dead-still
-            (no WASD held). <strong>Dynamic</strong> = subject moves forward
-            (WASD held).
+            Subject motion. <strong>Static</strong> = subject is dead-still (no
+            WASD held). <strong>Dynamic</strong> = subject moves forward (WASD
+            held).
           </>
         )}
       </Hint>
@@ -601,13 +642,19 @@ function ShotPanel({
                         ? "Camera framing when subject is still"
                         : "Subject motion when no WASD held"
                     }
-                    className={staticChanged && !isAdded ? "border-amber-300/40" : undefined}
+                    className={
+                      staticChanged && !isAdded
+                        ? "border-amber-300/40"
+                        : undefined
+                    }
                   />
                 </div>
                 <div className="flex flex-col gap-1.5 min-h-0">
                   <div className="flex items-center gap-2">
                     <FieldLabel>dynamic (WASD held)</FieldLabel>
-                    {dynamicChanged && !isAdded && <DiffMark variant="edited" />}
+                    {dynamicChanged && !isAdded && (
+                      <DiffMark variant="edited" />
+                    )}
                   </div>
                   <ProseTextarea
                     value={variant.dynamic}
@@ -617,7 +664,11 @@ function ShotPanel({
                         ? "Camera framing when subject is moving"
                         : "Subject motion when WASD held"
                     }
-                    className={dynamicChanged && !isAdded ? "border-amber-300/40" : undefined}
+                    className={
+                      dynamicChanged && !isAdded
+                        ? "border-amber-300/40"
+                        : undefined
+                    }
                   />
                 </div>
               </div>
@@ -720,7 +771,12 @@ function EventCard({
   const showSub = (changed: boolean) => !isAdded && changed;
 
   return (
-    <div className={cn("rounded-md border bg-white/[0.025] p-4 flex flex-col gap-3 flex-1 min-h-[320px]", cardBorder)}>
+    <div
+      className={cn(
+        "rounded-md border bg-white/[0.025] p-4 flex flex-col gap-3 flex-1 min-h-[320px]",
+        cardBorder,
+      )}
+    >
       <div className="flex items-center gap-2 flex-wrap shrink-0">
         <span className="inline-flex h-7 w-7 items-center justify-center rounded border border-white/20 bg-white/10 font-mono text-[12px] font-bold text-white/85">
           {index + 1}
@@ -736,21 +792,39 @@ function EventCard({
         />
         {isAdded && <DiffMark variant="new" />}
         {!isAdded && diff?.state === "edited" && <DiffMark variant="edited" />}
-        {showSub(!!diff?.nameChanged) && <DiffMark variant="edited" label="name" />}
-        <Button size="sm" variant="ghost" onClick={() => onMove(-1)} disabled={isFirst} title="Move up">
+        {showSub(!!diff?.nameChanged) && (
+          <DiffMark variant="edited" label="name" />
+        )}
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => onMove(-1)}
+          disabled={isFirst}
+          title="Move up"
+        >
           ↑
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => onMove(1)} disabled={isLast} title="Move down">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => onMove(1)}
+          disabled={isLast}
+          title="Move down"
+        >
           ↓
         </Button>
-        <Button size="sm" variant="ghost" onClick={onRemove}>Delete</Button>
+        <Button size="sm" variant="ghost" onClick={onRemove}>
+          Delete
+        </Button>
       </div>
 
       <div className="flex flex-wrap items-end gap-4 shrink-0">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <FieldLabel>base version</FieldLabel>
-            {showSub(!!diff?.baseVersionChanged) && <DiffMark variant="edited" />}
+            {showSub(!!diff?.baseVersionChanged) && (
+              <DiffMark variant="edited" />
+            )}
           </div>
           <VersionPicker
             value={event.baseVersion ?? DEFAULT_LAYER_VERSION}
@@ -761,7 +835,9 @@ function EventCard({
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <FieldLabel>camera version</FieldLabel>
-            {showSub(!!diff?.cameraVersionChanged) && <DiffMark variant="edited" />}
+            {showSub(!!diff?.cameraVersionChanged) && (
+              <DiffMark variant="edited" />
+            )}
           </div>
           <VersionPicker
             value={event.cameraVersion ?? DEFAULT_LAYER_VERSION}
@@ -772,7 +848,9 @@ function EventCard({
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <FieldLabel>movement version</FieldLabel>
-            {showSub(!!diff?.movementVersionChanged) && <DiffMark variant="edited" />}
+            {showSub(!!diff?.movementVersionChanged) && (
+              <DiffMark variant="edited" />
+            )}
           </div>
           <VersionPicker
             value={event.movementVersion ?? DEFAULT_LAYER_VERSION}
@@ -788,7 +866,9 @@ function EventCard({
             className="accent-amber-300"
           />
           branch detail on WASD
-          {showSub(!!diff?.detailTypeChanged) && <DiffMark variant="edited" label="shape" />}
+          {showSub(!!diff?.detailTypeChanged) && (
+            <DiffMark variant="edited" label="shape" />
+          )}
         </label>
       </div>
 
@@ -797,25 +877,37 @@ function EventCard({
           <div className="flex flex-col gap-1.5 min-h-0">
             <div className="flex items-center gap-2">
               <FieldLabel>detail · static</FieldLabel>
-              {showSub(!!diff?.detailStaticChanged) && <DiffMark variant="edited" />}
+              {showSub(!!diff?.detailStaticChanged) && (
+                <DiffMark variant="edited" />
+              )}
             </div>
             <ProseTextarea
               value={(event.detail as ShotVariant).static}
               onChange={(v) => updateField("static", v)}
               placeholder="Detail prose when no WASD held"
-              className={showSub(!!diff?.detailStaticChanged) ? "border-amber-300/40" : undefined}
+              className={
+                showSub(!!diff?.detailStaticChanged)
+                  ? "border-amber-300/40"
+                  : undefined
+              }
             />
           </div>
           <div className="flex flex-col gap-1.5 min-h-0">
             <div className="flex items-center gap-2">
               <FieldLabel>detail · dynamic</FieldLabel>
-              {showSub(!!diff?.detailDynamicChanged) && <DiffMark variant="edited" />}
+              {showSub(!!diff?.detailDynamicChanged) && (
+                <DiffMark variant="edited" />
+              )}
             </div>
             <ProseTextarea
               value={(event.detail as ShotVariant).dynamic}
               onChange={(v) => updateField("dynamic", v)}
               placeholder="Detail prose when WASD held"
-              className={showSub(!!diff?.detailDynamicChanged) ? "border-amber-300/40" : undefined}
+              className={
+                showSub(!!diff?.detailDynamicChanged)
+                  ? "border-amber-300/40"
+                  : undefined
+              }
             />
           </div>
         </div>
@@ -829,7 +921,9 @@ function EventCard({
             value={event.detail as string}
             onChange={updateString}
             placeholder="Detail prose appended while held"
-            className={showSub(!!diff?.detailChanged) ? "border-amber-300/40" : undefined}
+            className={
+              showSub(!!diff?.detailChanged) ? "border-amber-300/40" : undefined
+            }
           />
         </div>
       )}
@@ -847,7 +941,10 @@ function EventsPanel({
   onChange: (next: StructuredScene) => void;
 }) {
   const updateEvent = (i: number, next: NamedEvent) => {
-    onChange({ ...scene, events: scene.events.map((e, idx) => (idx === i ? next : e)) });
+    onChange({
+      ...scene,
+      events: scene.events.map((e, idx) => (idx === i ? next : e)),
+    });
   };
   const removeEvent = (i: number) =>
     onChange({ ...scene, events: scene.events.filter((_, idx) => idx !== i) });
@@ -868,14 +965,15 @@ function EventsPanel({
       <Hint>
         Each event binds to a number key by position — first event = key{" "}
         <code>1</code>, ninth = key <code>9</code>. Pressing the key holds the
-        event; releasing reverts. Pick which version of base / camera /
-        movement the event composes against; events whose{" "}
-        <code>baseVersion</code> doesn&apos;t match the most-recently-pressed
-        event are suppressed.
+        event; releasing reverts. Pick which version of base / camera / movement
+        the event composes against; events whose <code>baseVersion</code>{" "}
+        doesn&apos;t match the most-recently-pressed event are suppressed.
       </Hint>
       {diff && diff.eventsRemovedCount > 0 && (
         <p className="font-mono text-[11px] text-red-300/80">
-          {diff.eventsRemovedCount} event{diff.eventsRemovedCount === 1 ? "" : "s"} removed from the pristine list.
+          {diff.eventsRemovedCount} event
+          {diff.eventsRemovedCount === 1 ? "" : "s"} removed from the pristine
+          list.
         </p>
       )}
       <div className="flex flex-col gap-4 flex-1 min-h-0">
@@ -885,7 +983,7 @@ function EventsPanel({
             index={i}
             event={event}
             scene={scene}
-            diff={diff ? diff.events[i] ?? null : null}
+            diff={diff ? (diff.events[i] ?? null) : null}
             onChange={(next) => updateEvent(i, next)}
             onRemove={() => removeEvent(i)}
             onMove={(dir) => moveEvent(i, dir)}
@@ -920,10 +1018,9 @@ function PreviewPanel({ scene }: { scene: StructuredScene }) {
   return (
     <div className="flex flex-col gap-4">
       <Hint>
-        Live preview of <code>composePrompt(scene, isMoving, heldSlots)</code>{" "}
-        — the exact string the runtime sends to{" "}
-        <code>set_prompt</code>. Toggle WASD-state and held events to see how
-        the layered registries combine.
+        Live preview of <code>composePrompt(scene, isMoving, heldSlots)</code> —
+        the exact string the runtime sends to <code>set_prompt</code>. Toggle
+        WASD-state and held events to see how the layered registries combine.
       </Hint>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -961,15 +1058,17 @@ function PreviewPanel({ scene }: { scene: StructuredScene }) {
             composed prompt ({composed.length} chars)
           </div>
           <div className="ml-auto flex items-center gap-2 flex-wrap font-mono text-[10px] text-white/55">
-            {(["base", "camera", "movement", "event"] as SegmentKind[]).map((k) => {
-              const c = SEGMENT_PALETTE[k];
-              return (
-                <span key={k} className="inline-flex items-center gap-1.5">
-                  <span className={cn("w-2 h-2 rounded-full", c.dot)} />
-                  {c.label}
-                </span>
-              );
-            })}
+            {(["base", "camera", "movement", "event"] as SegmentKind[]).map(
+              (k) => {
+                const c = SEGMENT_PALETTE[k];
+                return (
+                  <span key={k} className="inline-flex items-center gap-1.5">
+                    <span className={cn("w-2 h-2 rounded-full", c.dot)} />
+                    {c.label}
+                  </span>
+                );
+              },
+            )}
           </div>
         </div>
         {segments.length === 0 ? (
@@ -1034,7 +1133,9 @@ export function LayeredSceneEditor({
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+    return () => {
+      document.body.style.overflow = prev;
+    };
   }, []);
 
   // Tracks where a mousedown landed before the next click fires. A
@@ -1052,7 +1153,13 @@ export function LayeredSceneEditor({
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.isContentEditable)
+      )
+        return;
       onClose();
     };
     window.addEventListener("keydown", onKey);
@@ -1065,7 +1172,11 @@ export function LayeredSceneEditor({
     newKey: string,
   ) => {
     if (oldKey === DEFAULT_LAYER_VERSION || oldKey === newKey) return;
-    const reg = renameKey(scene[layer] as Record<string, unknown>, oldKey, newKey);
+    const reg = renameKey(
+      scene[layer] as Record<string, unknown>,
+      oldKey,
+      newKey,
+    );
     const field = LAYER_TO_FIELD[layer];
     const events = scene.events.map((e) =>
       (e[field] ?? DEFAULT_LAYER_VERSION) === oldKey
@@ -1075,12 +1186,18 @@ export function LayeredSceneEditor({
     onChange({ ...scene, [layer]: reg, events } as StructuredScene);
   };
 
-  const setBase = (next: LayerRegistry<string>) => onChange({ ...scene, base: next });
-  const setCamera = (next: LayerRegistry<ShotVariant>) => onChange({ ...scene, camera: next });
-  const setMovement = (next: LayerRegistry<ShotVariant>) => onChange({ ...scene, movement: next });
-  const setJumpPrompt = (next: string) => onChange({ ...scene, jumpPrompt: next });
-  const setCrouchPrompt = (next: string) => onChange({ ...scene, crouchPrompt: next });
-  const setStandPrompt = (next: string) => onChange({ ...scene, standPrompt: next });
+  const setBase = (next: LayerRegistry<string>) =>
+    onChange({ ...scene, base: next });
+  const setCamera = (next: LayerRegistry<ShotVariant>) =>
+    onChange({ ...scene, camera: next });
+  const setMovement = (next: LayerRegistry<ShotVariant>) =>
+    onChange({ ...scene, movement: next });
+  const setJumpPrompt = (next: string) =>
+    onChange({ ...scene, jumpPrompt: next });
+  const setCrouchPrompt = (next: string) =>
+    onChange({ ...scene, crouchPrompt: next });
+  const setStandPrompt = (next: string) =>
+    onChange({ ...scene, standPrompt: next });
 
   const counts: Record<Tab, number> = {
     base: Object.keys(scene.base).length,
@@ -1096,11 +1213,20 @@ export function LayeredSceneEditor({
   // tab-level mark since the Events panel renders an inline notice.
   const editCounts: Record<Tab, number> = {
     base: diff ? diff.base.added.size + diff.base.edited.size : 0,
-    camera: diff ? diff.camera.added.size + diff.camera.staticChanged.size + diff.camera.dynamicChanged.size : 0,
-    movement: diff ? diff.movement.added.size + diff.movement.staticChanged.size + diff.movement.dynamicChanged.size : 0,
+    camera: diff
+      ? diff.camera.added.size +
+        diff.camera.staticChanged.size +
+        diff.camera.dynamicChanged.size
+      : 0,
+    movement: diff
+      ? diff.movement.added.size +
+        diff.movement.staticChanged.size +
+        diff.movement.dynamicChanged.size
+      : 0,
     vertical: 0,
     events: diff
-      ? diff.events.filter((e) => e.state !== "same").length + diff.eventsRemovedCount
+      ? diff.events.filter((e) => e.state !== "same").length +
+        diff.eventsRemovedCount
       : 0,
     preview: 0,
   };
@@ -1176,7 +1302,9 @@ export function LayeredSceneEditor({
                   <span
                     className={cn(
                       "inline-flex h-4 min-w-4 items-center justify-center rounded px-1 text-[9px]",
-                      active ? "bg-amber-300/20 text-amber-200" : "bg-white/10 text-white/55",
+                      active
+                        ? "bg-amber-300/20 text-amber-200"
+                        : "bg-white/10 text-white/55",
                     )}
                   >
                     {counts[t.id]}
@@ -1270,7 +1398,9 @@ export function LayeredSceneEditor({
                 </div>
               </div>
             )}
-            {tab === "events" && <EventsPanel scene={scene} diff={diff} onChange={onChange} />}
+            {tab === "events" && (
+              <EventsPanel scene={scene} diff={diff} onChange={onChange} />
+            )}
             {tab === "preview" && <PreviewPanel scene={scene} />}
           </div>
         </div>

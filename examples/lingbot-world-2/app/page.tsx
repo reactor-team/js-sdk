@@ -19,43 +19,71 @@ function StatusBar() {
   const { status, connect, disconnect, reset } = useLingbotWorld2();
 
   const dotColor =
-    status === "ready" ? "#4ade80" :
-    status === "connecting" || status === "waiting" ? "#facc15" :
-    "rgba(255,255,255,0.3)";
+    status === "ready"
+      ? "#4ade80"
+      : status === "connecting" || status === "waiting"
+        ? "#facc15"
+        : "rgba(255,255,255,0.3)";
 
   const statusLabel =
-    status === "ready" ? "Connected" :
-    status === "waiting" ? "Waiting for GPU..." :
-    status === "connecting" ? "Connecting..." :
-    "Disconnected";
+    status === "ready"
+      ? "Connected"
+      : status === "waiting"
+        ? "Waiting for GPU..."
+        : status === "connecting"
+          ? "Connecting..."
+          : "Disconnected";
 
   return (
-    <div className="flex items-center justify-between px-4 py-2 shrink-0" style={{
-      background: "rgba(255,255,255,0.04)",
-      borderBottom: "1px solid rgba(255,255,255,0.06)"
-    }}>
+    <div
+      className="flex items-center justify-between px-4 py-2 shrink-0"
+      style={{
+        background: "rgba(255,255,255,0.04)",
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
+      }}
+    >
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full transition-colors" style={{
-            backgroundColor: dotColor,
-            animation: status === "connecting" || status === "waiting" ? "statusPulse 1.5s infinite" : "none"
-          }} />
+          <div
+            className="w-2 h-2 rounded-full transition-colors"
+            style={{
+              backgroundColor: dotColor,
+              animation:
+                status === "connecting" || status === "waiting"
+                  ? "statusPulse 1.5s infinite"
+                  : "none",
+            }}
+          />
           <span className="font-mono text-xs text-white/50">{statusLabel}</span>
         </div>
         {status === "disconnected" ? (
-          <Button size="xs" variant="secondary" onClick={() => connect()}
-            className="h-7 px-3 font-mono text-xs bg-white/10 border-white/15 hover:bg-white/15 text-white">
+          <Button
+            size="xs"
+            variant="secondary"
+            onClick={() => connect()}
+            className="h-7 px-3 font-mono text-xs bg-white/10 border-white/15 hover:bg-white/15 text-white"
+          >
             Connect
           </Button>
         ) : (
-          <Button size="xs" variant="secondary" onClick={() => disconnect()}
-            className="h-7 px-3 font-mono text-xs bg-white/10 border-white/15 hover:bg-white/15 text-white">
-            {status === "connecting" || status === "waiting" ? "Cancel" : "Disconnect"}
+          <Button
+            size="xs"
+            variant="secondary"
+            onClick={() => disconnect()}
+            className="h-7 px-3 font-mono text-xs bg-white/10 border-white/15 hover:bg-white/15 text-white"
+          >
+            {status === "connecting" || status === "waiting"
+              ? "Cancel"
+              : "Disconnect"}
           </Button>
         )}
         {status === "ready" && (
-          <Button size="xs" variant="secondary" onClick={() => reset().catch(console.error)}
-            className="h-7 px-3 font-mono text-xs bg-red-500/15 border-red-500/20 hover:bg-red-500/25 text-red-400">
+          <Button
+            size="xs"
+            variant="secondary"
+            onClick={() => reset().catch(console.error)}
+            className="h-7 px-3 font-mono text-xs bg-red-500/15 border-red-500/20 hover:bg-red-500/25 text-red-400"
+          >
             Reset
           </Button>
         )}
@@ -83,7 +111,12 @@ function MainContent() {
             <div className="relative bg-black rounded-xl overflow-hidden border border-white/[0.08] aspect-video">
               <LingbotWorld2MainVideoView
                 videoObjectFit="contain"
-                style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                }}
               />
             </div>
 
@@ -111,7 +144,9 @@ export default function LingbotWorld2Page() {
   const [jwtToken, setJwtToken] = useState<string | undefined>(undefined);
   const [tokenError, setTokenError] = useState<string | null>(null);
 
-  useEffect(() => { document.documentElement.classList.add("dark"); }, []);
+  useEffect(() => {
+    document.documentElement.classList.add("dark");
+  }, []);
 
   // Exchange the server-side REACTOR_API_KEY for a short-lived session JWT.
   // The key itself never reaches the browser — see app/api/token/route.ts.
@@ -127,8 +162,12 @@ export default function LingbotWorld2Page() {
           setTokenError(body.error ?? `Token request failed (${r.status})`);
         }
       })
-      .catch((err) => { if (!cancelled) setTokenError(String(err)); });
-    return () => { cancelled = true; };
+      .catch((err) => {
+        if (!cancelled) setTokenError(String(err));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (

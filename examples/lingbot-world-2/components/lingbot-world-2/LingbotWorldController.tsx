@@ -56,12 +56,16 @@ function isStructuredScene(v: unknown): v is StructuredScene {
 }
 
 const KEY_TO_MOVE_L: Record<string, Exclude<MoveL, "idle">> = {
-  w: "forward", W: "forward",
-  s: "back", S: "back",
+  w: "forward",
+  W: "forward",
+  s: "back",
+  S: "back",
 };
 const KEY_TO_MOVE_LAT: Record<string, Exclude<MoveLat, "idle">> = {
-  a: "strafe_left", A: "strafe_left",
-  d: "strafe_right", D: "strafe_right",
+  a: "strafe_left",
+  A: "strafe_left",
+  d: "strafe_right",
+  D: "strafe_right",
 };
 
 const KEY_TO_LOOK_H: Record<string, Exclude<LookH, "idle">> = {
@@ -82,21 +86,21 @@ const KEY_TO_LOOK_V: Record<string, Exclude<LookV, "idle">> = {
 // ADDS to WASD. We send one delta per chunk (6 floats; the backend repeats it
 // across its chunk_size) — no absolute pose, no matrices, no client state to
 // maintain. The backend sanitizes any payload, so this is hard to misuse.
-const MOUSE_SENS_DEFAULT = 0.0003;    // per-frame radians of look per pixel (user-adjustable)
+const MOUSE_SENS_DEFAULT = 0.0003; // per-frame radians of look per pixel (user-adjustable)
 const MOUSE_SENS_MIN = 0.00005;
 const MOUSE_SENS_MAX = 0.0012;
-const MOUSE_MAX_ROT = 0.2;            // hard ceiling on per-chunk |yaw|/|pitch| (the HUD
-                                      // outer ring) — a fast fling can't over-rotate
-const ROLL_SPEED = 0.08;              // per-frame radians of roll (Q/E) — matched to the
-                                      // keyboard arrow rate (~4.6°/frame) so it's visible
+const MOUSE_MAX_ROT = 0.2; // hard ceiling on per-chunk |yaw|/|pitch| (the HUD
+// outer ring) — a fast fling can't over-rotate
+const ROLL_SPEED = 0.08; // per-frame radians of roll (Q/E) — matched to the
+// keyboard arrow rate (~4.6°/frame) so it's visible
 // Arrow-key look is routed through the SAME camera_pose yaw/pitch as mouse-look
 // (rather than the backend's separate discrete look_horizontal/look_vertical
 // state), so it's just a steady, fixed-rate version of mouse movement — it
 // stacks with the mouse and drives everything mouse-driven yaw does, incl. orbit.
-const ARROW_LOOK_SPEED = ROLL_SPEED;  // per-frame radians of yaw/pitch while an arrow is held
-const JUMP_SPEED = 1.0;               // per-frame up-translation while held (magnitude
-                                      // is washed out by per-chunk normalization)
-const JOY_SPEED = 1.0;                // per-frame translation magnitude at full joystick deflect
+const ARROW_LOOK_SPEED = ROLL_SPEED; // per-frame radians of yaw/pitch while an arrow is held
+const JUMP_SPEED = 1.0; // per-frame up-translation while held (magnitude
+// is washed out by per-chunk normalization)
+const JOY_SPEED = 1.0; // per-frame translation magnitude at full joystick deflect
 // Camera-local "up" sign for Jump. Empirically verified against the backend:
 // characters dove DOWN with +1, so up is -1 in this model's local-Y convention.
 const JUMP_UP_SIGN = -1;
@@ -116,7 +120,7 @@ const JUMP_UP_SIGN = -1;
 // subject spirals out instead of staying centered, they're normed separately).
 // Signs assume +X = right, +Z = forward, positive ry = yaw right (see mouse onMove).
 const ORBIT_RADIUS_DEFAULT = 6;
-const ORBIT_RADIUS_STEP = 0.5;  // per-click nudge from the up/down stepper buttons
+const ORBIT_RADIUS_STEP = 0.5; // per-click nudge from the up/down stepper buttons
 
 // Jump has three selectable modes (the "Jump" switch by the pad):
 //   "hold"   — hold to translate straight UP for as long as held (no descent).
@@ -176,11 +180,20 @@ function defaultCrouchPatterns(): CrouchPatterns {
   return { press: [-1, ...still], release: [1, ...still] };
 }
 function isCrouchLatents(v: unknown): v is number[] {
-  return Array.isArray(v) && v.length === CHUNK_LATENTS && v.every((x) => x === 1 || x === 0 || x === -1);
+  return (
+    Array.isArray(v) &&
+    v.length === CHUNK_LATENTS &&
+    v.every((x) => x === 1 || x === 0 || x === -1)
+  );
 }
 function isValidCrouchPatterns(v: unknown): v is CrouchPatterns {
   const o = v as CrouchPatterns | null;
-  return !!o && typeof o === "object" && isCrouchLatents(o.press) && isCrouchLatents(o.release);
+  return (
+    !!o &&
+    typeof o === "object" &&
+    isCrouchLatents(o.press) &&
+    isCrouchLatents(o.release)
+  );
 }
 
 // Latents per chunk on the backend (lingbot-v2 config.yml chunk_size = 3). The
@@ -191,8 +204,8 @@ const CHUNK_LATENTS = 3;
 // k chunks (k * CHUNK_LATENTS latents). The meter STEPS through levels (dwelling
 // LEVEL_DWELL_MS on each, bouncing up/down) instead of filling continuously, so
 // what you see is exactly what you fire. Release at level k → a k-chunk arc.
-const NUM_CHARGE_LEVELS = 3;         // 1, 2, or 3 chunks
-const LEVEL_DWELL_MS = 400;          // time held on each level before stepping
+const NUM_CHARGE_LEVELS = 3; // 1, 2, or 3 chunks
+const LEVEL_DWELL_MS = 400; // time held on each level before stepping
 const CHARGE_PATTERNS_STORAGE = "lingbot-world-2:charge-patterns:v1";
 
 // Each charge level's arc is a hand-editable per-latent plan (edited in the
@@ -203,10 +216,10 @@ const CHARGE_PATTERNS_STORAGE = "lingbot-world-2:charge-patterns:v1";
 //   L2 (2 chunks): up up null | down down null -> [1,1,0, -1,-1,0]
 //   L3 (3 chunks): up×4 · down×4        -> [1,1,1,1, 0, -1,-1,-1,-1]
 function defaultChargePattern(level: number): number[] {
-  if (level === 2) return [1, 1, 0, -1, -1, 0];   // symmetric per-chunk (up up null; down down null)
+  if (level === 2) return [1, 1, 0, -1, -1, 0]; // symmetric per-chunk (up up null; down down null)
   const L = level * CHUNK_LATENTS;
-  const still = 1;                              // one pause latent at the peak
-  const up = Math.floor((L - still) / 2);       // odd L → symmetric up == down
+  const still = 1; // one pause latent at the peak
+  const up = Math.floor((L - still) / 2); // odd L → symmetric up == down
   const down = L - still - up;
   return [
     ...Array<number>(up).fill(1),
@@ -215,7 +228,9 @@ function defaultChargePattern(level: number): number[] {
   ];
 }
 function defaultChargePatterns(): number[][] {
-  return Array.from({ length: NUM_CHARGE_LEVELS }, (_, i) => defaultChargePattern(i + 1));
+  return Array.from({ length: NUM_CHARGE_LEVELS }, (_, i) =>
+    defaultChargePattern(i + 1),
+  );
 }
 // Guard against a stale/garbage localStorage payload.
 function isValidChargePatterns(v: unknown): v is number[][] {
@@ -289,7 +304,13 @@ function PadButton({
 // Small hold-to-activate button (roll / jump / crouch) — fires onDown while
 // held, onUp on release. Sits beside the WASD pad.
 function HoldBtn({
-  label, lit, disabled, title, onDown, onUp, className,
+  label,
+  lit,
+  disabled,
+  title,
+  onDown,
+  onUp,
+  className,
 }: {
   label: React.ReactNode;
   lit: boolean;
@@ -302,10 +323,15 @@ function HoldBtn({
   const handlers = disabled
     ? {}
     : {
-        onPointerDown: (e: React.PointerEvent) => { e.currentTarget.setPointerCapture(e.pointerId); onDown(); },
+        onPointerDown: (e: React.PointerEvent) => {
+          e.currentTarget.setPointerCapture(e.pointerId);
+          onDown();
+        },
         onPointerUp: onUp,
         onPointerCancel: onUp,
-        onPointerLeave: (e: React.PointerEvent) => { if (e.buttons !== 0) onUp(); },
+        onPointerLeave: (e: React.PointerEvent) => {
+          if (e.buttons !== 0) onUp();
+        },
       };
   return (
     <button
@@ -344,19 +370,20 @@ function HoldChip({
   onPress: () => void;
   onRelease: () => void;
 }) {
-  const handlers = disabled || empty
-    ? {}
-    : {
-        onPointerDown: (e: React.PointerEvent) => {
-          e.currentTarget.setPointerCapture(e.pointerId);
-          onPress();
-        },
-        onPointerUp: onRelease,
-        onPointerCancel: onRelease,
-        onPointerLeave: (e: React.PointerEvent) => {
-          if (e.buttons !== 0) onRelease();
-        },
-      };
+  const handlers =
+    disabled || empty
+      ? {}
+      : {
+          onPointerDown: (e: React.PointerEvent) => {
+            e.currentTarget.setPointerCapture(e.pointerId);
+            onPress();
+          },
+          onPointerUp: onRelease,
+          onPointerCancel: onRelease,
+          onPointerLeave: (e: React.PointerEvent) => {
+            if (e.buttons !== 0) onRelease();
+          },
+        };
   const displayName = name.trim() || `event ${slot + 1}`;
   return (
     <div
@@ -382,7 +409,9 @@ function HoldChip({
       >
         {slot + 1}
       </span>
-      <span className="truncate">{empty ? <em className="text-white/30">empty</em> : displayName}</span>
+      <span className="truncate">
+        {empty ? <em className="text-white/30">empty</em> : displayName}
+      </span>
     </div>
   );
 }
@@ -400,11 +429,15 @@ export function LingbotWorldController({ className }: { className?: string }) {
   const isReady = status === "ready";
 
   const [sentImagePreview, setSentImagePreview] = useState<string | null>(null);
-  const [imageInfo, setImageInfo] = useState<{ w: number; h: number } | null>(null);
-  const [pendingImage, setPendingImage] = useState<
-    | { file: File; previewUrl: string; label: string; presetSrc?: string }
-    | null
-  >(null);
+  const [imageInfo, setImageInfo] = useState<{ w: number; h: number } | null>(
+    null,
+  );
+  const [pendingImage, setPendingImage] = useState<{
+    file: File;
+    previewUrl: string;
+    label: string;
+    presetSrc?: string;
+  } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [loadingExampleId, setLoadingExampleId] = useState<string | null>(null);
 
@@ -425,23 +458,27 @@ export function LingbotWorldController({ className }: { className?: string }) {
   const [cameraPoseActive, setCameraPoseActive] = useState(false);
 
   // --- Native camera-pose layer (mouse-look + jump) ---
-  const [mouseLook, setMouseLook] = useState(false);  // pointer-lock engaged
-  const [vertDir, setVertState] = useState(0);        // vertical: -1 crouch (C). Jump no longer uses this.
-  const [rollDir, setRollDir] = useState(0);          // roll: -1 (Q) / 0 / +1 (E)
-  const [jumpMode, setJumpMode] = useState<JumpMode>("charge");  // "Jump" switch: hold / prompt / charge
-  const [crouchMode, setCrouchMode] = useState<CrouchMode>("camera");  // "Crouch" switch: hold / prompt / camera
-  const [jumpLit, setJumpLit] = useState(false);      // Space button highlight (held or arc in flight)
-  const [charging, setCharging] = useState(false);    // charge mode: meter stepping while held
-  const [chargeLevel, setChargeLevel] = useState(0);  // discrete level 0..NUM (0 = empty)
-  const [verticalPrompt, setVerticalPrompt] = useState("");  // live jump/crouch sentence (for the inspector)
+  const [mouseLook, setMouseLook] = useState(false); // pointer-lock engaged
+  const [vertDir, setVertState] = useState(0); // vertical: -1 crouch (C). Jump no longer uses this.
+  const [rollDir, setRollDir] = useState(0); // roll: -1 (Q) / 0 / +1 (E)
+  const [jumpMode, setJumpMode] = useState<JumpMode>("charge"); // "Jump" switch: hold / prompt / charge
+  const [crouchMode, setCrouchMode] = useState<CrouchMode>("camera"); // "Crouch" switch: hold / prompt / camera
+  const [jumpLit, setJumpLit] = useState(false); // Space button highlight (held or arc in flight)
+  const [charging, setCharging] = useState(false); // charge mode: meter stepping while held
+  const [chargeLevel, setChargeLevel] = useState(0); // discrete level 0..NUM (0 = empty)
+  const [verticalPrompt, setVerticalPrompt] = useState(""); // live jump/crouch sentence (for the inspector)
   // Hand-editable per-latent arc for each charge level (grid popup). Persisted.
-  const [chargePatterns, setChargePatterns] = useState<number[][]>(defaultChargePatterns);
-  const [editingLevel, setEditingLevel] = useState<number | null>(null);  // which level's grid is open
+  const [chargePatterns, setChargePatterns] = useState<number[][]>(
+    defaultChargePatterns,
+  );
+  const [editingLevel, setEditingLevel] = useState<number | null>(null); // which level's grid is open
   // Hand-editable one-chunk crouch dip patterns (press + release; grid popup). Persisted.
-  const [crouchPatterns, setCrouchPatterns] = useState<CrouchPatterns>(defaultCrouchPatterns);
-  const [editingCrouch, setEditingCrouch] = useState(false);  // crouch grid popup open?
-  const [mouseSens, setMouseSens] = useState(MOUSE_SENS_DEFAULT);  // look sensitivity
-  const [joy, setJoy] = useState({ x: 0, y: 0 });     // joystick knob (normalized −1..1)
+  const [crouchPatterns, setCrouchPatterns] = useState<CrouchPatterns>(
+    defaultCrouchPatterns,
+  );
+  const [editingCrouch, setEditingCrouch] = useState(false); // crouch grid popup open?
+  const [mouseSens, setMouseSens] = useState(MOUSE_SENS_DEFAULT); // look sensitivity
+  const [joy, setJoy] = useState({ x: 0, y: 0 }); // joystick knob (normalized −1..1)
   // Orbit: mouse-look circles a point R ahead instead of rotating in place. R is
   // the SOLE control — 0 = normal rotate-in-place (identical to no orbit), >0 =
   // orbit (bigger = wider/farther). No separate on/off flag: R=0 already IS "off".
@@ -458,31 +495,39 @@ export function LingbotWorldController({ className }: { className?: string }) {
   const [mouseViz, setMouseViz] = useState({ x: 0, y: 0 });
   // Mouse movement accumulated (in pixels) since the last per-chunk send.
   // Converted to a per-frame rotation delta at send time, then zeroed.
-  const pendingDYawRef = useRef(0);    // += movementX (mouse right → yaw right)
-  const pendingDPitchRef = useRef(0);  // += movementY (mouse up → pitch up)
-  const mouseVizRef = useRef({ x: 0, y: 0 });  // decaying viz vector (rAF-driven)
+  const pendingDYawRef = useRef(0); // += movementX (mouse right → yaw right)
+  const pendingDPitchRef = useRef(0); // += movementY (mouse up → pitch up)
+  const mouseVizRef = useRef({ x: 0, y: 0 }); // decaying viz vector (rAF-driven)
   const mouseLookRef = useRef(false);
-  const vertDirRef = useRef(0);        // -1 crouch / 0  (jump is tracked separately below)
-  const rollDirRef = useRef(0);        // -1 / 0 / +1
+  const vertDirRef = useRef(0); // -1 crouch / 0  (jump is tracked separately below)
+  const rollDirRef = useRef(0); // -1 / 0 / +1
   // --- Jump (decoupled from vertDir so it can be prompt-only or camera) ---
   const jumpModeRef = useRef<JumpMode>("charge");
-  useEffect(() => { jumpModeRef.current = jumpMode; }, [jumpMode]);
+  useEffect(() => {
+    jumpModeRef.current = jumpMode;
+  }, [jumpMode]);
   const crouchModeRef = useRef<CrouchMode>("camera");
-  useEffect(() => { crouchModeRef.current = crouchMode; }, [crouchMode]);
+  useEffect(() => {
+    crouchModeRef.current = crouchMode;
+  }, [crouchMode]);
   // Camera mode: one-shot dips queued for the next chunk (press = down, release = up).
   const crouchPressDipRef = useRef(false);
   const crouchReleaseDipRef = useRef(false);
   const crouchPatternsRef = useRef<CrouchPatterns>(crouchPatterns);
-  useEffect(() => { crouchPatternsRef.current = crouchPatterns; }, [crouchPatterns]);
-  const jumpHeldRef = useRef(false);   // is the jump key/button physically held?
+  useEffect(() => {
+    crouchPatternsRef.current = crouchPatterns;
+  }, [crouchPatterns]);
+  const jumpHeldRef = useRef(false); // is the jump key/button physically held?
   // Charge-arc state (a per-latent vertical-intent plan, consumed CHUNK_LATENTS
   // at a time). arc[i] ∈ {+1 up, 0 still, -1 down}; empty = no arc in flight.
   const jumpArcRef = useRef<number[]>([]);
-  const jumpArcPosRef = useRef(0);     // index of the current chunk's first latent
-  const chargeLevelRef = useRef(0);    // live discrete level 1..NUM while charging
+  const jumpArcPosRef = useRef(0); // index of the current chunk's first latent
+  const chargeLevelRef = useRef(0); // live discrete level 1..NUM while charging
   const chargeLevelDirRef = useRef(1); // meter step direction (+1/-1)
   const chargePatternsRef = useRef<number[][]>(chargePatterns);
-  useEffect(() => { chargePatternsRef.current = chargePatterns; }, [chargePatterns]);
+  useEffect(() => {
+    chargePatternsRef.current = chargePatterns;
+  }, [chargePatterns]);
   // Restore saved per-level patterns (validated) so edits survive reloads.
   useEffect(() => {
     try {
@@ -496,19 +541,27 @@ export function LingbotWorldController({ className }: { className?: string }) {
         const parsed = JSON.parse(savedCrouch);
         if (isValidCrouchPatterns(parsed)) setCrouchPatterns(parsed);
       }
-    } catch { /* localStorage unavailable / bad JSON */ }
+    } catch {
+      /* localStorage unavailable / bad JSON */
+    }
   }, []);
   const mouseSensRef = useRef(MOUSE_SENS_DEFAULT);
-  useEffect(() => { mouseSensRef.current = mouseSens; }, [mouseSens]);
+  useEffect(() => {
+    mouseSensRef.current = mouseSens;
+  }, [mouseSens]);
   // Orbit: mirror to a ref so sendCameraPoseChunk reads the latest without re-subscribing.
   const orbitRadiusRef = useRef(0);
-  useEffect(() => { orbitRadiusRef.current = orbitRadius; }, [orbitRadius]);
+  useEffect(() => {
+    orbitRadiusRef.current = orbitRadius;
+  }, [orbitRadius]);
   // Last non-zero radius, so the O key can mute (→0) and un-mute back to it without losing the setting.
   const lastOrbitRadiusRef = useRef(ORBIT_RADIUS_DEFAULT);
-  useEffect(() => { if (orbitRadius > 0) lastOrbitRadiusRef.current = orbitRadius; }, [orbitRadius]);
-  const joyRef = useRef({ x: 0, y: 0 });  // normalized joystick vector (−1..1)
+  useEffect(() => {
+    if (orbitRadius > 0) lastOrbitRadiusRef.current = orbitRadius;
+  }, [orbitRadius]);
+  const joyRef = useRef({ x: 0, y: 0 }); // normalized joystick vector (−1..1)
   const joyAreaRef = useRef<HTMLDivElement>(null);
-  const poseSentActiveRef = useRef(false);  // did we last send a non-empty pose?
+  const poseSentActiveRef = useRef(false); // did we last send a non-empty pose?
   // Ref indirection so the message handler (defined above the callback) can
   // invoke the latest sendCameraPoseChunk without a declaration-order issue.
   const sendCameraPoseChunkRef = useRef<() => void>(() => {});
@@ -527,7 +580,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
   // Per-example user edits. Reading the override during applyExample is
   // what makes edits survive re-clicks; clicking an example without an
   // override gets the pristine constant.
-  const [overrides, setOverrides] = useState<Record<string, StructuredScene>>({});
+  const [overrides, setOverrides] = useState<Record<string, StructuredScene>>(
+    {},
+  );
   const [overridesLoaded, setOverridesLoaded] = useState(false);
 
   // Which example the editor modal is open for. Independent of
@@ -553,7 +608,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
         const parsed = JSON.parse(raw) as unknown;
         if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
           const out: Record<string, StructuredScene> = {};
-          for (const [id, val] of Object.entries(parsed as Record<string, unknown>)) {
+          for (const [id, val] of Object.entries(
+            parsed as Record<string, unknown>,
+          )) {
             if (!isStructuredScene(val)) continue;
             const pristine = STRUCTURED_EXAMPLES[id]?.scene;
             if (pristine && scenesEqual(val, pristine)) continue;
@@ -578,29 +635,36 @@ export function LingbotWorldController({ className }: { className?: string }) {
   }, [overrides, overridesLoaded]);
 
   const overridesRef = useRef<Record<string, StructuredScene>>({});
-  useEffect(() => { overridesRef.current = overrides; }, [overrides]);
+  useEffect(() => {
+    overridesRef.current = overrides;
+  }, [overrides]);
 
   // Returns the user-edited scene for an example if one exists, else a
   // freshly cloned copy of the pristine constant. Always returns a fresh
   // clone so the caller can mutate it without touching the source. For
   // CUSTOM_SCENE_ID there is no pristine constant — only the override.
-  const effectiveSceneFor = useCallback((id: string): StructuredScene | null => {
-    const override = overridesRef.current[id];
-    if (override) return cloneScene(override);
-    if (id === CUSTOM_SCENE_ID) return null;
-    const structured = STRUCTURED_EXAMPLES[id];
-    return structured ? cloneScene(structured.scene) : null;
-  }, []);
+  const effectiveSceneFor = useCallback(
+    (id: string): StructuredScene | null => {
+      const override = overridesRef.current[id];
+      if (override) return cloneScene(override);
+      if (id === CUSTOM_SCENE_ID) return null;
+      const structured = STRUCTURED_EXAMPLES[id];
+      return structured ? cloneScene(structured.scene) : null;
+    },
+    [],
+  );
 
   const moveLStackRef = useRef<Array<Exclude<MoveL, "idle">>>([]);
   const moveLatStackRef = useRef<Array<Exclude<MoveLat, "idle">>>([]);
   const lastSentMoveLRef = useRef<MoveL>("idle");
   const lastSentMoveLatRef = useRef<MoveLat>("idle");
-  const lookHDirRef = useRef(0);       // -1 left / 0 / +1 right (feeds camera_pose yaw)
-  const lookVDirRef = useRef(0);       // -1 down / 0 / +1 up (feeds camera_pose pitch)
+  const lookHDirRef = useRef(0); // -1 left / 0 / +1 right (feeds camera_pose yaw)
+  const lookVDirRef = useRef(0); // -1 down / 0 / +1 up (feeds camera_pose pitch)
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isReadyRef = useRef(isReady);
-  useEffect(() => { isReadyRef.current = isReady; }, [isReady]);
+  useEffect(() => {
+    isReadyRef.current = isReady;
+  }, [isReady]);
   const isApplyingExampleRef = useRef(false);
 
   const lastSentPromptRef = useRef<string>("");
@@ -608,7 +672,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
   // synchronously and need a ref-current value rather than the captured
   // stale state from their closure.
   const sceneRef = useRef<StructuredScene | null>(null);
-  useEffect(() => { sceneRef.current = scene; }, [scene]);
+  useEffect(() => {
+    sceneRef.current = scene;
+  }, [scene]);
   const heldSlotsRef = useRef<number[]>([]);
 
   const recomputePromptAndSend = useCallback(() => {
@@ -635,7 +701,8 @@ export function LingbotWorldController({ className }: { className?: string }) {
 
     // No active scene → nothing to compose (prompts only flow from scenes).
     if (!sceneRef.current) return;
-    const isMoving = moveLStackRef.current.length > 0 || moveLatStackRef.current.length > 0;
+    const isMoving =
+      moveLStackRef.current.length > 0 || moveLatStackRef.current.length > 0;
     const next = composePrompt(
       sceneRef.current,
       isMoving,
@@ -652,7 +719,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
   // Ref indirection so the per-chunk message handler can drop the jump
   // sentence when the arc ends without capturing a stale callback.
   const recomputePromptAndSendRef = useRef<() => void>(() => {});
-  useEffect(() => { recomputePromptAndSendRef.current = recomputePromptAndSend; }, [recomputePromptAndSend]);
+  useEffect(() => {
+    recomputePromptAndSendRef.current = recomputePromptAndSend;
+  }, [recomputePromptAndSend]);
 
   // ---- Messages from backend ----
 
@@ -706,10 +775,10 @@ export function LingbotWorldController({ className }: { className?: string }) {
         if (jumpModeRef.current === "charge" && jumpArcRef.current.length > 0) {
           jumpArcPosRef.current += CHUNK_LATENTS;
           if (jumpArcPosRef.current >= jumpArcRef.current.length) {
-            jumpArcRef.current = [];   // landed
+            jumpArcRef.current = []; // landed
             jumpArcPosRef.current = 0;
             setJumpLit(false);
-            recomputePromptAndSendRef.current();   // drop the jump sentence
+            recomputePromptAndSendRef.current(); // drop the jump sentence
           }
         }
         // Drive the native camera-pose layer one chunk at a time.
@@ -728,7 +797,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
       case "generation_reset":
         setIsGenerating(false);
         setIsPaused(false);
-        clearMovementInputs();  // never leave a held control stuck after a reset
+        clearMovementInputs(); // never leave a held control stuck after a reset
         if (isApplyingExampleRef.current) break;
         setHasPrompt(false);
         setHasImage(false);
@@ -750,7 +819,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
         setPendingImage(null);
         break;
       case "command_error":
-        setErrorToast(`${msg.command || "?"}: ${msg.reason || "unknown error"}`);
+        setErrorToast(
+          `${msg.command || "?"}: ${msg.reason || "unknown error"}`,
+        );
         break;
     }
   });
@@ -787,16 +858,30 @@ export function LingbotWorldController({ className }: { className?: string }) {
       setLookV("idle");
       setCameraPoseActive(false);
       // Reset the camera-pose layer + release pointer lock.
-      if (typeof document !== "undefined" && document.pointerLockElement) document.exitPointerLock();
-      pendingDYawRef.current = 0; pendingDPitchRef.current = 0;
-      mouseVizRef.current = { x: 0, y: 0 }; setMouseViz({ x: 0, y: 0 });
-      joyRef.current = { x: 0, y: 0 }; setJoy({ x: 0, y: 0 });
-      mouseLookRef.current = false; vertDirRef.current = 0; rollDirRef.current = 0;
-      jumpHeldRef.current = false; jumpArcRef.current = []; jumpArcPosRef.current = 0;
-      chargeLevelRef.current = 0; crouchPressDipRef.current = false; crouchReleaseDipRef.current = false;
+      if (typeof document !== "undefined" && document.pointerLockElement)
+        document.exitPointerLock();
+      pendingDYawRef.current = 0;
+      pendingDPitchRef.current = 0;
+      mouseVizRef.current = { x: 0, y: 0 };
+      setMouseViz({ x: 0, y: 0 });
+      joyRef.current = { x: 0, y: 0 };
+      setJoy({ x: 0, y: 0 });
+      mouseLookRef.current = false;
+      vertDirRef.current = 0;
+      rollDirRef.current = 0;
+      jumpHeldRef.current = false;
+      jumpArcRef.current = [];
+      jumpArcPosRef.current = 0;
+      chargeLevelRef.current = 0;
+      crouchPressDipRef.current = false;
+      crouchReleaseDipRef.current = false;
       poseSentActiveRef.current = false;
-      setMouseLook(false); setVertState(0); setRollDir(0); setJumpLit(false);
-      setCharging(false); setChargeLevel(0);
+      setMouseLook(false);
+      setVertState(0);
+      setRollDir(0);
+      setJumpLit(false);
+      setCharging(false);
+      setChargeLevel(0);
       setScene(null);
       setActiveExampleId(null);
       setSentImagePreview(null);
@@ -815,8 +900,11 @@ export function LingbotWorldController({ className }: { className?: string }) {
 
   // Sync initial rotation speed to backend on connect
   useEffect(() => {
-    if (isReady) lw2.setRotationSpeedDeg({ rotation_speed_deg: rotationSpeed }).catch(console.error);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (isReady)
+      lw2
+        .setRotationSpeedDeg({ rotation_speed_deg: rotationSpeed })
+        .catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady]);
 
   // Re-assert the DiT attention-window + KV-cache-reset selections on connect,
@@ -824,8 +912,10 @@ export function LingbotWorldController({ className }: { className?: string }) {
   useEffect(() => {
     if (!isReady) return;
     lw2.setAttnWindow({ attn_window: attnWindow }).catch(console.error);
-    sendCommand("set_kv_cache_reset", { mode: kvCacheResetMode }).catch(console.error);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    sendCommand("set_kv_cache_reset", { mode: kvCacheResetMode }).catch(
+      console.error,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady]);
 
   // ---- Native camera-pose layer (mouse-look + jump) ----
@@ -839,22 +929,31 @@ export function LingbotWorldController({ className }: { className?: string }) {
     const joyActive = joyRef.current.x !== 0 || joyRef.current.y !== 0;
     // Jump contributes translation in "hold" (up while held) and "charge"
     // (the per-latent up→down arc while it plays). "prompt" never touches pose.
-    const arcActive = jumpModeRef.current === "charge" && jumpArcRef.current.length > 0;
+    const arcActive =
+      jumpModeRef.current === "charge" && jumpArcRef.current.length > 0;
     const jumpMoving =
       (jumpModeRef.current === "hold" && jumpHeldRef.current) || arcActive;
     // Crouch camera mode contributes a one-shot dip (press = down / release = up),
     // each lasting exactly one chunk.
-    const crouchDip =
-      crouchPressDipRef.current ? crouchPatternsRef.current.press
-        : crouchReleaseDipRef.current ? crouchPatternsRef.current.release
-          : null;
+    const crouchDip = crouchPressDipRef.current
+      ? crouchPatternsRef.current.press
+      : crouchReleaseDipRef.current
+        ? crouchPatternsRef.current.release
+        : null;
     // Crouch "hold" mode contributes a sustained DOWN translation for as long as
     // C is held (mirror of jump "hold" up) — uniform on every latent, re-sent each
     // chunk so the descent continues, no return.
-    const crouchHolding = crouchModeRef.current === "hold" && vertDirRef.current < 0;
+    const crouchHolding =
+      crouchModeRef.current === "hold" && vertDirRef.current < 0;
     const arrowLooking = lookHDirRef.current !== 0 || lookVDirRef.current !== 0;
-    const active = mouseLookRef.current || crouchDip !== null || crouchHolding
-      || rollDirRef.current !== 0 || joyActive || jumpMoving || arrowLooking;
+    const active =
+      mouseLookRef.current ||
+      crouchDip !== null ||
+      crouchHolding ||
+      rollDirRef.current !== 0 ||
+      joyActive ||
+      jumpMoving ||
+      arrowLooking;
     if (!active) {
       if (poseSentActiveRef.current) {
         lw2.setCameraPose({ camera_pose: [] }).catch(console.error);
@@ -868,10 +967,17 @@ export function LingbotWorldController({ className }: { className?: string }) {
     // yaw (mouse X + arrow left/right) + pitch (mouse Y + arrow up/down) + roll
     // (Q/E), clamped to ±MOUSE_MAX_ROT so a fling can't over-rotate; joystick
     // strafe/forward on tx/tz.
-    const clampRot = (v: number) => Math.max(-MOUSE_MAX_ROT, Math.min(MOUSE_MAX_ROT, v));
-    const ry = clampRot(pendingDYawRef.current * mouseSensRef.current + lookHDirRef.current * ARROW_LOOK_SPEED);    // yaw
-    const rx = clampRot(-pendingDPitchRef.current * mouseSensRef.current + lookVDirRef.current * ARROW_LOOK_SPEED); // pitch
-    const rz = rollDirRef.current * ROLL_SPEED;                            // roll
+    const clampRot = (v: number) =>
+      Math.max(-MOUSE_MAX_ROT, Math.min(MOUSE_MAX_ROT, v));
+    const ry = clampRot(
+      pendingDYawRef.current * mouseSensRef.current +
+        lookHDirRef.current * ARROW_LOOK_SPEED,
+    ); // yaw
+    const rx = clampRot(
+      -pendingDPitchRef.current * mouseSensRef.current +
+        lookVDirRef.current * ARROW_LOOK_SPEED,
+    ); // pitch
+    const rz = rollDirRef.current * ROLL_SPEED; // roll
     pendingDYawRef.current = 0;
     pendingDPitchRef.current = 0;
     // Orbit (Phase 1, horizontal): pair the yaw θ we're already sending with a
@@ -879,45 +985,54 @@ export function LingbotWorldController({ className }: { className?: string }) {
     // R ahead stays centered while the camera circles it. θ is the clamped ry,
     // so a fling can't over-strafe either; adds to any joystick translation.
     // Zero yaw → zero orbit motion, so this only moves while you mouse-look.
-    let orbitTx = 0, orbitTz = 0;
+    let orbitTx = 0,
+      orbitTz = 0;
     const R = orbitRadiusRef.current;
     if (R > 0 && ry !== 0) {
       orbitTx = -R * Math.sin(ry);
       orbitTz = R * (1 - Math.cos(ry));
     }
-    const tx = joyRef.current.x * JOY_SPEED + orbitTx;       // joystick strafe + orbit
-    const tz = -joyRef.current.y * JOY_SPEED + orbitTz;      // joystick forward (up = +Z) + orbit
+    const tx = joyRef.current.x * JOY_SPEED + orbitTx; // joystick strafe + orbit
+    const tz = -joyRef.current.y * JOY_SPEED + orbitTz; // joystick forward (up = +Z) + orbit
     // Vertical (ty) is the only PER-LATENT component. Jump: "hold" = up on every
     // latent; "charge" = the arc's per-latent intent. Crouch (camera mode) = a
     // one-shot small down on the FIRST latent only, additive to WASD/forward
     // (the backend sums the action + camera_pose translations). +up = JUMP_UP_SIGN.
     const uniformJumpTy =
-      jumpModeRef.current === "hold" && jumpHeldRef.current ? JUMP_SPEED * JUMP_UP_SIGN : 0;
+      jumpModeRef.current === "hold" && jumpHeldRef.current
+        ? JUMP_SPEED * JUMP_UP_SIGN
+        : 0;
     // Crouch "hold": sustained DOWN, opposite sign to jump's up, uniform per latent.
     const uniformCrouchTy = crouchHolding ? CROUCH_SPEED * -JUMP_UP_SIGN : 0;
     const arc = jumpArcRef.current;
     const pos = jumpArcPosRef.current;
     const camera_pose: number[] = [];
     for (let j = 0; j < CHUNK_LATENTS; j++) {
-      const intent = arcActive && pos + j < arc.length ? arc[pos + j] : 0;   // +1/0/-1
-      const jumpTy = arcActive ? intent * JUMP_SPEED * JUMP_UP_SIGN : uniformJumpTy;
+      const intent = arcActive && pos + j < arc.length ? arc[pos + j] : 0; // +1/0/-1
+      const jumpTy = arcActive
+        ? intent * JUMP_SPEED * JUMP_UP_SIGN
+        : uniformJumpTy;
       // Crouch: camera-mode dip (editable per-latent +1 up/0 still/-1 down), else the
       // hold-mode sustained down. Dips and hold are mutually exclusive (distinct modes).
-      const crouchTy = crouchDip ? crouchDip[j] * CROUCH_DIP * JUMP_UP_SIGN : uniformCrouchTy;
+      const crouchTy = crouchDip
+        ? crouchDip[j] * CROUCH_DIP * JUMP_UP_SIGN
+        : uniformCrouchTy;
       camera_pose.push(rx, ry, rz, tx, jumpTy + crouchTy, tz);
     }
     lw2.setCameraPose({ camera_pose }).catch(console.error);
     poseSentActiveRef.current = true;
   }, [sendCommand]);
-  useEffect(() => { sendCameraPoseChunkRef.current = sendCameraPoseChunk; }, [sendCameraPoseChunk]);
+  useEffect(() => {
+    sendCameraPoseChunkRef.current = sendCameraPoseChunk;
+  }, [sendCameraPoseChunk]);
 
   // Pointer-lock mouse look: click the toggle to engage, move the mouse to
   // rotate (yaw from movementX, pitch from movementY), Esc / M to release.
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (!mouseLookRef.current) return;
-      pendingDYawRef.current += e.movementX;     // right → yaw right
-      pendingDPitchRef.current += e.movementY;   // converted (negated) at send
+      pendingDYawRef.current += e.movementX; // right → yaw right
+      pendingDPitchRef.current += e.movementY; // converted (negated) at send
       // Feed the live HUD: accumulate recent motion (decayed each rAF frame).
       mouseVizRef.current.x += e.movementX;
       mouseVizRef.current.y += e.movementY;
@@ -926,7 +1041,8 @@ export function LingbotWorldController({ className }: { className?: string }) {
       const locked = document.pointerLockElement != null;
       mouseLookRef.current = locked;
       setMouseLook(locked);
-      if (!locked) {                 // released → clear the HUD vector
+      if (!locked) {
+        // released → clear the HUD vector
         mouseVizRef.current.x = 0;
         mouseVizRef.current.y = 0;
         setMouseViz({ x: 0, y: 0 });
@@ -965,29 +1081,37 @@ export function LingbotWorldController({ className }: { className?: string }) {
     if (mouseLookRef.current) {
       document.exitPointerLock();
     } else {
-      try { document.body.requestPointerLock(); } catch { /* needs user gesture */ }
+      try {
+        document.body.requestPointerLock();
+      } catch {
+        /* needs user gesture */
+      }
     }
   }, []);
 
   // Crouch control (C): -1 = held, 0 = off. Jump is separate.
-  const setVert = useCallback((dir: number) => {
-    if (vertDirRef.current === dir) return;
-    const wasIdle = vertDirRef.current === 0;
-    vertDirRef.current = dir;
-    setVertState(dir);
-    // "hold" mode has no dip flags — the sustained DOWN is emitted every chunk by
-    // sendCameraPoseChunk while vertDir < 0 (see `crouchHolding` there).
-    // "camera" mode fires one-shot dips (consumed after one chunk): the PRESS
-    // pattern (down) on C-down, the RELEASE pattern (stand back up) on C-up.
-    // Prompt lines ride along via recomputePromptAndSend (crouch while held,
-    // stand on release).
-    if (crouchModeRef.current === "camera") {
-      if (dir < 0 && wasIdle) crouchPressDipRef.current = true;   // pressed → dip down
-      else if (dir === 0) crouchReleaseDipRef.current = true;      // released → stand up
-    }
-    sendCameraPoseChunk();      // engage the dip promptly (camera mode)
-    recomputePromptAndSend();   // crouch line while held / stand line on release
-  }, [sendCameraPoseChunk, recomputePromptAndSend]);
+  const setVert = useCallback(
+    (dir: number) => {
+      if (vertDirRef.current === dir) return;
+      const wasIdle = vertDirRef.current === 0;
+      vertDirRef.current = dir;
+      setVertState(dir);
+      // "hold" mode has no dip flags — the sustained DOWN is emitted every chunk by
+      // sendCameraPoseChunk while vertDir < 0 (see `crouchHolding` there).
+      // "camera" mode fires one-shot dips (consumed after one chunk): the PRESS
+      // pattern (down) on C-down, the RELEASE pattern (stand back up) on C-up.
+      // Prompt lines ride along via recomputePromptAndSend (crouch while held,
+      // stand on release).
+      if (crouchModeRef.current === "camera") {
+        if (dir < 0 && wasIdle)
+          crouchPressDipRef.current = true; // pressed → dip down
+        else if (dir === 0) crouchReleaseDipRef.current = true; // released → stand up
+      }
+      sendCameraPoseChunk(); // engage the dip promptly (camera mode)
+      recomputePromptAndSend(); // crouch line while held / stand line on release
+    },
+    [sendCameraPoseChunk, recomputePromptAndSend],
+  );
 
   // Jump press. Behaviour depends on the "Jump" mode switch:
   //   hold   — engage a sustained UP translation while held.
@@ -1001,15 +1125,15 @@ export function LingbotWorldController({ className }: { className?: string }) {
     jumpHeldRef.current = true;
     setJumpLit(true);
     if (jumpModeRef.current === "charge") {
-      jumpArcPosRef.current = 0;   // arc is guaranteed empty here (guarded above)
+      jumpArcPosRef.current = 0; // arc is guaranteed empty here (guarded above)
       chargeLevelRef.current = 1;
       chargeLevelDirRef.current = 1;
       setChargeLevel(1);
-      setCharging(true);        // meter starts stepping; jump fires on release
-      return;                   // no translation / no prompt while charging
+      setCharging(true); // meter starts stepping; jump fires on release
+      return; // no translation / no prompt while charging
     }
-    sendCameraPoseChunk();      // hold: engage the up translation; prompt: no-op
-    recomputePromptAndSend();   // append the jump sentence
+    sendCameraPoseChunk(); // hold: engage the up translation; prompt: no-op
+    recomputePromptAndSend(); // append the jump sentence
   }, [sendCameraPoseChunk, recomputePromptAndSend]);
 
   // Jump release.
@@ -1024,45 +1148,56 @@ export function LingbotWorldController({ className }: { className?: string }) {
       const level = chargeLevelRef.current || 1;
       jumpArcRef.current = [...(chargePatternsRef.current[level - 1] ?? [])];
       jumpArcPosRef.current = 0;
-      setChargeLevel(0);          // meter empties; the arc is now in flight
+      setChargeLevel(0); // meter empties; the arc is now in flight
       // keep lit + prompt through the flight (dropped when it lands)
-      sendCameraPoseChunk();      // engage the first chunk's latents promptly
-      recomputePromptAndSend();   // append the jump sentence for the arc
+      sendCameraPoseChunk(); // engage the first chunk's latents promptly
+      recomputePromptAndSend(); // append the jump sentence for the arc
       return;
     }
     setJumpLit(false);
-    sendCameraPoseChunk();      // hold: release the up translation; prompt: no-op
-    recomputePromptAndSend();   // drop the jump sentence
+    sendCameraPoseChunk(); // hold: release the up translation; prompt: no-op
+    recomputePromptAndSend(); // drop the jump sentence
   }, [sendCameraPoseChunk, recomputePromptAndSend]);
 
   // Flip the Jump mode. Cancel any in-flight jump / charge so the switch is clean.
-  const changeJumpMode = useCallback((mode: JumpMode) => {
-    if (jumpModeRef.current === mode) return;
-    jumpModeRef.current = mode;
-    setJumpMode(mode);
-    jumpHeldRef.current = false;
-    jumpArcRef.current = [];
-    jumpArcPosRef.current = 0;
-    setCharging(false);
-    chargeLevelRef.current = 0;
-    setChargeLevel(0);
-    setJumpLit(false);
-    sendCameraPoseChunk();      // clear any lingering up/down pose
-    recomputePromptAndSend();   // drop the jump sentence if it was appended
-  }, [sendCameraPoseChunk, recomputePromptAndSend]);
+  const changeJumpMode = useCallback(
+    (mode: JumpMode) => {
+      if (jumpModeRef.current === mode) return;
+      jumpModeRef.current = mode;
+      setJumpMode(mode);
+      jumpHeldRef.current = false;
+      jumpArcRef.current = [];
+      jumpArcPosRef.current = 0;
+      setCharging(false);
+      chargeLevelRef.current = 0;
+      setChargeLevel(0);
+      setJumpLit(false);
+      sendCameraPoseChunk(); // clear any lingering up/down pose
+      recomputePromptAndSend(); // drop the jump sentence if it was appended
+    },
+    [sendCameraPoseChunk, recomputePromptAndSend],
+  );
 
   // Flip the Crouch mode; release any held crouch so nothing sticks.
-  const changeCrouchMode = useCallback((mode: CrouchMode) => {
-    if (crouchModeRef.current === mode) return;
-    crouchModeRef.current = mode;
-    setCrouchMode(mode);
-    setVert(0);                 // release any held crouch (clears vertDir, re-sends pose)
-    crouchPressDipRef.current = false; crouchReleaseDipRef.current = false;  // after setVert, so no stray dip
-  }, [setVert]);
+  const changeCrouchMode = useCallback(
+    (mode: CrouchMode) => {
+      if (crouchModeRef.current === mode) return;
+      crouchModeRef.current = mode;
+      setCrouchMode(mode);
+      setVert(0); // release any held crouch (clears vertDir, re-sends pose)
+      crouchPressDipRef.current = false;
+      crouchReleaseDipRef.current = false; // after setVert, so no stray dip
+    },
+    [setVert],
+  );
 
   // --- Charge-level grid editing (persisted) ---
   const persistChargePatterns = (next: number[][]) => {
-    try { localStorage.setItem(CHARGE_PATTERNS_STORAGE, JSON.stringify(next)); } catch { /* ignore */ }
+    try {
+      localStorage.setItem(CHARGE_PATTERNS_STORAGE, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
   };
   // Cycle one latent cell: up (+1) → down (-1) → still (0) → up.
   const cycleChargeCell = useCallback((level: number, idx: number) => {
@@ -1084,13 +1219,17 @@ export function LingbotWorldController({ className }: { className?: string }) {
   }, []);
   // Crouch press/release pattern editing (persisted).
   const persistCrouchPatterns = (next: CrouchPatterns) => {
-    try { localStorage.setItem(CROUCH_PATTERN_STORAGE, JSON.stringify(next)); } catch { /* ignore */ }
+    try {
+      localStorage.setItem(CROUCH_PATTERN_STORAGE, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
   };
   const cycleCrouchCell = useCallback((phase: CrouchPhase, idx: number) => {
     setCrouchPatterns((prev) => {
       const arr = [...prev[phase]];
       const cur = arr[idx];
-      arr[idx] = cur === 1 ? -1 : cur === -1 ? 0 : 1;   // up → down → still → up
+      arr[idx] = cur === 1 ? -1 : cur === -1 ? 0 : 1; // up → down → still → up
       const next = { ...prev, [phase]: arr };
       persistCrouchPatterns(next);
       return next;
@@ -1107,14 +1246,19 @@ export function LingbotWorldController({ className }: { className?: string }) {
   useEffect(() => {
     if (!charging) return;
     let raf = 0;
-    let lastStep = 0;   // timestamp of the last level change
+    let lastStep = 0; // timestamp of the last level change
     const tick = (t: number) => {
       if (lastStep === 0) lastStep = t;
       if (t - lastStep >= LEVEL_DWELL_MS) {
         lastStep = t;
         let lvl = chargeLevelRef.current + chargeLevelDirRef.current;
-        if (lvl >= NUM_CHARGE_LEVELS) { lvl = NUM_CHARGE_LEVELS; chargeLevelDirRef.current = -1; }
-        else if (lvl <= 1) { lvl = 1; chargeLevelDirRef.current = 1; }
+        if (lvl >= NUM_CHARGE_LEVELS) {
+          lvl = NUM_CHARGE_LEVELS;
+          chargeLevelDirRef.current = -1;
+        } else if (lvl <= 1) {
+          lvl = 1;
+          chargeLevelDirRef.current = 1;
+        }
         chargeLevelRef.current = lvl;
         setChargeLevel(lvl);
       }
@@ -1125,12 +1269,15 @@ export function LingbotWorldController({ className }: { className?: string }) {
   }, [charging]);
 
   // Roll (the 3rd rotation DOF the mouse can't reach): -1 = Q, +1 = E, 0 = off.
-  const setRoll = useCallback((dir: number) => {
-    if (rollDirRef.current === dir) return;
-    rollDirRef.current = dir;
-    setRollDir(dir);
-    sendCameraPoseChunk();
-  }, [sendCameraPoseChunk]);
+  const setRoll = useCallback(
+    (dir: number) => {
+      if (rollDirRef.current === dir) return;
+      rollDirRef.current = dir;
+      setRollDir(dir);
+      sendCameraPoseChunk();
+    },
+    [sendCameraPoseChunk],
+  );
 
   // Drag joystick → continuous translation (camera_pose tx/tz). Unlike the
   // discrete WASD buttons, this gives a continuous direction + magnitude. The
@@ -1149,45 +1296,64 @@ export function LingbotWorldController({ className }: { className?: string }) {
       let x = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
       let y = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
       const m = Math.hypot(x, y);
-      if (m > 1) { x /= m; y /= m; }     // clamp to unit disk
+      if (m > 1) {
+        x /= m;
+        y /= m;
+      } // clamp to unit disk
       joyRef.current = { x, y };
       setJoy({ x, y });
-      if (kind === "down") sendCameraPoseChunk();  // engage promptly
+      if (kind === "down") sendCameraPoseChunk(); // engage promptly
     },
     [sendCameraPoseChunk],
   );
 
   // ---- Movement / look emitters ----
 
-  const pushMoveL = useCallback((next: MoveL) => {
-    setMoveL(next);
-    if (lastSentMoveLRef.current === next) return;
-    lastSentMoveLRef.current = next;
-    if (isReadyRef.current) lw2.setMoveLongitudinal({ move_longitudinal: next }).catch(console.error);
-  }, [sendCommand]);
+  const pushMoveL = useCallback(
+    (next: MoveL) => {
+      setMoveL(next);
+      if (lastSentMoveLRef.current === next) return;
+      lastSentMoveLRef.current = next;
+      if (isReadyRef.current)
+        lw2
+          .setMoveLongitudinal({ move_longitudinal: next })
+          .catch(console.error);
+    },
+    [sendCommand],
+  );
 
-  const pushMoveLat = useCallback((next: MoveLat) => {
-    setMoveLat(next);
-    if (lastSentMoveLatRef.current === next) return;
-    lastSentMoveLatRef.current = next;
-    if (isReadyRef.current) lw2.setMoveLateral({ move_lateral: next }).catch(console.error);
-  }, [sendCommand]);
+  const pushMoveLat = useCallback(
+    (next: MoveLat) => {
+      setMoveLat(next);
+      if (lastSentMoveLatRef.current === next) return;
+      lastSentMoveLatRef.current = next;
+      if (isReadyRef.current)
+        lw2.setMoveLateral({ move_lateral: next }).catch(console.error);
+    },
+    [sendCommand],
+  );
 
-  const pushLookH = useCallback((next: LookH) => {
-    setLookH(next);
-    const dir = next === "right" ? 1 : next === "left" ? -1 : 0;
-    if (lookHDirRef.current === dir) return;
-    lookHDirRef.current = dir;
-    sendCameraPoseChunk();  // engage promptly, like roll/joystick
-  }, [sendCameraPoseChunk]);
+  const pushLookH = useCallback(
+    (next: LookH) => {
+      setLookH(next);
+      const dir = next === "right" ? 1 : next === "left" ? -1 : 0;
+      if (lookHDirRef.current === dir) return;
+      lookHDirRef.current = dir;
+      sendCameraPoseChunk(); // engage promptly, like roll/joystick
+    },
+    [sendCameraPoseChunk],
+  );
 
-  const pushLookV = useCallback((next: LookV) => {
-    setLookV(next);
-    const dir = next === "up" ? 1 : next === "down" ? -1 : 0;
-    if (lookVDirRef.current === dir) return;
-    lookVDirRef.current = dir;
-    sendCameraPoseChunk();  // engage promptly, like roll/joystick
-  }, [sendCameraPoseChunk]);
+  const pushLookV = useCallback(
+    (next: LookV) => {
+      setLookV(next);
+      const dir = next === "up" ? 1 : next === "down" ? -1 : 0;
+      if (lookVDirRef.current === dir) return;
+      lookVDirRef.current = dir;
+      sendCameraPoseChunk(); // engage promptly, like roll/joystick
+    },
+    [sendCameraPoseChunk],
+  );
 
   const applyMovementStack = useCallback(() => {
     const topL = moveLStackRef.current.at(-1);
@@ -1217,34 +1383,41 @@ export function LingbotWorldController({ className }: { className?: string }) {
     jumpHeldRef.current = false;
     jumpArcRef.current = [];
     jumpArcPosRef.current = 0;
-    crouchPressDipRef.current = false; crouchReleaseDipRef.current = false;
+    crouchPressDipRef.current = false;
+    crouchReleaseDipRef.current = false;
     setCharging(false);
     chargeLevelRef.current = 0;
     setChargeLevel(0);
     setJumpLit(false);
-    applyMovementStack();   // pushes moveL/moveLat back to "idle"
+    applyMovementStack(); // pushes moveL/moveLat back to "idle"
     pushLookH("idle");
     pushLookV("idle");
   }, [applyMovementStack, pushLookH, pushLookV, setVert, setRoll]);
 
   // ---- Prompt handlers ----
 
-  const holdPress = useCallback((slot: number) => {
-    const events = sceneRef.current?.events;
-    if (!events || slot < 0 || slot >= events.length) return;
-    if (!heldSlotsRef.current.includes(slot)) {
-      heldSlotsRef.current = [...heldSlotsRef.current, slot];
-    }
-    setHeldSlots(heldSlotsRef.current);
-    recomputePromptAndSend();
-  }, [recomputePromptAndSend]);
+  const holdPress = useCallback(
+    (slot: number) => {
+      const events = sceneRef.current?.events;
+      if (!events || slot < 0 || slot >= events.length) return;
+      if (!heldSlotsRef.current.includes(slot)) {
+        heldSlotsRef.current = [...heldSlotsRef.current, slot];
+      }
+      setHeldSlots(heldSlotsRef.current);
+      recomputePromptAndSend();
+    },
+    [recomputePromptAndSend],
+  );
 
-  const holdRelease = useCallback((slot: number) => {
-    if (!heldSlotsRef.current.includes(slot)) return;
-    heldSlotsRef.current = heldSlotsRef.current.filter((x) => x !== slot);
-    setHeldSlots(heldSlotsRef.current);
-    recomputePromptAndSend();
-  }, [recomputePromptAndSend]);
+  const holdRelease = useCallback(
+    (slot: number) => {
+      if (!heldSlotsRef.current.includes(slot)) return;
+      heldSlotsRef.current = heldSlotsRef.current.filter((x) => x !== slot);
+      setHeldSlots(heldSlotsRef.current);
+      recomputePromptAndSend();
+    },
+    [recomputePromptAndSend],
+  );
 
   useEffect(() => {
     const onBlur = () => {
@@ -1328,7 +1501,10 @@ export function LingbotWorldController({ className }: { className?: string }) {
 
       // Esc / M release mouse-look (the cursor is hidden under pointer lock,
       // so the toggle button can't be clicked — a key is the way out).
-      if ((e.key === "Escape" || e.key === "m" || e.key === "M") && mouseLookRef.current) {
+      if (
+        (e.key === "Escape" || e.key === "m" || e.key === "M") &&
+        mouseLookRef.current
+      ) {
         e.preventDefault();
         document.exitPointerLock();
         return;
@@ -1354,13 +1530,26 @@ export function LingbotWorldController({ className }: { className?: string }) {
       }
 
       // Q / E = roll (3rd rotation DOF, around the view axis).
-      if (e.key === "q" || e.key === "Q") { e.preventDefault(); blurFocusedNonTyping(); setRoll(-1); return; }
-      if (e.key === "e" || e.key === "E") { e.preventDefault(); blurFocusedNonTyping(); setRoll(1); return; }
+      if (e.key === "q" || e.key === "Q") {
+        e.preventDefault();
+        blurFocusedNonTyping();
+        setRoll(-1);
+        return;
+      }
+      if (e.key === "e" || e.key === "E") {
+        e.preventDefault();
+        blurFocusedNonTyping();
+        setRoll(1);
+        return;
+      }
 
       // O = mute / un-mute orbit: toggle R between 0 (rotate in place) and the last non-zero radius.
       if (e.key === "o" || e.key === "O") {
-        e.preventDefault(); blurFocusedNonTyping();
-        setOrbitRadius((r) => (r > 0 ? 0 : (lastOrbitRadiusRef.current || ORBIT_RADIUS_DEFAULT)));
+        e.preventDefault();
+        blurFocusedNonTyping();
+        setOrbitRadius((r) =>
+          r > 0 ? 0 : lastOrbitRadiusRef.current || ORBIT_RADIUS_DEFAULT,
+        );
         return;
       }
 
@@ -1381,15 +1570,32 @@ export function LingbotWorldController({ className }: { className?: string }) {
       }
       const mvLat = KEY_TO_MOVE_LAT[e.key];
       if (mvLat) {
-        moveLatStackRef.current = moveLatStackRef.current.filter((m) => m !== mvLat);
+        moveLatStackRef.current = moveLatStackRef.current.filter(
+          (m) => m !== mvLat,
+        );
         applyMovementStack();
         return;
       }
-      if (KEY_TO_LOOK_H[e.key]) { pushLookH("idle"); return; }
-      if (KEY_TO_LOOK_V[e.key]) { pushLookV("idle"); return; }
-      if (e.code === "Space" || e.key === "j" || e.key === "J") { onJumpUp(); return; }
-      if (e.key === "c" || e.key === "C") { if (vertDirRef.current < 0) setVert(0); return; }
-      if (e.key === "q" || e.key === "Q" || e.key === "e" || e.key === "E") { setRoll(0); return; }
+      if (KEY_TO_LOOK_H[e.key]) {
+        pushLookH("idle");
+        return;
+      }
+      if (KEY_TO_LOOK_V[e.key]) {
+        pushLookV("idle");
+        return;
+      }
+      if (e.code === "Space" || e.key === "j" || e.key === "J") {
+        onJumpUp();
+        return;
+      }
+      if (e.key === "c" || e.key === "C") {
+        if (vertDirRef.current < 0) setVert(0);
+        return;
+      }
+      if (e.key === "q" || e.key === "Q" || e.key === "e" || e.key === "E") {
+        setRoll(0);
+        return;
+      }
       const slot = keyToHoldSlot(e.key);
       if (slot !== undefined) {
         holdRelease(slot);
@@ -1403,7 +1609,17 @@ export function LingbotWorldController({ className }: { className?: string }) {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [applyMovementStack, pushLookH, pushLookV, holdPress, holdRelease, setVert, setRoll, onJumpDown, onJumpUp]);
+  }, [
+    applyMovementStack,
+    pushLookH,
+    pushLookV,
+    holdPress,
+    holdRelease,
+    setVert,
+    setRoll,
+    onJumpDown,
+    onJumpUp,
+  ]);
 
   const onMoveLPress = (mv: Exclude<MoveL, "idle">) => {
     const stack = moveLStackRef.current;
@@ -1473,119 +1689,138 @@ export function LingbotWorldController({ className }: { className?: string }) {
   // Shared flow behind both the Quick Start examples and the custom scene:
   // clear held inputs, reset a running generation, upload the starting image,
   // send the composed prompt, and auto-start.
-  const applyScene = useCallback(async (opts: {
-    id: string;
-    scene: StructuredScene;
-    image:
-      | { kind: "url"; src: string; name: string }
-      | { kind: "file"; file: File; previewUrl: string }
-      | { kind: "keep" };  // reuse the already-sent image
-    errorLabel: string;
-  }) => {
-    // Blur whatever was just clicked so subsequent arrow-key presses don't
-    // scroll the sidebar's overflow container. Without this, focus stays on
-    // the clicked button and the browser treats arrow-key presses inside the
-    // scrollable ancestor as scroll input alongside our window-level look
-    // handler.
-    if (typeof document !== "undefined") {
-      (document.activeElement as HTMLElement | null)?.blur?.();
-    }
-
-    isApplyingExampleRef.current = true;
-    try {
-      // Clear any held control state so stale refs don't linger across the switch
-      moveLStackRef.current = [];
-      moveLatStackRef.current = [];
-      pushMoveL("idle");
-      pushMoveLat("idle");
-      pushLookH("idle");
-      pushLookV("idle");
-      heldSlotsRef.current = [];
-      setHeldSlots([]);
-      sceneRef.current = null;
-
-      // If currently generating or paused, reset first so the new scene starts clean
-      if (isGenerating || isPaused) {
-        lw2.reset().catch(console.error);
-        setIsGenerating(false);
-        setIsPaused(false);
-        setHasPrompt(false);
-        setHasImage(false);
-        if (opts.image.kind !== "keep") {
-          setSentImagePreview(null);
-          setImageInfo(null);
-        }
-        lastSentPromptRef.current = "";
-        // Give the backend time to process the reset before we send new data
-        await new Promise((r) => setTimeout(r, 600));
+  const applyScene = useCallback(
+    async (opts: {
+      id: string;
+      scene: StructuredScene;
+      image:
+        | { kind: "url"; src: string; name: string }
+        | { kind: "file"; file: File; previewUrl: string }
+        | { kind: "keep" }; // reuse the already-sent image
+      errorLabel: string;
+    }) => {
+      // Blur whatever was just clicked so subsequent arrow-key presses don't
+      // scroll the sidebar's overflow container. Without this, focus stays on
+      // the clicked button and the browser treats arrow-key presses inside the
+      // scrollable ancestor as scroll input alongside our window-level look
+      // handler.
+      if (typeof document !== "undefined") {
+        (document.activeElement as HTMLElement | null)?.blur?.();
       }
 
-      setLoadingExampleId(opts.id);
-
+      isApplyingExampleRef.current = true;
       try {
-        // Upload the starting image ("keep" assumes the previously-sent
-        // image is still in place).
-        if (opts.image.kind === "url") {
-          const res = await fetch(opts.image.src);
-          if (!res.ok) throw new Error(`Failed to load image (${res.status})`);
-          const blob = await res.blob();
-          const file = new File([blob], opts.image.name, { type: blob.type || "image/jpeg" });
-          const ref = await uploadFile(file);
-          await lw2.setImage({ image: ref });
-          setSentImagePreview(opts.image.src);
-          setHasImage(true);
-        } else if (opts.image.kind === "file") {
-          const ref = await uploadFile(opts.image.file);
-          await lw2.setImage({ image: ref });
-          setSentImagePreview(opts.image.previewUrl);
-          setHasImage(true);
-          // Don't revoke the previewUrl — it was just promoted to
-          // sentImagePreview, so the URL is still in use.
-          setPendingImage(null);
+        // Clear any held control state so stale refs don't linger across the switch
+        moveLStackRef.current = [];
+        moveLatStackRef.current = [];
+        pushMoveL("idle");
+        pushMoveLat("idle");
+        pushLookH("idle");
+        pushLookV("idle");
+        heldSlotsRef.current = [];
+        setHeldSlots([]);
+        sceneRef.current = null;
+
+        // If currently generating or paused, reset first so the new scene starts clean
+        if (isGenerating || isPaused) {
+          lw2.reset().catch(console.error);
+          setIsGenerating(false);
+          setIsPaused(false);
+          setHasPrompt(false);
+          setHasImage(false);
+          if (opts.image.kind !== "keep") {
+            setSentImagePreview(null);
+            setImageInfo(null);
+          }
+          lastSentPromptRef.current = "";
+          // Give the backend time to process the reset before we send new data
+          await new Promise((r) => setTimeout(r, 600));
         }
 
-        // Send the scene's composed prompt
-        sceneRef.current = opts.scene;
-        setScene(opts.scene);
-        setActiveExampleId(opts.id);
-        const p = composePrompt(opts.scene, false, []).trim();
-        lastSentPromptRef.current = p;
-        await lw2.setPrompt({ prompt: p });
-        setHasPrompt(true);
+        setLoadingExampleId(opts.id);
 
-        // Auto-start after a short delay to let the backend process
-        await new Promise((r) => setTimeout(r, 1500));
-        await lw2.start();
-        setIsGenerating(true);
-      } catch (err) {
-        console.error(err);
-        setErrorToast(err instanceof Error ? err.message : opts.errorLabel);
+        try {
+          // Upload the starting image ("keep" assumes the previously-sent
+          // image is still in place).
+          if (opts.image.kind === "url") {
+            const res = await fetch(opts.image.src);
+            if (!res.ok)
+              throw new Error(`Failed to load image (${res.status})`);
+            const blob = await res.blob();
+            const file = new File([blob], opts.image.name, {
+              type: blob.type || "image/jpeg",
+            });
+            const ref = await uploadFile(file);
+            await lw2.setImage({ image: ref });
+            setSentImagePreview(opts.image.src);
+            setHasImage(true);
+          } else if (opts.image.kind === "file") {
+            const ref = await uploadFile(opts.image.file);
+            await lw2.setImage({ image: ref });
+            setSentImagePreview(opts.image.previewUrl);
+            setHasImage(true);
+            // Don't revoke the previewUrl — it was just promoted to
+            // sentImagePreview, so the URL is still in use.
+            setPendingImage(null);
+          }
+
+          // Send the scene's composed prompt
+          sceneRef.current = opts.scene;
+          setScene(opts.scene);
+          setActiveExampleId(opts.id);
+          const p = composePrompt(opts.scene, false, []).trim();
+          lastSentPromptRef.current = p;
+          await lw2.setPrompt({ prompt: p });
+          setHasPrompt(true);
+
+          // Auto-start after a short delay to let the backend process
+          await new Promise((r) => setTimeout(r, 1500));
+          await lw2.start();
+          setIsGenerating(true);
+        } catch (err) {
+          console.error(err);
+          setErrorToast(err instanceof Error ? err.message : opts.errorLabel);
+        } finally {
+          setLoadingExampleId(null);
+        }
       } finally {
-        setLoadingExampleId(null);
+        isApplyingExampleRef.current = false;
       }
-    } finally {
-      isApplyingExampleRef.current = false;
-    }
-  }, [isGenerating, isPaused, uploadFile, sendCommand, pushMoveL, pushMoveLat, pushLookH, pushLookV]);
+    },
+    [
+      isGenerating,
+      isPaused,
+      uploadFile,
+      sendCommand,
+      pushMoveL,
+      pushMoveLat,
+      pushLookH,
+      pushLookV,
+    ],
+  );
 
-  const applyExample = useCallback(async (ex: StructuredExample) => {
-    if (!isReady || isUploading) return;
-    // Resolve the example's scene through the override store: if the user
-    // has edited this example before, those edits are applied from the
-    // start. Otherwise the pristine constant is used.
-    const effective = effectiveSceneFor(ex.id);
-    if (!effective) return;
-    await applyScene({
-      id: ex.id,
-      scene: effective,
-      image: { kind: "url", src: ex.image.src, name: `${ex.id}.jpg` },
-      errorLabel: "Failed to apply example",
-    });
-  }, [isReady, isUploading, effectiveSceneFor, applyScene]);
+  const applyExample = useCallback(
+    async (ex: StructuredExample) => {
+      if (!isReady || isUploading) return;
+      // Resolve the example's scene through the override store: if the user
+      // has edited this example before, those edits are applied from the
+      // start. Otherwise the pristine constant is used.
+      const effective = effectiveSceneFor(ex.id);
+      if (!effective) return;
+      await applyScene({
+        id: ex.id,
+        scene: effective,
+        image: { kind: "url", src: ex.image.src, name: `${ex.id}.jpg` },
+        errorLabel: "Failed to apply example",
+      });
+    },
+    [isReady, isUploading, effectiveSceneFor, applyScene],
+  );
 
   // ---- Lifecycle ----
 
-  const canStart = isReady && hasPrompt && hasImage && !isGenerating && !isPaused;
+  const canStart =
+    isReady && hasPrompt && hasImage && !isGenerating && !isPaused;
   const canPauseResume = isReady && (isGenerating || isPaused);
   const canReset = isReady;
 
@@ -1610,13 +1845,14 @@ export function LingbotWorldController({ className }: { className?: string }) {
       setIsPaused(false);
       setHasPrompt(false);
       setHasImage(false);
-      clearMovementInputs();  // don't leave a held key's joystick mirror stuck
+      clearMovementInputs(); // don't leave a held key's joystick mirror stuck
     }
   };
 
   const pushRotationSpeed = (v: number) => {
     setRotationSpeed(v);
-    if (isReady) lw2.setRotationSpeedDeg({ rotation_speed_deg: v }).catch(console.error);
+    if (isReady)
+      lw2.setRotationSpeedDeg({ rotation_speed_deg: v }).catch(console.error);
   };
 
   const pushSeed = (v: number) => {
@@ -1635,7 +1871,8 @@ export function LingbotWorldController({ className }: { className?: string }) {
   const pushKvCacheResetMode = (mode: KvResetMode) => {
     if (kvCacheResetMode === mode) return;
     setKvCacheResetMode(mode);
-    if (isReady) sendCommand("set_kv_cache_reset", { mode }).catch(console.error);
+    if (isReady)
+      sendCommand("set_kv_cache_reset", { mode }).catch(console.error);
   };
 
   // One-shot forced KV-cache reset. The backend honors this in "auto" and
@@ -1672,35 +1909,40 @@ export function LingbotWorldController({ className }: { className?: string }) {
   // on a card whose effective prompt matches the default. For the
   // custom slot there's no pristine to revert to; drop the override
   // only when the user has cleared every field back to emptyScene().
-  const handleSceneChange = useCallback((next: StructuredScene) => {
-    if (!editingExampleId) return;
-    const pristine =
-      editingExampleId === CUSTOM_SCENE_ID
-        ? emptyScene()
-        : STRUCTURED_EXAMPLES[editingExampleId]?.scene;
-    const isDefault = pristine ? scenesEqual(next, pristine) : false;
-    setOverrides((o) => {
-      if (isDefault) {
-        if (!(editingExampleId in o)) return o;
-        const without = { ...o };
-        delete without[editingExampleId];
-        return without;
-      }
-      return { ...o, [editingExampleId]: next };
-    });
-    if (editingExampleId === activeExampleId) {
-      sceneRef.current = next;
-      setScene(next);
-      if (heldSlotsRef.current.length > 0) {
-        const valid = heldSlotsRef.current.filter((s) => s < next.events.length);
-        if (valid.length !== heldSlotsRef.current.length) {
-          heldSlotsRef.current = valid;
-          setHeldSlots(valid);
+  const handleSceneChange = useCallback(
+    (next: StructuredScene) => {
+      if (!editingExampleId) return;
+      const pristine =
+        editingExampleId === CUSTOM_SCENE_ID
+          ? emptyScene()
+          : STRUCTURED_EXAMPLES[editingExampleId]?.scene;
+      const isDefault = pristine ? scenesEqual(next, pristine) : false;
+      setOverrides((o) => {
+        if (isDefault) {
+          if (!(editingExampleId in o)) return o;
+          const without = { ...o };
+          delete without[editingExampleId];
+          return without;
         }
+        return { ...o, [editingExampleId]: next };
+      });
+      if (editingExampleId === activeExampleId) {
+        sceneRef.current = next;
+        setScene(next);
+        if (heldSlotsRef.current.length > 0) {
+          const valid = heldSlotsRef.current.filter(
+            (s) => s < next.events.length,
+          );
+          if (valid.length !== heldSlotsRef.current.length) {
+            heldSlotsRef.current = valid;
+            setHeldSlots(valid);
+          }
+        }
+        recomputePromptAndSend();
       }
-      recomputePromptAndSend();
-    }
-  }, [editingExampleId, activeExampleId, recomputePromptAndSend]);
+    },
+    [editingExampleId, activeExampleId, recomputePromptAndSend],
+  );
 
   // "Reset to example" inside the editor — drop the override so the
   // example reverts to its pristine constant.
@@ -1733,44 +1975,45 @@ export function LingbotWorldController({ className }: { className?: string }) {
   // from the Custom section's ↺). If that scene is currently running,
   // also rewind the active scene — to the pristine constant for built-
   // in examples, or unset entirely for the custom slot.
-  const clearOverrideFor = useCallback((id: string) => {
-    if (!(id in overridesRef.current)) return;
-    if (typeof window !== "undefined") {
-      const label =
-        id === CUSTOM_SCENE_ID
-          ? "your custom scene"
-          : `"${STRUCTURED_EXAMPLES[id]?.name ?? id}"`;
-      const verb =
-        id === CUSTOM_SCENE_ID
-          ? "clear it"
-          : "revert to the default prompt";
-      const ok = window.confirm(
-        `Discard your edits to ${label} and ${verb}?`,
-      );
-      if (!ok) return;
-    }
-    setOverrides((o) => {
-      if (!(id in o)) return o;
-      const next = { ...o };
-      delete next[id];
-      return next;
-    });
-    if (id === activeExampleId) {
-      const pristine = STRUCTURED_EXAMPLES[id]?.scene;
-      if (pristine) {
-        const cloned = cloneScene(pristine);
-        sceneRef.current = cloned;
-        setScene(cloned);
-        recomputePromptAndSend();
-      } else {
-        // Custom scene was running and is now gone; drop the active
-        // scene state so the controller falls back to idle.
-        sceneRef.current = null;
-        setScene(null);
-        setActiveExampleId(null);
+  const clearOverrideFor = useCallback(
+    (id: string) => {
+      if (!(id in overridesRef.current)) return;
+      if (typeof window !== "undefined") {
+        const label =
+          id === CUSTOM_SCENE_ID
+            ? "your custom scene"
+            : `"${STRUCTURED_EXAMPLES[id]?.name ?? id}"`;
+        const verb =
+          id === CUSTOM_SCENE_ID ? "clear it" : "revert to the default prompt";
+        const ok = window.confirm(
+          `Discard your edits to ${label} and ${verb}?`,
+        );
+        if (!ok) return;
       }
-    }
-  }, [activeExampleId, recomputePromptAndSend]);
+      setOverrides((o) => {
+        if (!(id in o)) return o;
+        const next = { ...o };
+        delete next[id];
+        return next;
+      });
+      if (id === activeExampleId) {
+        const pristine = STRUCTURED_EXAMPLES[id]?.scene;
+        if (pristine) {
+          const cloned = cloneScene(pristine);
+          sceneRef.current = cloned;
+          setScene(cloned);
+          recomputePromptAndSend();
+        } else {
+          // Custom scene was running and is now gone; drop the active
+          // scene state so the controller falls back to idle.
+          sceneRef.current = null;
+          setScene(null);
+          setActiveExampleId(null);
+        }
+      }
+    },
+    [activeExampleId, recomputePromptAndSend],
+  );
 
   // Apply the user's custom layered scene. Mirrors applyExample but
   // uses the user-picked pending image (or the already-sent custom
@@ -1795,7 +2038,11 @@ export function LingbotWorldController({ className }: { className?: string }) {
       id: CUSTOM_SCENE_ID,
       scene: cloneScene(customScene),
       image: pendingImage
-        ? { kind: "file", file: pendingImage.file, previewUrl: pendingImage.previewUrl }
+        ? {
+            kind: "file",
+            file: pendingImage.file,
+            previewUrl: pendingImage.previewUrl,
+          }
         : { kind: "keep" },
       errorLabel: "Failed to apply custom scene",
     });
@@ -1807,15 +2054,16 @@ export function LingbotWorldController({ className }: { className?: string }) {
   // inspector panel. That way the video on the right stays fully
   // visible — the user can see the prompt and the running video side
   // by side instead of having a modal cover everything.
-  const sidebarContent = inspectorOpen && scene ? (
-    <LivePromptInspector
-      scene={scene}
-      isMoving={moveL !== "idle" || moveLat !== "idle"}
-      heldSlots={heldSlots}
-      verticalPrompt={verticalPrompt}
-      onClose={() => setInspectorOpen(false)}
-    />
-  ) : null;
+  const sidebarContent =
+    inspectorOpen && scene ? (
+      <LivePromptInspector
+        scene={scene}
+        isMoving={moveL !== "idle" || moveLat !== "idle"}
+        heldSlots={heldSlots}
+        verticalPrompt={verticalPrompt}
+        onClose={() => setInspectorOpen(false)}
+      />
+    ) : null;
 
   const sidebar = sidebarContent ?? (
     <div className="flex flex-col gap-4">
@@ -1827,9 +2075,8 @@ export function LingbotWorldController({ className }: { className?: string }) {
           </span>
           <p className="text-[10px] text-white/40 leading-snug">
             Click an example to auto-load its image, prompt, and start
-            generating. Click ✎ to preset / customize its layered prompt;
-            your edits persist across re-clicks until you press ↺ to
-            revert.
+            generating. Click ✎ to preset / customize its layered prompt; your
+            edits persist across re-clicks until you press ↺ to revert.
           </p>
           <div className="flex flex-col gap-2">
             {EXAMPLES.map((ex) => {
@@ -1843,7 +2090,8 @@ export function LingbotWorldController({ className }: { className?: string }) {
               const hasOverride = Boolean(
                 override && pristine && !scenesEqual(override, pristine),
               );
-              const applyDisabled = !isReady || isUploading || !!loadingExampleId;
+              const applyDisabled =
+                !isReady || isUploading || !!loadingExampleId;
               return (
                 <div
                   key={ex.id}
@@ -1956,8 +2204,10 @@ export function LingbotWorldController({ className }: { className?: string }) {
         const applyBlockerReason = (() => {
           if (!isReady) return "Not connected.";
           if (isUploading || customLoading) return "Uploading…";
-          if (!customComposed) return "Edit the custom prompt first (default base prose must not be empty).";
-          if (!pendingImage && !sentImagePreview) return "Pick a starting image first.";
+          if (!customComposed)
+            return "Edit the custom prompt first (default base prose must not be empty).";
+          if (!pendingImage && !sentImagePreview)
+            return "Pick a starting image first.";
           return undefined;
         })();
         return (
@@ -1966,8 +2216,8 @@ export function LingbotWorldController({ className }: { className?: string }) {
               Custom scene
             </span>
             <p className="text-[10px] text-white/40 leading-snug">
-              Bring your own image, author a full layered prompt
-              (base / camera / movement / events), then apply.
+              Bring your own image, author a full layered prompt (base / camera
+              / movement / events), then apply.
             </p>
 
             {/* Image picker */}
@@ -2034,12 +2284,16 @@ export function LingbotWorldController({ className }: { className?: string }) {
                 onClick={() => openEditorFor(CUSTOM_SCENE_ID)}
                 className="font-mono text-[10px]"
               >
-                ✎ {customHasContent ? "Edit custom prompt" : "+ New custom prompt"}
+                ✎{" "}
+                {customHasContent
+                  ? "Edit custom prompt"
+                  : "+ New custom prompt"}
               </Button>
               {customHasContent && (
                 <>
                   <span className="font-mono text-[10px] text-white/50">
-                    {customScene!.events.length} event{customScene!.events.length === 1 ? "" : "s"}
+                    {customScene!.events.length} event
+                    {customScene!.events.length === 1 ? "" : "s"}
                     {" · "}
                     {customComposed.length} chars
                   </span>
@@ -2064,7 +2318,11 @@ export function LingbotWorldController({ className }: { className?: string }) {
                 title={applyBlockerReason}
                 className="font-mono text-[10px]"
               >
-                {customLoading ? "Applying…" : customIsActive ? "Re-apply custom scene" : "Apply custom scene"}
+                {customLoading
+                  ? "Applying…"
+                  : customIsActive
+                    ? "Re-apply custom scene"
+                    : "Apply custom scene"}
               </Button>
               {customIsActive && (
                 <span className="font-mono text-[10px] text-amber-300/70">
@@ -2083,16 +2341,30 @@ export function LingbotWorldController({ className }: { className?: string }) {
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5">
-            <span className={cn("w-1.5 h-1.5 rounded-full", hasPrompt ? "bg-green-400" : "bg-white/20")} />
+            <span
+              className={cn(
+                "w-1.5 h-1.5 rounded-full",
+                hasPrompt ? "bg-green-400" : "bg-white/20",
+              )}
+            />
             <span className="font-mono text-[10px] text-white/50">Prompt</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className={cn("w-1.5 h-1.5 rounded-full", hasImage ? "bg-green-400" : "bg-white/20")} />
+            <span
+              className={cn(
+                "w-1.5 h-1.5 rounded-full",
+                hasImage ? "bg-green-400" : "bg-white/20",
+              )}
+            />
             <span className="font-mono text-[10px] text-white/50">Image</span>
           </div>
           <div className="flex-1" />
-          <Button size="sm" disabled={!canStart} onClick={() => sendLifecycle("start")}
-            title={startBlockerReason ?? undefined}>
+          <Button
+            size="sm"
+            disabled={!canStart}
+            onClick={() => sendLifecycle("start")}
+            title={startBlockerReason ?? undefined}
+          >
             Start
           </Button>
         </div>
@@ -2149,13 +2421,17 @@ export function LingbotWorldController({ className }: { className?: string }) {
                 Rotation speed
               </label>
               <input
-                type="range" min={0} max={30} step={0.5}
+                type="range"
+                min={0}
+                max={30}
+                step={0.5}
                 value={rotationSpeed}
                 onChange={(e) => pushRotationSpeed(Number(e.target.value))}
                 className="flex-1 accent-amber-300"
               />
               <span className="font-mono text-xs text-white/70 w-20 text-right tabular-nums">
-                {rotationSpeed.toFixed(1)}<span className="text-white/40"> °/step</span>
+                {rotationSpeed.toFixed(1)}
+                <span className="text-white/40"> °/step</span>
               </span>
             </div>
             <div className="flex items-center gap-3">
@@ -2163,13 +2439,17 @@ export function LingbotWorldController({ className }: { className?: string }) {
                 Mouse sens
               </label>
               <input
-                type="range" min={MOUSE_SENS_MIN} max={MOUSE_SENS_MAX} step={0.00005}
+                type="range"
+                min={MOUSE_SENS_MIN}
+                max={MOUSE_SENS_MAX}
+                step={0.00005}
                 value={mouseSens}
                 onChange={(e) => setMouseSens(Number(e.target.value))}
                 className="flex-1 accent-amber-300"
               />
               <span className="font-mono text-xs text-white/70 w-20 text-right tabular-nums">
-                {((mouseSens * 180) / Math.PI).toFixed(3)}<span className="text-white/40"> °/px</span>
+                {((mouseSens * 180) / Math.PI).toFixed(3)}
+                <span className="text-white/40"> °/px</span>
               </span>
             </div>
             <div className="flex items-center gap-3">
@@ -2177,11 +2457,16 @@ export function LingbotWorldController({ className }: { className?: string }) {
                 Seed
               </label>
               <Input
-                type="number" value={seed}
+                type="number"
+                value={seed}
                 onChange={(e) => pushSeed(Number(e.target.value))}
                 className="w-24 font-mono text-xs"
               />
-              <Button size="sm" variant="ghost" onClick={() => pushSeed(Math.floor(Math.random() * 1_000_000))}>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => pushSeed(Math.floor(Math.random() * 1_000_000))}
+              >
                 Random
               </Button>
             </div>
@@ -2189,11 +2474,15 @@ export function LingbotWorldController({ className }: { className?: string }) {
               <label className="font-mono text-[10px] uppercase tracking-wider text-white/50 w-28 shrink-0">
                 Camera pose
               </label>
-              <span className={cn(
-                "font-mono text-[10px]",
-                cameraPoseActive ? "text-amber-300" : "text-white/30",
-              )}>
-                {cameraPoseActive ? "active (pose layer driving rotation)" : "inactive — keyboard only"}
+              <span
+                className={cn(
+                  "font-mono text-[10px]",
+                  cameraPoseActive ? "text-amber-300" : "text-white/30",
+                )}
+              >
+                {cameraPoseActive
+                  ? "active (pose layer driving rotation)"
+                  : "inactive — keyboard only"}
               </span>
             </div>
             {/* DiT self-attention window override (backend set_attn_window). */}
@@ -2202,11 +2491,22 @@ export function LingbotWorldController({ className }: { className?: string }) {
                 Attn window
               </label>
               <div className="flex gap-1">
-                {([
-                  ["auto", "Auto — motion-based: small window when still, full window when moving (default)"],
-                  ["small", "Small — force the still (small) attention window always"],
-                  ["large", "Large — force the moving (full) attention window always"],
-                ] as const).map(([w, title]) => (
+                {(
+                  [
+                    [
+                      "auto",
+                      "Auto — motion-based: small window when still, full window when moving (default)",
+                    ],
+                    [
+                      "small",
+                      "Small — force the still (small) attention window always",
+                    ],
+                    [
+                      "large",
+                      "Large — force the moving (full) attention window always",
+                    ],
+                  ] as const
+                ).map(([w, title]) => (
                   <button
                     key={w}
                     type="button"
@@ -2233,11 +2533,22 @@ export function LingbotWorldController({ className }: { className?: string }) {
               </label>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex gap-1">
-                  {([
-                    ["off", "Off — no KV-cache reset; RoPE positions grow unbounded on long runs"],
-                    ["auto", "Auto — periodic window reset (~every 27 chunks) + manual trigger (default)"],
-                    ["manual", "Manual — no periodic reset; only the Reset-now button fires one"],
-                  ] as const).map(([m, title]) => (
+                  {(
+                    [
+                      [
+                        "off",
+                        "Off — no KV-cache reset; RoPE positions grow unbounded on long runs",
+                      ],
+                      [
+                        "auto",
+                        "Auto — periodic window reset (~every 27 chunks) + manual trigger (default)",
+                      ],
+                      [
+                        "manual",
+                        "Manual — no periodic reset; only the Reset-now button fires one",
+                      ],
+                    ] as const
+                  ).map(([m, title]) => (
                     <button
                       key={m}
                       type="button"
@@ -2274,38 +2585,39 @@ export function LingbotWorldController({ className }: { className?: string }) {
           Lives here in the sidebar tree because it's position: fixed;
           visually it covers the whole viewport. Reads / writes the
           per-example override store so edits persist across re-clicks. */}
-      {editingExampleId && editingScene && (() => {
-        const isCustom = editingExampleId === CUSTOM_SCENE_ID;
-        // Only offer "Reset to example" when the current scene actually
-        // differs from the pristine constant; otherwise there's nothing
-        // to reset.
-        const pristine = isCustom
-          ? undefined
-          : STRUCTURED_EXAMPLES[editingExampleId]?.scene;
-        const canReset =
-          pristine != null && !scenesEqual(editingScene, pristine);
-        const title = isCustom
-          ? "Edit · Custom scene"
-          : `Edit · ${STRUCTURED_EXAMPLES[editingExampleId]?.name ?? editingExampleId}`;
-        const subtitle = isCustom
-          ? "Author a fully custom layered prompt. Apply it from the Custom card on the right."
-          : editingExampleId === activeExampleId
-            ? "Editing the currently-running scene — changes apply live."
-            : "Pre-editing this scene. Click the example card to apply your edits.";
-        return (
-          <LayeredSceneEditor
-            title={title}
-            subtitle={subtitle}
-            scene={editingScene}
-            pristine={pristine}
-            onChange={handleSceneChange}
-            onReset={canReset ? resetEditingExample : undefined}
-            resetLabel="Reset to example"
-            onClose={closeEditor}
-          />
-        );
-      })()}
-
+      {editingExampleId &&
+        editingScene &&
+        (() => {
+          const isCustom = editingExampleId === CUSTOM_SCENE_ID;
+          // Only offer "Reset to example" when the current scene actually
+          // differs from the pristine constant; otherwise there's nothing
+          // to reset.
+          const pristine = isCustom
+            ? undefined
+            : STRUCTURED_EXAMPLES[editingExampleId]?.scene;
+          const canReset =
+            pristine != null && !scenesEqual(editingScene, pristine);
+          const title = isCustom
+            ? "Edit · Custom scene"
+            : `Edit · ${STRUCTURED_EXAMPLES[editingExampleId]?.name ?? editingExampleId}`;
+          const subtitle = isCustom
+            ? "Author a fully custom layered prompt. Apply it from the Custom card on the right."
+            : editingExampleId === activeExampleId
+              ? "Editing the currently-running scene — changes apply live."
+              : "Pre-editing this scene. Click the example card to apply your edits.";
+          return (
+            <LayeredSceneEditor
+              title={title}
+              subtitle={subtitle}
+              scene={editingScene}
+              pristine={pristine}
+              onChange={handleSceneChange}
+              onReset={canReset ? resetEditingExample : undefined}
+              resetLabel="Reset to example"
+              onClose={closeEditor}
+            />
+          );
+        })()}
     </div>
   );
 
@@ -2313,8 +2625,11 @@ export function LingbotWorldController({ className }: { className?: string }) {
 
   // Mouse-signal HUD geometry: arrow from circle center in the direction of
   // recent mouse motion, length ∝ strength (clamped to the circle radius).
-  const HUD = 72, HUD_C = HUD / 2, HUD_R = 28;
-  const _vx = mouseViz.x * 0.5, _vy = mouseViz.y * 0.5;
+  const HUD = 72,
+    HUD_C = HUD / 2,
+    HUD_R = 28;
+  const _vx = mouseViz.x * 0.5,
+    _vy = mouseViz.y * 0.5;
   const _mag = Math.hypot(_vx, _vy);
   const _s = _mag > HUD_R ? HUD_R / _mag : 1;
   // Arrow-key look direction (svg coords: up = -y). Mirrored into the Mouse HUD
@@ -2323,19 +2638,24 @@ export function LingbotWorldController({ className }: { className?: string }) {
   const _arrowX = (lookH === "right" ? 1 : 0) - (lookH === "left" ? 1 : 0);
   const _arrowY = (lookV === "down" ? 1 : 0) - (lookV === "up" ? 1 : 0);
   const _arrowActive = _arrowX !== 0 || _arrowY !== 0;
-  let hudEx = HUD_C, hudEy = HUD_C, hudActive = false;
+  let hudEx = HUD_C,
+    hudEy = HUD_C,
+    hudActive = false;
   if (mouseLook) {
-    hudEx = HUD_C + _vx * _s; hudEy = HUD_C + _vy * _s;
+    hudEx = HUD_C + _vx * _s;
+    hudEy = HUD_C + _vy * _s;
     hudActive = _mag > 0.5;
   } else if (_arrowActive) {
     const _am = (HUD_R * 0.9) / Math.hypot(_arrowX, _arrowY);
-    hudEx = HUD_C + _arrowX * _am; hudEy = HUD_C + _arrowY * _am;
+    hudEx = HUD_C + _arrowX * _am;
+    hudEy = HUD_C + _arrowY * _am;
     hudActive = true;
   }
 
   // Joystick knob: show the drag vector if dragging, else mirror the WASD
   // state (so the joystick and WASD read as the same "movement" control).
-  const _wasdX = (moveLat === "strafe_right" ? 1 : 0) - (moveLat === "strafe_left" ? 1 : 0);
+  const _wasdX =
+    (moveLat === "strafe_right" ? 1 : 0) - (moveLat === "strafe_left" ? 1 : 0);
   const _wasdY = (moveL === "back" ? 1 : 0) - (moveL === "forward" ? 1 : 0);
   const joyDragging = joy.x !== 0 || joy.y !== 0;
   const joyDispX = joyDragging ? joy.x : _wasdX;
@@ -2348,7 +2668,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
       {(tspSize !== null || (isGenerating && chunkNum > 0) || isReady) && (
         <div className="flex items-center gap-3 flex-wrap">
           {tspSize !== null && (
-            <span className="font-mono text-[10px] text-white/40">workers: {tspSize}</span>
+            <span className="font-mono text-[10px] text-white/40">
+              workers: {tspSize}
+            </span>
           )}
           {isGenerating && chunkNum > 0 && (
             <span className="font-mono text-[10px] text-white/40">
@@ -2356,7 +2678,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
             </span>
           )}
           {isReady && (
-            <span className="font-mono text-[10px] text-amber-300/70">action: {activeAction}</span>
+            <span className="font-mono text-[10px] text-amber-300/70">
+              action: {activeAction}
+            </span>
           )}
           <div className="flex-1" />
           {(isGenerating || isPaused) && (
@@ -2415,31 +2739,79 @@ export function LingbotWorldController({ className }: { className?: string }) {
             <div className="flex flex-col items-center gap-0.5">
               {/* Top row: Q | W | E — Q/E fill the gaps either side of W */}
               <div className="flex gap-0.5">
-                <HoldBtn label="↺ Q" lit={rollDir === -1} disabled={!isReady} className="h-10 w-10"
-                  title="Roll left (Q)" onDown={() => setRoll(-1)} onUp={() => setRoll(0)} />
-                <PadButton label="W" pressed={moveL === "forward"} disabled={!isReady}
-                  onPress={() => onMoveLPress("forward")} onRelease={() => onMoveLRelease("forward")} />
-                <HoldBtn label="↻ E" lit={rollDir === 1} disabled={!isReady} className="h-10 w-10"
-                  title="Roll right (E)" onDown={() => setRoll(1)} onUp={() => setRoll(0)} />
+                <HoldBtn
+                  label="↺ Q"
+                  lit={rollDir === -1}
+                  disabled={!isReady}
+                  className="h-10 w-10"
+                  title="Roll left (Q)"
+                  onDown={() => setRoll(-1)}
+                  onUp={() => setRoll(0)}
+                />
+                <PadButton
+                  label="W"
+                  pressed={moveL === "forward"}
+                  disabled={!isReady}
+                  onPress={() => onMoveLPress("forward")}
+                  onRelease={() => onMoveLRelease("forward")}
+                />
+                <HoldBtn
+                  label="↻ E"
+                  lit={rollDir === 1}
+                  disabled={!isReady}
+                  className="h-10 w-10"
+                  title="Roll right (E)"
+                  onDown={() => setRoll(1)}
+                  onUp={() => setRoll(0)}
+                />
               </div>
               {/* Bottom row: A | S | D */}
               <div className="flex gap-0.5">
-                <PadButton label="A" pressed={moveLat === "strafe_left"} disabled={!isReady}
-                  onPress={() => onMoveLatPress("strafe_left")} onRelease={() => onMoveLatRelease("strafe_left")} />
-                <PadButton label="S" pressed={moveL === "back"} disabled={!isReady}
-                  onPress={() => onMoveLPress("back")} onRelease={() => onMoveLRelease("back")} />
-                <PadButton label="D" pressed={moveLat === "strafe_right"} disabled={!isReady}
-                  onPress={() => onMoveLatPress("strafe_right")} onRelease={() => onMoveLatRelease("strafe_right")} />
+                <PadButton
+                  label="A"
+                  pressed={moveLat === "strafe_left"}
+                  disabled={!isReady}
+                  onPress={() => onMoveLatPress("strafe_left")}
+                  onRelease={() => onMoveLatRelease("strafe_left")}
+                />
+                <PadButton
+                  label="S"
+                  pressed={moveL === "back"}
+                  disabled={!isReady}
+                  onPress={() => onMoveLPress("back")}
+                  onRelease={() => onMoveLRelease("back")}
+                />
+                <PadButton
+                  label="D"
+                  pressed={moveLat === "strafe_right"}
+                  disabled={!isReady}
+                  onPress={() => onMoveLatPress("strafe_right")}
+                  onRelease={() => onMoveLatRelease("strafe_right")}
+                />
               </div>
             </div>
             {/* Space jump (up) / C crouch (down) — bigger, stacked to the right of WASD.
                 h-10 + gap-0.5 = the WASD pad's height, so the stack's top & bottom
                 edges line up with the W and A/S/D rows. */}
             <div className="flex flex-col gap-0.5">
-              <HoldBtn label="⤒ Space" lit={jumpLit} disabled={!isReady} className="h-10 w-16 text-[11px]"
-                title="Jump (Space) — see the Jump mode switch" onDown={onJumpDown} onUp={onJumpUp} />
-              <HoldBtn label="⤓ C" lit={vertDir < 0} disabled={!isReady} className="h-10 w-16 text-[11px]"
-                title="Crouch (C) — see the Crouch mode switch below" onDown={() => setVert(-1)} onUp={() => setVert(0)} />
+              <HoldBtn
+                label="⤒ Space"
+                lit={jumpLit}
+                disabled={!isReady}
+                className="h-10 w-16 text-[11px]"
+                title="Jump (Space) — see the Jump mode switch"
+                onDown={onJumpDown}
+                onUp={onJumpUp}
+              />
+              <HoldBtn
+                label="⤓ C"
+                lit={vertDir < 0}
+                disabled={!isReady}
+                className="h-10 w-16 text-[11px]"
+                title="Crouch (C) — see the Crouch mode switch below"
+                onDown={() => setVert(-1)}
+                onUp={() => setVert(0)}
+              />
             </div>
             {/* Jump/Crouch mode switches + charge-level editor live in their own
                 full-width row below the grid (see "Vertical" section). */}
@@ -2459,7 +2831,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
             >
               <div className="flex items-center justify-between">
                 <h3 className="font-mono text-sm text-white">
-                  Jump level {editingLevel} · {editingLevel} chunk{editingLevel > 1 ? "s" : ""} ({editingLevel * CHUNK_LATENTS} latents)
+                  Jump level {editingLevel} · {editingLevel} chunk
+                  {editingLevel > 1 ? "s" : ""} ({editingLevel * CHUNK_LATENTS}{" "}
+                  latents)
                 </h3>
                 <button
                   type="button"
@@ -2470,11 +2844,12 @@ export function LingbotWorldController({ className }: { className?: string }) {
                 </button>
               </div>
               <p className="mt-1 mb-4 font-mono text-[11px] leading-relaxed text-white/50">
-                One cell per latent (3 per chunk), played left→right, top→bottom.
-                Click a cell to cycle <span className="text-amber-200">↑ up</span> →{" "}
+                One cell per latent (3 per chunk), played left→right,
+                top→bottom. Click a cell to cycle{" "}
+                <span className="text-amber-200">↑ up</span> →{" "}
                 <span className="text-sky-200">↓ down</span> →{" "}
-                <span className="text-white/40">· still</span>. Stills are the pause /
-                hang; put as many as you want. Saved automatically.
+                <span className="text-white/40">· still</span>. Stills are the
+                pause / hang; put as many as you want. Saved automatically.
               </p>
               <div className="flex flex-col gap-2">
                 {Array.from({ length: editingLevel }, (_, c) => (
@@ -2540,7 +2915,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between">
-                <h3 className="font-mono text-sm text-white">Crouch — press &amp; release chunks</h3>
+                <h3 className="font-mono text-sm text-white">
+                  Crouch — press &amp; release chunks
+                </h3>
                 <button
                   type="button"
                   onClick={() => setEditingCrouch(false)}
@@ -2551,11 +2928,12 @@ export function LingbotWorldController({ className }: { className?: string }) {
               </div>
               <p className="mt-1 mb-4 font-mono text-[11px] leading-relaxed text-white/50">
                 Two one-chunk dips: <strong>press</strong> fires on C-down,{" "}
-                <strong>release</strong> fires on C-up (standing back up). One cell
-                per latent — click to cycle <span className="text-amber-200">↑ up</span> →{" "}
+                <strong>release</strong> fires on C-up (standing back up). One
+                cell per latent — click to cycle{" "}
+                <span className="text-amber-200">↑ up</span> →{" "}
                 <span className="text-sky-200">↓ down</span> →{" "}
-                <span className="text-white/40">· still</span>. Added on top of forward.
-                Saved automatically.
+                <span className="text-white/40">· still</span>. Added on top of
+                forward. Saved automatically.
               </p>
               <div className="flex flex-col gap-3">
                 {(["press", "release"] as const).map((phase) => (
@@ -2616,23 +2994,36 @@ export function LingbotWorldController({ className }: { className?: string }) {
           </span>
           <div
             ref={joyAreaRef}
-            onPointerDown={(e) => { if (!isReady) return; e.currentTarget.setPointerCapture(e.pointerId); onJoyPointer(e, "down"); }}
-            onPointerMove={(e) => { if (e.buttons !== 0) onJoyPointer(e, "move"); }}
+            onPointerDown={(e) => {
+              if (!isReady) return;
+              e.currentTarget.setPointerCapture(e.pointerId);
+              onJoyPointer(e, "down");
+            }}
+            onPointerMove={(e) => {
+              if (e.buttons !== 0) onJoyPointer(e, "move");
+            }}
             onPointerUp={(e) => onJoyPointer(e, "up")}
             onPointerCancel={(e) => onJoyPointer(e, "up")}
             title="Drag for continuous movement (up = forward, down = back, left/right = strafe). Adds to WASD; mirrors WASD when idle."
             className={cn(
               "relative rounded-full border touch-none select-none",
-              isReady ? "cursor-grab active:cursor-grabbing border-white/15 bg-white/[0.03]" : "opacity-30 border-white/10",
+              isReady
+                ? "cursor-grab active:cursor-grabbing border-white/15 bg-white/[0.03]"
+                : "opacity-30 border-white/10",
             )}
             style={{ width: HUD, height: HUD }}
           >
             <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-white/8" />
             <div className="absolute top-1/2 left-0 w-full h-px -translate-y-1/2 bg-white/8" />
             <div
-              className={cn("absolute h-4 w-4 rounded-full -translate-x-1/2 -translate-y-1/2 transition-all",
-                joyLit ? "bg-amber-300" : "bg-white/40")}
-              style={{ left: `calc(50% + ${joyDispX * HUD_R}px)`, top: `calc(50% + ${joyDispY * HUD_R}px)` }}
+              className={cn(
+                "absolute h-4 w-4 rounded-full -translate-x-1/2 -translate-y-1/2 transition-all",
+                joyLit ? "bg-amber-300" : "bg-white/40",
+              )}
+              style={{
+                left: `calc(50% + ${joyDispX * HUD_R}px)`,
+                top: `calc(50% + ${joyDispY * HUD_R}px)`,
+              }}
             />
           </div>
         </div>
@@ -2642,15 +3033,35 @@ export function LingbotWorldController({ className }: { className?: string }) {
             Look (Arrows)
           </span>
           <div className="flex flex-col items-center gap-0.5">
-            <PadButton label="↑" pressed={lookV === "up"} disabled={!isReady}
-              onPress={() => pushLookV("up")} onRelease={() => pushLookV("idle")} />
+            <PadButton
+              label="↑"
+              pressed={lookV === "up"}
+              disabled={!isReady}
+              onPress={() => pushLookV("up")}
+              onRelease={() => pushLookV("idle")}
+            />
             <div className="flex gap-0.5">
-              <PadButton label="←" pressed={lookH === "left"} disabled={!isReady}
-                onPress={() => pushLookH("left")} onRelease={() => pushLookH("idle")} />
-              <PadButton label="↓" pressed={lookV === "down"} disabled={!isReady}
-                onPress={() => pushLookV("down")} onRelease={() => pushLookV("idle")} />
-              <PadButton label="→" pressed={lookH === "right"} disabled={!isReady}
-                onPress={() => pushLookH("right")} onRelease={() => pushLookH("idle")} />
+              <PadButton
+                label="←"
+                pressed={lookH === "left"}
+                disabled={!isReady}
+                onPress={() => pushLookH("left")}
+                onRelease={() => pushLookH("idle")}
+              />
+              <PadButton
+                label="↓"
+                pressed={lookV === "down"}
+                disabled={!isReady}
+                onPress={() => pushLookV("down")}
+                onRelease={() => pushLookV("idle")}
+              />
+              <PadButton
+                label="→"
+                pressed={lookH === "right"}
+                disabled={!isReady}
+                onPress={() => pushLookH("right")}
+                onRelease={() => pushLookH("idle")}
+              />
             </div>
           </div>
         </div>
@@ -2665,26 +3076,68 @@ export function LingbotWorldController({ className }: { className?: string }) {
             type="button"
             disabled={!isReady}
             onClick={toggleMouseLook}
-            title={mouseLook
-              ? "Mouse-look ON — move the mouse to rotate (yaw+pitch). Esc, M, or an arrow key to release."
-              : "Click to engage mouse-look (pointer lock). Move the mouse to rotate; Esc/M to release."}
-            className={cn("rounded-full transition-transform disabled:opacity-30",
-              isReady && "cursor-pointer hover:scale-105", mouseLook && "ring-2 ring-amber-300/60")}
+            title={
+              mouseLook
+                ? "Mouse-look ON — move the mouse to rotate (yaw+pitch). Esc, M, or an arrow key to release."
+                : "Click to engage mouse-look (pointer lock). Move the mouse to rotate; Esc/M to release."
+            }
+            className={cn(
+              "rounded-full transition-transform disabled:opacity-30",
+              isReady && "cursor-pointer hover:scale-105",
+              mouseLook && "ring-2 ring-amber-300/60",
+            )}
           >
             <svg width={HUD} height={HUD} className="shrink-0 block">
-              <circle cx={HUD_C} cy={HUD_C} r={HUD_R}
-                fill={mouseLook ? "rgba(252,211,77,0.06)" : "rgba(255,255,255,0.02)"}
-                stroke={mouseLook ? "rgba(252,211,77,0.45)" : "rgba(255,255,255,0.15)"} strokeWidth="1" />
-              <line x1={HUD_C} y1={HUD_C - HUD_R} x2={HUD_C} y2={HUD_C + HUD_R} stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-              <line x1={HUD_C - HUD_R} y1={HUD_C} x2={HUD_C + HUD_R} y2={HUD_C} stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+              <circle
+                cx={HUD_C}
+                cy={HUD_C}
+                r={HUD_R}
+                fill={
+                  mouseLook ? "rgba(252,211,77,0.06)" : "rgba(255,255,255,0.02)"
+                }
+                stroke={
+                  mouseLook ? "rgba(252,211,77,0.45)" : "rgba(255,255,255,0.15)"
+                }
+                strokeWidth="1"
+              />
+              <line
+                x1={HUD_C}
+                y1={HUD_C - HUD_R}
+                x2={HUD_C}
+                y2={HUD_C + HUD_R}
+                stroke="rgba(255,255,255,0.08)"
+                strokeWidth="1"
+              />
+              <line
+                x1={HUD_C - HUD_R}
+                y1={HUD_C}
+                x2={HUD_C + HUD_R}
+                y2={HUD_C}
+                stroke="rgba(255,255,255,0.08)"
+                strokeWidth="1"
+              />
               {hudActive && (
                 <>
-                  <line x1={HUD_C} y1={HUD_C} x2={hudEx} y2={hudEy}
-                    stroke="rgb(252,211,77)" strokeWidth="2" strokeLinecap="round" />
+                  <line
+                    x1={HUD_C}
+                    y1={HUD_C}
+                    x2={hudEx}
+                    y2={hudEy}
+                    stroke="rgb(252,211,77)"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
                   <circle cx={hudEx} cy={hudEy} r="3" fill="rgb(252,211,77)" />
                 </>
               )}
-              <circle cx={HUD_C} cy={HUD_C} r="2" fill={mouseLook ? "rgba(252,211,77,0.8)" : "rgba(255,255,255,0.3)"} />
+              <circle
+                cx={HUD_C}
+                cy={HUD_C}
+                r="2"
+                fill={
+                  mouseLook ? "rgba(252,211,77,0.8)" : "rgba(255,255,255,0.3)"
+                }
+              />
             </svg>
           </button>
         </div>
@@ -2694,13 +3147,20 @@ export function LingbotWorldController({ className }: { className?: string }) {
           editor. Full-width row so the buttons are comfortably clickable. */}
       <div className="flex flex-wrap items-start gap-x-8 gap-y-3 border-t border-white/[0.06] pt-3">
         <div className="flex flex-col gap-1.5">
-          <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">Jump (Space)</span>
+          <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">
+            Jump (Space)
+          </span>
           <div className="flex gap-1">
-            {([
-              ["hold", "Hold — translate up while held (no descent)"],
-              ["prompt", "Prompt — only append the scene's jump prompt"],
-              ["charge", "Charge — hold to charge a level, release to fire that level's arc"],
-            ] as const).map(([m, title]) => (
+            {(
+              [
+                ["hold", "Hold — translate up while held (no descent)"],
+                ["prompt", "Prompt — only append the scene's jump prompt"],
+                [
+                  "charge",
+                  "Charge — hold to charge a level, release to fire that level's arc",
+                ],
+              ] as const
+            ).map(([m, title]) => (
               <button
                 key={m}
                 type="button"
@@ -2742,7 +3202,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
                     )}
                   >
                     <span className="text-[13px] leading-none">{level}</span>
-                    <span className="text-[8px] leading-none text-white/45">✎ edit</span>
+                    <span className="text-[8px] leading-none text-white/45">
+                      ✎ edit
+                    </span>
                   </button>
                 );
               })}
@@ -2751,13 +3213,26 @@ export function LingbotWorldController({ className }: { className?: string }) {
         )}
 
         <div className="flex flex-col gap-1.5">
-          <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">Crouch (C)</span>
+          <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">
+            Crouch (C)
+          </span>
           <div className="flex items-center gap-1">
-            {([
-              ["hold", "Hold — translate straight down for as long as held (no return)"],
-              ["prompt", "Prompt — inject the scene's crouch line, no camera motion"],
-              ["camera", "Camera — a one-shot downward dip (+ the crouch line) while held"],
-            ] as const).map(([m, title]) => (
+            {(
+              [
+                [
+                  "hold",
+                  "Hold — translate straight down for as long as held (no return)",
+                ],
+                [
+                  "prompt",
+                  "Prompt — inject the scene's crouch line, no camera motion",
+                ],
+                [
+                  "camera",
+                  "Camera — a one-shot downward dip (+ the crouch line) while held",
+                ],
+              ] as const
+            ).map(([m, title]) => (
               <button
                 key={m}
                 type="button"
@@ -2788,7 +3263,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">Orbit radius (O)</span>
+          <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">
+            Orbit radius (O)
+          </span>
           <div className="flex items-center gap-1.5">
             <Input
               type="number"
@@ -2812,7 +3289,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
               <button
                 type="button"
                 disabled={!isReady}
-                onClick={() => setOrbitRadius((r) => Math.max(0, r + ORBIT_RADIUS_STEP))}
+                onClick={() =>
+                  setOrbitRadius((r) => Math.max(0, r + ORBIT_RADIUS_STEP))
+                }
                 className="flex h-3.5 w-5 items-center justify-center rounded-t border border-b-0 border-white/15 bg-white/5 text-[8px] leading-none text-white/60 hover:bg-white/10 disabled:opacity-30"
                 title="Increase orbit radius"
               >
@@ -2821,7 +3300,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
               <button
                 type="button"
                 disabled={!isReady}
-                onClick={() => setOrbitRadius((r) => Math.max(0, r - ORBIT_RADIUS_STEP))}
+                onClick={() =>
+                  setOrbitRadius((r) => Math.max(0, r - ORBIT_RADIUS_STEP))
+                }
                 className="flex h-3.5 w-5 items-center justify-center rounded-b border border-white/15 bg-white/5 text-[8px] leading-none text-white/60 hover:bg-white/10 disabled:opacity-30"
                 title="Decrease orbit radius"
               >
@@ -2833,19 +3314,20 @@ export function LingbotWorldController({ className }: { className?: string }) {
       </div>
 
       <p className="font-mono text-[9px] text-white/35 leading-snug">
-        WASD / joystick = move · arrows = look · Q/E = roll · Space = jump /
-        C = crouch · click the Mouse circle for free-look (Esc/M to release).
+        WASD / joystick = move · arrows = look · Q/E = roll · Space = jump / C =
+        crouch · click the Mouse circle for free-look (Esc/M to release).
         <span className="text-white/50">Orbit radius</span> = while looking
-        (mouse or arrows), circle a point R ahead instead of turning in place;
-        R = 0 is normal rotation, press <span className="text-white/50">O</span> to
-        mute / un-mute.
-        Jump mode: <span className="text-white/50">Hold</span> = up while held ·
+        (mouse or arrows), circle a point R ahead instead of turning in place; R
+        = 0 is normal rotation, press <span className="text-white/50">O</span>{" "}
+        to mute / un-mute. Jump mode:{" "}
+        <span className="text-white/50">Hold</span> = up while held ·
         <span className="text-white/50"> Prompt</span> = prompt only ·
         <span className="text-white/50"> Charge</span> = hold to charge a level,
         release for that level&apos;s up→down arc (click a level to edit its
-        per-latent pattern). Crouch (all modes inject the scene&apos;s crouch line):
-        <span className="text-white/50"> Hold</span> = straight down while held ·
-        <span className="text-white/50"> Prompt</span> = line only ·
+        per-latent pattern). Crouch (all modes inject the scene&apos;s crouch
+        line):
+        <span className="text-white/50"> Hold</span> = straight down while held
+        ·<span className="text-white/50"> Prompt</span> = line only ·
         <span className="text-white/50"> Camera</span> = a one-shot editable dip
         (✎) plus the line.
       </p>

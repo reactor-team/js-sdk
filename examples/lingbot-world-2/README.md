@@ -63,26 +63,26 @@ The model only ever sees a single prose string (`set_prompt`), but the app autho
 
 ## Configuration
 
-| Env var | Required | What it does |
-| --- | --- | --- |
-| `REACTOR_API_KEY` | yes | Server-side key exchanged for session JWTs by `app/api/token/route.ts`. |
-| `NEXT_PUBLIC_COORDINATOR_URL` | no | Reactor API base URL. Defaults to `https://api.reactor.inc`. |
+| Env var                       | Required | What it does                                                            |
+| ----------------------------- | -------- | ----------------------------------------------------------------------- |
+| `REACTOR_API_KEY`             | yes      | Server-side key exchanged for session JWTs by `app/api/token/route.ts`. |
+| `NEXT_PUBLIC_COORDINATOR_URL` | no       | Reactor API base URL. Defaults to `https://api.reactor.inc`.            |
 
 ## Code tour
 
 The interesting bits, in roughly the order you'd read them:
 
-| File | What's in it |
-| --- | --- |
-| [`app/page.tsx`](app/page.tsx) | Fetches the session JWT, mounts `<LingbotWorld2Provider>`, connection status bar, page layout. |
-| [`app/api/token/route.ts`](app/api/token/route.ts) | POST route that exchanges `REACTOR_API_KEY` for a short-lived JWT. |
+| File                                                                                                             | What's in it                                                                                                                                      |
+| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`app/page.tsx`](app/page.tsx)                                                                                   | Fetches the session JWT, mounts `<LingbotWorld2Provider>`, connection status bar, page layout.                                                    |
+| [`app/api/token/route.ts`](app/api/token/route.ts)                                                               | POST route that exchanges `REACTOR_API_KEY` for a short-lived JWT.                                                                                |
 | [`components/lingbot-world-2/LingbotWorldController.tsx`](components/lingbot-world-2/LingbotWorldController.tsx) | The heart of the app: message handling, WASD/look/jump/crouch input → typed SDK commands, prompt recomposition, the sidebar and control surfaces. |
-| [`lib/lingbot-world-prompts.ts`](lib/lingbot-world-prompts.ts) | The layered `StructuredScene` model and the pure `composePrompt()`. |
-| [`lib/lingbot-cases-examples.ts`](lib/lingbot-cases-examples.ts) + [`lib/lingbot-cases/`](lib/lingbot-cases) | The example scenes, one JSON per scene. |
-| [`components/lingbot-world-2/LayeredSceneEditor.tsx`](components/lingbot-world-2/LayeredSceneEditor.tsx) | The full-screen layered prompt editor behind every ✎ button. |
-| [`components/lingbot-world-2/LivePromptInspector.tsx`](components/lingbot-world-2/LivePromptInspector.tsx) | Read-only live view of the composed prompt with per-layer breakdown. |
-| [`components/lingbot-world-2/prompt-segments.ts`](components/lingbot-world-2/prompt-segments.ts) | Segment-level composition mirror that powers the inspector and editor preview. |
-| [`CONTROLS.md`](CONTROLS.md) | Deep dive on the motion system: the backend `camera_pose` contract, per-latent arcs, symmetry, trigger semantics. |
+| [`lib/lingbot-world-prompts.ts`](lib/lingbot-world-prompts.ts)                                                   | The layered `StructuredScene` model and the pure `composePrompt()`.                                                                               |
+| [`lib/lingbot-cases-examples.ts`](lib/lingbot-cases-examples.ts) + [`lib/lingbot-cases/`](lib/lingbot-cases)     | The example scenes, one JSON per scene.                                                                                                           |
+| [`components/lingbot-world-2/LayeredSceneEditor.tsx`](components/lingbot-world-2/LayeredSceneEditor.tsx)         | The full-screen layered prompt editor behind every ✎ button.                                                                                      |
+| [`components/lingbot-world-2/LivePromptInspector.tsx`](components/lingbot-world-2/LivePromptInspector.tsx)       | Read-only live view of the composed prompt with per-layer breakdown.                                                                              |
+| [`components/lingbot-world-2/prompt-segments.ts`](components/lingbot-world-2/prompt-segments.ts)                 | Segment-level composition mirror that powers the inspector and editor preview.                                                                    |
+| [`CONTROLS.md`](CONTROLS.md)                                                                                     | Deep dive on the motion system: the backend `camera_pose` contract, per-latent arcs, symmetry, trigger semantics.                                 |
 
 ## Learn more
 
