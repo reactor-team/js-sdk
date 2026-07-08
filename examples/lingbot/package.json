@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@reactor-models/lingbot": "latest",
-    "@reactor-team/js-sdk": "^2.11.1",
+    "@reactor-team/js-sdk": "^2.12.0",
     "@reactor-team/ui": "^1.4.1",
     "hls.js": "^1.6.0",
     "next": "^15.5.0",

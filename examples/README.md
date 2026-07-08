@@ -40,7 +40,7 @@ npx create-reactor-app my-app --model sana-streaming
 ## Conventions
 
 - Standalone Next.js 15 + React 19 + Tailwind v4 + TypeScript projects.
-- Pinned to `@reactor-team/js-sdk` ^2.10.1 (the `getJwt` resolver + flat-MP4 clip download patterns).
-- `sana-streaming/` pins `@reactor-team/js-sdk` to exactly `2.11.2` (a deployed-runtime constraint) and uses the base SDK directly instead of a typed `@reactor-models/*` package; see its `skill/SKILL.md`.
+- Pinned to `@reactor-team/js-sdk` ^2.12.0.
+- `sana-streaming/` uses the base SDK directly instead of a typed `@reactor-models/*` package; see its `skill/SKILL.md`.
 - Each example carries a `skill/SKILL.md` — a self-contained agent skill that captures every design decision, gotcha, and extension pattern needed to grow the example into a real product. Read it before changing the example.
 - One model per folder. Folder name = model identifier used by `create-reactor-app --model <name>`.
