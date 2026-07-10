@@ -8,7 +8,7 @@ Self-contained, runnable Next.js apps built on `@reactor-team/js-sdk` and the ty
 | [`lingbot/`](./lingbot)                 | [`@reactor-models/lingbot`](https://www.npmjs.com/package/@reactor-models/lingbot)                             | Interactive world model. Pick a starting image, drive the scene with WASD, layer in curated dynamic events (rain, fog, …) as live prompt swaps, snap-clip recording.                                                                                                               |
 | [`lingbot-world-2/`](./lingbot-world-2) | [`@reactor-models/lingbot-world-2`](https://www.npmjs.com/package/@reactor-models/lingbot-world-2)             | Interactive world model you drive like a game. Two-axis WASD driving, per-latent `set_camera_pose` motion (mouse-look, roll, orbit, jump arcs, crouch dips), hold-key world events, a layered prompt workbench with live editor + inspector, attn-window / KV-cache knobs.         |
 | [`longlive-v2/`](./longlive-v2)         | [`@reactor-models/longlive-v2`](https://www.npmjs.com/package/@reactor-models/longlive-v2)                     | Multi-shot **director's storyboard**. Compose shots (`set_shot`) and cuts (`scene_cut`) on a chunk timeline, schedule beats with `schedule_shot` / `schedule_scene_cut`, then direct live. Surfaces the per-scene 48-chunk budget and how cuts extend length. Snap-clip recording. |
-| [`sana-streaming/`](./sana-streaming)   | [`@reactor-team/js-sdk`](https://www.npmjs.com/package/@reactor-team/js-sdk) (generic; no typed model package) | Streaming **V2V editor**. Live webcam transform via manual `camera` publish, file-clip editing with side-by-side compare, mid-stream re-prompting, seed control, snap-clip recording.                                                                                              |
+| [`sana-streaming/`](./sana-streaming)   | [`@reactor-models/sana-streaming`](https://www.npmjs.com/package/@reactor-models/sana-streaming)               | Streaming **V2V editor**. Live webcam transform via manual `camera` publish, file-clip editing with side-by-side compare, mid-stream re-prompting, seed control, snap-clip recording.                                                                                              |
 
 ## Running an example
 
@@ -41,6 +41,5 @@ npx create-reactor-app my-app --model sana-streaming
 
 - Standalone Next.js 15 + React 19 + Tailwind v4 + TypeScript projects.
 - Pinned to `@reactor-team/js-sdk` ^2.12.0.
-- `sana-streaming/` uses the base SDK directly instead of a typed `@reactor-models/*` package; see its `skill/SKILL.md`.
 - Each example carries a `skill/SKILL.md` — a self-contained agent skill that captures every design decision, gotcha, and extension pattern needed to grow the example into a real product. Read it before changing the example.
 - One model per folder. Folder name = model identifier used by `create-reactor-app --model <name>`.
