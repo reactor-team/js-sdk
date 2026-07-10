@@ -1,0 +1,63 @@
+{
+  "id": "case_asteroids",
+  "name": "Asteroid Run",
+  "description": "Third-person space flight through an asteroid field — key 1 = fire cannons, key 2 = launch missiles, key 3 = afterburner boost, key 4 = barrel roll, key 5 = deploy shield, key 6 = shatter asteroid, key 7 = turbo boost, key 8 = ufo appears",
+  "image": {
+    "label": "Asteroid Run",
+    "src": "/lingbot-cases/asteroids.jpg"
+  },
+  "scene": {
+    "base": {
+      "default": "A rugged industrial spaceship with a grey armored hull, yellow-and-black hazard markings and glowing blue engine thrusters, flying through a dense field of jagged pale-grey rock asteroids in deep space. The world contains EXACTLY ONE large ringed planet in the background at a fixed position AND EXACTLY ONE massive spire-shaped asteroid straight ahead at a fixed position AND EXACTLY ONE cluster of tumbling boulders on the left at a fixed position AND EXACTLY ONE distant bright star on the right at a fixed position. Cold blue starlight, drifting rock dust, deep black star-flecked sky, cinematic sci-fi space, sharp high detail."
+    },
+    "camera": {
+      "default": {
+        "static": "Third-person chase view from close behind and slightly above the spaceship, the ship's rear hull and glowing blue thrusters centred in frame at constant size — never a first-person cockpit view. Neither ship nor camera moves on its own; look-input is the only camera motion, arcing around the stationary centred ship while held.",
+        "dynamic": "Strict third-person chase view from behind the ship, its hull and thrusters filling frame centre as it flies forward — never first-person. It holds a fixed rear position and does not rotate around the ship; look-input becomes the ship banking and changing heading."
+      }
+    },
+    "movement": {
+      "default": {
+        "static": "The ship holds position and hovers in place among the drifting asteroids, thrusters idling with a soft blue glow, only slow drift and small attitude corrections as rock dust floats past the hull.",
+        "dynamic": "The ship thrusts forward at cruising speed, weaving between the jagged asteroids, its blue engines streaming as rocks slide past on either side and the ringed planet swings across the background."
+      }
+    },
+    "events": [
+      {
+        "name": "Fire Cannons",
+        "detail": "The ship's forward laser cannons open fire straight ahead, spitting rapid bright blue energy bolts that streak into the asteroid field; the muzzles flash, the hull shudders faintly with each shot, and a nearby asteroid bursts into glowing fragments and rock dust."
+      },
+      {
+        "name": "Launch Missiles",
+        "detail": "Twin missiles blast from the ship's underwing hardpoints and streak ahead down the field, dragging long trails of white smoke and orange flame as they corkscrew toward a distant asteroid, then slam into it and erupt in a bright expanding fireball of debris."
+      },
+      {
+        "name": "Afterburner Boost",
+        "detail": "The ship's blue thrusters flare into a brilliant white-hot afterburner and the ship surges forward with a sudden burst of speed, the asteroids stretching and rushing past in a blur of motion streaks as the engines roar."
+      },
+      {
+        "name": "Barrel Roll",
+        "detail": "The ship snaps into a fast barrel roll, rotating cleanly around its own axis to dodge, its thrusters tracing a spiraling blue arc through the drifting rocks before it levels out and steadies."
+      },
+      {
+        "name": "Deploy Shield",
+        "detail": "A translucent hexagonal energy shield flickers to life and wraps around the ship in a glowing blue dome, rippling and sparking as bits of rock and dust glance off it, then holding steady around the hull."
+      },
+      {
+        "name": "Shatter Asteroid",
+        "detail": "The ship locks onto the large spire-shaped asteroid straight ahead and unleashes a concentrated burst of blue cannon fire into it; the impacts flare bright, jagged cracks race across the rock, and the asteroid SPLITS APART into several massive tumbling chunks that break away and drift in different directions, trailing glowing debris, sparks, and expanding clouds of rock dust as the pieces spread across the field."
+      },
+      {
+        "name": "Turbo Boost",
+        "detail": "The ship slams into full overdrive — every engine igniting into a massive white-blue plume as a shockwave ripples off the hull and the ship rockets forward at extreme speed; the entire asteroid field smears into long streaking light trails warping past, the distant stars stretch into thin lines, and the thrusters scream at maximum burn."
+      },
+      {
+        "name": "UFO Appears",
+        "detail": "A sleek alien UFO — a smooth metallic saucer ringed with pulsing green and violet lights — drops out of the starfield ahead and glides into view among the asteroids, hovering silently with a soft glow; its rotating underside sweeps thin beams of light across the drifting rocks as it settles into the scene."
+      }
+    ],
+    "jumpPrompt": "The ship pitches up and climbs, its thrusters flaring as the nose lifts and it ascends above the asteroid field toward the open starfield, then settles into level flight higher up.",
+    "crouchPrompt": "The ship noses down and dives low, dropping close among the jagged asteroids into a tight, hugging trajectory near the rock surfaces; the view sinks toward the asteroids and holds there, threading between them.",
+    "standPrompt": "The ship pulls back up out of the dive to its normal cruising altitude, levelling off smoothly as the view lifts back to the standard chase vantage behind the hull."
+  }
+}

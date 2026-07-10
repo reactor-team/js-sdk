@@ -1,4 +1,4 @@
-// GameState — the ledger that sits between player input and the world model.
+// GameState — the history that sits between player input and the world model.
 //
 // The world model is stateless: composePrompt() flattens the scene for the
 // CURRENT instant only, so an event exists only while its key is held. This
@@ -10,11 +10,11 @@
 //                                                                     inventory,
 //                                                                     resources
 //   rules     : what is ALLOWED to become true (can't fire an       — EventRule
-//               empty gun; pickups edit the ledger once)
+//               empty gun; pickups edit history once)
 //
 // Persistence is repetition: a sticky effect keeps narrating every tick until
-// its timer runs out, so the model is re-told "the road is on fire" until the
-// ledger says stop. narrate() is the one output — the prose sent to set_prompt.
+// its timer runs out, so the model is re-told "the road is on fire" until
+// history says stop. narrate() is the one output — the prose sent to set_prompt.
 
 import {
   composePrompt,
@@ -30,7 +30,7 @@ export type EventRule =
   // On press, stays active for `chunks` ticks even after release, then drops.
   // Used for effects that must persist: an opened portal, a spreading fire.
   | { kind: "sticky"; chunks: number }
-  // Fires once per press and edits the ledger instead of (or besides) being
+  // Fires once per press and edits history instead of (or besides) being
   // narrated: pick up cash, holster a weapon, take a hit.
   | { kind: "transition"; apply: (s: GameState) => void }
   // Legal only when `when` holds; otherwise the press is dropped and `otherwise`
@@ -41,8 +41,10 @@ export interface GameStateConfig {
   scene: StructuredScene;
   rules?: Record<number, EventRule>; // slot -> rule
   inventory?: string[];
-  resources?: Record<string, number>; // health, ammo, cash, ...
+  resources?: Record<string, number>; // ammo, cash, boost, ...
   mode?: string;
+  health?: number; // starting health (default = maxHealth)
+  maxHealth?: number; // full health (default 100)
 }
 
 export class GameState {
@@ -61,6 +63,10 @@ export class GameState {
   resources: Record<string, number>;
   mode: string;
 
+  // ── vitals ──
+  health: number;
+  readonly maxHealth: number;
+
   // ── reconcile scratch: substitute clauses to append THIS tick only ──
   private pending: string[] = [];
 
@@ -70,6 +76,21 @@ export class GameState {
     this.inventory = [...(cfg.inventory ?? [])];
     this.resources = { ...(cfg.resources ?? {}) };
     this.mode = cfg.mode ?? "explore";
+    this.maxHealth = cfg.maxHealth ?? 100;
+    this.health = cfg.health ?? this.maxHealth;
+  }
+
+  // ── vitals: damage/heal, clamped; hitting 0 flips mode to "dead" ───────────
+  get isDead(): boolean {
+    return this.health <= 0;
+  }
+  damage(n: number) {
+    this.health = Math.max(0, this.health - n);
+    if (this.isDead) this.mode = "dead";
+  }
+  heal(n: number) {
+    if (this.isDead) return; // no healing back from death without a respawn
+    this.health = Math.min(this.maxHealth, this.health + n);
   }
 
   private ruleFor(slot: number): EventRule {
@@ -92,7 +113,7 @@ export class GameState {
         else if (rule.otherwise) this.pending.push(rule.otherwise);
         return;
       case "transition":
-        rule.apply(this); // one-shot ledger edit; not held
+        rule.apply(this); // one-shot history edit; not held
         return;
       case "sticky":
         this.held.add(slot);
@@ -147,7 +168,15 @@ export class GameState {
       : "";
     const extra = this.pending.splice(0).join(" "); // consume once
 
-    return [core, carried, extra]
+    // Vitals narrated as a standing condition (re-said every chunk while it
+    // holds — persistence is repetition): collapsed at 0, wounded under a third.
+    const vitals = this.isDead
+      ? "The character collapses to the ground, badly wounded and motionless."
+      : this.health < this.maxHealth / 3
+        ? "The character is badly wounded, moving weakly and clutching their injuries."
+        : "";
+
+    return [core, carried, extra, vitals]
       .map((s) => s.trim())
       .filter(Boolean)
       .join(" ");

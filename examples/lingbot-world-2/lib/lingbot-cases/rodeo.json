@@ -1,51 +1,59 @@
 {
-  "id": "car_racing_08",
-  "name": "Circuit Racer",
-  "description": "Third-person car racing — key 1 = nitro boost, key 2 = drift, key 3 = crash, key 4 = overtake, key 5 = handbrake turn",
+  "id": "rodeo_bull_10",
+  "name": "Rodeo Bull Ride",
+  "description": "Third-person rodeo bull ride — key 1 = buck, key 2 = spin, key 3 = thrown off, key 4 = wave hat, key 5 = barrel turn, key 6 = rabbit appears, key 7 = arena fire",
   "image": {
-    "label": "Circuit Racer",
-    "src": "/lingbot-cases/f1-race.jpg"
+    "label": "Rodeo Bull Ride",
+    "src": "/lingbot-cases/battlefield-horseman.jpg"
   },
   "scene": {
     "base": {
-      "default": "A sleek low-slung race car, seen from behind, on a wide smooth asphalt racing circuit under a bright sky. The world contains EXACTLY ONE tall start-finish gantry spanning the track ahead at a fixed position AND EXACTLY ONE grandstand on the left at a fixed position AND EXACTLY ONE stack of red-and-white tyre barriers on the right at a fixed position. Crisp painted kerbs edge the track, run-off gravel traps beyond, distant hills and banner-lined fences under a clear blue sky. Glossy car bodywork, sharp reflections, sunny daytime racing-game look, photorealistic."
+      "default": "A cowboy in a wide-brimmed hat, chaps and boots, seen from behind, gripping the rope one-handed on the back of a massive bucking bull in a dusty floodlit rodeo arena. The world contains EXACTLY ONE tall metal chute gate on the left at a fixed position AND EXACTLY ONE packed grandstand of spectators on the right at a fixed position AND EXACTLY ONE blue barrel on the churned dirt straight ahead at a fixed position. Kicked-up dust hanging in the air, a scuffed dirt floor, advertising banners along the arena fence, bright stadium floodlights against a deep evening sky. Sunset-lit dusty arena, photorealistic, cinematic depth of field."
     },
     "camera": {
       "default": {
-        "static": "Third-person chase view from behind the race car, the car centred in frame at constant size and distance. Neither the car nor the camera moves; look-input is the only camera motion, arcing around the stationary centred car while held.",
-        "dynamic": "Strict third-person chase view from close behind and slightly above the race car, the car filling frame centre as the camera holds a fixed position behind it and tracks it forward down the track. The camera does not rotate around the car; look-input becomes the car changing heading, steering left and right."
+        "static": "Third-person view from behind and slightly above the cowboy, his back and the bull's shoulders centred in frame at constant size — never a first-person view. Neither the rider nor the camera moves; look-input is the only camera motion, arcing around the stationary centred rider while held.",
+        "dynamic": "Strict third-person rear view from close behind and above the cowboy, his back and the bull's heaving shoulders filling frame centre — never first-person. It holds a fixed position behind the pair and tracks them across the dirt; look-input becomes the bull changing heading."
       }
     },
     "movement": {
       "default": {
-        "static": "The race car idles on the track, engine rumbling and exhaust heat shimmering behind it, the bodywork trembling faintly with the running motor as sunlight glints off the glossy paint.",
-        "dynamic": "The race car accelerates hard down the circuit, tyres gripping the asphalt, the low bodywork pressed close to the ground as the kerbs, grandstands and barriers blur past and the engine roars, throwing up a faint heat haze in its wake."
+        "static": "The bull stands snorting and pawing the dirt in the chute area, muscles twitching under its hide and dust drifting around its hooves, the cowboy settled low over its shoulders with the rope gripped tight and his free arm raised for balance.",
+        "dynamic": "The bull charges forward across the arena in a heavy pounding gallop, throwing up clods of dirt, the cowboy pitching and rocking with each stride as he clings to the rope, his free arm swinging wide as the fence, chute and grandstand slide past."
       }
     },
     "events": [
       {
-        "name": "Nitro Boost",
-        "detail": "Bright blue flames burst from the race car's exhausts and it surges forward with a hard kick of speed, the scenery streaking past in a blur and a shimmering heat trail rippling behind it, before it eases back to its normal pace."
+        "name": "Buck",
+        "detail": "The bull explodes into a violent buck, kicking its hind legs high and slamming its front hooves back down, hurling the cowboy up out of the saddle and back down again as dust bursts off the dirt; he snaps his free arm out, clings to the rope and rides it out."
       },
       {
-        "name": "Drift",
-        "detail": "The race car breaks traction and slides sideways through a sweeping corner, the rear stepping out and thick white tyre smoke billowing off the screaming rear wheels, then it snaps straight again and powers on down the track."
+        "name": "Spin",
+        "detail": "The bull drops its shoulder and spins hard in a tight circle, whipping around again and again with its hooves tearing at the dirt, the cowboy leaning against the turn and fighting to stay centred over its back, then it straightens out of the spin."
       },
       {
-        "name": "Crash",
-        "detail": "The race car slams into the barriers ahead in a violent collision — crumpling bodywork, shattering carbon fibre and flying debris, tyre smoke and sparks bursting off the asphalt as it grinds to a jarring halt against the wall, then settles."
+        "name": "Thrown Off",
+        "detail": "The bull heaves in a savage twist and flings the cowboy clear off its back; he tumbles through the air and hits the dirt in a rolling sprawl, dust flying up around him, then scrambles up onto his feet as the bull veers away."
       },
       {
-        "name": "Overtake",
-        "detail": "The race car darts to one side and surges past a rival car just ahead, drawing level and then pulling cleanly in front of it down the straight, before settling back into the racing line."
+        "name": "Wave Hat",
+        "detail": "The cowboy sweeps his wide-brimmed hat off with his free hand and waves it high over his head in a showy flourish toward the roaring grandstand, then settles it back down and re-grips for balance."
       },
       {
-        "name": "Handbrake Turn",
-        "detail": "The race car yanks into a sharp handbrake turn, the rear whipping around in a tight spin with a screech of rubber and a plume of tyre smoke, then it straightens up pointing down the track and settles."
+        "name": "Barrel Turn",
+        "detail": "The bull thunders up to the blue barrel ahead and cuts a hard, tight turn around it, hooves carving a spray of dirt as it whips around the marker, the cowboy leaning deep into the turn, then it powers back out across the arena."
+      },
+      {
+        "name": "Rabbit Appears",
+        "detail": "The cowboy stays mounted on the bull, unchanged in pose and position, while ahead across the arena dirt a small brown rabbit hops out onto the churned ground, pausing with its ears twitching, then hopping a little further and settling."
+      },
+      {
+        "name": "Arena Fire",
+        "detail": "The cowboy stays mounted on the bull, unchanged in pose and position, while flames erupt across the arena dirt ahead of him — a spreading blaze of orange fire and thick black smoke rising from the ground in the middle of the arena, heat rippling the air above the burning dirt."
       }
     ],
-    "jumpPrompt": "The race car launches off a ramp, all four wheels lifting clear of the track as it sails through the air, then drops back down and lands hard on the asphalt with a bounce of its suspension.",
-    "crouchPrompt": "The camera drops low toward the track surface behind the car, sinking to a fast, close-to-the-ground chase vantage that emphasises the sense of speed.",
-    "standPrompt": "The camera lifts smoothly back up to its normal chase height behind the car, returning to the standard following vantage."
+    "jumpPrompt": "The bull launches upward off all four hooves, leaping clear of the arena dirt with the cowboy rising with it, then drops back down and lands heavily in a spray of dust.",
+    "crouchPrompt": "The camera lowers toward the arena floor as the cowboy hunches down low over the bull's shoulders, tucking into a compact, braced stance; the viewpoint sinks smoothly to a low, near-ground vantage and settles there, close to the churned dirt.",
+    "standPrompt": "The cowboy rises back up out of the crouch, straightening tall over the bull's back as the camera lifts smoothly back to its normal above-and-behind vantage."
   }
 }
