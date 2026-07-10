@@ -1,47 +1,49 @@
 ---
 name: building-xmax-frontends
-description: Extend this cloned XMAX X2 example app — add new controls, sources, or knobs on top of the Reactor JS SDK without breaking the patterns the existing code uses. Covers the SDK's connection / commands / messages / tracks model, the single-owner camera publish, the state-snapshot reducer, the auth route, clip capture, and how to migrate to the typed @reactor-models/xmax package when it ships.
+description: Extend this cloned XMAX X2 example app — add new controls, sources, or knobs on top of the Reactor JS SDK without breaking the patterns the existing code uses. Covers the vendored typed client, the connection / commands / messages / tracks model, the single-owner source publish, the state_update reducer, the reference-image upload path, the pointer protocol, the auth route, and clip capture.
 ---
 
 # Building on this XMAX X2 app
 
 You've cloned this folder and now you want to extend it — a new control, a new input source, a different UX. This guide explains the patterns the existing code uses and the rules to follow so your additions feel native instead of bolted on.
 
-All the code referenced below already exists in this folder. Read this guide alongside the source — especially [The camera track](#the-camera-track--one-producer-one-publisher) before touching anything in the input path.
+All the code referenced below already exists in this folder. Read this guide alongside the source — especially [The source track](#the-source-track--three-producers-one-publisher) before touching anything in the input path.
 
 ## What X2 actually is, in three sentences
 
-XMAX X2 is a **real-time streaming video-to-video editing model**. The client publishes a live video track to the model, describes an edit in plain text, and the model streams the edited video back — continuously, while you re-prompt mid-stream. The frontend's job reduces to (a) producing and publishing exactly one source track, (b) sending commands (`set_prompt`, `start`, `pause`, `resume`, `reset`), and (c) mirroring the model's `state` snapshot into the UI.
+XMAX X2 is a **real-time streaming video-to-video editing model**. The client publishes a live video track to the model, describes an edit in plain text, and the model streams the edited video back — continuously, while you re-prompt mid-stream, swap the reference image, or drag a pointer across the output to steer the subject. The frontend's job reduces to (a) producing and publishing exactly one source track, (b) sending commands (`set_prompt`, `set_reference_image`, `set_pointer`, `set_keep_backlog`, `reset`), and (c) mirroring the model's `state_update` snapshot into the UI.
+
+## The typed client is vendored, not installed
+
+XMAX has no published `@reactor-models/*` package yet, so this app vendors the generated typed client at `app/lib/x2/` — `sdk.ts` (the `X2Model` class, command/message types) and `sdk.react.tsx` (`X2Provider`, `useX2`, per-message hooks, `<X2MainVideoView>`). It is the same code the package will ship, generated from the model's schema, and it only depends on `@reactor-team/js-sdk`.
+
+Treat it as read-only (`DO NOT EDIT` — regenerate instead). When `@reactor-models/xmax` publishes, delete `app/lib/x2/` and import the same names from the package; nothing else changes.
 
 ## The four concepts you'll touch
 
-This app talks to the model through the base `@reactor-team/js-sdk` surface — XMAX does not have a typed `@reactor-models/xmax` package yet (see [Migrating to the typed package](#migrating-to-the-typed-package) for what changes when it does).
+| Concept        | What it is                                                                         | Hook / API                                                                 |
+| -------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| **Connection** | The lifecycle of the model session (`disconnected → connecting → waiting → ready`) | `useX2()` → `status`, `connect`, `disconnect`                              |
+| **Commands**   | Things you send TO the model. Always async.                                        | `useX2()` → `setPrompt({...})`, `setPointer({...})`, `reset()`, …          |
+| **Messages**   | Things the model sends BACK — the `state_update` snapshot, acks, errors.           | `useX2StateUpdate((msg) => …)`, `useX2CommandError(…)`, one hook per type  |
+| **Tracks**     | Video in (`source`, published by the client) and out (`main_video`).               | `useX2()` → `publish` / `unpublish`, `<X2MainVideoView />`                 |
 
-| Concept        | What it is                                                                         | Hook / API                                                                         |
-| -------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| **Connection** | The lifecycle of the model session (`disconnected → connecting → waiting → ready`) | `useReactor((s) => s.status)`, `s.connect`, `s.disconnect`                         |
-| **Commands**   | Things you send TO the model. Always async.                                        | `useReactor((s) => s.sendCommand)` → `sendCommand("set_prompt", {...})`            |
-| **Messages**   | Things the model sends BACK — the `state` snapshot, acks, errors.                  | `useReactorMessage((raw) => …)` (untyped; the app type-guards)                     |
-| **Tracks**     | Video in (`camera`, published by the client) and out (`main_video`).               | `useReactor((s) => s.publish / s.unpublish)`, `<ReactorView track="main_video" />` |
+The full wire surface — every command, every message, the `state_update` payload — is the model's schema reference on docs.reactor.inc. When this guide says "check the schema", that's the page it means.
 
-The full wire surface — every command, every message, the `state` payload — is the model's schema reference on docs.reactor.inc. When this guide says "check the schema", that's the page it means.
+## No start button — prompts arm generation
 
-## The UI phase model
+X2 has no `start` / `pause` / `resume`. Generation begins on its own once two things are true: source frames are arriving on the wire, and a non-empty prompt is set. That shapes the UX:
 
-A real-time session is a state machine, and the UI mirrors it with two visible phases keyed off the model-reported `started` flag:
+- The Prompt panel is the ignition. `Prompt.tsx`'s placeholder says so explicitly, and preset chips apply immediately on click.
+- `state_update.generating` is the flag everything gates on — the stage's status row, the source-mode lock, the Reset button's visibility.
+- `reset()` stops generation and clears prompt, reference image, and pointer server-side. The model answers with `generation_stopped { reason: "reset" }` and a fresh `state_update`.
+- Swapping the reference image mid-run also stops generation — but with `reason: "reference_image_changed"`, and the model restarts by itself. `Workspace` distinguishes the two reasons: only a user reset bumps the nonce that remounts draft-holding children.
 
-| UI phase  | Backing state            | What's visible                                                      |
-| --------- | ------------------------ | ------------------------------------------------------------------- |
-| **Setup** | `!state.started`         | source toggle (webcam / video) · clip picker · Start                |
-| **Live**  | `state.started === true` | pause / resume / reset (`Playback`) · the running edit in the stage |
-
-The Prompt panel and SnapClip are visible in both phases (prompts can be set before or during a run; clips need a live stream but the component self-hides).
-
-The phase split lives inside `ModeInput` rather than as two sidebar components: the webcam self-view must stay mounted across the start transition (unmounting it would stop the published track), so the panel swaps only its lower half between Start and Playback.
+While generating, the source-mode toggle is locked (`SourcePanel`): switching the feed under a live edit produces garbage; reset first.
 
 ## Auth — `getJwt` resolver + cacheable GET route
 
-Two pieces work together: a Next.js GET route that mints (and caches) the JWT server-side, and the `getJwt` resolver prop on `<ReactorProvider>` that calls it on every Reactor API HTTP hop (connect, ICE refresh, SDP renegotiation, clip manifests).
+Two pieces work together: a Next.js GET route that mints (and caches) the JWT server-side, and the `getJwt` resolver prop on `<X2Provider>` that calls it on every Reactor API HTTP hop (connect, ICE refresh, SDP renegotiation, uploads, clip manifests).
 
 Three non-negotiables in `app/api/reactor/token/route.ts`:
 
@@ -59,87 +61,92 @@ The example passes `connectOptions={{ autoConnect: false }}` so the user clicks 
 
 ## The state snapshot — one reducer, cleared on disconnect
 
-The model periodically sends a `state` message: the full picture (`running`, `started`, `paused`, `current_chunk`, `current_prompt`). It is the **single source of truth**. The app never infers session state from its own button clicks.
+The model broadcasts a `state_update` message on connect and after every observable change: the full picture (`prompt`, `has_reference_image`, `pointer_x/y/active`, `keep_backlog`, `generating`, `width`, `height`). It is the **single source of truth**. The app never infers session state from its own button clicks.
 
-Because the base SDK's message stream is untyped, `app/lib/state.ts` owns the type guard (`isStateMessage`) and the projection (`reduce`) into the app-level `XmaxState`. `reduce` returns the previous object when nothing changed so React can bail out of re-rendering on the model's frequent identical echoes.
+`Workspace` (in `app/XmaxApp.tsx`) reduces the snapshot into the app-level `X2UiState` (`app/lib/types.ts`). Two wire quirks the reducer already handles — keep them handled:
+
+- `prompt`, `width`, and `height` are typed `unknown` (nullable on the wire); the model only ever sends values or null.
+- The snapshot only says *whether* a reference image is set. The decoded dimensions arrive separately on `reference_image_accepted`, so the reducer drops the stale dimensions ack whenever the snapshot reports no reference.
 
 Two rules to keep:
 
-1. **Only `state` messages mutate the reducer.** Transition notifications (`generation_reset`, etc.) trigger one-shot reactions, never state reconstruction.
-2. **Clear everything on disconnect.** `Workspace` has a `useEffect` on `status === "disconnected"` that resets the reducer, the error banner, and the selected clip. The SDK does not emit a final `state` on disconnect; without this, a reconnect shows stale data from the previous session. If you add new session state, add its reset there too.
+1. **Only `state_update` mutates the reducer.** Transition notifications (`generation_stopped`, acks) trigger one-shot reactions, never state reconstruction.
+2. **Clear everything on disconnect.** `Workspace` has a `useEffect` on `status === "disconnected"` that resets the reducer, the error banner, and the selected media URLs. The SDK does not emit a final `state_update` on disconnect; without this, a reconnect shows stale data from the previous session. If you add new session state, add its reset there too.
 
 ## Sending commands
 
-Commands are fire-and-forget over a data channel, exposed as one store action:
+Commands are fire-and-forget over a data channel, exposed as typed methods off `useX2()`:
 
 ```tsx
-const sendCommand = useReactor((s) => s.sendCommand);
-await sendCommand("set_prompt", { prompt: "make it watercolor" });
+const { setPrompt, setPointer, reset } = useX2();
+await setPrompt({ prompt: "make it watercolor" });
 ```
 
 - **Gate every interactive control on `status === "ready"`** — commands sent earlier reject.
-- **`start` edits whatever is already arriving on `camera`.** Publish the source track first (the publisher does this automatically as soon as the session is ready), then `start`.
-- **Prompts are hot-swappable.** `set_prompt` mid-stream applies at the next chunk boundary; no restart, no re-render. This is the model's signature capability — lead with it in anything you build.
-- **`reset` returns to the setup phase.** The stage blacks itself out until frames from the next run land (the WebRTC `<video>` would otherwise freeze on the last edited frame — see `stageCleared` in `XmaxApp.tsx`).
+- **Prompts are hot-swappable.** `setPrompt` mid-stream applies from the next generated block; no restart, no re-render. This is the model's signature capability — lead with it in anything you build. Prompts cap at 1000 characters (`maxLength` on the schema).
+- **`reset()` stops the run.** The stage blacks itself out until frames from the next run land (the WebRTC `<video>` would otherwise freeze on the last edited frame — see `stageCleared` in `XmaxApp.tsx`).
+- The split pointer commands (`setPointerX`, `setPointerY`, `setPointerActive`) exist for integrations that can only send one scalar at a time; the app uses the combined `setPointer({ x, y, active })`.
 
 ## Receiving messages
 
-The base SDK delivers all model messages through `useReactorMessage` as one untyped stream. The app subscribes **once**, in `Workspace`, and switches on `msg.type`:
+The typed client delivers each message type through its own hook; `Workspace` subscribes once per type it cares about:
 
-| Message            | What the app does                                                                    |
-| ------------------ | ------------------------------------------------------------------------------------ |
-| `state`            | Feeds the reducer. Everything the UI gates on comes from here.                       |
-| `command_error`    | **Always surfaced** — a dismissible banner with a 6s auto-dismiss. Never swallow it. |
-| `generation_reset` | Bumps `resetNonce` (remounts the prompt draft) and blacks out the stage.             |
+| Message                    | Hook                          | What the app does                                                                 |
+| -------------------------- | ----------------------------- | ---------------------------------------------------------------------------------- |
+| `state_update`             | `useX2StateUpdate`            | Feeds the reducer. Everything the UI gates on comes from here.                    |
+| `generation_stopped`       | `useX2GenerationStopped`      | Blacks out the stage; bumps the reset nonce only when `reason === "reset"`.       |
+| `reference_image_accepted` | `useX2ReferenceImageAccepted` | Records the decoded dimensions for the readout.                                   |
+| `command_error`            | `useX2CommandError`           | **Always surfaced** — a dismissible banner with a 6s auto-dismiss. Never swallow. |
 
-When you handle a new message type, add a case to that one subscription — don't scatter `useReactorMessage` calls across components. One subscription keeps ordering obvious and makes the eventual typed-package migration a mechanical find-and-replace.
+`prompt_accepted`, `pointer_changed`, and `generation_started` also exist (hooks are generated for all of them); the app relies on the `state_update` echo instead, which arrives for the same transitions and carries the full picture.
 
-## The camera track — one producer, one publisher
+Keep message handling centralized in `Workspace` — scattering per-message hooks across leaf components makes ordering unobvious.
 
-The model edits whatever arrives on the `camera` track. Two components _produce_ a track; exactly one hook _publishes_ it:
+## The source track — three producers, one publisher
 
-- **`WebcamSource`** — `getUserMedia` at 640×360, renders the self-view, hands the track up.
-- **`VideoSource`** — plays the chosen clip in a `<video>` element and grabs its frames with `captureStream()`. The same element is the "original" pane in the stage, so what you see is literally what the model receives. Playback is slaved to the model's run state (poster frame while set up, playing once started, pausing in step).
-- **`useCameraPublisher`** — the single owner of the `camera` slot. It always unpublishes before publishing, so switching sources can't race into "publisher slot already taken".
+The model edits whatever arrives on the `source` track. Three components _produce_ a track; exactly one hook _publishes_ it:
+
+- **`WebcamSource`** — `getUserMedia` at 640×360, renders the self-view in the panel, hands the track up.
+- **`VideoSource`** — plays the chosen clip in a `<video>` element and grabs its frames with `captureStream()`. The same element is the "original" pane in the stage, so what you see is literally what the model receives.
+- **`ImageSource`** — paints a still image cover-cropped onto a 1280×720 canvas, re-paints on an interval so `canvas.captureStream(24)` keeps emitting, and hands that constant feed up. This is the drag-to-animate mode: a static source plus pointer drags.
+- **`useSourcePublisher`** — the single owner of the `source` slot. A serialized reconcile loop converges the wire to the latest desired track. It deliberately does **not** unpublish before switching — the SDK's `publishTrack` replaceTrack()s the new media onto the existing sender without renegotiating — and it clears its belief when status leaves `ready` so the next session re-publishes.
 
 Rules when extending:
 
 1. **Never publish from a component.** New sources (screen share, a canvas, a second camera) produce a `MediaStreamTrack` and hand it to the workspace via `onTrack`; the publisher does the rest.
 2. **Set `track.contentHint = "detail"`** on any new source. The model wants a stable input resolution; Chrome's encoder ramps resolution at stream start and on bandwidth dips, and `"detail"` holds it steady and trades framerate instead.
-3. **The model picks its output resolution per session from the source stream's aspect ratio.** Feed it a portrait webcam and you get a portrait edit; don't letterbox the source yourself.
+3. **The model picks its output resolution per session from the source stream.** Feed it a portrait webcam and you get a portrait edit; don't letterbox the source yourself.
+
+## The reference image — uploads, not tracks
+
+`ReferenceImage.tsx` conditions the edit on a picked image. The path is: `uploadFile(file)` (off `useX2()`) returns a `FileRef`, then `setReferenceImage({ reference_image: ref })` hands it to the model. Two details worth keeping:
+
+- Preset reference images are `fetch`ed back into a `File` so presets and local picks share the exact same upload path — one code path, one set of bugs.
+- A mid-run swap stops and auto-restarts generation (`generation_stopped { reason: "reference_image_changed" }`). Keep the drafts; see the reset-nonce logic in `Workspace`.
+
+The model acks with `reference_image_accepted { width, height }` — the decoded size, useful for telling the user what the model actually sees.
+
+## The pointer — normalized, throttled, released
+
+`PointerOverlay.tsx` turns drags on the edited output into `setPointer({ x, y, active })` calls. If you rebuild or extend it, preserve these three properties:
+
+1. **Coordinates are normalized (0..1) in the output frame**, not the DOM box. The overlay accounts for `object-fit: contain` letterboxing using the model-reported output aspect (`width`/`height` from `state_update`), so a drag on the visible video maps to the frame the model is editing.
+2. **Sends are throttled (~33 ms) with a trailing send**, so the last position of a fast gesture always lands.
+3. **Release always sends `active: false`.** A pointer left active keeps steering the model after the user let go.
+
+## Keep backlog — the latency / completeness dial
+
+The `set_keep_backlog` toggle (checkbox in `SourcePanel`) picks what happens when the model falls behind the source: keep every frame queued and edit all of them (latency grows, nothing is skipped — right for editing a finite clip end-to-end) or drop stale frames and always edit newest (right for live webcam). Default is off. The current value echoes back on `state_update.keep_backlog`, like every other knob.
 
 ## Curated prompt presets
 
-Preset chips live in `app/lib/examples.ts`. X2 prompts are **editing instructions, not scene descriptions** — say what should change; everything unmentioned carries through from the source. Short style phrases work ("Van Gogh oil painting, swirling brushstrokes"); the model's prompt guide on docs.reactor.inc has the good-vs-bad pairs to copy density from. Swap the placeholder presets for prompts tuned on the real model before you demo anything.
-
-## What's intentionally not exposed
-
-The starter surfaces the minimum that tells the model's story: source in, prompt-steered edit out, transport. The model has more surface — add a control by dropping a ~30-line component into the right phase and sending the command. Check the schema reference for exact command names and payloads:
-
-| Capability               | What it does                                                                                       | Where it belongs                 |
-| ------------------------ | -------------------------------------------------------------------------------------------------- | -------------------------------- |
-| **Reference image**      | Conditions the edit on an image. Changing it mid-run restarts the stream from the new reference.   | Setup + live (with restart note) |
-| **Pointer / drag input** | Streams pointer drags as a conditioning signal — grab something in frame and move it.              | Live phase, on the stage         |
-| **Backlog mode**         | Processes every source frame in order (smooth for drag sessions) instead of always editing newest. | Advanced toggle                  |
-| **Seed**                 | Reproducible results for the same source + prompt.                                                 | Setup phase                      |
-
-## Migrating to the typed package
-
-When `@reactor-models/xmax` ships, migrate mechanically — the app was structured so each untyped seam has exactly one home:
-
-1. `<ReactorProvider modelName="xmax/x2" …>` → `<XmaxProvider …>` (model name and tracks baked in).
-2. `useReactor((s) => s.sendCommand)` + string commands → the typed methods (`setPrompt({...})`, `start()`, …) off `useXmax()`.
-3. The single `useReactorMessage` switch in `Workspace` → per-message typed hooks (`useXmaxState`, `useXmaxCommandError`, `useXmaxGenerationReset`).
-4. The hand-written guard in `app/lib/state.ts` → the generated `XmaxStateMessage` type; `reduce` keeps its shape.
-5. `<ReactorView track="main_video" />` → `<XmaxMainVideoView />`.
-
-`useCameraPublisher` and `SnapClip` keep importing from `@reactor-team/js-sdk` — track publishing and recording are base-SDK surface that typed packages deliberately don't re-export.
+Preset chips live in `app/lib/examples.ts` and are English translations of the model's validation prompts — they demonstrate the density that works. X2 prompts are **editing instructions, not scene descriptions** — say what should change; everything unmentioned carries through from the source. The model's prompt guide on docs.reactor.inc has good-vs-bad pairs to copy density from.
 
 ## Capturing clips
 
 The Reactor base SDK exposes a recording surface that works for every model: ask for the last N seconds of the live stream, get back a `Clip`, and either preview it with `<ClipPlayer>` or download it with `<ClipDownloadButton>`.
 
-The app ships a drop-in `app/components/SnapClip.tsx` panel wiring this together — a Capture button calling `requestClip(durationSeconds)` off the store, a preview modal, an MP4 download. It is model-agnostic: the same file ships (modulo theme classes) in every Reactor example.
+The app ships a drop-in `app/components/SnapClip.tsx` panel wiring this together — a Capture button calling `requestClip(durationSeconds)` off the store, a preview modal, an MP4 download. It is model-agnostic: the same file ships (modulo theme classes) in every Reactor example, and it is the one place that imports `@reactor-team/js-sdk` directly (recording is base-SDK surface that typed clients don't re-export).
 
 The pattern, if you rebuild it:
 
@@ -160,25 +167,26 @@ The pattern, if you rebuild it:
 
 ## Common mistakes when extending
 
-1. **A second publisher for `camera`.** All sources hand their track to `useCameraPublisher` via `onTrack`. Two publishers race into "slot already taken".
-2. **Inferring session state from clicks.** Gate off the reduced `XmaxState`; only `state` messages mutate it.
+1. **A second publisher for `source`.** All sources hand their track to `useSourcePublisher` via `onTrack`. Two publishers race against the same transceiver.
+2. **Inferring session state from clicks.** Gate off the reduced `X2UiState`; only `state_update` mutates it.
 3. **Forgetting the disconnect reset.** New session state must be cleared in the `status === "disconnected"` effect, or the next session starts haunted by the last one.
 4. **Swallowing `command_error`.** The banner surfaces every command failure; keep it wired when you add commands.
-5. **Scattering `useReactorMessage` subscriptions.** One switch in `Workspace`; add cases there.
-6. **Unmounting the webcam self-view on start.** The track dies with the component; that's why `ModeInput` swaps only its lower half between phases.
-7. **Uploading the clip instead of streaming it.** `VideoSource` exists so the model edits the clip on its live path; don't add an upload flow for the same job.
+5. **Adding a Start button.** Generation is armed by the prompt; a Start button would have nothing to send and teaches the wrong mental model.
+6. **Treating every `generation_stopped` as a user reset.** `reference_image_changed` stops auto-restart; only `reason === "reset"` should clear drafts.
+7. **Uploading the clip instead of streaming it.** `VideoSource` exists so the model edits the clip on its live path; the only upload in this app is the reference image.
 8. **Missing `contentHint = "detail"`** on a new source track — the model gets a resolution ramp instead of a stable stream.
-9. **Importing `@reactor-team/ui` React components into Server Components.** Runtime error. Use the theme tokens.
-10. **Storing `Clip` objects or sharing clip URLs.** They expire in minutes. Download the MP4.
-11. **Guessing command names.** The schema reference on docs.reactor.inc is the source of truth; `command_error` will tell you when you guessed wrong, visibly.
+9. **Leaving the pointer active.** Every drag must end with `active: false`, including cancel paths (pointer leave, unmount).
+10. **Importing `@reactor-team/ui` React components into Server Components.** Runtime error. Use the theme tokens.
+11. **Storing `Clip` objects or sharing clip URLs.** They expire in minutes. Download the MP4.
+12. **Editing `app/lib/x2/` by hand.** It's generated. Fix the schema and regenerate, or wait for `@reactor-models/xmax` and swap the imports.
 
 ## Checklist for new components
 
-- [ ] Decided its phase (setup / live / both) and gated on `status === "ready"` plus the right `XmaxState` flags
+- [ ] Gated on `status === "ready"` plus the right `X2UiState` flags (`generating` for run-sensitive controls)
 - [ ] New sources produce a track and hand it up via `onTrack` — no new publish call sites
-- [ ] New message handling added to the single `useReactorMessage` switch
+- [ ] New message handling lives in `Workspace` via the typed per-message hooks
 - [ ] New session state resets in the disconnect effect
 - [ ] `command_error` still surfaces (don't swallow it)
-- [ ] Command names and payloads checked against the schema reference
+- [ ] Command payloads use the typed methods off `useX2()` — no raw `sendCommand` strings
 - [ ] Colors via theme utilities / `app/components/ui` primitives, not raw hex
-- [ ] `@reactor-team/js-sdk` stays the only SDK import (until `@reactor-models/xmax` ships — then migrate per the section above)
+- [ ] `app/lib/x2/` untouched; base `@reactor-team/js-sdk` imported only where the typed client doesn't cover (SnapClip / recording)

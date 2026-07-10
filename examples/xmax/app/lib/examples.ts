@@ -3,32 +3,27 @@ export interface PromptExample {
   prompt: string;
 }
 
-// Starter edit prompts for the preset chips. Placeholder set until the
-// model hand-off doc lands — replace with its curated good-vs-bad prompt
-// pairs before launch so the presets show the model at its best.
+// English translations of the model's own demo prompts (its validation
+// samples, originally in Chinese). Each pairs with a demo asset:
+// 1 -> rabbit.jpg + ball.mp4, 2 -> gunqiushou.jpg + hand.mp4,
+// 3 -> bear.jpg + woman.mp4, 4 -> man_static.mp4 + the drag pointer.
 export const PROMPT_EXAMPLES: readonly PromptExample[] = [
   {
-    label: "Van Gogh",
-    prompt: "Van Gogh oil painting, swirling brushstrokes, vivid colors",
+    label: "Swap object for character",
+    prompt:
+      "the specified character replaces the white plush ball and interacts with the scene",
   },
   {
-    label: "Neon Cyber",
-    prompt: "neon cyberpunk city glow, electric blue and magenta lights",
+    label: "Character in scene",
+    prompt: "the specified character interacts with the scene",
   },
   {
-    label: "Claymation",
-    prompt: "claymation stop-motion, soft clay textures, warm studio light",
+    label: "Replace with reference",
+    prompt:
+      "replace the character in the video with the character from the reference image",
   },
   {
-    label: "Pencil Sketch",
-    prompt: "detailed pencil sketch, fine crosshatching, paper texture",
-  },
-  {
-    label: "Golden Hour",
-    prompt: "golden hour film look, warm amber haze, cinematic grain",
-  },
-  {
-    label: "Watercolor",
-    prompt: "loose watercolor wash, bleeding edges, soft pastel palette",
+    label: "Follow the drag",
+    prompt: "the character in the video follows the drag trajectory",
   },
 ] as const;

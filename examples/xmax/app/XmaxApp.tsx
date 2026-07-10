@@ -3,38 +3,47 @@
 // XMAX X2 — REFERENCE FRONTEND
 //
 // X2 is a real-time streaming video-to-video editing model: it edits
-// whatever arrives on the `camera` track, live, steered by a text
-// prompt you can swap mid-stream.
+// whatever arrives on the `source` track, live, steered by a text
+// prompt you can swap mid-stream, an optional reference image, and a
+// drag-to-steer pointer on the output.
 //
-// Unlike the sibling examples that ship a typed `@reactor-models/*`
-// package, XMAX has no typed SDK package yet, so this app talks to it
-// through the base `@reactor-team/js-sdk` surface directly:
+// XMAX has no published `@reactor-models/*` package yet, so this app
+// vendors the generated typed client at app/lib/x2/ (the same code the
+// package would ship). It bakes the model name and tracks into
+// <X2Provider> and exposes typed commands and per-message hooks, so the
+// app reads the same as the sibling examples:
 //
-//   <ReactorProvider modelName="xmax/x2" />      — session lifecycle
-//   useReactor((s) => …)                         — status + sendCommand
-//   sendCommand("set_prompt", { prompt })        — model commands
-//   useReactorMessage((raw) => …)                — model → client msgs
-//   <ReactorView track="main_video" />           — the live output
+//   <X2Provider getJwt={fetchToken} />       — session lifecycle
+//   useX2()                                  — status + typed commands
+//   setPrompt({ prompt })                    — model commands
+//   useX2StateUpdate((msg) => …)             — model → client messages
+//   <X2MainVideoView />                      — the live output
 //
-// When the typed `@reactor-models/xmax` package ships, the same
-// commands map onto typed methods (`setPrompt`, `useXmaxState`, …);
-// until then the generic surface is the whole story.
-import {
-  ReactorProvider,
-  useReactor,
-  useReactorMessage,
-} from "@reactor-team/js-sdk";
+// When the package ships, delete app/lib/x2/ and import the same names
+// from `@reactor-models/xmax` instead.
 import { useEffect, useRef, useState } from "react";
-import { DEFAULT_STATE, type XmaxMode } from "./lib/types";
-import { isStateMessage, reduce } from "./lib/state";
+import {
+  X2Provider,
+  useX2,
+  useX2CommandError,
+  useX2GenerationStopped,
+  useX2ReferenceImageAccepted,
+  useX2StateUpdate,
+} from "@/app/lib/x2/sdk.react";
+import {
+  DEFAULT_UI_STATE,
+  type X2SourceMode,
+  type X2UiState,
+} from "@/app/lib/types";
 import { Header } from "./components/Header";
 import { StatusBadge } from "./components/StatusBadge";
 import { CommandError } from "./components/CommandError";
-import { ModeInput } from "./components/ModeInput";
+import { SourcePanel } from "./components/SourcePanel";
+import { ReferenceImage } from "./components/ReferenceImage";
 import { Prompt } from "./components/Prompt";
 import { Stage } from "./components/Stage";
 import { SnapClip } from "./components/SnapClip";
-import { useCameraPublisher } from "./components/useCameraPublisher";
+import { useSourcePublisher } from "./components/useSourcePublisher";
 
 // The Reactor API the SDK talks to. Override with
 // NEXT_PUBLIC_REACTOR_API_URL for local / staging environments;
@@ -42,7 +51,7 @@ import { useCameraPublisher } from "./components/useCameraPublisher";
 const REACTOR_API_URL =
   process.env.NEXT_PUBLIC_REACTOR_API_URL || "https://api.reactor.inc";
 
-// JWT resolver passed to <ReactorProvider getJwt>. The SDK calls it on every
+// JWT resolver passed to <X2Provider getJwt>. The SDK calls it on every
 // Reactor API request, so it must be a resolver, not a static string. The
 // /api/reactor/token route returns the JWT with a Cache-Control header, so the
 // browser caches it until it actually expires.
@@ -60,39 +69,45 @@ async function fetchToken(): Promise<string> {
 // disconnected -> connecting -> waiting -> ready state machine first-hand.
 export function XmaxApp() {
   return (
-    <ReactorProvider
-      modelName="xmax/x2"
+    <X2Provider
       apiUrl={REACTOR_API_URL}
       getJwt={fetchToken}
       connectOptions={{ autoConnect: false }}
     >
       <Workspace />
-    </ReactorProvider>
+    </X2Provider>
   );
 }
 
 const BANNER_TTL_MS = 6000;
 
-// The client tree. The model is the source of truth: only `state` messages
-// mutate the reducer, and every control gates off the reduced XmaxState
-// rather than local guesses. Everything else (command_error banner,
-// generation_reset bookkeeping) is handled imperatively here.
+// The client tree. The model is the source of truth: it broadcasts a full
+// `state_update` snapshot on connect and after every observable change, and
+// this component reduces that into X2UiState. generation_stopped (reset
+// bookkeeping), reference_image_accepted (decoded dimensions), and
+// command_error (transient banner) are handled as discrete events on top.
 function Workspace() {
-  const status = useReactor((s) => s.status);
+  const { status } = useX2();
 
-  const [state, setState] = useState(DEFAULT_STATE);
-  // Webcam is the default source; switch to a clip to stream a pre-recorded
-  // video into the model instead. Both feed the same `camera` track.
-  const [mode, setMode] = useState<XmaxMode>("webcam");
+  const [ui, setUi] = useState<X2UiState>(DEFAULT_UI_STATE);
+  // Webcam is the default source; "video" streams a pre-recorded clip and
+  // "image" repeats a still image as a constant feed (drag-to-animate). All
+  // three feed the same `source` track.
+  const [mode, setMode] = useState<X2SourceMode>("webcam");
 
-  // The active input source (webcam self-view or the video pane) produces a
-  // track; one owner publishes it to `camera`. See useCameraPublisher.
-  const [camTrack, setCamTrack] = useState<MediaStreamTrack | null>(null);
-  const publishError = useCameraPublisher(camTrack);
+  // Whichever source is active (webcam self-view in the panel, playing clip
+  // or repeated canvas frame in the stage) produces a track and hands it
+  // here; useSourcePublisher is the single owner of the `source` slot and
+  // reconciles the wire to the latest track, so mode switches can't race
+  // two publishers.
+  const [sourceTrack, setSourceTrack] = useState<MediaStreamTrack | null>(
+    null,
+  );
+  const publishError = useSourcePublisher(sourceTrack);
 
-  // URL of the clip selected in "video" mode (object URL for a local file, or
-  // a preset's path). Owned here so the stage's input pane can stream it; the
-  // setter revokes the previous object URL.
+  // URLs of the media selected in "video" / "image" mode (object URL for a
+  // local file, or a preset's path). Owned here so the stage's input pane can
+  // stream them; the setters revoke a replaced object URL.
   const [videoUrl, setVideoUrlState] = useState<string | null>(null);
   const setVideoUrl = (url: string | null) =>
     setVideoUrlState((prev) => {
@@ -108,6 +123,21 @@ function Workspace() {
     };
   }, [videoUrl]);
 
+  const [imageUrl, setImageUrlState] = useState<string | null>(null);
+  const setImageUrl = (url: string | null) =>
+    setImageUrlState((prev) => {
+      if (prev && prev !== url && prev.startsWith("blob:")) {
+        URL.revokeObjectURL(prev);
+      }
+      return url;
+    });
+  useEffect(() => {
+    return () => {
+      if (imageUrl && imageUrl.startsWith("blob:"))
+        URL.revokeObjectURL(imageUrl);
+    };
+  }, [imageUrl]);
+
   // command_error banner: transient, not part of the reducer.
   const [commandError, setCommandError] = useState<string | null>(null);
   const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -120,40 +150,63 @@ function Workspace() {
     );
   };
 
-  // Bumped on generation_reset and used as a React key on the children that
-  // hold local draft state (prompt draft), remounting them in step with the
-  // model's reset.
+  // Bumped on a user reset and used as a React key on children that hold
+  // local draft state (prompt draft, reference preview), remounting them in
+  // step with the model's reset — which clears prompt, reference image, and
+  // pointer server-side.
   const [resetNonce, setResetNonce] = useState(0);
 
-  // After reset, black out the stage (the WebRTC view would otherwise freeze
-  // on the last transformed frame). Lifts when generation runs again.
+  // While generation is stopped, black out the stage (the WebRTC view would
+  // otherwise freeze on the last transformed frame). Lifts when generation
+  // runs again.
   const [stageCleared, setStageCleared] = useState(false);
-  useEffect(() => {
-    if (state.running) setStageCleared(false);
-  }, [state.running]);
 
-  // The model is the source of truth: only `state` snapshots feed the
-  // reducer. The base SDK delivers all model messages through one untyped
-  // stream, so this handler is the single switch over `msg.type`; the typed
-  // package will split it into per-message hooks.
-  useReactorMessage((raw) => {
-    const msg = raw as { type?: string; reason?: string };
-    if (isStateMessage(raw)) {
-      setState((s) => reduce(s, raw));
-    } else if (msg.type === "command_error") {
-      showCommandError(msg.reason ?? "command failed its preconditions");
-    } else if (msg.type === "generation_reset") {
-      setResetNonce((n) => n + 1);
-      setStageCleared(true);
-    }
+  // The model's snapshot is the source of truth for everything it carries.
+  // width/height are typed `unknown` on the wire (nullable ints); the model
+  // only ever sends numbers or null.
+  useX2StateUpdate((msg) => {
+    if (msg.generating) setStageCleared(false);
+    setUi((s) => ({
+      ...s,
+      generating: msg.generating,
+      activePrompt: (msg.prompt as string | null) ?? null,
+      outputWidth: (msg.width as number | null) ?? null,
+      outputHeight: (msg.height as number | null) ?? null,
+      hasReference: msg.has_reference_image,
+      keepBacklog: msg.keep_backlog,
+      // The snapshot only says whether a reference is set; drop the stale
+      // dimensions ack when it reports none.
+      referenceAccepted: msg.has_reference_image ? s.referenceAccepted : null,
+    }));
+  });
+
+  useX2GenerationStopped((msg) => {
+    setStageCleared(true);
+    // A `reference_image_changed` stop is an automatic restart (a fresh
+    // generation_started follows immediately) — keep drafts. Only a user
+    // reset remounts the draft-holding children.
+    if (msg.reason === "reset") setResetNonce((n) => n + 1);
+  });
+
+  useX2ReferenceImageAccepted((msg) => {
+    setUi((s) => ({
+      ...s,
+      referenceAccepted: { width: msg.width, height: msg.height },
+    }));
+  });
+
+  useX2CommandError((msg) => {
+    showCommandError(`${msg.command}: ${msg.reason}`);
   });
 
   // Reset local state on full disconnect so a reconnect starts clean.
   useEffect(() => {
     if (status === "disconnected") {
-      setState(DEFAULT_STATE);
+      setUi(DEFAULT_UI_STATE);
       setCommandError(null);
       setVideoUrl(null);
+      setImageUrl(null);
+      setStageCleared(false);
     }
   }, [status]);
 
@@ -176,11 +229,12 @@ function Workspace() {
       <main className="flex flex-1 flex-col lg:flex-row-reverse lg:gap-6 lg:p-6">
         <section className="flex flex-col gap-4 max-lg:sticky max-lg:top-0 max-lg:z-10 max-lg:bg-zinc-950/95 max-lg:p-4 max-lg:pb-3 max-lg:backdrop-blur-sm lg:min-w-0 lg:flex-1">
           <Stage
-            state={state}
+            ui={ui}
             mode={mode}
             videoUrl={videoUrl}
+            imageUrl={imageUrl}
             cleared={stageCleared}
-            onTrack={setCamTrack}
+            onTrack={setSourceTrack}
           />
         </section>
         <aside className="flex w-full flex-col gap-4 p-4 pt-1 lg:w-80 lg:shrink-0 lg:p-0">
@@ -196,16 +250,22 @@ function Workspace() {
               Publish error: {publishError}
             </p>
           )}
-          <ModeInput
-            started={state.started}
-            paused={state.paused}
+          <SourcePanel
+            generating={ui.generating}
+            keepBacklog={ui.keepBacklog}
             mode={mode}
-            hasVideoUrl={!!videoUrl}
             onModeChange={setMode}
             onSelectVideo={(url) => setVideoUrl(url)}
-            onTrack={setCamTrack}
+            onSelectImage={(url) => setImageUrl(url)}
+            onTrack={setSourceTrack}
           />
-          <Prompt key={resetNonce} currentPrompt={state.currentPrompt} />
+          <Prompt key={`p${resetNonce}`} activePrompt={ui.activePrompt} />
+          <ReferenceImage
+            key={`r${resetNonce}`}
+            generating={ui.generating}
+            hasReference={ui.hasReference}
+            accepted={ui.referenceAccepted}
+          />
           <SnapClip />
         </aside>
       </main>

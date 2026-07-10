@@ -1,15 +1,13 @@
 "use client";
 
-import { useReactor } from "@reactor-team/js-sdk";
+import { useX2 } from "@/app/lib/x2/sdk.react";
 import { Button, Panel, cn } from "./ui";
 
 // The status badge teaches the four-state connection machine:
 //   disconnected -> connecting -> waiting -> ready
 //
 // We surface every state visibly. Beginners learning the SDK should
-// *see* the transitions, not have them hidden behind a spinner. All of
-// it comes off the base store via `useReactor` — no typed model package
-// involved.
+// *see* the transitions, not have them hidden behind a spinner.
 const TONE: Record<string, { dot: string; label: string }> = {
   disconnected: { dot: "bg-zinc-500", label: "Disconnected" },
   connecting: { dot: "bg-blue-500 animate-pulse", label: "Connecting…" },
@@ -18,12 +16,7 @@ const TONE: Record<string, { dot: string; label: string }> = {
 };
 
 export function StatusBadge() {
-  const { status, lastError, connect, disconnect } = useReactor((s) => ({
-    status: s.status,
-    lastError: s.lastError,
-    connect: s.connect,
-    disconnect: s.disconnect,
-  }));
+  const { status, lastError, connect, disconnect } = useX2();
 
   const tone = TONE[status] ?? TONE.disconnected;
   const idle = status === "disconnected";

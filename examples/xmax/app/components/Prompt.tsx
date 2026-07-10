@@ -1,25 +1,23 @@
 "use client";
 
-import { useReactor } from "@reactor-team/js-sdk";
 import { useState } from "react";
+import { useX2 } from "@/app/lib/x2/sdk.react";
+import { PROMPT_EXAMPLES } from "@/app/lib/examples";
 import { Button, Panel, cn, EYEBROW, FOCUS_RING } from "./ui";
-import { PROMPT_EXAMPLES } from "../lib/examples";
 
-// Prompt draft + preset chips + the active-prompt readout. Prompts can be
-// changed mid-stream at any time; the model applies them at the next chunk
-// boundary (about one chunk later). The parent keys this component on the
-// reset nonce, so a model generation_reset remounts it and clears the draft.
-export function Prompt({ currentPrompt }: { currentPrompt: string | null }) {
-  const { sendCommand, status } = useReactor((s) => ({
-    sendCommand: s.sendCommand,
-    status: s.status,
-  }));
+// Prompt draft + preset chips + the active-prompt readout. Setting a prompt
+// is what arms generation: X2 starts on its own once a non-empty prompt is
+// set and source frames are arriving. Mid-stream re-prompts apply from the
+// next generated block. The parent keys this component on the reset nonce,
+// so a model reset (generation_stopped) remounts it and clears the draft.
+export function Prompt({ activePrompt }: { activePrompt: string | null }) {
+  const { setPrompt, status } = useX2();
   const [text, setText] = useState("");
 
   const ready = status === "ready";
   const apply = (prompt: string) => {
     if (!ready) return;
-    sendCommand("set_prompt", { prompt }).catch(console.error);
+    setPrompt({ prompt }).catch(console.error);
   };
   const applyPreset = (prompt: string) => {
     setText(prompt);
@@ -48,8 +46,9 @@ export function Prompt({ currentPrompt }: { currentPrompt: string | null }) {
         aria-label="Prompt"
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Describe the edit. Changes apply live, about one chunk later."
+        placeholder="Describe the edit. Applying a prompt starts (or re-steers) generation."
         rows={3}
+        maxLength={1000}
         className="w-full resize-none rounded-md border border-zinc-700 bg-zinc-900/40 px-3 py-2 font-mono text-sm leading-relaxed text-zinc-200 outline-none transition placeholder:text-zinc-600 focus:border-brand/60"
       />
       <Button
@@ -61,15 +60,15 @@ export function Prompt({ currentPrompt }: { currentPrompt: string | null }) {
       >
         Apply prompt
       </Button>
-      {currentPrompt && (
+      {activePrompt && (
         <p
-          title={currentPrompt}
+          title={activePrompt}
           className={cn(
             EYEBROW,
             "mt-2 line-clamp-2 break-words normal-case tracking-normal text-zinc-500",
           )}
         >
-          active: “{currentPrompt}”
+          active: “{activePrompt}”
         </p>
       )}
     </Panel>

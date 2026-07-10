@@ -9,26 +9,21 @@ type CapturableVideo = HTMLVideoElement & {
   mozCaptureStream?: () => MediaStream;
 };
 
-// Video file -> a `camera` track. Rather than uploading the clip, we play it in
-// a <video> element and grab its frames with captureStream(); this component
-// *produces* that track (a single owner publishes it — see useCameraPublisher).
-// The same element is the "your video" pane in the stage, so what you see is
-// literally what the model receives (no separate playback clock, so no drift).
+// Video file -> a `source` track. Rather than uploading the clip, we play it
+// in a <video> element and grab its frames with captureStream(); this
+// component *produces* that track (a single owner publishes it — see
+// useSourcePublisher). The same element is the "original" pane in the stage,
+// so what you see is literally what the model receives.
 //
-// Playback is gated on the model's run state: paused at frame 0 while set up
-// (a still poster that also seeds the captured track), playing from the start
-// once generation begins, and pausing/resuming in step with the model.
+// The clip plays and loops from the moment it is selected: X2 consumes source
+// frames and starts generating on its own once a prompt is set and frames
+// are arriving, so a continuously-playing source is exactly the contract the
+// model expects.
 export function VideoSource({
   videoUrl,
-  started,
-  running,
-  paused,
   onTrack,
 }: {
   videoUrl: string;
-  started: boolean;
-  running: boolean;
-  paused: boolean;
   onTrack: (track: MediaStreamTrack | null) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -67,29 +62,12 @@ export function VideoSource({
     };
   }, [videoUrl, onTrack]);
 
-  // Drive playback off the model's run state: from the top once started,
-  // pause/resume in step, back to the poster frame when not started.
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (!started) {
-      v.pause();
-      try {
-        v.currentTime = 0;
-      } catch {
-        // currentTime can throw before metadata loads; ignored.
-      }
-      return;
-    }
-    if (running && !paused) v.play().catch(() => {});
-    else v.pause();
-  }, [started, running, paused, videoUrl]);
-
   return (
     <>
       <video
         ref={videoRef}
         src={videoUrl}
+        autoPlay
         loop
         muted
         playsInline

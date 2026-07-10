@@ -3,14 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, errorMessage } from "./ui";
 
-// Webcam -> a `camera` track. This component only *produces* the track (and a
-// small self-view in the Input panel); useCameraPublisher publishes it. It
-// stays mounted across the start transition in webcam mode, so the camera keeps
-// streaming while generation runs.
+// Webcam -> a `source` track. This component only *produces* the track (and
+// a small self-view in the Source panel); useSourcePublisher — the single
+// owner of the `source` slot — publishes it. It never calls
+// publish/unpublish itself, so switching to/from webcam mode can't race
+// another producer on the same slot. It stays mounted across the start
+// transition, so the camera keeps streaming while generation runs.
 //
-// We own the MediaStreamTrack so we can set contentHint = "detail": the model
-// needs a stable camera resolution, but Chrome's encoder ramps resolution at
-// stream start and on bandwidth dips. "detail" holds it steady and trades
+// We own the MediaStreamTrack so we can set contentHint = "detail": the
+// model needs a stable resolution, but browsers ramp resolution at stream
+// start and on bandwidth dips. "detail" holds it steady and trades
 // framerate instead.
 export function WebcamSource({
   onTrack,
