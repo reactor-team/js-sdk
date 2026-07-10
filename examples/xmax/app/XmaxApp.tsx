@@ -35,6 +35,7 @@ import {
   type X2SourceMode,
   type X2UiState,
 } from "@/app/lib/types";
+import { reduce } from "@/app/lib/state";
 import { Header } from "./components/Header";
 import { StatusBadge } from "./components/StatusBadge";
 import { CommandError } from "./components/CommandError";
@@ -82,8 +83,8 @@ export function XmaxApp() {
 const BANNER_TTL_MS = 6000;
 
 // The client tree. The model is the source of truth: it broadcasts a full
-// `state_update` snapshot on connect and after every observable change, and
-// this component reduces that into X2UiState. generation_stopped (reset
+// `state_update` snapshot on connect and after every observable change,
+// reduced into X2UiState by lib/state.ts. generation_stopped (reset
 // bookkeeping), reference_image_accepted (decoded dimensions), and
 // command_error (transient banner) are handled as discrete events on top.
 function Workspace() {
@@ -161,23 +162,11 @@ function Workspace() {
   // runs again.
   const [stageCleared, setStageCleared] = useState(false);
 
-  // The model's snapshot is the source of truth for everything it carries.
-  // width/height are typed `unknown` on the wire (nullable ints); the model
-  // only ever sends numbers or null.
+  // The model's snapshot is the source of truth: only the typed
+  // `state_update` message feeds the reducer (see lib/state.ts).
   useX2StateUpdate((msg) => {
     if (msg.generating) setStageCleared(false);
-    setUi((s) => ({
-      ...s,
-      generating: msg.generating,
-      activePrompt: (msg.prompt as string | null) ?? null,
-      outputWidth: (msg.width as number | null) ?? null,
-      outputHeight: (msg.height as number | null) ?? null,
-      hasReference: msg.has_reference_image,
-      keepBacklog: msg.keep_backlog,
-      // The snapshot only says whether a reference is set; drop the stale
-      // dimensions ack when it reports none.
-      referenceAccepted: msg.has_reference_image ? s.referenceAccepted : null,
-    }));
+    setUi((s) => reduce(s, msg));
   });
 
   useX2GenerationStopped((msg) => {
