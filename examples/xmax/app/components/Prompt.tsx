@@ -46,6 +46,12 @@ export function Prompt({ activePrompt }: { activePrompt: string | null }) {
         aria-label="Prompt"
         value={text}
         onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            if (text.trim()) apply(text);
+          }
+        }}
         placeholder="Describe the edit. Applying a prompt starts (or re-steers) generation."
         rows={3}
         maxLength={1000}

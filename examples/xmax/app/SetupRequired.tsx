@@ -3,6 +3,7 @@ import { cn, PANEL } from "./components/ui";
 
 const DASHBOARD_URL =
   "https://www.reactor.inc/dashboard/account?section=api-keys";
+const AUTH_DOCS_URL = "https://docs.reactor.inc/authentication";
 
 // Server Component shown when REACTOR_API_KEY is missing from the
 // environment. Pure markup - no hooks, no UI-lib components, so it
@@ -69,7 +70,15 @@ export function SetupRequired() {
 
           <p className="mt-6 border-t border-zinc-800 pt-4 text-[11px] text-zinc-500">
             The key is read only on the server - the browser only ever sees
-            short-lived JWTs minted from it.
+            short-lived JWTs minted from it.{" "}
+            <a
+              href={AUTH_DOCS_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="text-brand underline-offset-2 hover:underline"
+            >
+              Learn more
+            </a>
           </p>
         </div>
       </main>
