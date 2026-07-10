@@ -1,0 +1,59 @@
+{
+  "id": "gta_boulevard_07",
+  "name": "GTA Boulevard",
+  "description": "Third-person sunny GTA street — key 1 = car accident, key 2 = draw & fire pistol, key 3 = punch combo, key 4 = sprint, key 5 = pick up cash",
+  "image": {
+    "label": "GTA Boulevard",
+    "src": "/lingbot-cases/gta.png"
+  },
+  "scene": {
+    "base": {
+      "default": "A man in a sharp black business suit, seen from behind, holding a dark leather briefcase in his right hand, standing on a wide sunny city boulevard at midday. The world contains EXACTLY ONE tall roadside billboard on the left at a fixed position AND EXACTLY ONE tall palm tree on the right at a fixed position AND EXACTLY ONE traffic light straight ahead at a fixed position. Low pale storefronts line both sides of a wide empty asphalt road, cracked pale-grey sidewalks, distant hazy hills and a faint city skyline under a bright clear blue sky. Sunny GTA-style open-world, warm midday daylight, crisp hard shadows, photorealistic."
+    },
+    "camera": {
+      "default": {
+        "static": "Third-person view from behind the man, his back and body centred in frame at constant size, his briefcase visible at his side — never a first-person view. Neither the man nor the camera moves; look-input is the only camera motion, arcing around the stationary centred man while held.",
+        "dynamic": "Strict third-person rear view from close behind and slightly above the man, his back and shoulders filling frame centre, his briefcase visible at his side — never first-person. It holds a fixed rear position and does not rotate around him; look-input becomes the man changing heading."
+      }
+    },
+    "movement": {
+      "default": {
+        "static": "The man stands still on the sunny sidewalk, weight settled, his suit jacket shifting faintly in a light breeze and his grip flexing on the briefcase handle as heat shimmers off the pale concrete around him.",
+        "dynamic": "The man strides forward at a steady pace down the boulevard, his polished shoes striking the concrete, his suit jacket swaying with each step and the briefcase swinging lightly at his side as the storefronts and palms slide past."
+      }
+    },
+    "events": [
+      {
+        "name": "Car Accident",
+        "detail": "The man in the suit remains standing, unchanged in pose and position, while ahead on the boulevard a speeding car loses control, tyres screeching, and slams into another vehicle in a violent head-on collision — crumpling metal, shattering glass spraying across the asphalt, a burst of smoke and flying debris, the wrecked cars skidding to a halt in the middle of the road."
+      },
+      {
+        "name": "Draw Pistol",
+        "detail": "The man draws a black handgun from inside his suit jacket, extends both arms straight ahead of him, and fires down the sunny street; the muzzle flashes, the pistol recoils in his grip, and a spent casing spins onto the concrete before he lowers the weapon."
+      },
+      {
+        "name": "Punch Combo",
+        "detail": "The man snaps forward with a fast three-punch combination — jab, cross, then a heavy hook — his fists driving straight ahead, then he pulls his guard back up and settles."
+      },
+      {
+        "name": "Sprint",
+        "detail": "The man breaks into a hard sprint straight down the boulevard, arms pumping and briefcase swinging, shoes hammering the concrete, then eases back to a stop and straightens up."
+      },
+      {
+        "name": "Pick Up Cash",
+        "detail": "The man drops into a quick crouch and snatches a scatter of loose dollar bills off the sidewalk ahead of him, stuffing them into his jacket, then rises smoothly back to his feet."
+      },
+      {
+        "name": "Rabbit Appears",
+        "detail": "The man in the suit remains standing, unchanged in pose and position, while a small brown rabbit hops out onto the sunny road ahead of him, pausing in the middle of the asphalt with its ears twitching, then hopping a little closer and settling."
+      },
+      {
+        "name": "Road Fire",
+        "detail": "The man in the suit remains standing, unchanged in pose and position, while flames erupt across the road ahead of him — a spreading blaze of orange fire and thick black smoke rising from the asphalt in the middle of the boulevard, heat rippling the air above the burning street."
+      }
+    ],
+    "jumpPrompt": "The man springs upward off both feet, leaping high off the sunny concrete, his shoes lifting clear of the ground before he drops back down and lands in a low crouch.",
+    "crouchPrompt": "The camera lowers toward the ground as the man crouches down low, bending his knees and ducking his head into a compact, hunched stance; the viewpoint sinks smoothly to a low, near-ground vantage and settles there, close to the ground.",
+    "standPrompt": "The man straightens back up out of the crouch, rising to full standing height as the camera lifts smoothly back to its normal eye-level vantage."
+  }
+}

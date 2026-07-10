@@ -1,0 +1,51 @@
+{
+  "id": "case1_0036_combat",
+  "name": "Noir Alley Combat",
+  "description": "Third-person noir alley melee — key 1 = punch combo, key 2 = roundhouse kick, key 3 = baton strike, key 4 = grapple takedown, key 5 = dodge roll",
+  "image": {
+    "label": "Noir Alley Combat",
+    "src": "/lingbot-cases/noir-alley-combat.jpg"
+  },
+  "scene": {
+    "base": {
+      "default": "A lone uniformed police officer in dark blue tactical gear in a narrow urban alley at night. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE shop door straight ahead at a fixed position AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles on the wet asphalt, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces."
+    },
+    "camera": {
+      "default": {
+        "static": "Third-person view from behind the officer, his back and body centred in frame at constant size, his hands and any weapon visible ahead — never a first-person view. Neither officer nor camera moves; look-input is the only camera motion, arcing around the stationary centred officer while held.",
+        "dynamic": "Strict third-person rear view from close behind and slightly above the officer, his back and body filling frame centre, his hands and any weapon visible ahead — never first-person. It holds a fixed rear position and does not rotate around him; look-input becomes the officer changing heading."
+      }
+    },
+    "movement": {
+      "default": {
+        "static": "The officer stands still on the wet asphalt in a loose ready stance, weight settled, only his shoulders rising and falling with slow breaths and his gloved hands flexing as rain streams off his tactical gear and drips from his knuckles into the spreading puddles.",
+        "dynamic": "The officer advances at a steady prowling pace down the alley, boots splashing through the puddles and kicking up fine spray, his guard up and gear shifting with each stride as the rain streaks past and the wet asphalt slides beneath him."
+      }
+    },
+    "events": [
+      {
+        "name": "Punch Combo",
+        "detail": "The officer snaps forward with a fast three-punch combination — jab, cross, then a heavy hook — his gloved fists driving straight ahead through the falling rain, water spraying off his knuckles with each strike, before he pulls his guard back up and settles."
+      },
+      {
+        "name": "Roundhouse Kick",
+        "detail": "The officer plants his lead foot and whips his rear leg around in a fast roundhouse kick, his boot sweeping in a wide arc ahead of him and flinging a sheet of spray off the wet asphalt, then he brings the leg back down and re-settles into his stance."
+      },
+      {
+        "name": "Baton Strike",
+        "detail": "The officer draws a collapsible steel baton, flicks it open with a sharp snap, and swings it down and across in a swift overhead strike ahead of him; the metal glints in the blue and red light and hisses through the rain before he lowers it back to his side."
+      },
+      {
+        "name": "Grapple Takedown",
+        "detail": "The officer lunges forward, seizes an unseen opponent ahead of him, pivots his hips and hurls them down onto the wet asphalt with a heavy splash of spray, then straightens back up over the spot, breathing hard."
+      },
+      {
+        "name": "Dodge Roll",
+        "detail": "The officer drops into a low crouch and executes a fast forward roll across the wet asphalt, tucking his shoulder and rising smoothly back to his feet in a ready stance."
+      }
+    ],
+    "jumpPrompt": "The officer springs upward off both feet, leaping high off the wet asphalt, his boots lifting clear of the ground before he drops back down and lands in a low crouch.",
+    "crouchPrompt": "The camera lowers toward the ground as the character crouches down low, bending the knees and ducking the head into a compact, hunched stance; the viewpoint sinks smoothly to a low, near-ground vantage and settles there, close to the floor.",
+    "standPrompt": "The character straightens back up out of the crouch, rising to full standing height as the camera lifts smoothly back to its normal eye-level vantage."
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "id": "car_racing_08",
+  "name": "Circuit Racer",
+  "description": "Third-person car racing — key 1 = nitro boost, key 2 = drift, key 3 = crash, key 4 = overtake, key 5 = handbrake turn",
+  "image": {
+    "label": "Circuit Racer",
+    "src": "/lingbot-cases/f1-race.jpg"
+  },
+  "scene": {
+    "base": {
+      "default": "A sleek low-slung race car, seen from behind, on a wide smooth asphalt racing circuit under a bright sky. The world contains EXACTLY ONE tall start-finish gantry spanning the track ahead at a fixed position AND EXACTLY ONE grandstand on the left at a fixed position AND EXACTLY ONE stack of red-and-white tyre barriers on the right at a fixed position. Crisp painted kerbs edge the track, run-off gravel traps beyond, distant hills and banner-lined fences under a clear blue sky. Glossy car bodywork, sharp reflections, sunny daytime racing-game look, photorealistic."
+    },
+    "camera": {
+      "default": {
+        "static": "Third-person chase view from behind the race car, the car centred in frame at constant size and distance. Neither the car nor the camera moves; look-input is the only camera motion, arcing around the stationary centred car while held.",
+        "dynamic": "Strict third-person chase view from close behind and slightly above the race car, the car filling frame centre as the camera holds a fixed position behind it and tracks it forward down the track. The camera does not rotate around the car; look-input becomes the car changing heading, steering left and right."
+      }
+    },
+    "movement": {
+      "default": {
+        "static": "The race car idles on the track, engine rumbling and exhaust heat shimmering behind it, the bodywork trembling faintly with the running motor as sunlight glints off the glossy paint.",
+        "dynamic": "The race car accelerates hard down the circuit, tyres gripping the asphalt, the low bodywork pressed close to the ground as the kerbs, grandstands and barriers blur past and the engine roars, throwing up a faint heat haze in its wake."
+      }
+    },
+    "events": [
+      {
+        "name": "Nitro Boost",
+        "detail": "Bright blue flames burst from the race car's exhausts and it surges forward with a hard kick of speed, the scenery streaking past in a blur and a shimmering heat trail rippling behind it, before it eases back to its normal pace."
+      },
+      {
+        "name": "Drift",
+        "detail": "The race car breaks traction and slides sideways through a sweeping corner, the rear stepping out and thick white tyre smoke billowing off the screaming rear wheels, then it snaps straight again and powers on down the track."
+      },
+      {
+        "name": "Crash",
+        "detail": "The race car slams into the barriers ahead in a violent collision — crumpling bodywork, shattering carbon fibre and flying debris, tyre smoke and sparks bursting off the asphalt as it grinds to a jarring halt against the wall, then settles."
+      },
+      {
+        "name": "Overtake",
+        "detail": "The race car darts to one side and surges past a rival car just ahead, drawing level and then pulling cleanly in front of it down the straight, before settling back into the racing line."
+      },
+      {
+        "name": "Handbrake Turn",
+        "detail": "The race car yanks into a sharp handbrake turn, the rear whipping around in a tight spin with a screech of rubber and a plume of tyre smoke, then it straightens up pointing down the track and settles."
+      }
+    ],
+    "jumpPrompt": "The race car launches off a ramp, all four wheels lifting clear of the track as it sails through the air, then drops back down and lands hard on the asphalt with a bounce of its suspension.",
+    "crouchPrompt": "The camera drops low toward the track surface behind the car, sinking to a fast, close-to-the-ground chase vantage that emphasises the sense of speed.",
+    "standPrompt": "The camera lifts smoothly back up to its normal chase height behind the car, returning to the standard following vantage."
+  }
+}

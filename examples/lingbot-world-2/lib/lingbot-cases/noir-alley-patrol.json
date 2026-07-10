@@ -1,25 +1,34 @@
 {
   "id": "case1_0036",
   "name": "Noir Alley Patrol",
-  "description": "Third-person noir alley — key 1 = fires pistol, key 2 = flamethrower, key 3 = fires rocket launcher, key 4 = knife attack, key 5 = forward roll",
+  "description": "Third-person noir alley — key 1 = fires pistol, key 2 = flamethrower, key 3 = fires rocket launcher, key 4 = knife attack, key 5 = forward roll, key 6 = fall and die",
   "image": {
     "label": "Noir Alley Patrol",
-    "src": "/lingbot-cases/case1_0036.jpg"
+    "src": "/lingbot-cases/noir-alley-patrol.jpg"
   },
   "scene": {
     "base": {
-      "default": "A lone uniformed police officer in dark blue tactical gear in a narrow urban alley at night. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE shop door straight ahead at a fixed position AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles on the wet asphalt, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces."
+      "default": "A lone uniformed police officer in dark blue tactical gear in a narrow urban alley at night. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE shop door straight ahead at a fixed position AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles on the wet asphalt, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces.",
+      "downed": "A narrow urban alley at night where a uniformed police officer in dark blue tactical gear now lies COLLAPSED, FACE-DOWN and MOTIONLESS on the wet asphalt, sprawled in a spreading puddle, his weapon fallen from his hand nearby — he does not get up. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE shop door straight ahead at a fixed position AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces, rain pooling around the still body."
     },
     "camera": {
       "default": {
         "static": "Third-person view from behind the officer, his back and body centred in frame at constant size, any weapon in his hands visible ahead — never a first-person view. Neither officer nor camera moves; look-input is the only camera motion, arcing around the stationary centred officer while held.",
         "dynamic": "Strict third-person rear view from close behind and slightly above the officer, his back and body filling frame centre, any weapon in his hands visible ahead — never first-person. It holds a fixed rear position and does not rotate around him; look-input becomes the officer changing heading."
+      },
+      "downed": {
+        "static": "Low third-person view close to the wet asphalt, looking along the fallen officer's motionless body sprawled face-down in the puddle; the camera sits near the ground and does not move on its own, look-input slowly arcs around the still body while held.",
+        "dynamic": "Low ground-level third-person view holding on the officer lying motionless face-down on the rain-slicked asphalt; the camera stays low near the water and does not rotate on its own."
       }
     },
     "movement": {
       "default": {
         "static": "The officer stands still on the wet asphalt, weight settled, only his shoulders rising and falling with slow breaths as rain streams off his tactical gear and drips from his fingertips into the spreading puddles.",
         "dynamic": "The officer advances at a steady patrol pace down the alley, boots splashing through the puddles and kicking up fine spray, his gear shifting with each stride as the rain streaks past and the wet asphalt slides beneath him."
+      },
+      "downed": {
+        "static": "The officer lies completely still, face-down and motionless on the wet asphalt, not moving or rising — only the falling rain and the ripples spreading through the puddle around his body move in the scene.",
+        "dynamic": "The officer stays collapsed and motionless on the ground and does not rise; he remains face-down as rain streaks past and water pools around his still body."
       }
     },
     "events": [
@@ -42,6 +51,13 @@
       {
         "name": "Forward Roll",
         "detail": "The officer drops into a low crouch and executes a forward roll across the wet asphalt, tucking his shoulder and rising smoothly back to his feet."
+      },
+      {
+        "name": "Fall and Die",
+        "baseVersion": "downed",
+        "cameraVersion": "downed",
+        "movementVersion": "downed",
+        "detail": "The officer staggers, his knees buckle, and he collapses forward onto the wet asphalt, his body going limp as he sprawls face-down and STAYS DOWN, lying motionless in the spreading puddle without getting back up; his weapon slips from his gloved hand and clatters away across the ground, and he remains still on the ground in the falling rain as the blue and red ambient light glints off the water pooling around him."
       }
     ],
     "jumpPrompt": "The officer springs upward off both feet, leaping high off the wet asphalt, his boots lifting clear of the ground before he drops back down and lands in a low crouch.",

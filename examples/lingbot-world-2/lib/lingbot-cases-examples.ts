@@ -19,13 +19,24 @@
 
 import type { StructuredExample } from "@/lib/lingbot-world-prompts";
 
-import noirAlleyPatrol from "./lingbot-cases/noir-alley-patrol.json";
-import battlefieldHorseman from "./lingbot-cases/battlefield-horseman.json";
-import jetSkiCruise from "./lingbot-cases/jet-ski-cruise.json";
+// Auto-load EVERY case JSON in ./lingbot-cases/ -- drop a new <slug>.json in and it
+// appears automatically (no manual import/registration). Chips are ordered
+// alphabetically by filename; prefix with 01-, 02-, ... if you want a specific order.
+// (webpack require.context; this app runs `next dev` on webpack.)
+const ctx = (
+  require as unknown as {
+    context(
+      dir: string,
+      useSubdirs: boolean,
+      filter: RegExp,
+    ): { keys(): string[]; (key: string): { default?: StructuredExample } & StructuredExample };
+  }
+).context("./lingbot-cases", false, /\.json$/);
 
-// The display order of the example chips. Add new examples here.
-export const LINGBOT_CASES_EXAMPLE_LIST: StructuredExample[] = [
-  noirAlleyPatrol,
-  battlefieldHorseman,
-  jetSkiCruise,
-] as StructuredExample[];
+export const LINGBOT_CASES_EXAMPLE_LIST: StructuredExample[] = ctx
+  .keys()
+  .sort()
+  .map((key) => {
+    const mod = ctx(key);
+    return (mod.default ?? mod) as StructuredExample;
+  });

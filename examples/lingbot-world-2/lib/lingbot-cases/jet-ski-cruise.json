@@ -4,7 +4,7 @@
   "description": "Third-person jet ski — key 1 = meteor shower, key 2 = sunset glow, key 3 = rides with torch",
   "image": {
     "label": "Jet Ski Cruise",
-    "src": "/lingbot-cases/case2_1012.jpg"
+    "src": "/lingbot-cases/jet-ski-cruise.jpg"
   },
   "scene": {
     "base": {

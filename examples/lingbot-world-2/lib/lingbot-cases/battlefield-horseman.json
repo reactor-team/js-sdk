@@ -4,7 +4,7 @@
   "description": "Third-person mounted warrior — key 1 = snowstorm approaches, key 2 = horse lunge strike, key 3 = casts fire magic",
   "image": {
     "label": "Battlefield Horseman",
-    "src": "/lingbot-cases/case1_0038.jpg"
+    "src": "/lingbot-cases/battlefield-horseman.jpg"
   },
   "scene": {
     "base": {

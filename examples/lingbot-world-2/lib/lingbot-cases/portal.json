@@ -1,0 +1,51 @@
+{
+  "id": "portal_world_09",
+  "name": "Portal Gun",
+  "description": "Third-person portal-gun — key 1 = open portal, key 2 = cyberpunk-city portal, key 3 = forest portal, key 4 = portal blast, key 5 = close portal",
+  "image": {
+    "label": "Portal Gun",
+    "src": "portal.png"
+  },
+  "scene": {
+    "base": {
+      "default": "A lone figure gripping a large futuristic heavy-duty portable teleportation device in both hands — a portal gun with glowing blue nozzles, intricate mechanical detailing, brushed-metal plating and an aged, worn industrial look. A single rotating, swirling portal is projected ahead from the device's nozzle: a shimmering liquid vortex ringed with drifting particles and rippling distortion, another world faintly visible through its centre. The world contains EXACTLY ONE swirling portal directly ahead at a fixed position AND EXACTLY ONE tall support pillar on the left at a fixed position AND EXACTLY ONE stack of industrial crates on the right at a fixed position. A dim, fog-filled chamber of dark metal walls and scattered machinery, thick volumetric haze catching shafts of light. Dramatic cinematic lighting, ray-traced reflections on wet metal, deep depth of field, Unreal Engine 5 rendering, hyper-realistic, 8K."
+    },
+    "camera": {
+      "default": {
+        "static": "Over-the-shoulder third-person view from behind the figure, the figure and the glowing portal device centred in frame at constant size, the swirling portal visible ahead — never a first-person view. Neither the figure nor the camera moves; look-input is the only camera motion, arcing around the stationary centred figure while held.",
+        "dynamic": "Strict over-the-shoulder third-person view from close behind the figure, its back and the portal device filling frame centre, the swirling portal ahead — never first-person. It holds a fixed position behind the figure and tracks it forward; look-input becomes the figure changing heading."
+      }
+    },
+    "movement": {
+      "default": {
+        "static": "The figure stands still in the fog, weight settled, the portal device humming in its grip and casting flickering blue light across its arms as the swirling vortex ahead pulses and drifts and volumetric haze curls around its boots.",
+        "dynamic": "The figure advances at a steady pace through the fog-filled chamber, boots echoing on the dark metal floor, the portal device held ready and its blue glow sweeping the walls as machinery and drifting haze slide past."
+      }
+    },
+    "events": [
+      {
+        "name": "Open Portal",
+        "detail": "The figure levels the portal device and fires; a fresh swirling portal blooms open ahead on the chamber wall — a spinning liquid vortex of blue light, shimmering particles and rippling distortion spiralling outward from the point of impact, then holding steady and pulsing."
+      },
+      {
+        "name": "Cyberpunk City Portal",
+        "detail": "The swirling portal ahead clears and its centre resolves into a neon-lit cyberpunk city seen through the vortex — towering skyscrapers, glowing signs, rain-slick streets and drifting flying vehicles, the rippling portal edge framing the distant metropolis as its coloured light spills back through onto the chamber floor."
+      },
+      {
+        "name": "Forest Portal",
+        "detail": "The swirling portal ahead clears and its centre resolves into a dense sunlit forest seen through the vortex — tall green trees, shafts of golden light through the canopy, ferns and drifting pollen, the rippling portal edge framing the deep woodland as warm green light spills back through onto the chamber floor."
+      },
+      {
+        "name": "Portal Blast",
+        "detail": "The figure thrusts the device forward and a surging bolt of blue portal energy fires straight ahead, crackling with electric arcs and trailing shimmering particles, then bursts against the far wall in a ripple of distortion before the device settles back to a steady hum."
+      },
+      {
+        "name": "Close Portal",
+        "detail": "The swirling portal ahead collapses inward, its vortex spiralling tighter and its glow drawing down to a single bright point before it winks out with a soft shimmer, leaving only the dim fog-filled chamber and the device's faint blue hum."
+      }
+    ],
+    "jumpPrompt": "The figure springs upward off both feet, leaping high off the metal floor, its boots lifting clear of the ground before it drops back down and lands in a low crouch.",
+    "crouchPrompt": "The camera lowers toward the ground as the figure crouches down low, bending its knees and ducking into a compact, hunched stance; the viewpoint sinks smoothly to a low, near-ground vantage and settles there, close to the floor.",
+    "standPrompt": "The figure straightens back up out of the crouch, rising to full standing height as the camera lifts smoothly back to its normal eye-level vantage."
+  }
+}
