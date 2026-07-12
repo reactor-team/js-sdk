@@ -86,6 +86,22 @@ export interface NamedEvent {
   cameraVersion?: string;
   movementVersion?: string;
   detail: EventVariant;
+  // Optional player-vital effect applied once when this event is pressed
+  // (fires the shared HUD / coordinator). Explicit per-event — preferred over
+  // the name-keyword fallback. `health` is a delta (+heal / -damage).
+  health?: number;
+  addItem?: string;
+  removeItem?: string;
+}
+
+// Per-scene HUD configuration. Optional — omitted → HUD hidden. Sets the
+// starting player vitals shown on the viewport overlay and the max the bar
+// scales to. Events change `health` from here via their `health` deltas.
+export interface HudConfig {
+  show?: boolean; // draw the overlay for this scene (default true when hud present)
+  maxHealth?: number; // full-bar value (default 100)
+  health?: number; // starting health (default maxHealth)
+  inventory?: string[]; // starting inventory chips (default none)
 }
 
 export interface StructuredScene {
@@ -93,6 +109,8 @@ export interface StructuredScene {
   camera: LayerRegistry<ShotVariant>;
   movement: LayerRegistry<ShotVariant>;
   events: NamedEvent[];
+  // Optional HUD (health bar + inventory) config for this scene.
+  hud?: HudConfig;
   // Sentences appended to the prompt for the vertical controls: jumpPrompt while
   // jumping (Space), crouchPrompt while crouching (C held), standPrompt on the
   // crouch RELEASE (the "stands back up" line). Per-scene so they read in-context

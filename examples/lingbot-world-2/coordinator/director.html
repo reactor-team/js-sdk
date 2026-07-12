@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LingBot — Director</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { font: 14px/1.5 system-ui, sans-serif; margin: 0; background: #0d0f12; color: #e6e6e6; }
+    header { padding: 12px 16px; border-bottom: 1px solid #23262b; display: flex; gap: 12px; align-items: center; }
+    #dot { width: 10px; height: 10px; border-radius: 50%; background: #a33; }
+    #dot.on { background: #3a7; }
+    main { padding: 16px; display: grid; gap: 20px; max-width: 720px; }
+    h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: #8a8f98; margin: 0 0 8px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; }
+    button { background: #1a1d22; color: #e6e6e6; border: 1px solid #2d323a; border-radius: 6px; padding: 8px 12px; cursor: pointer; }
+    button:hover { border-color: #4a5560; }
+    button.clear { border-color: #6a3a3a; }
+    input { background: #14171b; color: #e6e6e6; border: 1px solid #2d323a; border-radius: 6px; padding: 8px; }
+    #clause { flex: 1; min-width: 280px; }
+    #facts { white-space: pre-wrap; background: #14171b; border: 1px solid #23262b; border-radius: 6px; padding: 12px; min-height: 60px; color: #b8d8c0; }
+  </style>
+</head>
+<body>
+  <header>
+    <span id="dot"></span><strong>Director</strong>
+    <input id="url" value="ws://localhost:8090" style="width:220px" />
+    <button id="connect">connect</button>
+    <span style="margin-left:auto;color:#8a8f98;font-size:12px">active director:&nbsp;<b id="modelabel">—</b></span>
+    <button data-mode="human">human</button>
+    <button data-mode="ai">ai</button>
+    <button data-mode="both">both</button>
+  </header>
+  <main>
+    <section>
+      <h2>Weather &amp; time (sustained — stay until cleared)</h2>
+      <div class="row">
+        <button data-key="env:weather" data-clause="a heavy snowstorm blows in, thick flakes filling the air">snow</button>
+        <button data-key="env:weather" data-clause="heavy rain pours down, streaking the air and soaking every surface">rain</button>
+        <button data-key="env:weather" data-clause="dense fog rolls in, muffling the light and softening the distance">fog</button>
+        <button data-key="env:time" data-clause="dusk falls, the light turning golden and shadows stretching long">dusk</button>
+        <button data-key="env:time" data-clause="night falls, the scene lit only by cold moonlight and scattered lamps">night</button>
+        <button class="clear" data-retract="env:weather">clear weather</button>
+        <button class="clear" data-retract="env:time">clear time</button>
+      </div>
+    </section>
+    <section>
+      <h2>Spawns (a few chunks, then fade)</h2>
+      <div class="row">
+        <button data-key="entity:birds" data-steps="4" data-clause="a flock of birds sweeps across the sky ahead">birds</button>
+        <button data-key="entity:rabbit" data-steps="6" data-clause="a small brown rabbit hops out onto the ground ahead">rabbit</button>
+        <button data-key="fx:fire" data-steps="8" data-clause="flames erupt across the ground ahead, orange fire and black smoke rising">fire</button>
+      </div>
+    </section>
+    <section>
+      <h2>Vitals (shared HUD — Player sees these change)</h2>
+      <div class="row">
+        <button data-vital='{"health":-20}'>damage −20</button>
+        <button data-vital='{"health":-50}'>damage −50</button>
+        <button data-vital='{"health":25}'>heal +25</button>
+        <button data-vital='{"setHealth":100}'>full heal</button>
+        <button data-vital='{"addItem":"a medkit"}'>give medkit</button>
+        <button data-vital='{"addItem":"a pistol"}'>give pistol</button>
+        <button class="clear" data-vital='{"reset":true}'>reset vitals</button>
+      </div>
+    </section>
+    <section>
+      <h2>Custom fact</h2>
+      <div class="row">
+        <input id="key" placeholder="key (e.g. env:weather)" style="width:200px" />
+        <input id="clause" placeholder="clause of prose…" />
+        <button id="assert">assert (sustained)</button>
+        <button class="clear" id="clearAll">clear all</button>
+      </div>
+    </section>
+    <section>
+      <h2>Live History (what the Player is appending)</h2>
+      <div id="facts">—</div>
+      <div id="vitals" style="margin-top:8px;font-family:ui-monospace,monospace;color:#d8c8a0">HP —/— · inv: —</div>
+    </section>
+  </main>
+  <script>
+    let ws = null;
+    const dot = document.getElementById("dot");
+    const facts = document.getElementById("facts");
+
+    function connect() {
+      if (ws) { try { ws.close(); } catch {} }
+      ws = new WebSocket(document.getElementById("url").value);
+      ws.onopen = () => dot.classList.add("on");
+      ws.onclose = () => dot.classList.remove("on");
+      ws.onerror = () => dot.classList.remove("on");
+      ws.onmessage = (e) => {
+        try {
+          const m = JSON.parse(e.data);
+          if (m.type === "facts") facts.textContent = m.prompt || "—";
+          else if (m.type === "vitals")
+            document.getElementById("vitals").textContent =
+              `HP ${m.health}/${m.maxHealth} · inv: ${m.inventory.length ? m.inventory.join(", ") : "—"}`;
+          else if (m.type === "mode") {
+            document.querySelectorAll("button[data-mode]").forEach((b) =>
+              b.style.borderColor = b.dataset.mode === m.mode ? "#3a7" : "#2d323a");
+            document.getElementById("modelabel").textContent = m.mode;
+          }
+        } catch {}
+      };
+    }
+    function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+    function assert(key, clause, steps) {
+      const life = steps ? { kind: "steps", n: Number(steps) } : { kind: "sustained" };
+      send({ op: "assert", role: "human", fact: { key, clause, weight: 5, life } });
+    }
+
+    document.getElementById("connect").onclick = connect;
+    document.querySelectorAll("button[data-clause]").forEach((b) =>
+      (b.onclick = () => assert(b.dataset.key, b.dataset.clause, b.dataset.steps)));
+    document.querySelectorAll("button[data-retract]").forEach((b) =>
+      (b.onclick = () => send({ op: "retract", role: "human", key: b.dataset.retract })));
+    document.querySelectorAll("button[data-vital]").forEach((b) =>
+      (b.onclick = () => send({ op: "vital", role: "human", change: JSON.parse(b.dataset.vital) })));
+    document.querySelectorAll("button[data-mode]").forEach((b) =>
+      (b.onclick = () => send({ op: "mode", mode: b.dataset.mode })));
+    document.getElementById("assert").onclick = () => {
+      const k = document.getElementById("key").value.trim();
+      const c = document.getElementById("clause").value.trim();
+      if (k && c) assert(k, c);
+    };
+    document.getElementById("clearAll").onclick = () => send({ op: "clear" });
+
+    connect();
+  </script>
+</body>
+</html>

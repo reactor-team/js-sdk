@@ -1,0 +1,16 @@
+{
+  "name": "lingbot-coordinator",
+  "private": true,
+  "type": "module",
+  "description": "Shared-History WebSocket coordinator for separate-browser Player/Director sync.",
+  "scripts": {
+    "start": "tsx coordinator.ts"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "@types/ws": "^8.5.13"
+  }
+}

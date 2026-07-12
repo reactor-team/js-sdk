@@ -5,15 +5,23 @@ import {
   LingbotWorld2Provider,
   useLingbotWorld2,
 } from "@reactor-models/lingbot-world-2";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Header } from "@/components/Header";
 import { SnapClip } from "@/components/SnapClip";
 import { LingbotWorldController } from "@/components/lingbot-world-2/LingbotWorldController";
+import { DirectorPanel } from "@/components/lingbot-world-2/DirectorPanel";
 
 // Reactor coordinator the SDK connects to. Override with
 // NEXT_PUBLIC_COORDINATOR_URL in .env.local if you need a different one.
 const API_URL =
   process.env.NEXT_PUBLIC_COORDINATOR_URL ?? "https://api.reactor.inc";
+
+// When the coordinator is a localhost URL, use the SDK's LOCAL mode: it talks to
+// the auth-free LocalCoordinatorClient (`/start_session` routes on your own
+// runtime) instead of the cloud CoordinatorClient (JWT + `/sessions`). Just
+// changing the URL is NOT enough — `local` is what selects the client.
+const IS_LOCAL = /localhost|127\.0\.0\.1/.test(API_URL);
 
 // JWT resolver passed to <LingbotWorld2Provider getJwt>.
 //
@@ -115,7 +123,8 @@ function StatusBar() {
 }
 
 function MainContent() {
-  const { sidebar, controls } = LingbotWorldController({});
+  const { sidebar, controls, hud } = LingbotWorldController({});
+  const [directorOpen, setDirectorOpen] = useState(false);
 
   return (
     <main className="relative z-10 flex-1 min-h-0 flex flex-col px-4 sm:px-6 pb-4 sm:pb-6 pt-3 max-lg:overflow-y-auto lg:overflow-hidden">
@@ -143,6 +152,21 @@ function MainContent() {
                   height: "100%",
                 }}
               />
+              {/* Player HUD — absolute overlay on the viewport */}
+              {hud}
+              {/* Human Director — toggleable panel, world controls (weather /
+                  spawns / vitals / mode), a peer of the Player's controls. */}
+              {!directorOpen && (
+                <Button
+                  size="xs"
+                  variant="secondary"
+                  onClick={() => setDirectorOpen(true)}
+                  className="absolute top-3 right-3 z-40 h-7 px-3 font-mono text-[11px] bg-black/70 border-white/15 hover:bg-black/85 text-white/80"
+                >
+                  Human Director
+                </Button>
+              )}
+              <DirectorPanel visible={directorOpen} onClose={() => setDirectorOpen(false)} />
             </div>
 
             <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 sm:p-4">
@@ -178,7 +202,7 @@ export function LingbotWorld2App() {
 
       <div className="relative h-screen flex flex-col overflow-hidden bg-zinc-950">
         <Header />
-        <LingbotWorld2Provider apiUrl={API_URL} getJwt={fetchToken}>
+        <LingbotWorld2Provider apiUrl={API_URL} local={IS_LOCAL} getJwt={fetchToken}>
           <div className="relative z-10 shrink-0">
             <StatusBar />
           </div>

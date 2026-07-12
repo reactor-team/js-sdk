@@ -19,6 +19,7 @@ import {
   type StructuredExample,
   type StructuredScene,
 } from "@/lib/lingbot-world-prompts";
+import { History, type Fact } from "@/lib/history";
 
 // Sentinel id used in the overrides map for the user's custom
 // layered scene. Custom has no pristine constant to fall back to; an
@@ -26,6 +27,30 @@ import {
 const CUSTOM_SCENE_ID = "__custom__";
 import { LayeredSceneEditor } from "@/components/lingbot-world-2/LayeredSceneEditor";
 import { LivePromptInspector } from "@/components/lingbot-world-2/LivePromptInspector";
+import { Hud } from "@/components/lingbot-world-2/Hud";
+
+// A change to the shared player vitals, emitted by either role (Player event
+// or Director op). Applied server-side (coordinator) or locally.
+type VitalChange = {
+  health?: number; // delta: +heal / -damage
+  setHealth?: number; // absolute
+  addItem?: string;
+  removeItem?: string;
+  reset?: boolean; // full health, empty inventory (on session reset)
+};
+
+// Default event-name → vital change, so pressing an event key visibly moves the
+// HUD. A simple keyword table for now — replace with explicit per-scene vital
+// effects when you want precise control. Returns null for events with no effect.
+function vitalForEvent(name?: string): VitalChange | null {
+  if (!name) return null;
+  const n = name.toLowerCase();
+  if (/(crash|thrown|blast|fire|takedown|roundhouse|grapple)/.test(n))
+    return { health: -20 };
+  if (/(heal|medkit|rest|recover|bandage)/.test(n)) return { health: 25 };
+  if (/(pick ?up|cash|grab|collect|loot)/.test(n)) return { addItem: name };
+  return null;
+}
 
 type MoveL = "idle" | "forward" | "back";
 type MoveLat = "idle" | "strafe_left" | "strafe_right";
@@ -677,6 +702,48 @@ export function LingbotWorldController({ className }: { className?: string }) {
   }, [scene]);
   const heldSlotsRef = useRef<number[]>([]);
 
+  // Persistent world facts contributed on top of the scene prose — Director
+  // interventions (weather/time/spawns) and any timed effects. composePrompt()
+  // owns the scene layer (base/camera/movement/held events, the ephemeral
+  // "now"); history owns what PERSISTS across chunks and is re-narrated until
+  // it expires. project() runs with no identity prefix so it emits only these
+  // extra clauses, appended to the composed scene string.
+  //   - Player + Director both write here (Director ops arrive via the relay in
+  //     step #2; same-machine callers can use director directly).
+  //   - advance() ages timed facts once per chunk_complete; an expired fact
+  //     changes the string, which triggers a fresh set_prompt.
+  // debug off by default; set NEXT_PUBLIC_HISTORY_DEBUG=1 to print every local
+  // state change to the browser console (coordinator mode logs server-side).
+  const historyRef = useRef<History>(
+    new History({ debug: process.env.NEXT_PUBLIC_HISTORY_DEBUG === "1" }),
+  );
+
+  // Optional remote coordinator (#2): when NEXT_PUBLIC_COORDINATOR_WS is set, the
+  // authoritative History lives on a shared WebSocket server so a Director on a
+  // SEPARATE browser/machine can write to it. This browser then becomes a thin
+  // client — it forwards ops/ticks and consumes the server's projected clauses
+  // instead of its local History. Unset → local History (single-machine), so #1
+  // is unchanged. Video path (Reactor/local) is untouched either way.
+  const coordWsRef = useRef<WebSocket | null>(null);
+  const coordConnectedRef = useRef(false);
+  const coordPromptRef = useRef<string>(""); // latest project() from the server
+  // Push server-authoritative vitals into HUD state. Assigned by the HUD effect
+  // (which owns the setters); called from the coordinator socket below. Ref so
+  // it's in scope here regardless of declaration order.
+  const setVitalsFromServerRef = useRef<(health: number, inventory: string[]) => void>(
+    () => {},
+  );
+
+  // Record a player command to the coordinator's command log (role "player").
+  // No-op unless a coordinator is connected — the log lives server-side.
+  const logPlayerCmd = useCallback((cmd: string, detail: unknown) => {
+    if (coordConnectedRef.current) {
+      coordWsRef.current?.send(
+        JSON.stringify({ op: "log", role: "player", cmd, detail }),
+      );
+    }
+  }, []);
+
   const recomputePromptAndSend = useCallback(() => {
     // Vertical (jump/crouch) sentence appended to the prose so it matches the
     // motion. Jump: for hold/prompt while held; for charge only once the arc is
@@ -703,25 +770,199 @@ export function LingbotWorldController({ className }: { className?: string }) {
     if (!sceneRef.current) return;
     const isMoving =
       moveLStackRef.current.length > 0 || moveLatStackRef.current.length > 0;
-    const next = composePrompt(
+    const scenePrompt = composePrompt(
       sceneRef.current,
       isMoving,
       heldSlotsRef.current,
       vp,
     ).trim();
+    // Append persistent world facts (Director interventions, timed effects).
+    // Empty until something is asserted, so single-player is unchanged. When a
+    // coordinator is connected, the facts come from the shared server instead
+    // of local History (which the Director on another machine can't reach).
+    const facts = coordConnectedRef.current
+      ? coordPromptRef.current
+      : historyRef.current.project();
+    const next = [scenePrompt, facts].filter(Boolean).join(" ").trim();
     if (!next) return;
     if (next === lastSentPromptRef.current) return;
     lastSentPromptRef.current = next;
     if (isReadyRef.current) {
       lw2.setPrompt({ prompt: next }).catch(console.error);
+      logPlayerCmd("prompt", next);
     }
-  }, [sendCommand]);
+  }, [sendCommand, logPlayerCmd]);
   // Ref indirection so the per-chunk message handler can drop the jump
   // sentence when the arc ends without capturing a stale callback.
   const recomputePromptAndSendRef = useRef<() => void>(() => {});
   useEffect(() => {
     recomputePromptAndSendRef.current = recomputePromptAndSend;
   }, [recomputePromptAndSend]);
+
+  // Director control surface: mutate the shared History, then re-narrate. When
+  // a coordinator is connected the op goes to the server (authority) and the
+  // new facts arrive back via the socket; otherwise it mutates local History.
+  const director = useMemo(
+    () => ({
+      // Add/refresh a persistent world fact (weather, spawn, timed effect).
+      assert(fact: Fact) {
+        if (coordConnectedRef.current) {
+          coordWsRef.current?.send(JSON.stringify({ op: "assert", fact }));
+        } else {
+          historyRef.current.assert(fact);
+          recomputePromptAndSendRef.current();
+        }
+      },
+      // Remove a fact by key (clear the snowstorm).
+      retract(key: string) {
+        if (coordConnectedRef.current) {
+          coordWsRef.current?.send(JSON.stringify({ op: "retract", key }));
+        } else {
+          historyRef.current.retract(key);
+          recomputePromptAndSendRef.current();
+        }
+      },
+    }),
+    [],
+  );
+
+  // Connect to the shared coordinator when configured. On `facts` we cache the
+  // server's projected clauses and re-narrate; a Director on any machine writing
+  // to the same server thus steers this Player's prompt.
+  useEffect(() => {
+    const url = process.env.NEXT_PUBLIC_COORDINATOR_WS;
+    if (!url) return; // local History mode (#1) — nothing to connect
+    const ws = new WebSocket(url);
+    coordWsRef.current = ws;
+    ws.onopen = () => {
+      coordConnectedRef.current = true;
+    };
+    ws.onclose = () => {
+      coordConnectedRef.current = false;
+    };
+    ws.onerror = () => {
+      coordConnectedRef.current = false;
+    };
+    ws.onmessage = (e) => {
+      try {
+        const m = JSON.parse(String(e.data)) as {
+          type?: string;
+          prompt?: string;
+          health?: number;
+          inventory?: string[];
+        };
+        if (m.type === "facts") {
+          coordPromptRef.current = m.prompt ?? "";
+          recomputePromptAndSendRef.current();
+        } else if (m.type === "vitals") {
+          setVitalsFromServerRef.current(m.health ?? 0, m.inventory ?? []);
+        }
+      } catch {
+        /* ignore malformed frames */
+      }
+    };
+    return () => {
+      coordConnectedRef.current = false;
+      coordWsRef.current = null;
+      ws.close();
+    };
+  }, []);
+
+  // ── on-screen HUD: shared player vitals + inventory ───────────────────────
+  // Health/inventory are SHARED state changed by EITHER role via events: the
+  // Player (event keys with a vital effect) and the Director (vital ops). When
+  // a coordinator is connected they're authoritative on the server so both
+  // machines agree; otherwise they're local. <Hud/> just draws them.
+  // maxHealth / show / starting values come from the active scene's `hud`
+  // section (see StructuredScene.hud). Defaults keep old behaviour. maxHealth in
+  // a ref so the stable applyVital clamps against the current scene's value.
+  const [hudMaxHealth, setHudMaxHealth] = useState(100);
+  const hudMaxHealthRef = useRef(100);
+  const [hudShow, setHudShow] = useState(false);
+  const [hudHealth, setHudHealth] = useState(100);
+  const [hudInventory, setHudInventory] = useState<string[]>([]);
+
+  // Initialise the HUD from a scene's `hud` config (on scene apply / reset).
+  const initHud = useCallback((cfg?: {
+    show?: boolean;
+    maxHealth?: number;
+    health?: number;
+    inventory?: string[];
+  }) => {
+    const max = Math.min(100, cfg?.maxHealth ?? 100); // hard ceiling: 100
+    hudMaxHealthRef.current = max;
+    setHudMaxHealth(max);
+    setHudShow(cfg ? cfg.show !== false : false); // hidden unless the scene opts in
+    setHudHealth(Math.max(0, Math.min(max, cfg?.health ?? max)));
+    setHudInventory([...(cfg?.inventory ?? [])]);
+  }, []);
+
+  // Apply a vital change from either role. Routes to the coordinator (which
+  // reduces + broadcasts back) when connected; else mutates local HUD state.
+  const applyVital = useCallback((change: VitalChange) => {
+    if (coordConnectedRef.current) {
+      coordWsRef.current?.send(JSON.stringify({ op: "vital", change }));
+      return; // authoritative vitals return via {type:"vitals"}
+    }
+    const max = hudMaxHealthRef.current;
+    if (change.reset) {
+      setHudHealth(max);
+      setHudInventory([]);
+      return;
+    }
+    if (change.setHealth !== undefined) {
+      const v = change.setHealth;
+      setHudHealth(Math.max(0, Math.min(max, v)));
+    }
+    if (change.health !== undefined) {
+      const d = change.health;
+      setHudHealth((h) => Math.max(0, Math.min(max, h + d)));
+    }
+    if (change.addItem) {
+      const it = change.addItem;
+      setHudInventory((inv) => (inv.includes(it) ? inv : [...inv, it]));
+    }
+    if (change.removeItem) {
+      const it = change.removeItem;
+      setHudInventory((inv) => inv.filter((x) => x !== it));
+    }
+  }, []);
+  const applyVitalRef = useRef(applyVital);
+  useEffect(() => {
+    applyVitalRef.current = applyVital;
+    // Let the coordinator socket push server vitals into HUD state.
+    setVitalsFromServerRef.current = (health, inventory) => {
+      setHudHealth(health);
+      setHudInventory(inventory);
+    };
+  }, [applyVital]);
+
+  // Console hook — same entry point the Player events and Director use.
+  useEffect(() => {
+    const hud = {
+      damage: (n: number) => applyVitalRef.current({ health: -n }),
+      heal: (n: number) => applyVitalRef.current({ health: n }),
+      setHealth: (n: number) => applyVitalRef.current({ setHealth: n }),
+      addItem: (item: string) => applyVitalRef.current({ addItem: item }),
+      removeItem: (item: string) => applyVitalRef.current({ removeItem: item }),
+      reset: () => applyVitalRef.current({ reset: true }),
+    };
+    (window as unknown as { __hud?: typeof hud }).__hud = hud;
+    return () => {
+      delete (window as unknown as { __hud?: typeof hud }).__hud;
+    };
+  }, []);
+
+  // Dev/testing hook: drive the Director from the browser console, e.g.
+  //   __director.assert({ key: "env:weather", clause: "a heavy snowstorm blows in", weight: 5, life: { kind: "sustained" } })
+  //   __director.retract("env:weather")
+  useEffect(() => {
+    (window as unknown as { __director?: typeof director }).__director =
+      director;
+    return () => {
+      delete (window as unknown as { __director?: typeof director }).__director;
+    };
+  }, [director]);
 
   // ---- Messages from backend ----
 
@@ -763,6 +1004,15 @@ export function LingbotWorldController({ className }: { className?: string }) {
       case "chunk_complete":
         setChunkIndex(msg.chunk_index);
         setActiveAction(msg.active_action || "still");
+        // Age persistent facts one chunk. A `steps` fact that runs out (a
+        // Director spawn on a timer) drops, changing the composed string and
+        // triggering a fresh set_prompt. With a coordinator, aging is the
+        // server's job — forward the chunk tick so it tracks the real rate.
+        if (coordConnectedRef.current) {
+          coordWsRef.current?.send(JSON.stringify({ op: "tick" }));
+        } else if (historyRef.current.advance()) {
+          recomputePromptAndSendRef.current();
+        }
         // The crouch dips each last a single chunk. When the release dip ends,
         // drop the "stands up" line too.
         crouchPressDipRef.current = false;
@@ -798,6 +1048,14 @@ export function LingbotWorldController({ className }: { className?: string }) {
         setIsGenerating(false);
         setIsPaused(false);
         clearMovementInputs(); // never leave a held control stuck after a reset
+        // Drop Director facts — don't leak into the next world. Route to the
+        // coordinator when connected so every client's History resets together.
+        if (coordConnectedRef.current) {
+          coordWsRef.current?.send(JSON.stringify({ op: "clear" }));
+        } else {
+          historyRef.current.clear();
+        }
+        applyVital({ reset: true }); // vitals back to full for the next world
         if (isApplyingExampleRef.current) break;
         setHasPrompt(false);
         setHasImage(false);
@@ -1402,21 +1660,32 @@ export function LingbotWorldController({ className }: { className?: string }) {
       if (!events || slot < 0 || slot >= events.length) return;
       if (!heldSlotsRef.current.includes(slot)) {
         heldSlotsRef.current = [...heldSlotsRef.current, slot];
+        const ev = events[slot];
+        logPlayerCmd("event_press", { slot, name: ev?.name });
+        // Player event may change shared vitals (fires once, on fresh press).
+        // Prefer the event's explicit vital fields; fall back to name keywords.
+        const change: VitalChange | null =
+          ev &&
+          (ev.health !== undefined || ev.addItem || ev.removeItem)
+            ? { health: ev.health, addItem: ev.addItem, removeItem: ev.removeItem }
+            : vitalForEvent(ev?.name);
+        if (change) applyVital(change);
       }
       setHeldSlots(heldSlotsRef.current);
       recomputePromptAndSend();
     },
-    [recomputePromptAndSend],
+    [recomputePromptAndSend, applyVital, logPlayerCmd],
   );
 
   const holdRelease = useCallback(
     (slot: number) => {
       if (!heldSlotsRef.current.includes(slot)) return;
       heldSlotsRef.current = heldSlotsRef.current.filter((x) => x !== slot);
+      logPlayerCmd("event_release", { slot });
       setHeldSlots(heldSlotsRef.current);
       recomputePromptAndSend();
     },
-    [recomputePromptAndSend],
+    [recomputePromptAndSend, logPlayerCmd],
   );
 
   useEffect(() => {
@@ -1768,6 +2037,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
           sceneRef.current = opts.scene;
           setScene(opts.scene);
           setActiveExampleId(opts.id);
+          initHud(opts.scene.hud); // set starting vitals + show/hide from JSON
           const p = composePrompt(opts.scene, false, []).trim();
           lastSentPromptRef.current = p;
           await lw2.setPrompt({ prompt: p });
@@ -1796,6 +2066,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
       pushMoveLat,
       pushLookH,
       pushLookV,
+      initHud,
     ],
   );
 
@@ -2662,6 +2933,18 @@ export function LingbotWorldController({ className }: { className?: string }) {
   const joyDispY = joyDragging ? joy.y : _wasdY;
   const joyLit = joyDragging || _wasdX !== 0 || _wasdY !== 0;
 
+  // Player HUD — health bar + inventory. Returned separately so the app can
+  // mount it INSIDE the video's relative container (absolute overlay on the
+  // viewport), not in the controls panel below it.
+  const hud = (
+    <Hud
+      health={hudHealth}
+      maxHealth={hudMaxHealth}
+      inventory={hudInventory}
+      visible={isReady && hudShow}
+    />
+  );
+
   const controls = (
     <div className="flex flex-col gap-3">
       {/* Status telemetry */}
@@ -2740,7 +3023,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
               {/* Top row: Q | W | E — Q/E fill the gaps either side of W */}
               <div className="flex gap-0.5">
                 <HoldBtn
-                  label="↺ Q"
+                  label="Q"
                   lit={rollDir === -1}
                   disabled={!isReady}
                   className="h-10 w-10"
@@ -2756,7 +3039,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
                   onRelease={() => onMoveLRelease("forward")}
                 />
                 <HoldBtn
-                  label="↻ E"
+                  label="E"
                   lit={rollDir === 1}
                   disabled={!isReady}
                   className="h-10 w-10"
@@ -2795,7 +3078,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
                 edges line up with the W and A/S/D rows. */}
             <div className="flex flex-col gap-0.5">
               <HoldBtn
-                label="⤒ Space"
+                label="Space"
                 lit={jumpLit}
                 disabled={!isReady}
                 className="h-10 w-16 text-[11px]"
@@ -2804,7 +3087,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
                 onUp={onJumpUp}
               />
               <HoldBtn
-                label="⤓ C"
+                label="C"
                 lit={vertDir < 0}
                 disabled={!isReady}
                 className="h-10 w-16 text-[11px]"
@@ -3334,5 +3617,5 @@ export function LingbotWorldController({ className }: { className?: string }) {
     </div>
   );
 
-  return { sidebar, controls };
+  return { sidebar, controls, hud };
 }
