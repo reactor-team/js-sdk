@@ -784,6 +784,11 @@ export function LingbotWorldController({ className }: { className?: string }) {
     window.dispatchEvent(
       new CustomEvent("active-scene-name", { detail: title }),
     );
+    // Clear stale director facts from the shared History on game switch, so the
+    // previous game's asserted world events (weather, spawns, etc.) don't carry over.
+    if (activeExampleId && coordConnectedRef.current) {
+      coordWsRef.current?.send(JSON.stringify({ op: "clear" }));
+    }
   }, [activeExampleId]);
 
   const recomputePromptAndSend = useCallback(() => {
@@ -1727,7 +1732,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
     (slot: number) => {
       const events = sceneRef.current?.events;
       if (!events || slot < 0 || slot >= events.length) return;
-      if (events[slot]?.actor === "director") return; // director-only, not a player key
+      if (events[slot]?.actor === "director") return; // director events use ALPHABETIC hotkeys (fireDirectorEvent), not number keys
       if (!heldSlotsRef.current.includes(slot)) {
         heldSlotsRef.current = [...heldSlotsRef.current, slot];
         const ev = events[slot];

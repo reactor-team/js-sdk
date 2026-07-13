@@ -12,28 +12,6 @@ import { cn } from "@/lib/utils";
 
 type Life = { kind: "sustained" } | { kind: "steps"; n: number } | { kind: "instant" };
 
-const WEATHER: { label: string; key: string; clause: string }[] = [
-  { label: "snow", key: "env:weather", clause: "a heavy snowstorm blows in, thick flakes filling the air" },
-  { label: "rain", key: "env:weather", clause: "heavy rain pours down, streaking the air and soaking every surface" },
-  { label: "fog", key: "env:weather", clause: "dense fog rolls in, muffling the light and softening the distance" },
-  { label: "dusk", key: "env:time", clause: "dusk falls, the light turning golden and shadows stretching long" },
-  { label: "night", key: "env:time", clause: "night falls, the scene lit only by cold moonlight and scattered lamps" },
-];
-
-const SPAWNS: { label: string; key: string; clause: string; steps: number }[] = [
-  { label: "fire", key: "fx:fire", clause: "flames erupt across the ground ahead, orange fire and black smoke rising", steps: 8 },
-  { label: "explosion", key: "fx:explosion", clause: "a sudden explosion erupts ahead in a burst of fire, smoke, and flying debris", steps: 6 },
-];
-
-const VITALS: { label: string; change: Record<string, unknown> }[] = [
-  { label: "−20", change: { health: -20 } },
-  { label: "−50", change: { health: -50 } },
-  { label: "+25", change: { health: 25 } },
-  { label: "full", change: { setHealth: 100 } },
-  { label: "+medkit", change: { addItem: "a medkit" } },
-  { label: "+pistol", change: { addItem: "a pistol" } },
-];
-
 const MODES = ["human", "ai", "both"] as const;
 
 function btn(active = false) {
@@ -179,7 +157,15 @@ export function DirectorPanel({
   const Sep = () => <span className="h-5 w-px bg-white/15" />;
 
   return (
-    <div className="relative z-40 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-white/15 bg-black/85 backdrop-blur-sm px-3 py-2 text-white shadow-lg">
+    <div
+      className="relative z-40 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-white/15 bg-black/85 backdrop-blur-sm px-3 py-2 text-white shadow-lg"
+      onMouseDownCapture={(e) => {
+        // Clicking a director BUTTON must not steal keyboard focus from the game,
+        // so the player can drive WASD/hold-keys and fire director events at the
+        // same time. Inputs (key/clause/ws) keep normal focus.
+        if ((e.target as HTMLElement).closest("button")) e.preventDefault();
+      }}
+    >
       {/* Header + who switch */}
       <div className="flex items-center gap-2">
         <span className={cn("w-2 h-2 rounded-full", connected ? "bg-emerald-400" : "bg-red-500")} />
@@ -192,42 +178,6 @@ export function DirectorPanel({
         {MODES.map((mo) => (
           <button key={mo} className={btn(mode === mo)} onClick={() => send({ op: "mode", mode: mo })}>
             {mo}
-          </button>
-        ))}
-      </div>
-      <Sep />
-
-      {/* Weather / time */}
-      <div className="flex items-center gap-1">
-        {WEATHER.map((w) => (
-          <button key={w.label} className={btn()} onClick={() => assert(w.key, w.clause)}>
-            {w.label}
-          </button>
-        ))}
-        <button className={btn()} onClick={() => send({ op: "retract", role: "human", key: "env:weather" })}>
-          clr wx
-        </button>
-        <button className={btn()} onClick={() => send({ op: "retract", role: "human", key: "env:time" })}>
-          clr time
-        </button>
-      </div>
-      <Sep />
-
-      {/* Spawns */}
-      <div className="flex items-center gap-1">
-        {SPAWNS.map((s) => (
-          <button key={s.label} className={btn()} onClick={() => assert(s.key, s.clause, s.steps)}>
-            {s.label}
-          </button>
-        ))}
-      </div>
-      <Sep />
-
-      {/* Vitals */}
-      <div className="flex items-center gap-1">
-        {VITALS.map((v) => (
-          <button key={v.label} className={btn()} onClick={() => send({ op: "vital", role: "human", change: v.change })}>
-            {v.label}
           </button>
         ))}
       </div>

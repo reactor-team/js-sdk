@@ -1,7 +1,7 @@
 {
   "id": "case2_1012",
   "name": "Jet Ski Cruise",
-  "description": "Third-person jet ski — key 1 = meteor shower, key 2 = sunset glow, key 3 = rides with torch",
+  "description": "Third-person jet ski — key 1 = meteor shower, key 2 = sunset glow, key 3 = rides with torch, director: shark appears / shark lunges",
   "image": {
     "label": "Jet Ski Cruise",
     "src": "/lingbot-cases/jet-ski-cruise.jpg"
@@ -37,6 +37,16 @@
         "name": "Rides with Torch",
         "actor": "player",
         "detail": "The rider raises a burning torch high overhead in one hand, its orange flame streaming and flickering in the wind and trailing a ribbon of smoke, while his other hand grips the handlebars and the jet ski drives forward across the water, spray fanning off the hull."
+      },
+      {
+        "name": "Shark Appears",
+        "actor": "director",
+        "detail": "A large shark surfaces in the clear turquoise water ahead, its dark dorsal fin slicing through the surface and cutting across the jet ski's path, its long shadow gliding just beneath the waves; it stays, circling in the water nearby."
+      },
+      {
+        "name": "Shark Lunges",
+        "actor": "director",
+        "detail": "The shark surges up out of the water right beside the jet ski, jaws breaking the surface in a burst of white spray and foam, then twists back under and keeps pace alongside through the wake."
       }
     ],
     "jumpPrompt": "The man and his jet ski leap up off the water, the hull lifting clear of the sea surface and rising into the air for a moment before dropping back down with a splash.",

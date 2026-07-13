@@ -1,7 +1,7 @@
 {
   "id": "case1_0036",
   "name": "Noir Alley Patrol",
-  "description": "Third-person noir alley — key 1 = fires pistol, key 2 = flamethrower, key 3 = fires rocket launcher, key 4 = knife attack, key 5 = forward roll, key 6 = fall and die",
+  "description": "Third-person noir alley — key 1 = fires pistol, key 2 = flamethrower, key 3 = fires rocket launcher, key 4 = knife attack, key 5 = forward roll, key 6 = fall and die, key 7 = thugs emerge, key 8 = gunman above, key 9 = gang rushes in (director: masked assailant); director oddballs: chicken / yeti / drone",
   "image": {
     "label": "Noir Alley Patrol",
     "src": "/lingbot-cases/noir-alley-patrol.jpg"
@@ -64,6 +64,41 @@
         "cameraVersion": "downed",
         "movementVersion": "downed",
         "detail": "The officer staggers, his knees buckle, and he collapses forward onto the wet asphalt, his body going limp as he sprawls face-down and STAYS DOWN, lying motionless in the spreading puddle without getting back up; his weapon slips from his gloved hand and clatters away across the ground, and he remains still on the ground in the falling rain as the blue and red ambient light glints off the water pooling around him."
+      },
+      {
+        "name": "Thugs Emerge",
+        "actor": "director",
+        "detail": "Two or three shadowy thugs in dark coats step out from the doorways and from behind the green dumpster along the rain-soaked alley, fanning out and closing in on the officer under the flickering neon; they stay, blocking the alley ahead."
+      },
+      {
+        "name": "Gunman on the Fire Escape",
+        "actor": "director",
+        "detail": "An armed gunman appears at the top of the fire escape above the alley, leveling a pistol down toward the officer, his silhouette lit by the blue and red ambient light and the falling rain; he stays up there, covering the alley from above."
+      },
+      {
+        "name": "Gang Rushes In",
+        "actor": "director",
+        "detail": "A gang of dark figures pours into the far end of the alley and charges toward the officer through the rain, boots splashing through the puddles, and they keep coming, filling the alley ahead with advancing attackers."
+      },
+      {
+        "name": "Masked Assailant",
+        "actor": "director",
+        "detail": "A single masked assailant in a hooded raincoat steps silently out of the shadows beside the neon shop sign, a knife glinting in one gloved hand, and advances on the officer through the downpour; he stays, stalking closer."
+      },
+      {
+        "name": "Chicken Struts In",
+        "actor": "director",
+        "detail": "A single scruffy chicken struts out into the middle of the rain-soaked alley, bobbing its head and pecking at the wet asphalt between the puddles, utterly out of place under the blue and red neon; it stays, wandering around near the officer's feet."
+      },
+      {
+        "name": "Yeti Emerges",
+        "actor": "director",
+        "detail": "A huge shaggy white yeti lumbers out of the shadows at the far end of the alley, its matted fur dripping in the rain, towering over the green dumpster as it steps into the neon glow and looms toward the officer; it stays, filling the alley ahead."
+      },
+      {
+        "name": "Drone Descends",
+        "actor": "director",
+        "detail": "A small quadcopter drone drops down into the alley from above, hovering at head height with its rotors spinning and a red camera light glowing, drifting and bobbing as it tracks the officer through the falling rain; it stays, hovering nearby."
       }
     ],
     "jumpPrompt": "The officer springs upward off both feet, leaping high off the wet asphalt, his boots lifting clear of the ground before he drops back down and lands in a low crouch.",
