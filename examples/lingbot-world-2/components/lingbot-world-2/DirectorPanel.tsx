@@ -173,7 +173,13 @@ export function DirectorPanel({
       {/* Header + who switch */}
       <div className="flex items-center gap-2">
         <span className={cn("w-2 h-2 rounded-full", connected ? "bg-emerald-400" : "bg-red-500")} />
-        <span className="font-mono text-[11px] uppercase tracking-widest text-white/80 whitespace-nowrap">Human Director</span>
+        <span className="font-mono text-[11px] uppercase tracking-widest text-white/80 whitespace-nowrap">
+          {mode === "ai"
+            ? "AI Director"
+            : mode === "both"
+              ? "Human + AI Director"
+              : "Human Director"}
+        </span>
         {gameName && (
           <span className="font-mono text-[11px] text-emerald-300/90 whitespace-nowrap">· {gameName}</span>
         )}
@@ -190,10 +196,10 @@ export function DirectorPanel({
       {/* Scene events (director-owned: scene change / death) from the active scene */}
       {sceneEvents.length > 0 && (
         <>
-          <div className="flex items-center gap-1">
+          <div className="flex basis-full flex-wrap items-center gap-1 min-w-0">
             <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">scene</span>
             {sceneEvents.map((ev, i) => (
-              <button key={ev.name} className={btn()} title={ev.clause} onClick={() => fireEvent(ev)}>
+              <button key={ev.name} className={cn(btn(), "whitespace-nowrap")} title={ev.clause} onClick={() => fireEvent(ev)}>
                 {DIRECTOR_HOTKEYS[i] && (
                   <kbd className="mr-1 rounded bg-white/15 px-1 font-mono text-[9px] uppercase text-emerald-200/90">
                     {DIRECTOR_HOTKEYS[i]}
@@ -203,7 +209,6 @@ export function DirectorPanel({
               </button>
             ))}
           </div>
-          <Sep />
         </>
       )}
 

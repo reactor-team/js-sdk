@@ -766,6 +766,18 @@ function EventCard({
         ? "border-amber-300/35"
         : "border-white/10";
 
+  // Actor at a glance: PLAYER events wash emerald, DIRECTOR events wash fuchsia,
+  // so you can tell them apart while scrolling the list without reading the
+  // toggle. Kept as a background tint (+ colored number badge) so it doesn't
+  // fight the diff-state border above.
+  const isDirector = event.actor === "director";
+  const actorTint = isDirector
+    ? "bg-fuchsia-400/[0.05]"
+    : "bg-emerald-400/[0.04]";
+  const actorBadge = isDirector
+    ? "border-fuchsia-400/40 bg-fuchsia-400/15 text-fuchsia-100"
+    : "border-emerald-400/40 bg-emerald-400/15 text-emerald-100";
+
   // For an added event, every sub-field is implicitly "new" — skip
   // per-field marks since the card-level "new" pill already says it.
   const showSub = (changed: boolean) => !isAdded && changed;
@@ -773,12 +785,19 @@ function EventCard({
   return (
     <div
       className={cn(
-        "rounded-md border bg-white/[0.025] p-4 flex flex-col gap-3 flex-1 min-h-[320px]",
+        "rounded-md border p-4 flex flex-col gap-3 flex-1 min-h-[320px]",
+        actorTint,
         cardBorder,
       )}
     >
       <div className="flex items-center gap-2 flex-wrap shrink-0">
-        <span className="inline-flex h-7 w-7 items-center justify-center rounded border border-white/20 bg-white/10 font-mono text-[12px] font-bold text-white/85">
+        <span
+          className={cn(
+            "inline-flex h-7 w-7 items-center justify-center rounded border font-mono text-[12px] font-bold",
+            actorBadge,
+          )}
+          title={isDirector ? "Director world-event" : "Player action"}
+        >
           {index + 1}
         </span>
         <Input

@@ -3174,7 +3174,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
                   name={event.name}
                   empty={detailEmpty && !event.name.trim()}
                   pressed={heldSlots.includes(slot)}
-                  disabled={!isReady}
+                  disabled={false /* player controls stay live even before video connects */}
                   onPress={() => holdPress(slot)}
                   onRelease={() => holdRelease(slot)}
                 />
@@ -3200,7 +3200,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
                 <HoldBtn
                   label="Q"
                   lit={rollDir === -1}
-                  disabled={!isReady}
+                  disabled={false}
                   className="h-10 w-10"
                   title="Roll left (Q)"
                   onDown={() => setRoll(-1)}
@@ -3209,14 +3209,14 @@ export function LingbotWorldController({ className }: { className?: string }) {
                 <PadButton
                   label="W"
                   pressed={moveL === "forward"}
-                  disabled={!isReady}
+                  disabled={false}
                   onPress={() => onMoveLPress("forward")}
                   onRelease={() => onMoveLRelease("forward")}
                 />
                 <HoldBtn
                   label="E"
                   lit={rollDir === 1}
-                  disabled={!isReady}
+                  disabled={false}
                   className="h-10 w-10"
                   title="Roll right (E)"
                   onDown={() => setRoll(1)}
@@ -3228,21 +3228,21 @@ export function LingbotWorldController({ className }: { className?: string }) {
                 <PadButton
                   label="A"
                   pressed={moveLat === "strafe_left"}
-                  disabled={!isReady}
+                  disabled={false}
                   onPress={() => onMoveLatPress("strafe_left")}
                   onRelease={() => onMoveLatRelease("strafe_left")}
                 />
                 <PadButton
                   label="S"
                   pressed={moveL === "back"}
-                  disabled={!isReady}
+                  disabled={false}
                   onPress={() => onMoveLPress("back")}
                   onRelease={() => onMoveLRelease("back")}
                 />
                 <PadButton
                   label="D"
                   pressed={moveLat === "strafe_right"}
-                  disabled={!isReady}
+                  disabled={false}
                   onPress={() => onMoveLatPress("strafe_right")}
                   onRelease={() => onMoveLatRelease("strafe_right")}
                 />
@@ -3255,7 +3255,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
               <HoldBtn
                 label="Space"
                 lit={jumpLit}
-                disabled={!isReady}
+                disabled={false}
                 className="h-10 w-16 text-[11px]"
                 title="Jump (Space) — see the Jump mode switch"
                 onDown={onJumpDown}
@@ -3264,7 +3264,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
               <HoldBtn
                 label="C"
                 lit={vertDir < 0}
-                disabled={!isReady}
+                disabled={false}
                 className="h-10 w-16 text-[11px]"
                 title="Crouch (C) — see the Crouch mode switch below"
                 onDown={() => setVert(-1)}
@@ -3494,7 +3494,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
             <PadButton
               label="↑"
               pressed={lookV === "up"}
-              disabled={!isReady}
+              disabled={false}
               onPress={() => pushLookV("up")}
               onRelease={() => pushLookV("idle")}
             />
@@ -3502,21 +3502,21 @@ export function LingbotWorldController({ className }: { className?: string }) {
               <PadButton
                 label="←"
                 pressed={lookH === "left"}
-                disabled={!isReady}
+                disabled={false}
                 onPress={() => pushLookH("left")}
                 onRelease={() => pushLookH("idle")}
               />
               <PadButton
                 label="↓"
                 pressed={lookV === "down"}
-                disabled={!isReady}
+                disabled={false}
                 onPress={() => pushLookV("down")}
                 onRelease={() => pushLookV("idle")}
               />
               <PadButton
                 label="→"
                 pressed={lookH === "right"}
-                disabled={!isReady}
+                disabled={false}
                 onPress={() => pushLookH("right")}
                 onRelease={() => pushLookH("idle")}
               />
@@ -3532,7 +3532,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
           </span>
           <button
             type="button"
-            disabled={!isReady}
+            disabled={false}
             onClick={toggleMouseLook}
             title={
               mouseLook
@@ -3541,7 +3541,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
             }
             className={cn(
               "rounded-full transition-transform disabled:opacity-30",
-              isReady && "cursor-pointer hover:scale-105",
+              "cursor-pointer hover:scale-105",
               mouseLook && "ring-2 ring-amber-300/60",
             )}
           >
@@ -3622,7 +3622,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
               <button
                 key={m}
                 type="button"
-                disabled={!isReady}
+                disabled={false}
                 onClick={() => changeJumpMode(m)}
                 title={title}
                 className={cn(
@@ -3694,7 +3694,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
               <button
                 key={m}
                 type="button"
-                disabled={!isReady}
+                disabled={false}
                 onClick={() => changeCrouchMode(m)}
                 title={title}
                 className={cn(
@@ -3731,7 +3731,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
               step={ORBIT_RADIUS_STEP}
               min={0}
               value={orbitRadius}
-              disabled={!isReady}
+              disabled={false}
               onChange={(e) => {
                 const v = Number(e.target.value);
                 setOrbitRadius(Number.isFinite(v) ? Math.max(0, v) : 0);
@@ -3746,7 +3746,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
             <div className="flex flex-col">
               <button
                 type="button"
-                disabled={!isReady}
+                disabled={false}
                 onClick={() =>
                   setOrbitRadius((r) => Math.max(0, r + ORBIT_RADIUS_STEP))
                 }
@@ -3757,7 +3757,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
               </button>
               <button
                 type="button"
-                disabled={!isReady}
+                disabled={false}
                 onClick={() =>
                   setOrbitRadius((r) => Math.max(0, r - ORBIT_RADIUS_STEP))
                 }
