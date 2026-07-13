@@ -11,6 +11,7 @@ import { Header } from "@/components/Header";
 import { SnapClip } from "@/components/SnapClip";
 import { LingbotWorldController } from "@/components/lingbot-world-2/LingbotWorldController";
 import { DirectorPanel } from "@/components/lingbot-world-2/DirectorPanel";
+import { DirectorModeSwitch } from "@/components/lingbot-world-2/DirectorModeSwitch";
 
 // Reactor coordinator the SDK connects to. Override with
 // NEXT_PUBLIC_COORDINATOR_URL in .env.local if you need a different one.
@@ -155,6 +156,8 @@ function MainContent() {
               />
               {/* Player HUD — absolute overlay on the viewport */}
               {hud}
+              {/* Persistent runtime switch for the active director */}
+              <DirectorModeSwitch />
               {/* Human Director — toggleable panel, world controls (weather /
                   spawns / vitals / mode), a peer of the Player's controls. */}
               {!directorOpen && (

@@ -29,6 +29,12 @@ SIZE = "320*576"
 FRAME_NUM = 33
 LOCAL_ATTN, SINK = 12, 6
 
+# OPTIONAL AI-Director frame tap: when LINGBOT_FRAME_TAP is set to a path, the
+# latest served frame is written there (atomically) so the AI Director can watch
+# the LIVE render instead of a test image. Off unless the env var is set.
+FRAME_TAP = os.environ.get("LINGBOT_FRAME_TAP")  # e.g. .../coordinator/frame.png
+FRAME_TAP_EVERY = int(os.environ.get("LINGBOT_FRAME_TAP_EVERY", "5"))  # write 1/N frames
+
 
 class ModelEngine:
     def __init__(self):
@@ -100,4 +106,16 @@ class ModelEngine:
                 return None
             f = self._frames[self._idx % len(self._frames)]
             self._idx += 1
-            return f
+        if FRAME_TAP and self._idx % FRAME_TAP_EVERY == 0:
+            self._write_tap(f)  # optional live-frame tap for the AI Director
+        return f
+
+    def _write_tap(self, f: np.ndarray):
+        """Atomically write the latest frame to FRAME_TAP (tmp + replace) so the
+        AI Director never reads a half-written file. Best-effort; never raises."""
+        try:
+            tmp = FRAME_TAP + ".tmp"
+            Image.fromarray(f).save(tmp, "JPEG", quality=85)
+            os.replace(tmp, FRAME_TAP)
+        except Exception as e:  # noqa: BLE001
+            print(f"[engine] frame-tap write failed: {type(e).__name__}: {e}", flush=True)

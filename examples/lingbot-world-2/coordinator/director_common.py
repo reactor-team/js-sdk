@@ -32,6 +32,14 @@ RULES:
 
 You may also change the player's vitals when the frame justifies it (e.g. standing in fire -> damage).
 
+OBJECTIVE — build the world toward this over time, don't just react frame-by-frame:
+{objective}
+
+You have already introduced these events this session (don't repeat them; build ON them):
+{memory}
+
+Elapsed: {step} chunks.
+
 Respond with ONLY a JSON object, no prose, in exactly this shape:
 {{
   "proposals": [
@@ -58,13 +66,19 @@ def load_scene(path):
     scene = data.get("scene", {})
     base = (scene.get("base", {}) or {}).get("default", "An interactive world.")
     events = [e.get("name", "") for e in scene.get("events", [])]
-    return {"base": base, "events": events}
+    obj = data.get("objective") or {}
+    director_goal = obj.get("director") or obj.get("summary") or ""
+    return {"base": base, "events": events, "objective": director_goal}
 
 
 def build_system(scene, state):
+    fired = state.get("fired") or []
     return SYSTEM_TEMPLATE.format(
         base=scene["base"],
         events=", ".join(scene["events"]) or "(none)",
+        objective=scene.get("objective") or "(no explicit objective — keep the scene alive and coherent)",
+        memory=", ".join(fired) or "(none yet)",
+        step=state.get("step", 0),
         facts=state.get("facts") or "(none)",
         health=state.get("health", "?"),
     )
@@ -83,7 +97,8 @@ def parse_json(text):
 
 async def run_director(decide, url, frame_path, scene, interval, once):
     # Latest state pushed by the coordinator (facts + vitals) for prompt context.
-    state = {"facts": "", "health": 100}
+    # `fired` = short memory of the arc (event names introduced); `step` = pacing.
+    state = {"facts": "", "health": 100, "fired": [], "step": 0}
     last_key_clause = {}  # dedup: only re-assert when a key's clause changes
     last_mtime = 0.0
 
@@ -109,6 +124,7 @@ async def run_director(decide, url, frame_path, scene, interval, once):
                     mtime = os.path.getmtime(frame_path)
                     if mtime != last_mtime:
                         last_mtime = mtime
+                        state["step"] += 1  # one look = one chunk of pacing
                         try:
                             frame = Image.open(frame_path).convert("RGB")
                         except OSError:
@@ -133,6 +149,9 @@ async def run_director(decide, url, frame_path, scene, interval, once):
                                 await ws.send(
                                     json.dumps({"op": "assert", "role": "ai", "fact": fact})
                                 )
+                                # Remember the arc (cap the memory so the prompt stays small).
+                                state["fired"].append(key)
+                                state["fired"] = state["fired"][-8:]
                                 print(f"[director] assert {key}: {clause[:60]}", flush=True)
                             vital = result.get("vital")
                             if vital:

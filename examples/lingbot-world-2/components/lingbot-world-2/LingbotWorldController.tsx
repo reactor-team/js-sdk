@@ -18,6 +18,7 @@ import {
   scenesEqual,
   type StructuredExample,
   type StructuredScene,
+  type Objective,
 } from "@/lib/lingbot-world-prompts";
 import { History, type Fact } from "@/lib/history";
 
@@ -28,6 +29,9 @@ const CUSTOM_SCENE_ID = "__custom__";
 import { LayeredSceneEditor } from "@/components/lingbot-world-2/LayeredSceneEditor";
 import { LivePromptInspector } from "@/components/lingbot-world-2/LivePromptInspector";
 import { Hud } from "@/components/lingbot-world-2/Hud";
+import { PadButton } from "@/components/lingbot-world-2/ControlPrimitives";
+import { EventChips } from "@/components/lingbot-world-2/EventChips";
+import { MovePad } from "@/components/lingbot-world-2/MovePad";
 
 // A change to the shared player vitals, emitted by either role (Player event
 // or Director op). Applied server-side (coordinator) or locally.
@@ -289,169 +293,6 @@ function keyToDirectorIndex(key: string): number | undefined {
   if (key.length !== 1) return undefined;
   const i = DIRECTOR_HOTKEYS.indexOf(key.toLowerCase());
   return i >= 0 ? i : undefined;
-}
-
-function PadButton({
-  label,
-  pressed,
-  disabled,
-  onPress,
-  onRelease,
-  className,
-}: {
-  label: React.ReactNode;
-  pressed: boolean;
-  disabled?: boolean;
-  onPress: () => void;
-  onRelease: () => void;
-  className?: string;
-}) {
-  const handlers = disabled
-    ? {}
-    : {
-        onPointerDown: (e: React.PointerEvent) => {
-          e.currentTarget.setPointerCapture(e.pointerId);
-          onPress();
-        },
-        onPointerUp: onRelease,
-        onPointerCancel: onRelease,
-        onPointerLeave: (e: React.PointerEvent) => {
-          if (e.buttons !== 0) onRelease();
-        },
-      };
-
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      {...handlers}
-      className={cn(
-        "h-10 w-10 rounded border font-mono text-xs select-none transition-all",
-        "disabled:opacity-30 disabled:cursor-not-allowed",
-        pressed
-          ? "bg-amber-300/20 border-amber-300/60 text-amber-200 scale-95"
-          : "bg-white/5 border-white/15 text-white/80 hover:bg-white/10 active:scale-95",
-        className,
-      )}
-    >
-      {label}
-    </button>
-  );
-}
-
-// Small hold-to-activate button (roll / jump / crouch) — fires onDown while
-// held, onUp on release. Sits beside the WASD pad.
-function HoldBtn({
-  label,
-  lit,
-  disabled,
-  title,
-  onDown,
-  onUp,
-  className,
-}: {
-  label: React.ReactNode;
-  lit: boolean;
-  disabled?: boolean;
-  title?: string;
-  onDown: () => void;
-  onUp: () => void;
-  className?: string;
-}) {
-  const handlers = disabled
-    ? {}
-    : {
-        onPointerDown: (e: React.PointerEvent) => {
-          e.currentTarget.setPointerCapture(e.pointerId);
-          onDown();
-        },
-        onPointerUp: onUp,
-        onPointerCancel: onUp,
-        onPointerLeave: (e: React.PointerEvent) => {
-          if (e.buttons !== 0) onUp();
-        },
-      };
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      title={title}
-      {...handlers}
-      className={cn(
-        "h-7 w-11 rounded border font-mono text-[10px] select-none transition-all",
-        "disabled:opacity-30 disabled:cursor-not-allowed",
-        lit
-          ? "bg-amber-300/20 border-amber-300/60 text-amber-200 scale-95"
-          : "bg-white/5 border-white/15 text-white/80 hover:bg-white/10 active:scale-95",
-        className,
-      )}
-    >
-      {label}
-    </button>
-  );
-}
-
-function HoldChip({
-  slot,
-  name,
-  empty,
-  pressed,
-  disabled,
-  onPress,
-  onRelease,
-}: {
-  slot: number;
-  name: string;
-  empty: boolean;
-  pressed: boolean;
-  disabled: boolean;
-  onPress: () => void;
-  onRelease: () => void;
-}) {
-  const handlers =
-    disabled || empty
-      ? {}
-      : {
-          onPointerDown: (e: React.PointerEvent) => {
-            e.currentTarget.setPointerCapture(e.pointerId);
-            onPress();
-          },
-          onPointerUp: onRelease,
-          onPointerCancel: onRelease,
-          onPointerLeave: (e: React.PointerEvent) => {
-            if (e.buttons !== 0) onRelease();
-          },
-        };
-  const displayName = name.trim() || `event ${slot + 1}`;
-  return (
-    <div
-      {...handlers}
-      title={empty ? `Slot ${slot + 1} is empty` : displayName}
-      aria-disabled={disabled || empty}
-      className={cn(
-        "group flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] transition-colors text-left max-w-full select-none",
-        (disabled || empty) && "opacity-40 cursor-not-allowed",
-        !disabled && !empty && "cursor-pointer",
-        pressed
-          ? "border-amber-300/80 bg-amber-300/25 text-amber-100"
-          : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10 hover:border-white/25",
-      )}
-    >
-      <span
-        className={cn(
-          "inline-flex h-4 min-w-4 items-center justify-center rounded border px-0.5 text-[9px] font-bold",
-          pressed
-            ? "border-amber-300/80 bg-amber-300/30 text-amber-100"
-            : "border-white/25 bg-white/10 text-white/80",
-        )}
-      >
-        {slot + 1}
-      </span>
-      <span className="truncate">
-        {empty ? <em className="text-white/30">empty</em> : displayName}
-      </span>
-    </div>
-  );
 }
 
 export function LingbotWorldController({ className }: { className?: string }) {
@@ -786,6 +627,22 @@ export function LingbotWorldController({ className }: { className?: string }) {
     }
   }, []);
 
+  // The active scene's objective — HUD shows `summary`, Director panel/AI use
+  // `director`. Bridged to the in-app panel (localStorage + event) and, when
+  // present, the coordinator. Kept in a ref to re-push on (re)connect.
+  const objectiveRef = useRef<Objective | null>(null);
+  const pushObjective = useCallback((obj: Objective | null) => {
+    objectiveRef.current = obj ?? null;
+    setHudObjective(obj?.summary ?? "");
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("directorObjective", JSON.stringify(obj ?? null));
+      window.dispatchEvent(new CustomEvent("director-objective", { detail: obj ?? null }));
+    }
+    if (coordConnectedRef.current) {
+      coordWsRef.current?.send(JSON.stringify({ op: "objective", objective: obj ?? null }));
+    }
+  }, []);
+
   // Broadcast the selected game's title to the UI (Director panel etc.) whenever
   // the active example changes, via the same localStorage + window-event bridge.
   useEffect(() => {
@@ -923,6 +780,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
       if (sceneDirEventsRef.current.length) {
         ws.send(JSON.stringify({ op: "scene_events", events: sceneDirEventsRef.current }));
       }
+      if (objectiveRef.current) {
+        ws.send(JSON.stringify({ op: "objective", objective: objectiveRef.current }));
+      }
     };
     ws.onclose = () => {
       coordConnectedRef.current = false;
@@ -968,6 +828,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
   const [hudShow, setHudShow] = useState(false);
   const [hudHealth, setHudHealth] = useState(100);
   const [hudInventory, setHudInventory] = useState<string[]>([]);
+  const [hudObjective, setHudObjective] = useState<string>(""); // objective.summary
 
   // Initialise the HUD from a scene's `hud` config (on scene apply / reset).
   const initHud = useCallback((cfg?: {
@@ -2095,6 +1956,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
     async (opts: {
       id: string;
       scene: StructuredScene;
+      objective?: Objective;
       image:
         | { kind: "url"; src: string; name: string }
         | { kind: "file"; file: File; previewUrl: string }
@@ -2172,6 +2034,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
           setActiveExampleId(opts.id);
           initHud(opts.scene.hud); // set starting vitals + show/hide from JSON
           pushSceneEvents(opts.scene); // hand director events to the Director panel
+          pushObjective(opts.objective ?? null); // HUD summary + Director intent
           const p = composePrompt(opts.scene, false, []).trim();
           lastSentPromptRef.current = p;
           await lw2.setPrompt({ prompt: p });
@@ -2202,6 +2065,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
       pushLookV,
       initHud,
       pushSceneEvents,
+      pushObjective,
     ],
   );
 
@@ -2229,6 +2093,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
         setSentImagePreview(ex.image.src);
         initHud(effective.hud);
         pushSceneEvents(effective);
+        pushObjective(ex.objective ?? null);
         pendingExampleRef.current = ex;
         return;
       }
@@ -2236,6 +2101,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
       await applyScene({
         id: ex.id,
         scene: effective,
+        objective: ex.objective,
         image: { kind: "url", src: ex.image.src, name: `${ex.id}.jpg` },
         errorLabel: "Failed to apply example",
       });
@@ -2247,6 +2113,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
       applyScene,
       initHud,
       pushSceneEvents,
+      pushObjective,
     ],
   );
 
@@ -3114,6 +2981,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
       health={hudHealth}
       maxHealth={hudMaxHealth}
       inventory={hudInventory}
+      objective={hudObjective}
       visible={isReady && hudShow}
     />
   );
@@ -3153,128 +3021,32 @@ export function LingbotWorldController({ className }: { className?: string }) {
         </div>
       )}
 
-      {/* Hold-key event chips, derived from the active scene's events */}
-      {scene && scene.events.length > 0 && (
-        <div className="flex flex-col gap-1">
-          <span className="font-mono text-[9px] text-white/40 uppercase tracking-wider">
-            Hold (keys 1-{scene.events.length} — reverts on release)
-          </span>
-          <div className="flex flex-wrap gap-1">
-            {scene.events.slice(0, MAX_EVENTS).map((event, slot) => {
-              // Director-owned events (scene change / death) aren't player keys.
-              if (event.actor === "director") return null;
-              const detailEmpty =
-                typeof event.detail === "string"
-                  ? !event.detail.trim()
-                  : !event.detail.static.trim() && !event.detail.dynamic.trim();
-              return (
-                <HoldChip
-                  key={slot}
-                  slot={slot}
-                  name={event.name}
-                  empty={detailEmpty && !event.name.trim()}
-                  pressed={heldSlots.includes(slot)}
-                  disabled={false /* player controls stay live even before video connects */}
-                  onPress={() => holdPress(slot)}
-                  onRelease={() => holdRelease(slot)}
-                />
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* Hold-key event chips, derived from the active scene's player events */}
+      <EventChips
+        scene={scene}
+        heldSlots={heldSlots}
+        onPress={holdPress}
+        onRelease={holdRelease}
+      />
 
       {/* Move (WASD) + Joystick + Look + Mouse-signal HUD */}
       <div className="grid grid-cols-4 gap-3">
-        {/* Move (WASD) + the camera-pose action buttons right beside it */}
-        <div className="flex flex-col items-center gap-1.5">
-          <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">
-            Move (WASD)
-          </span>
-          {/* WASD pad (with Q/E roll above, left & right) + Space/C stacked to the right.
-              items-end so the Space/C stack aligns to the WASD pad (W + ASD), not Q/E. */}
-          <div className="flex items-end gap-2">
-            <div className="flex flex-col items-center gap-0.5">
-              {/* Top row: Q | W | E — Q/E fill the gaps either side of W */}
-              <div className="flex gap-0.5">
-                <HoldBtn
-                  label="Q"
-                  lit={rollDir === -1}
-                  disabled={false}
-                  className="h-10 w-10"
-                  title="Roll left (Q)"
-                  onDown={() => setRoll(-1)}
-                  onUp={() => setRoll(0)}
-                />
-                <PadButton
-                  label="W"
-                  pressed={moveL === "forward"}
-                  disabled={false}
-                  onPress={() => onMoveLPress("forward")}
-                  onRelease={() => onMoveLRelease("forward")}
-                />
-                <HoldBtn
-                  label="E"
-                  lit={rollDir === 1}
-                  disabled={false}
-                  className="h-10 w-10"
-                  title="Roll right (E)"
-                  onDown={() => setRoll(1)}
-                  onUp={() => setRoll(0)}
-                />
-              </div>
-              {/* Bottom row: A | S | D */}
-              <div className="flex gap-0.5">
-                <PadButton
-                  label="A"
-                  pressed={moveLat === "strafe_left"}
-                  disabled={false}
-                  onPress={() => onMoveLatPress("strafe_left")}
-                  onRelease={() => onMoveLatRelease("strafe_left")}
-                />
-                <PadButton
-                  label="S"
-                  pressed={moveL === "back"}
-                  disabled={false}
-                  onPress={() => onMoveLPress("back")}
-                  onRelease={() => onMoveLRelease("back")}
-                />
-                <PadButton
-                  label="D"
-                  pressed={moveLat === "strafe_right"}
-                  disabled={false}
-                  onPress={() => onMoveLatPress("strafe_right")}
-                  onRelease={() => onMoveLatRelease("strafe_right")}
-                />
-              </div>
-            </div>
-            {/* Space jump (up) / C crouch (down) — bigger, stacked to the right of WASD.
-                h-10 + gap-0.5 = the WASD pad's height, so the stack's top & bottom
-                edges line up with the W and A/S/D rows. */}
-            <div className="flex flex-col gap-0.5">
-              <HoldBtn
-                label="Space"
-                lit={jumpLit}
-                disabled={false}
-                className="h-10 w-16 text-[11px]"
-                title="Jump (Space) — see the Jump mode switch"
-                onDown={onJumpDown}
-                onUp={onJumpUp}
-              />
-              <HoldBtn
-                label="C"
-                lit={vertDir < 0}
-                disabled={false}
-                className="h-10 w-16 text-[11px]"
-                title="Crouch (C) — see the Crouch mode switch below"
-                onDown={() => setVert(-1)}
-                onUp={() => setVert(0)}
-              />
-            </div>
-            {/* Jump/Crouch mode switches + charge-level editor live in their own
-                full-width row below the grid (see "Vertical" section). */}
-          </div>
-        </div>
+        {/* Move (WASD) — Q/E roll + WASD + Space/C, extracted to MovePad */}
+        <MovePad
+          rollDir={rollDir}
+          moveL={moveL}
+          moveLat={moveLat}
+          jumpLit={jumpLit}
+          vertDir={vertDir}
+          setRoll={setRoll}
+          onMoveLPress={onMoveLPress}
+          onMoveLRelease={onMoveLRelease}
+          onMoveLatPress={onMoveLatPress}
+          onMoveLatRelease={onMoveLatRelease}
+          onJumpDown={onJumpDown}
+          onJumpUp={onJumpUp}
+          setVert={setVert}
+        />
 
         {/* Charge-level grid editor popup: click cells to cycle each latent's
             up (↑) / down (↓) / still (·) state. Persists automatically. */}

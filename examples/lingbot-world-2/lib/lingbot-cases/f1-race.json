@@ -64,6 +64,7 @@
         "detail": "A wall of fire erupts across the racetrack ahead, orange flames and black smoke rising off the tarmac and spanning the full width of the road in the car's path; it stays, burning across the track."
       }
     ],
+    "hud": { "show": true, "maxHealth": 100, "health": 100, "inventory": [] },
     "jumpPrompt": "The race car launches off a ramp, all four wheels lifting clear of the track as it sails through the air, then drops back down and lands hard on the asphalt with a bounce of its suspension.",
     "crouchPrompt": "The camera drops low toward the track surface behind the car, sinking to a fast, close-to-the-ground chase vantage that emphasises the sense of speed.",
     "standPrompt": "The camera lifts smoothly back up to its normal chase height behind the car, returning to the standard following vantage."

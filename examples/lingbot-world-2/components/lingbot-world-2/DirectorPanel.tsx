@@ -65,6 +65,7 @@ export function DirectorPanel({
   const [mode, setMode] = useState("both");
   const [key, setKey] = useState("");
   const [clause, setClause] = useState("");
+  const [objective, setObjective] = useState<{ summary?: string; director?: string } | null>(null);
   const [sceneEvents, setSceneEvents] = useState<
     { name: string; clause: string; health?: number; addItem?: string }[]
   >([]);
@@ -82,6 +83,7 @@ export function DirectorPanel({
         if (m.type === "facts") setFacts(m.prompt || "");
         else if (m.type === "mode") setMode(m.mode);
         else if (m.type === "scene_events") setSceneEvents(m.events || []);
+        else if (m.type === "objective") setObjective(m.objective || null);
       } catch {
         /* ignore */
       }
@@ -117,6 +119,25 @@ export function DirectorPanel({
     return () => {
       if (typeof window !== "undefined")
         window.removeEventListener("director-scene-events", onEv);
+    };
+  }, [visible]);
+
+  // Active objective (summary + director intent), coordinator-independent —
+  // same localStorage + window-event bridge as scene events.
+  useEffect(() => {
+    const load = (o: unknown) =>
+      setObjective(o && typeof o === "object" ? (o as { summary?: string; director?: string }) : null);
+    try {
+      const raw =
+        typeof window !== "undefined" ? window.localStorage.getItem("directorObjective") : null;
+      if (raw) load(JSON.parse(raw));
+    } catch {
+      /* ignore */
+    }
+    const onEv = (e: Event) => load((e as CustomEvent).detail);
+    if (typeof window !== "undefined") window.addEventListener("director-objective", onEv);
+    return () => {
+      if (typeof window !== "undefined") window.removeEventListener("director-objective", onEv);
     };
   }, [visible]);
 
@@ -192,6 +213,25 @@ export function DirectorPanel({
         ))}
       </div>
       <Sep />
+
+      {/* Objective — player goal (summary) + the Director agent's standing intent */}
+      {objective && (objective.summary || objective.director) && (
+        <div className="flex basis-full items-start gap-2 min-w-0">
+          <span className="font-mono text-[9px] uppercase tracking-wider text-white/40 mt-0.5">objective</span>
+          <div className="flex flex-col min-w-0 leading-tight">
+            {objective.summary && (
+              <span className="font-mono text-[10px] text-white/85 truncate" title={objective.summary}>
+                {objective.summary}
+              </span>
+            )}
+            {objective.director && (
+              <span className="font-mono text-[10px] text-emerald-200/70 truncate" title={objective.director}>
+                director: {objective.director}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Scene events (director-owned: scene change / death) from the active scene */}
       {sceneEvents.length > 0 && (

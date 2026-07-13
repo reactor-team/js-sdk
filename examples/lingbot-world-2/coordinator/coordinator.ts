@@ -106,9 +106,10 @@ interface SceneEvent {
   addItem?: string;
 }
 let sceneEvents: SceneEvent[] = [];
+let objective: unknown = null; // the active scene's objective (summary + director)
 
 interface Op {
-  op: "assert" | "retract" | "clear" | "tick" | "vital" | "mode" | "log" | "scene_events";
+  op: "assert" | "retract" | "clear" | "tick" | "vital" | "mode" | "log" | "scene_events" | "objective";
   fact?: Fact;
   key?: string;
   change?: VitalChange;
@@ -117,10 +118,18 @@ interface Op {
   cmd?: string; // for op:"log" — a player-side command (event/prompt/…)
   detail?: unknown; // for op:"log" — command payload
   events?: SceneEvent[]; // for op:"scene_events"
+  objective?: unknown; // for op:"objective"
 }
 
 function broadcastSceneEvents(): void {
   const msg = JSON.stringify({ type: "scene_events", events: sceneEvents });
+  for (const client of wss.clients) {
+    if (client.readyState === WebSocket.OPEN) client.send(msg);
+  }
+}
+
+function broadcastObjective(): void {
+  const msg = JSON.stringify({ type: "objective", objective });
   for (const client of wss.clients) {
     if (client.readyState === WebSocket.OPEN) client.send(msg);
   }
@@ -140,6 +149,7 @@ wss.on("connection", (ws) => {
   ws.send(JSON.stringify({ type: "vitals", ...vitals }));
   ws.send(JSON.stringify({ type: "mode", mode: directorMode }));
   ws.send(JSON.stringify({ type: "scene_events", events: sceneEvents }));
+  ws.send(JSON.stringify({ type: "objective", objective }));
 
   ws.on("message", (data) => {
     let m: Op;
@@ -173,6 +183,10 @@ wss.on("connection", (ws) => {
       case "scene_events":
         sceneEvents = m.events ?? [];
         broadcastSceneEvents();
+        break;
+      case "objective":
+        objective = m.objective ?? null;
+        broadcastObjective();
         break;
 
       case "mode":

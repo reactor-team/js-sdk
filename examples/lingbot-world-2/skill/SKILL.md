@@ -247,7 +247,7 @@ The model only ever sees one prose string, but the app authors it in layers — 
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | `base`                | World identity: subject, environment, style. Always present.                                 |
 | `camera` / `movement` | Each has `static` and `dynamic` variants — selected by whether the user is currently moving. |
-| `events[]`            | Hold-key detail clauses (keys 1–9). Stack while held, drop on release.                       |
+| `events[]`            | Detail clauses. **Player** events (`actor:"player"`, default) bind to hold-keys 1–9, stack while held, drop on release. **Director** events (`actor:"director"`) are world beats fired from the Director panel / letter hotkeys and asserted as persistent History facts (see below). |
 | vertical              | The jump / crouch / stand sentence while those controls are engaged.                         |
 
 `composePrompt(scene, isMoving, heldSlots, verticalPrompt)` flattens the active selection to prose. `recomputePromptAndSend()` calls it whenever any input changes, dedupes against the last sent string, and sends `set_prompt`. The prompt therefore always narrates what the controls are doing — that text/motion coherence is why driving feels responsive.
@@ -256,8 +256,19 @@ Rules when extending:
 
 1. **All prompt mutations go through `recomputePromptAndSend()`.** If you send prompts from anywhere else, the dedupe ref (`lastSentPromptRef`) and the inspector both start lying.
 2. **New layers get a segment in [`prompt-segments.ts`](../components/lingbot-world-2/prompt-segments.ts)** so the Show-prompt inspector and the editor preview render them. The inspector is the debugging surface for "why does the world look like that" — keep it complete.
-3. **Write event clauses as single present-continuous sentences about the environment** ("rain begins to fall…"), not about the subject. They must compose onto any base without contradicting it.
+3. **Write clauses in single present-continuous sentences that compose onto any base without contradiction.** **Player** event clauses describe the *subject's* action ("the officer fires his pistol…"); **director** event clauses describe the *world* ("armed figures appear far down the alley…"). Everything is **visual only** — the model has no audio, so never write sound ("roars", "cheers", "silence"); render it as what is seen.
 4. **Keep prompts paragraph-length with explicit camera framing.** Short prompts produce choppy, unstable output. Look at the bundled scenes in [`lib/lingbot-cases/`](../lib/lingbot-cases/) for the density to match.
+
+### Player vs Director events, and the coordinator
+
+Each event's `actor` decides how it reaches the model:
+
+- **Player** (`actor:"player"`, default) — a character action on **number keys 1–9**. `holdPress(slot)` adds it to `heldSlots`; `composePrompt` stacks its `detail` while held.
+- **Director** (`actor:"director"`) — a persistent **world** beat, NOT a player key. Fired from the in-app **Director panel** ([`DirectorPanel.tsx`](../components/lingbot-world-2/DirectorPanel.tsx)) or its **alphabetic hotkey** — `DIRECTOR_HOTKEYS = "tyupfghbnvxz"`, the *i*-th director event → the *i*-th letter (letters chosen to avoid every player control). It's `assert`ed as a fact into the shared History and projected onto the player's prompt until cleared.
+
+The **coordinator** ([`coordinator/coordinator.ts`](../coordinator/coordinator.ts), `ws://localhost:8090`) is the authoritative shared History + vitals, so a separate-browser Player and Director (or the **AI Director**, [`coordinator/director_nim.py`](../coordinator/director_nim.py)) agree. The `human` / `ai` / `both` switch gates which director's ops apply; player ops always apply. Both the player and the panel connect to it, so hotkey-fired director events land in the same History.
+
+Events may also carry a signed **`health`** delta (cost/reward) plus `addItem` / `removeItem`; these update the shared vitals and the [`Hud`](../components/lingbot-world-2/Hud.tsx) bar on scenes that declare a `hud` block. Authoring rules for scenes (player/director split, one fixed landmark, destroyed-things-vanish, visual-only) live in the `/add-game` skill.
 
 ### Scenes, examples, and the override store
 

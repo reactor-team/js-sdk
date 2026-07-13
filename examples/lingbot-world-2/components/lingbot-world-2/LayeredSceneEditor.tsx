@@ -906,6 +906,35 @@ function EventCard({
             onChange={(v) => onChange({ ...event, movementVersion: v })}
           />
         </div>
+        {/* Cost / reward: the signed health delta applied to the shared HUD when
+            this event fires. Positive = heal/reward, negative = damage/cost. Only
+            visibly moves a bar on scenes with a `hud` block. */}
+        <div className="flex flex-col gap-1">
+          <FieldLabel>cost · health Δ</FieldLabel>
+          <Input
+            type="number"
+            inputMode="numeric"
+            value={event.health ?? ""}
+            placeholder="0"
+            onChange={(e) => {
+              const raw = e.target.value.trim();
+              const v = raw === "" ? undefined : Number(raw);
+              onChange({
+                ...event,
+                health: v !== undefined && Number.isFinite(v) ? v : undefined,
+              });
+            }}
+            title="Health change when this event fires (shared HUD / coordinator vitals). Positive = heal / reward, negative = damage / cost. Blank = no effect. Only visible on scenes with a hud block."
+            className={cn(
+              "h-8 w-20 font-mono text-[12px] tabular-nums",
+              (event.health ?? 0) < 0
+                ? "text-red-300"
+                : (event.health ?? 0) > 0
+                  ? "text-emerald-300"
+                  : undefined,
+            )}
+          />
+        </div>
         <label className="ml-auto flex items-center gap-2 font-mono text-[11px] text-white/70 cursor-pointer">
           <input
             type="checkbox"

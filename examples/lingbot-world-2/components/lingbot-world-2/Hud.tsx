@@ -9,11 +9,12 @@ interface HudProps {
   health: number;
   maxHealth: number;
   inventory: string[];
+  objective?: string; // objective.summary — the player's goal
   // Hidden until a scene is running, so it doesn't float over the idle page.
   visible: boolean;
 }
 
-export function Hud({ health, maxHealth, inventory, visible }: HudProps) {
+export function Hud({ health, maxHealth, inventory, objective, visible }: HudProps) {
   if (!visible) return null;
   const pct = Math.max(0, Math.min(1, health / maxHealth));
   // green → amber → red as health drops.
@@ -37,6 +38,18 @@ export function Hud({ health, maxHealth, inventory, visible }: HudProps) {
           {Math.round(health)}/{maxHealth}
         </span>
       </div>
+
+      {/* Objective — the player's goal (they're the Pilot) */}
+      {objective && (
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[9px] uppercase tracking-widest text-white/80 w-12">
+            Goal
+          </span>
+          <span className="font-mono text-[10px] text-white/90 max-w-[18rem] truncate" title={objective}>
+            {objective}
+          </span>
+        </div>
+      )}
 
       {/* Inventory */}
       {inventory.length > 0 && (

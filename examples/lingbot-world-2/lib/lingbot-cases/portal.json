@@ -64,6 +64,7 @@
         "detail": "The swirling portal ahead collapses inward, its vortex spiralling tighter and its glow drawing down to a single bright point before it winks out with a soft shimmer, leaving only the dim fog-filled chamber and the device's faint blue hum."
       }
     ],
+    "hud": { "show": true, "maxHealth": 100, "health": 100, "inventory": ["a portal gun"] },
     "jumpPrompt": "The figure springs upward off both feet, leaping high off the metal floor, its boots lifting clear of the ground before it drops back down and lands in a low crouch.",
     "crouchPrompt": "The camera lowers toward the ground as the figure crouches down low, bending its knees and ducking into a compact, hunched stance; the viewpoint sinks smoothly to a low, near-ground vantage and settles there, close to the floor.",
     "standPrompt": "The figure straightens back up out of the crouch, rising to full standing height as the camera lifts smoothly back to its normal eye-level vantage."

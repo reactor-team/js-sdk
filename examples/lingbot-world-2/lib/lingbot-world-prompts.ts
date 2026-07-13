@@ -125,12 +125,24 @@ export interface StructuredScene {
   standPrompt?: string;
 }
 
+// A session objective. `summary` is the player's goal (the human is the Pilot);
+// `director` is the AI Director agent's standing intent so it builds an arc
+// rather than reacting frame-by-frame. success/failure are observer conditions.
+export interface Objective {
+  summary: string;
+  director?: string;
+  success?: string[];
+  failure?: string[];
+  durationChunks?: number;
+}
+
 export interface StructuredExample {
   id: string;
   name: string;
   description?: string;
   image: ImagePreset;
   scene: StructuredScene;
+  objective?: Objective;
 }
 
 function resolveDetail(e: NamedEvent, isMoving: boolean): string {

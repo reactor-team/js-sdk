@@ -44,7 +44,9 @@ The API key never reaches the browser: the server route [`app/api/reactor/token/
 
 - **Quick Start examples.** Three curated scenes (a noir alley patrol, a battlefield horseman, a jet-ski cruise). One click uploads the image, sends the prompt, and starts.
 - **Drive the world.** WASD (or the joystick) moves via `set_move_longitudinal` / `set_move_lateral`; arrows and click-to-engage mouse-look rotate via per-latent `set_camera_pose` deltas; Q/E roll; O toggles orbit (circle a point ahead instead of turning in place).
-- **Trigger world events.** Each scene binds detail clauses to hold-keys 1–9 — hold to weave the event into the prompt, release to revert.
+- **Trigger player actions.** Each scene binds **player** event clauses to hold-keys 1–9 — hold to weave the action into the prompt, release to revert. Player controls stay live even before the video connects.
+- **Direct the world.** Scenes also carry **director** events (`actor: "director"`) — persistent world beats (enemies appear, weather rolls in) that aren't player moves. Fire them from the **Human Director** panel or their **alphabetic hotkeys** (`t y u p f g h b n v x z`, assigned in director order), so one person can drive the character *and* direct the world at once. An **AI Director** ([`coordinator/director_nim.py`](coordinator/director_nim.py)) can play that role instead; the `human` / `ai` / `both` switch gates who's allowed to act. Director events flow through the shared-History **coordinator** ([`coordinator/coordinator.ts`](coordinator/coordinator.ts)) and are projected onto the player's prompt.
+- **Costs & HUD.** Events carry a signed `health` delta (positive = heal/reward, negative = damage/cost). Scenes that declare a `hud` block show a live health bar + inventory the deltas move.
 - **Jump and crouch** with selectable modes, from a simple prompt swap up to hand-editable per-step motion arcs (charge levels, dip patterns). The motion system is documented in [`skill/SKILL.md`](skill/SKILL.md).
 - **Edit prompts live.** Click ✎ on any example to open the layered scene editor (base / camera / movement / events / vertical) — editing the running scene re-sends the prompt on the fly, and edits persist in `localStorage` until you press ↺. The **Show prompt** inspector (under Advanced) shows exactly what composed prompt the model is seeing and why.
 - **Bring your own scene.** The Custom scene card takes your image plus a from-scratch layered prompt.
@@ -57,10 +59,25 @@ The model only ever sees a single prose string (`set_prompt`), but the app autho
 
 - **base** — world identity: subject, environment, style
 - **camera / movement** — each with `static` and `dynamic` variants, selected by whether you're currently moving
-- **events** — hold-key detail clauses that stack while held
+- **events** — detail clauses. **Player** events (`actor: "player"`, the default) stack while their hold-key is held; **director** events (`actor: "director"`) are instead asserted as persistent facts in the coordinator's shared History and projected onto the prompt until cleared
 - **vertical** — the jump / crouch / stand sentence while those controls are engaged
 
 `composePrompt()` flattens the active selection to prose and the controller re-sends it whenever the input state changes — so the text always matches the motion. The inspector panel visualizes this composition live.
+
+### Scene JSON schema
+
+Each scene is one JSON file in [`lib/lingbot-cases/`](lib/lingbot-cases). The `scene` object holds the layer registries (`base`, `camera`, `movement`, each a `{ default, …versions }` map), the `events` array, the vertical sentences (`jumpPrompt` / `crouchPrompt` / `standPrompt`), and an optional `hud` block. The canonical type is `StructuredScene` in [`lib/lingbot-world-prompts.ts`](lib/lingbot-world-prompts.ts). Each **event** is:
+
+| Field                                          | Meaning                                                                                                                           |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                                         | Label on the hold chip / director button.                                                                                       |
+| `actor`                                        | `"player"` (default) → hold-key 1–9 character action · `"director"` → world event fired from the Director panel / letter hotkey. |
+| `detail`                                       | The prose. A string, or `{ static, dynamic }` to branch the clause on whether the player is moving (WASD held).                  |
+| `baseVersion` / `cameraVersion` / `movementVersion` | Which layer version this event composes against (defaults to `"default"`).                                                  |
+| `health`                                       | Signed cost/reward applied to the shared HUD when fired (`+` heal, `−` damage). Optional.                                        |
+| `addItem` / `removeItem`                       | Add/remove an inventory item when fired. Optional.                                                                              |
+
+The authoring **rules** (player/director split, "exactly one landmark at a fixed position," destroyed things vanish, visual-only/no sound, camera matches the image) live in the `/add-game` skill (`.claude/skills/add-game/SKILL.md`).
 
 ## Configuration
 
@@ -83,7 +100,10 @@ The interesting bits, in roughly the order you'd read them:
 | [`components/lingbot-world-2/LingbotWorldController.tsx`](components/lingbot-world-2/LingbotWorldController.tsx) | The heart of the app: message handling, WASD/look/jump/crouch input → typed SDK commands, prompt recomposition, the sidebar and control surfaces.                                                        |
 | [`lib/lingbot-world-prompts.ts`](lib/lingbot-world-prompts.ts)                                                   | The layered `StructuredScene` model and the pure `composePrompt()`.                                                                                                                                      |
 | [`lib/lingbot-cases-examples.ts`](lib/lingbot-cases-examples.ts) + [`lib/lingbot-cases/`](lib/lingbot-cases)     | The example scenes, one JSON per scene.                                                                                                                                                                  |
-| [`components/lingbot-world-2/LayeredSceneEditor.tsx`](components/lingbot-world-2/LayeredSceneEditor.tsx)         | The full-screen layered prompt editor behind every ✎ button.                                                                                                                                             |
+| [`components/lingbot-world-2/LayeredSceneEditor.tsx`](components/lingbot-world-2/LayeredSceneEditor.tsx)         | The full-screen layered prompt editor behind every ✎ button. Per-event: player/director toggle (color-coded), version pickers, and the signed cost (`health Δ`) field.                                    |
+| [`components/lingbot-world-2/DirectorPanel.tsx`](components/lingbot-world-2/DirectorPanel.tsx)                   | In-app Human Director — a second coordinator client (role `human`). Per-game SCENE buttons (with their letter hotkeys), the human/ai/both switch, and free-form assert/clear.                             |
+| [`components/lingbot-world-2/Hud.tsx`](components/lingbot-world-2/Hud.tsx)                                       | Viewport overlay — health bar + inventory, driven by the scene's `hud` block and event `health` deltas.                                                                                                   |
+| [`coordinator/`](coordinator)                                                                                   | The shared-History server (`coordinator.ts`, ws://localhost:8090) that syncs director facts + vitals between the separate Player and Director browsers, plus the AI-director backend (`director_nim.py`).  |
 | [`components/lingbot-world-2/LivePromptInspector.tsx`](components/lingbot-world-2/LivePromptInspector.tsx)       | Read-only live view of the composed prompt with per-layer breakdown.                                                                                                                                     |
 | [`components/lingbot-world-2/prompt-segments.ts`](components/lingbot-world-2/prompt-segments.ts)                 | Segment-level composition mirror that powers the inspector and editor preview.                                                                                                                           |
 | [`components/SnapClip.tsx`](components/SnapClip.tsx)                                                             | Model-agnostic. Captures the last N seconds of the live stream via the SDK's `requestClip(...)` and opens a preview modal with `<ClipPlayer>` + `<ClipDownloadButton>`. Drop-in for any Reactor example. |

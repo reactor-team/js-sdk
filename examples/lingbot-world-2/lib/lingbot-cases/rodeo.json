@@ -99,6 +99,7 @@
         "detail": "The whole crowd rises and drops in a rhythmic wave rolling along the bleachers, arms and hats pumping up and down in unison, the grandstand rippling with synchronized motion."
       }
     ],
+    "hud": { "show": true, "maxHealth": 100, "health": 100, "inventory": [] },
     "jumpPrompt": "The bull launches upward off all four hooves, leaping clear of the arena dirt with the cowboy rising with it, then drops back down and lands heavily in a spray of dust.",
     "crouchPrompt": "The camera lowers toward the arena floor as the cowboy hunches down low over the bull's shoulders, tucking into a compact, braced stance; the viewpoint sinks smoothly to a low, near-ground vantage and settles there, close to the churned dirt.",
     "standPrompt": "The cowboy rises back up out of the crouch, straightening tall over the bull's back as the camera lifts smoothly back to its normal above-and-behind vantage."

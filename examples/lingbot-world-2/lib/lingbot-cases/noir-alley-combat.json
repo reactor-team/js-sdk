@@ -6,6 +6,13 @@
     "label": "Noir Alley Combat",
     "src": "/lingbot-cases/noir-alley-combat.jpg"
   },
+  "objective": {
+    "summary": "Clear the alley — win the fight without dropping below zero health.",
+    "director": "Escalate the threat as the fight goes on: start with rain and gloom, then roll in fog, spawn a second attacker ahead, and ramp the pressure the longer the player survives.",
+    "success": ["the alley is clear and the officer is still standing"],
+    "failure": ["the officer's health reaches zero"],
+    "durationChunks": 20
+  },
   "scene": {
     "base": {
       "default": "A lone uniformed police officer in dark blue tactical gear in a narrow urban alley at night. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE shop door straight ahead at a fixed position AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles on the wet asphalt, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces."
@@ -54,14 +61,14 @@
         "detail": "The officer drops into a low crouch and executes a fast forward roll across the wet asphalt, tucking his shoulder and rising smoothly back to his feet in a ready stance."
       },
       {
-        "name": "Reinforcements Arrive",
+        "name": "Enemies Appear",
         "actor": "director",
-        "detail": "More shadowy figures step out of the darkness at the far end of the alley and close in, fanning out under the flickering neon; they stay, surrounding the fight."
+        "detail": "A group of dark, armed figures appears far down the road at the distant far end of the alley, small and silhouetted against the neon glow through the falling rain, then starts advancing up the wet street toward the officer, steadily growing larger as they close the distance; they keep coming."
       },
       {
         "name": "Enemies Attack",
         "actor": "director",
-        "detail": "The figures lurking in the alley lunge at the officer all at once — fists, knives, and clubs swinging in from the shadows as the attackers close the distance and strike, driving the officer back against the wet brick wall under the flickering neon."
+        "detail": "The figures that came up the road close the last of the distance and attack the officer all at once — fists, knives, and clubs swinging in from straight ahead as they drive him back against the wet brick wall under the flickering neon."
       }
     ],
     "hud": {
