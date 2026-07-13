@@ -8,8 +8,7 @@ type CapturableCanvas = HTMLCanvasElement & {
   captureStream?: (frameRate?: number) => MediaStream;
 };
 
-// The model's native pacing; matches its demo assets (fps: 24 for every
-// validation sample, including the still man_static one).
+// The model's native pacing; matches the demo clips (fps: 24).
 const STREAM_FPS = 24;
 
 // The streamed frame is a fixed 16:9 canvas. The model picks its output
@@ -24,10 +23,10 @@ const FRAME_HEIGHT = 720;
 // and captured with canvas.captureStream(24); the draw loop keeps repainting
 // the same frame so the capturer keeps emitting it — from the model's side
 // this is indistinguishable from a video of a motionless scene, which is
-// exactly the drag-to-animate setup from the model's demos (man_static.mp4
-// is literally a clip of a still frame). This component *produces* the
-// track; useSourcePublisher publishes it. The same canvas is the "original"
-// pane in the stage, so what you see is what the model receives.
+// exactly the drag-to-animate setup: a still subject the pointer brings to
+// life. This component *produces* the track; useSourcePublisher publishes
+// it. The same canvas is the "original" pane in the stage, so what you see
+// is what the model receives.
 export function ImageSource({
   imageUrl,
   onTrack,

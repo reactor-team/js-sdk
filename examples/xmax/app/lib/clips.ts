@@ -4,31 +4,26 @@ export interface PresetClip {
   src: string;
 }
 
-// The model's own demo source videos, matching its validation samples. Each
-// pairs with a demo prompt chip: ball + "swap object for character" (kitten
-// reference), hand + "character in scene" (pick any reference), woman +
-// "replace with reference" (knight reference), and man_static + "follow the
-// drag" (steer with the pointer instead of a reference image).
+// Demo source videos - generated originals, no third-party footage (see
+// public/clips/CREDITS.md). Each pairs with a demo prompt chip: ball +
+// "swap object for character", dog + "replace with reference", and figure +
+// "follow the drag" (steer the still figure with the pointer instead of a
+// reference image).
 export const PRESET_CLIPS: readonly PresetClip[] = [
   {
     id: "ball",
-    label: "Plush ball (swap object)",
+    label: "Red ball (swap object)",
     src: "/clips/ball.mp4",
   },
   {
-    id: "hand",
-    label: "Hand (character in scene)",
-    src: "/clips/hand.mp4",
+    id: "dog",
+    label: "Dog (replace with reference)",
+    src: "/clips/dog.mp4",
   },
   {
-    id: "woman",
-    label: "Woman (replace with reference)",
-    src: "/clips/woman.mp4",
-  },
-  {
-    id: "man-static",
-    label: "Man, still (drag to animate)",
-    src: "/clips/man_static.mp4",
+    id: "figure",
+    label: "Figure (drag to animate)",
+    src: "/clips/figure.mp4",
   },
 ] as const;
 

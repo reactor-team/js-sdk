@@ -3,27 +3,23 @@ export interface PromptExample {
   prompt: string;
 }
 
-// English translations of the model's own demo prompts (its validation
-// samples, originally in Chinese). Each pairs with a demo asset:
-// 1 -> kitten.jpg + ball.mp4, 2 -> hand.mp4 + any reference image,
-// 3 -> knight.jpg + woman.mp4, 4 -> man_static.mp4 + the drag pointer.
+// Prompt chips derived from the model's own demo prompts (originally in
+// Chinese). Each pairs with a demo source clip:
+// 1 -> ball.mp4 + a reference image, 2 -> dog.mp4 + a reference image,
+// 3 -> figure.mp4 + the drag pointer.
 export const PROMPT_EXAMPLES: readonly PromptExample[] = [
   {
     label: "Swap object for character",
     prompt:
-      "the specified character replaces the white plush ball and interacts with the scene",
-  },
-  {
-    label: "Character in scene",
-    prompt: "the specified character interacts with the scene",
+      "the specified character replaces the red rubber ball and interacts with the scene",
   },
   {
     label: "Replace with reference",
     prompt:
-      "replace the character in the video with the character from the reference image",
+      "replace the subject in the video with the character from the reference image",
   },
   {
     label: "Follow the drag",
-    prompt: "the character in the video follows the drag trajectory",
+    prompt: "the subject in the video follows the drag trajectory",
   },
 ] as const;
