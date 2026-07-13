@@ -1,6 +1,7 @@
 {
   "id": "gta_boulevard_07",
   "name": "GTA Boulevard",
+  "hidden": true,
   "description": "Third-person sunny GTA street — key 1 = car accident, key 2 = draw & fire pistol, key 3 = punch combo, key 4 = sprint, key 5 = pick up cash",
   "image": {
     "label": "GTA Boulevard",

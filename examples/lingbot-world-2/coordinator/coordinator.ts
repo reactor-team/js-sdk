@@ -50,18 +50,34 @@ const wss = new WebSocketServer({ port: PORT });
 const MAX_HEALTH = 100;
 const vitals = { health: MAX_HEALTH, maxHealth: MAX_HEALTH, inventory: [] as string[] };
 
-function broadcast(): void {
-  const msg = JSON.stringify({ type: "facts", prompt: history.project() });
+function sendAll(msg: string): void {
   for (const client of wss.clients) {
     if (client.readyState === WebSocket.OPEN) client.send(msg);
   }
 }
 
+function broadcast(): void {
+  sendAll(JSON.stringify({ type: "facts", prompt: history.project() }));
+  broadcastState();
+}
+
+// Full structured coordinator state, for the optional state visualization.
+function broadcastState(): void {
+  sendAll(
+    JSON.stringify({
+      type: "state",
+      mode: directorMode,
+      vitals,
+      objective,
+      facts: history.snapshot(),
+      sceneEvents,
+    }),
+  );
+}
+
 function broadcastVitals(): void {
-  const msg = JSON.stringify({ type: "vitals", ...vitals });
-  for (const client of wss.clients) {
-    if (client.readyState === WebSocket.OPEN) client.send(msg);
-  }
+  sendAll(JSON.stringify({ type: "vitals", ...vitals }));
+  broadcastState();
 }
 
 // Which director's ops are accepted: "both" | "human" | "ai". Player ops
@@ -122,24 +138,18 @@ interface Op {
 }
 
 function broadcastSceneEvents(): void {
-  const msg = JSON.stringify({ type: "scene_events", events: sceneEvents });
-  for (const client of wss.clients) {
-    if (client.readyState === WebSocket.OPEN) client.send(msg);
-  }
+  sendAll(JSON.stringify({ type: "scene_events", events: sceneEvents }));
+  broadcastState();
 }
 
 function broadcastObjective(): void {
-  const msg = JSON.stringify({ type: "objective", objective });
-  for (const client of wss.clients) {
-    if (client.readyState === WebSocket.OPEN) client.send(msg);
-  }
+  sendAll(JSON.stringify({ type: "objective", objective }));
+  broadcastState();
 }
 
 function broadcastMode(): void {
-  const msg = JSON.stringify({ type: "mode", mode: directorMode });
-  for (const client of wss.clients) {
-    if (client.readyState === WebSocket.OPEN) client.send(msg);
-  }
+  sendAll(JSON.stringify({ type: "mode", mode: directorMode }));
+  broadcastState();
 }
 
 wss.on("connection", (ws) => {
@@ -150,6 +160,16 @@ wss.on("connection", (ws) => {
   ws.send(JSON.stringify({ type: "mode", mode: directorMode }));
   ws.send(JSON.stringify({ type: "scene_events", events: sceneEvents }));
   ws.send(JSON.stringify({ type: "objective", objective }));
+  ws.send(
+    JSON.stringify({
+      type: "state",
+      mode: directorMode,
+      vitals,
+      objective,
+      facts: history.snapshot(),
+      sceneEvents,
+    }),
+  );
 
   ws.on("message", (data) => {
     let m: Op;
@@ -177,6 +197,7 @@ wss.on("connection", (ws) => {
       cmd: m.cmd,
       detail: m.detail,
     });
+    // Feed the UI activity log with meaningful actions (skip noisy setup/ticks).
     switch (m.op) {
       case "log":
         break; // record-only; nothing to apply

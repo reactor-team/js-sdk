@@ -101,6 +101,7 @@
         "detail": "The figures lurking in the alley lunge at the officer all at once — fists, knives, and clubs swinging in from the shadows as the attackers close the distance and strike, driving the officer back against the wet brick wall under the flickering neon."
       }
     ],
+    "hud": { "show": true, "maxHealth": 100, "health": 100, "inventory": ["a service pistol"] },
     "jumpPrompt": "The officer springs upward off both feet, leaping high off the wet asphalt, his boots lifting clear of the ground before he drops back down and lands in a low crouch.",
     "crouchPrompt": "The camera lowers toward the ground as the character crouches down low, bending the knees and ducking the head into a compact, hunched stance; the viewpoint sinks smoothly to a low, near-ground vantage and settles there, close to the floor.",
     "standPrompt": "The character straightens back up out of the crouch, rising to full standing height as the camera lifts smoothly back to its normal eye-level vantage."

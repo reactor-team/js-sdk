@@ -12,6 +12,7 @@ import { SnapClip } from "@/components/SnapClip";
 import { LingbotWorldController } from "@/components/lingbot-world-2/LingbotWorldController";
 import { DirectorPanel } from "@/components/lingbot-world-2/DirectorPanel";
 import { DirectorModeSwitch } from "@/components/lingbot-world-2/DirectorModeSwitch";
+import { StateInspector } from "@/components/lingbot-world-2/StateInspector";
 
 // Reactor coordinator the SDK connects to. Override with
 // NEXT_PUBLIC_COORDINATOR_URL in .env.local if you need a different one.
@@ -126,6 +127,7 @@ function StatusBar() {
 function MainContent() {
   const { sidebar, controls, hud } = LingbotWorldController({});
   const [directorOpen, setDirectorOpen] = useState(false);
+  const [stateOpen, setStateOpen] = useState(false);
 
   return (
     <main className="relative z-10 flex-1 min-h-0 flex flex-col px-4 sm:px-6 pb-4 sm:pb-6 pt-3 max-lg:overflow-y-auto lg:overflow-hidden">
@@ -170,6 +172,18 @@ function MainContent() {
                   Human Director
                 </Button>
               )}
+              {/* Optional coordinator-state visualization (bottom-left) */}
+              {!stateOpen && (
+                <Button
+                  size="xs"
+                  variant="secondary"
+                  onClick={() => setStateOpen(true)}
+                  className="absolute bottom-3 left-3 z-40 h-7 px-3 font-mono text-[11px] bg-black/70 border-white/15 hover:bg-black/85 text-white/80"
+                >
+                  State
+                </Button>
+              )}
+              <StateInspector visible={stateOpen} onClose={() => setStateOpen(false)} />
             </div>
 
             <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 sm:p-4">

@@ -141,6 +141,20 @@ export class History {
     }
   }
 
+  // ── snapshot: structured live facts (for a state visualization) ────────────
+  // Ordered as projected; `remaining` = chunks left (∞ for sustained, "1" for
+  // instant, n-age for steps).
+  snapshot(): { key: string; clause: string; weight: number; remaining: string }[] {
+    return [...this.live.values()]
+      .sort((a, b) => a.fact.weight - b.fact.weight)
+      .map((l) => {
+        const life = l.fact.life;
+        const remaining =
+          life.kind === "sustained" ? "∞" : life.kind === "instant" ? "1" : String(life.n - l.age);
+        return { key: l.fact.key, clause: l.fact.clause, weight: l.fact.weight, remaining };
+      });
+  }
+
   // ── projection: the single output — the conditioning signal this step ──────
   project(): string {
     const clauses = [...this.live.values()]

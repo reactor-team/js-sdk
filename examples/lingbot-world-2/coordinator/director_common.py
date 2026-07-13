@@ -15,67 +15,76 @@ import re
 import websockets
 from PIL import Image
 
-# The Director's charter. Invariants keep it from warping the base world; the
-# grounding rule keeps it from inventing things that aren't plausibly on screen.
+# The Director's charter. The AI Director has the SAME action set as the human
+# Director: it may ONLY trigger the scene's authored director events (by name) —
+# it does not invent free-form prose. The authored clause + vitals are applied
+# exactly as the human's scene buttons do.
 SYSTEM_TEMPLATE = """You are the DIRECTOR of a real-time interactive world. A video model renders \
-the world; you steer it by proposing short prose events that get appended to its prompt.
+the world; you steer it by triggering pre-authored events at the right moments.
 
 THE WORLD (identity — never contradict this):
 {base}
 
-RULES:
-- Keep the controllable subject unchanged in identity, pose and position — never move or replace it.
-- Never switch to a first-person view.
-- Only propose what is PLAUSIBLE given what is visible in the frame. Do not invent off-screen events.
-- Prefer environmental changes (weather, time of day) and background hazards/entities AHEAD of the subject.
-- Each event is one vivid sentence.
-
-You may also change the player's vitals when the frame justifies it (e.g. standing in fire -> damage).
-
 OBJECTIVE — build the world toward this over time, don't just react frame-by-frame:
 {objective}
 
-You have already introduced these events this session (don't repeat them; build ON them):
+You have already fired these events this session (build ON them; don't just repeat):
 {memory}
-
 Elapsed: {step} chunks.
 
-Respond with ONLY a JSON object, no prose, in exactly this shape:
-{{
-  "proposals": [
-    {{"key": "env:weather", "clause": "a heavy snowstorm blows in, thick flakes filling the air",
-      "weight": 5, "life": {{"kind": "sustained"}}}}
-  ],
-  "vital": {{"health": -10}}
-}}
-Lifetimes: {{"kind":"sustained"}} (until cleared) | {{"kind":"steps","n":6}} (fades) | {{"kind":"instant"}}.
-Use stable keys (env:weather, env:time, entity:*, fx:*) so re-proposing refreshes rather than duplicates.
-Propose 0-2 events. Empty proposals list is fine when nothing should change.
-The current known events already registered: {events}
+You may ONLY trigger events from this list — the SAME set the human director has.
+Do NOT invent new events or write your own prose:
+{events_list}
+
+RULES:
+- Trigger an event only when it is PLAUSIBLE and fitting given what is visible in the frame and the objective.
+- Choose 0-2 events. An empty list is correct when nothing should change yet.
+
+Respond with ONLY a JSON object, no prose:
+{{"events": ["<exact event name from the list>"]}}
+
 Current world facts: {facts}
 Current health: {health}"""
 
-USER_TEXT = "Here is the latest frame. Propose events as JSON only."
+USER_TEXT = "Here is the latest frame. Choose which authored events to fire, as JSON only."
 
 
 def load_scene(path):
     if not path or not os.path.exists(path):
-        return {"base": "An interactive world.", "events": []}
+        return {"base": "An interactive world.", "dir_events": [], "objective": ""}
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     scene = data.get("scene", {})
     base = (scene.get("base", {}) or {}).get("default", "An interactive world.")
-    events = [e.get("name", "") for e in scene.get("events", [])]
+    # The director's action set = the scene's DIRECTOR-owned events (same buttons
+    # the human sees). Each carries its authored clause + optional vitals.
+    dir_events = []
+    for e in scene.get("events", []):
+        if e.get("actor") != "director":
+            continue
+        det = e.get("detail")
+        clause = det if isinstance(det, str) else (det or {}).get("static", "")
+        dir_events.append(
+            {"name": e.get("name", ""), "clause": clause,
+             "health": e.get("health"), "addItem": e.get("addItem")}
+        )
     obj = data.get("objective") or {}
     director_goal = obj.get("director") or obj.get("summary") or ""
-    return {"base": base, "events": events, "objective": director_goal}
+    return {"base": base, "dir_events": dir_events, "objective": director_goal}
 
 
 def build_system(scene, state):
     fired = state.get("fired") or []
+    dir_events = scene.get("dir_events") or []
+    events_list = (
+        "\n".join(
+            f'- "{e["name"]}": {e["clause"][:90]}' for e in dir_events if e["name"]
+        )
+        or "(this scene has no director events)"
+    )
     return SYSTEM_TEMPLATE.format(
         base=scene["base"],
-        events=", ".join(scene["events"]) or "(none)",
+        events_list=events_list,
         objective=scene.get("objective") or "(no explicit objective — keep the scene alive and coherent)",
         memory=", ".join(fired) or "(none yet)",
         step=state.get("step", 0),
@@ -130,35 +139,55 @@ async def run_director(decide, url, frame_path, scene, interval, once):
                         except OSError:
                             await asyncio.sleep(interval)
                             continue
-                        result = parse_json(decide(frame, build_system(scene, state)))
+                        try:
+                            raw = decide(frame, build_system(scene, state))
+                        except Exception as e:  # noqa: BLE001 — surface to the feed
+                            msg = f"{type(e).__name__}: {e}"
+                            print(f"[director] VLM error: {msg}", flush=True)
+                            await ws.send(
+                                json.dumps({"op": "log", "role": "ai", "cmd": "error", "detail": msg})
+                            )
+                            await asyncio.sleep(interval)
+                            continue
+                        result = parse_json(raw)
+                        if raw and result is None:
+                            await ws.send(
+                                json.dumps({"op": "log", "role": "ai", "cmd": "error",
+                                            "detail": "VLM returned unparseable JSON"})
+                            )
                         if result:
-                            for p in result.get("proposals", []) or []:
-                                key = p.get("key")
-                                clause = p.get("clause")
-                                if not key or not clause:
+                            # The AI may ONLY fire the scene's authored director
+                            # events (by name) — same as the human's scene buttons.
+                            by_name = {
+                                e["name"].lower(): e for e in (scene.get("dir_events") or [])
+                            }
+                            for name in result.get("events", []) or []:
+                                ev = by_name.get(str(name).strip().lower())
+                                if not ev or not ev["clause"]:
                                     continue
-                                if last_key_clause.get(key) == clause:
-                                    continue  # unchanged — skip
-                                last_key_clause[key] = clause
-                                fact = {
-                                    "key": key,
-                                    "clause": clause,
-                                    "weight": p.get("weight", 5),
-                                    "life": p.get("life", {"kind": "sustained"}),
-                                }
-                                await ws.send(
-                                    json.dumps({"op": "assert", "role": "ai", "fact": fact})
-                                )
-                                # Remember the arc (cap the memory so the prompt stays small).
-                                state["fired"].append(key)
+                                # Mirror the human fireEvent: key = scene:<slug>.
+                                key = "scene:" + ev["name"].lower().replace(" ", "_")
+                                if last_key_clause.get(key) == ev["clause"]:
+                                    continue  # already active — skip
+                                last_key_clause[key] = ev["clause"]
+                                await ws.send(json.dumps({
+                                    "op": "assert", "role": "ai",
+                                    "fact": {"key": key, "clause": ev["clause"],
+                                             "weight": 2, "life": {"kind": "sustained"}},
+                                }))
+                                if ev.get("health") is not None or ev.get("addItem"):
+                                    change = {}
+                                    if ev.get("health") is not None:
+                                        change["health"] = ev["health"]
+                                    if ev.get("addItem"):
+                                        change["addItem"] = ev["addItem"]
+                                    await ws.send(json.dumps(
+                                        {"op": "vital", "role": "ai", "change": change}
+                                    ))
+                                # Remember the arc (cap so the prompt stays small).
+                                state["fired"].append(ev["name"])
                                 state["fired"] = state["fired"][-8:]
-                                print(f"[director] assert {key}: {clause[:60]}", flush=True)
-                            vital = result.get("vital")
-                            if vital:
-                                await ws.send(
-                                    json.dumps({"op": "vital", "role": "ai", "change": vital})
-                                )
-                                print(f"[director] vital {vital}", flush=True)
+                                print(f"[director] fire {ev['name']}", flush=True)
                         if once:
                             break
                 await asyncio.sleep(interval)

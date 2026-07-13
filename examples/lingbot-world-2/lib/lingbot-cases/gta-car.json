@@ -1,6 +1,7 @@
 {
   "id": "gta_lowrider_13",
   "name": "GTA Lowrider",
+  "hidden": true,
   "description": "Third-person GTA lowrider street — key 1 = enter car & drive, key 2 = exit car, key 3 = honk horn, key 4 = headlights, key 5 = spray tag, key 6 = hydraulics bounce",
   "image": {
     "label": "GTA Lowrider",

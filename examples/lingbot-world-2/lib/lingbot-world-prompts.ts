@@ -143,6 +143,9 @@ export interface StructuredExample {
   image: ImagePreset;
   scene: StructuredScene;
   objective?: Objective;
+  // Private/invisible: when true, the scene is NOT shown in the Quick Start list
+  // (still resolvable by id via STRUCTURED_EXAMPLES). Set "hidden": true in the JSON.
+  hidden?: boolean;
 }
 
 function resolveDetail(e: NamedEvent, isMoving: boolean): string {
@@ -278,9 +281,13 @@ export function emptyScene(): StructuredScene {
 // than hand-authored here; see lingbot-cases-examples.ts for the conversion
 // (base_prompt -> base.default, per-slot actions -> events, "space" slot ->
 // jumpPrompt) and provenance notes.
-export const EXAMPLES: StructuredExample[] = LINGBOT_CASES_EXAMPLE_LIST;
+// Quick Start list — hidden scenes are filtered out (private/invisible).
+export const EXAMPLES: StructuredExample[] = LINGBOT_CASES_EXAMPLE_LIST.filter(
+  (ex) => !ex.hidden,
+);
 
-// The same examples keyed by id. The controller looks up scenes by example
-// id and recomposes set_prompt strings as movement / hold-key state changes.
+// ALL examples keyed by id (including hidden ones) — the controller resolves
+// scenes by id, so a hidden scene is still applyable/referenceable, just not
+// shown in the Quick Start list.
 export const STRUCTURED_EXAMPLES: Record<string, StructuredExample> =
-  Object.fromEntries(EXAMPLES.map((ex) => [ex.id, ex]));
+  Object.fromEntries(LINGBOT_CASES_EXAMPLE_LIST.map((ex) => [ex.id, ex]));

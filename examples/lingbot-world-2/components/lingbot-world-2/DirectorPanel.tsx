@@ -180,6 +180,10 @@ export function DirectorPanel({
   if (!visible) return null;
 
   const Sep = () => <span className="h-5 w-px bg-white/15" />;
+  // In AI-only mode the human's ops are dropped by the coordinator anyway, so
+  // disable the human-action buttons for clear feedback. The who-switch and
+  // feed toggle stay enabled so you can switch back.
+  const humanDisabled = mode === "ai";
 
   return (
     <div
@@ -239,7 +243,7 @@ export function DirectorPanel({
           <div className="flex basis-full flex-wrap items-center gap-1 min-w-0">
             <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">scene</span>
             {sceneEvents.map((ev, i) => (
-              <button key={ev.name} className={cn(btn(), "whitespace-nowrap")} title={ev.clause} onClick={() => fireEvent(ev)}>
+              <button key={ev.name} disabled={humanDisabled} className={cn(btn(), "whitespace-nowrap")} title={ev.clause} onClick={() => fireEvent(ev)}>
                 {DIRECTOR_HOTKEYS[i] && (
                   <kbd className="mr-1 rounded bg-white/15 px-1 font-mono text-[9px] uppercase text-emerald-200/90">
                     {DIRECTOR_HOTKEYS[i]}
@@ -257,24 +261,27 @@ export function DirectorPanel({
         <input
           value={key}
           onChange={(e) => setKey(e.target.value)}
+          disabled={humanDisabled}
           placeholder="key"
-          className="h-7 w-28 rounded border border-white/15 bg-white/5 px-2 font-mono text-[11px] text-white/80 placeholder:text-white/25"
+          className="h-7 w-28 rounded border border-white/15 bg-white/5 px-2 font-mono text-[11px] text-white/80 placeholder:text-white/25 disabled:opacity-30"
         />
         <input
           value={clause}
           onChange={(e) => setClause(e.target.value)}
+          disabled={humanDisabled}
           placeholder="clause of prose…"
-          className="h-7 w-40 rounded border border-white/15 bg-white/5 px-2 font-mono text-[11px] text-white/80 placeholder:text-white/25"
+          className="h-7 w-40 rounded border border-white/15 bg-white/5 px-2 font-mono text-[11px] text-white/80 placeholder:text-white/25 disabled:opacity-30"
         />
         <button
           className={btn()}
+          disabled={humanDisabled}
           onClick={() => {
             if (key.trim() && clause.trim()) assert(key.trim(), clause.trim());
           }}
         >
           assert
         </button>
-        <button className={btn()} onClick={() => send({ op: "clear" })}>
+        <button className={btn()} disabled={humanDisabled} onClick={() => send({ op: "clear" })}>
           clear
         </button>
       </div>
