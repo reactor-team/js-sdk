@@ -145,10 +145,15 @@ function Workspace() {
     );
   };
 
-  // Bumped on a user reset and used as a React key on children that hold
-  // local draft state (prompt draft, reference preview), remounting them in
-  // step with the model's reset — which clears prompt, reference image, and
-  // pointer server-side.
+  // Bumped by a user-initiated reset (the Source panel's Reset button) and
+  // used as a React key on children that hold local draft state (prompt
+  // draft, reference preview), remounting them to clear those drafts in step
+  // with the reset, which clears prompt, reference image, and pointer
+  // server-side. Driven by the reset *action*, not the generation_stopped
+  // message, because the app also issues resets that must keep drafts:
+  // swapping the reference image resets to re-lock the model's resolution and
+  // then re-arms the prompt (see ReferenceImage), so its preview and the
+  // prompt must survive that reset.
   const [resetNonce, setResetNonce] = useState(0);
 
   // While generation is stopped, black out the stage (the WebRTC view would
@@ -163,12 +168,12 @@ function Workspace() {
     setUi((s) => reduce(s, msg));
   });
 
-  useX2GenerationStopped((msg) => {
+  useX2GenerationStopped(() => {
+    // Black out the stage on any stop. The draft-clearing remount is driven
+    // by the reset action (resetNonce, from the Source panel), not this
+    // message, so the reference-swap reset leaves the prompt and preview
+    // intact while a user reset clears them.
     setStageCleared(true);
-    // A `reference_image_changed` stop is an automatic restart (a fresh
-    // generation_started follows immediately) — keep drafts. Only a user
-    // reset remounts the draft-holding children.
-    if (msg.reason === "reset") setResetNonce((n) => n + 1);
   });
 
   useX2ReferenceImageAccepted((msg) => {
@@ -201,7 +206,7 @@ function Workspace() {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col lg:h-screen lg:overflow-hidden">
       <Header />
       {/* The stage comes first in the DOM: on mobile it is pinned (sticky)
           on top so the model output stays visible while the controls scroll
@@ -209,8 +214,8 @@ function Workspace() {
           <main>, so it can sit flush against the viewport edge with a solid
           backdrop. lg:flex-row-reverse restores the desktop sidebar-left /
           stage-right split. */}
-      <main className="flex flex-1 flex-col lg:flex-row-reverse lg:gap-6 lg:p-6">
-        <section className="flex flex-col gap-4 max-lg:sticky max-lg:top-0 max-lg:z-10 max-lg:bg-zinc-950/95 max-lg:p-4 max-lg:pb-3 max-lg:backdrop-blur-sm lg:min-w-0 lg:flex-1">
+      <main className="flex flex-1 flex-col lg:min-h-0 lg:flex-row-reverse lg:gap-6 lg:p-6">
+        <section className="flex flex-col gap-4 max-lg:sticky max-lg:top-0 max-lg:z-10 max-lg:bg-zinc-950/95 max-lg:p-4 max-lg:pb-3 max-lg:backdrop-blur-sm lg:min-h-0 lg:min-w-0 lg:flex-1 lg:overflow-hidden">
           <Stage
             ui={ui}
             mode={mode}
@@ -220,7 +225,7 @@ function Workspace() {
             onTrack={setSourceTrack}
           />
         </section>
-        <aside className="flex w-full flex-col gap-4 p-4 pt-1 lg:w-80 lg:shrink-0 lg:p-0">
+        <aside className="flex w-full flex-col gap-4 p-4 pt-1 lg:w-80 lg:shrink-0 lg:min-h-0 lg:overflow-y-auto lg:p-0">
           <StatusBadge />
           {commandError && (
             <CommandError
@@ -241,18 +246,16 @@ function Workspace() {
             onSelectVideo={(url) => setVideoUrl(url)}
             onSelectImage={(url) => setImageUrl(url)}
             onTrack={setSourceTrack}
+            onUserReset={() => setResetNonce((n) => n + 1)}
           />
           <Prompt key={`p${resetNonce}`} activePrompt={ui.activePrompt} />
-          <PointerPanel
-            x={ui.pointerX}
-            y={ui.pointerY}
-            active={ui.pointerActive}
-          />
+          <PointerPanel />
           <ReferenceImage
             key={`r${resetNonce}`}
             generating={ui.generating}
             hasReference={ui.hasReference}
             accepted={ui.referenceAccepted}
+            activePrompt={ui.activePrompt}
           />
           <SnapClip />
         </aside>

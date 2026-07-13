@@ -10,22 +10,27 @@ import { Panel, cn, EYEBROW, FOCUS_RING, errorMessage } from "./ui";
 // sends set_reference_image with the returned FileRef; the model answers with
 // reference_image_accepted (or command_error for an undecodable file).
 //
-// The reference conditions a run from its first block. Setting it while
-// generating restarts the stream automatically (generation_stopped with
-// reason `reference_image_changed`, then a fresh generation_started) — no
-// manual reset needed. The parent keys this component on the reset nonce: a
-// user reset clears the reference server-side, and the remount drops the
-// local preview in step.
+// The reference conditions a run from its first block. Swapping it mid-run
+// resets first, then re-stages the reference and re-arms the active prompt: a
+// soft in-place swap leaves the session strided to the previous reference's
+// resolution, so a differently-sized image mis-strides the frame buffer and
+// the output shears into desaturated streaks. The reset re-locks the session
+// to the new reference; re-sending the prompt resumes the edit. The parent
+// keys this component on the reset nonce, but only a *user* reset (the Source
+// panel) bumps it — this swap's reset deliberately does not, so the preview
+// and prompt draft survive.
 export function ReferenceImage({
   generating,
   hasReference,
   accepted,
+  activePrompt,
 }: {
   generating: boolean;
   hasReference: boolean;
   accepted: { width: number; height: number } | null;
+  activePrompt: string | null;
 }) {
-  const { uploadFile, setReferenceImage, status } = useX2();
+  const { uploadFile, setReferenceImage, reset, setPrompt, status } = useX2();
   const inputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -45,7 +50,14 @@ export function ReferenceImage({
     setError(null);
     try {
       const ref = await uploadFile(file);
+      // Reset before applying the new reference. A soft in-place swap leaves
+      // the session strided to the previous reference's resolution, so a
+      // differently-sized image mis-strides the frame buffer and shears the
+      // output into desaturated streaks. Reset re-locks the session; then
+      // re-stage the reference and re-arm the prompt so the edit resumes.
+      await reset();
       await setReferenceImage({ reference_image: ref });
+      if (activePrompt) await setPrompt({ prompt: activePrompt });
       setPreviewUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return URL.createObjectURL(file);
@@ -149,7 +161,7 @@ export function ReferenceImage({
         <p className="mt-2 text-xs text-zinc-500">
           Accepted ({accepted.width}×{accepted.height}).{" "}
           {generating
-            ? "Conditioning the current run — replacing it restarts the stream."
+            ? "Conditioning the current run — replacing it resets and restarts the stream to re-lock resolution."
             : "Will condition the next run."}
         </p>
       )}

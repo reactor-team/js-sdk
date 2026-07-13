@@ -25,11 +25,6 @@ export interface X2UiState {
   hasReference: boolean;
   /** Current source-frame policy (see the set_keep_backlog command). */
   keepBacklog: boolean;
-  /** Drag-pointer position, normalized to the output frame (0..1). */
-  pointerX: number;
-  pointerY: number;
-  /** Whether a drag gesture is currently steering the edited subject. */
-  pointerActive: boolean;
   /** Last reference_image_accepted ack ({width, height} of the decoded image). */
   referenceAccepted: { width: number; height: number } | null;
 }
@@ -41,9 +36,25 @@ export const DEFAULT_UI_STATE: X2UiState = {
   outputHeight: null,
   hasReference: false,
   keepBacklog: false,
-  // The model's documented defaults: centered, not pressed.
-  pointerX: 0.5,
-  pointerY: 0.5,
-  pointerActive: false,
   referenceAccepted: null,
+};
+
+// The drag pointer, echoed by the model in every `state_update`. Deliberately
+// kept out of X2UiState: it changes ~30 Hz while a drag is in flight, so
+// folding it into the shared snapshot would defeat reduce()'s bail-out and
+// re-render the whole workspace every frame. Only the Pointer readout reads
+// it, and it subscribes to the stream on its own (see PointerPanel).
+export interface X2PointerReadout {
+  /** Drag-pointer position, normalized to the output frame (0..1). */
+  x: number;
+  y: number;
+  /** Whether a drag gesture is currently steering the edited subject. */
+  active: boolean;
+}
+
+export const DEFAULT_POINTER_READOUT: X2PointerReadout = {
+  // The model's documented defaults: centered, not pressed.
+  x: 0.5,
+  y: 0.5,
+  active: false,
 };

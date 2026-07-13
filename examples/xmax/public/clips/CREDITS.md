@@ -13,4 +13,8 @@ no trademarked or copyrighted characters.
 | `dog.mp4` | a golden retriever walking across a garden | replace with reference |
 | `figure.mp4` | a wooden artist's mannequin waving | drag to animate |
 
-The reference images in `../refs/` are likewise generated originals.
+The reference images in `../refs/` are likewise generated originals — a single
+clean subject on a plain backdrop, generated with Replicate
+`black-forest-labs/flux-1.1-pro` (2026-07-13) at landscape 16:9 (1344×768) to
+match the clips and the model's landscape output. Keeping every asset on one
+aspect avoids the portrait-reference-into-landscape-output distortion.

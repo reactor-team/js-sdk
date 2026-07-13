@@ -38,10 +38,19 @@ Get a **production** API key (`rk_...`) from the [Reactor dashboard](https://rea
 - **Video** - pick a preset clip or a local file. Instead of uploading it, the app **plays it and streams its frames into the same `source` track**, so the model edits it on its live path — the source pane and the edited pane share one feed and can't drift apart.
 - **Image** - pick a still image and the app repeats it as a constant feed. Set a prompt and drag on the output to animate the scene.
 - **Steer the prompt** - setting a prompt is what arms generation; re-prompt mid-stream at any time and the new edit lands at the next chunk boundary, with no re-render and no break in the stream. Prompts are editing instructions, not scene descriptions - the [prompt guide](https://docs.reactor.inc/model-api-reference/xmax/prompt-guide) covers how to write edits that land where you aim them.
-- **Reference image** - upload an image the model conditions on (a face, an outfit, a style target). The upload rides `uploadFile()` and lands as a `set_reference_image` command; swapping it mid-stream restarts generation automatically.
+- **Reference image** - upload an image the model conditions on (a face, an outfit, a style target). The upload rides `uploadFile()` and lands as a `set_reference_image` command; swapping it mid-stream **resets the run and re-arms your prompt automatically** so the model re-locks to the new reference (a differently-sized reference would otherwise shear the output into desaturated streaks).
 - **Drag to steer** - press and drag on the edited output to drive the model's pointer (`set_pointer`, normalized 0..1 output-frame coordinates). Releasing deactivates it. Works in every source mode; the sidebar's Pointer panel shows the raw `pointer_x` / `pointer_y` / `pointer_active` values as the model echoes them back in `state_update`, so you can watch exactly what the API receives.
 - **Keep backlog** - a checkbox on the source panel toggles `set_keep_backlog`: keep every source frame queued (edit all of them, latency grows) or drop stale frames to stay real-time.
 - **Snap a clip** - capture the last N seconds of the stream (model-agnostic recording).
+
+> **Aspect ratios — keep the source and reference on the same one.** The model
+> derives its output resolution from the source stream, so a landscape source
+> gives a landscape edit. Conditioning that landscape output on a **portrait**
+> reference image (or vice-versa) distorts the result badly — a stretched or
+> squashed character. Every preset here is landscape 16:9 (clips, webcam, and
+> the reference images) so they line up. If you bring your own reference, match
+> the source's orientation. The app does **not** normalize the reference for you
+> yet; it uploads what you give it.
 
 ## Architecture at a glance
 

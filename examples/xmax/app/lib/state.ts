@@ -3,7 +3,10 @@ import type { X2UiState } from "./types";
 
 // Projects model `state_update` snapshots into X2UiState. Returns the
 // previous object when nothing changed so React can bail out of re-rendering
-// the whole tree on the model's frequent identical echoes.
+// the whole tree on the model's frequent identical echoes. The drag pointer
+// is intentionally absent: it rides the same snapshot but changes every frame
+// of a drag, so it lives outside this reducer (see PointerPanel) — that keeps
+// the bail-out effective through a drag, when only the pointer is moving.
 //
 // referenceAccepted is the one field the snapshot doesn't carry (it comes
 // from the discrete reference_image_accepted ack), so it passes through
@@ -19,9 +22,6 @@ export function reduce(state: X2UiState, msg: X2StateUpdateMessage): X2UiState {
     outputHeight: (msg.height as number | null) ?? null,
     hasReference: msg.has_reference_image,
     keepBacklog: msg.keep_backlog,
-    pointerX: msg.pointer_x,
-    pointerY: msg.pointer_y,
-    pointerActive: msg.pointer_active,
     referenceAccepted: msg.has_reference_image ? state.referenceAccepted : null,
   };
   const changed = (Object.keys(next) as (keyof X2UiState)[]).some(

@@ -31,6 +31,7 @@ export function Prompt({ activePrompt }: { activePrompt: string | null }) {
           <button
             key={ex.label}
             type="button"
+            title={ex.prompt}
             disabled={!ready}
             onClick={() => applyPreset(ex.prompt)}
             className={cn(

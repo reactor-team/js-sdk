@@ -32,6 +32,7 @@ export function SourcePanel({
   onSelectVideo,
   onSelectImage,
   onTrack,
+  onUserReset,
 }: {
   generating: boolean;
   /** The model-reported keep_backlog policy (from the state_update snapshot). */
@@ -41,6 +42,8 @@ export function SourcePanel({
   onSelectVideo: (url: string, name: string) => void;
   onSelectImage: (url: string, name: string) => void;
   onTrack: (track: MediaStreamTrack | null) => void;
+  /** Bump the parent's reset nonce so draft-holding panels remount and clear. */
+  onUserReset: () => void;
 }) {
   const { reset, setKeepBacklog, status } = useX2();
   const ready = status === "ready";
@@ -116,12 +119,18 @@ export function SourcePanel({
             variant="secondary"
             size="sm"
             disabled={!ready}
-            onClick={() => reset().catch(console.error)}
+            onClick={() => {
+              // User reset: clear the draft-holding panels (nonce bump) and
+              // stop generation. A reference swap does its own reset without
+              // this bump, so it keeps the prompt and preview (see XmaxApp).
+              onUserReset();
+              reset().catch(console.error);
+            }}
           >
             Reset
           </Button>
           <span className="text-xs text-zinc-500">
-            Editing — reset to change source or reference
+            Editing — reset to change the source
           </span>
         </div>
       ) : (
