@@ -9,6 +9,7 @@ Self-contained, runnable Next.js apps built on `@reactor-team/js-sdk` and the ty
 | [`lingbot-world-2/`](./lingbot-world-2) | [`@reactor-models/lingbot-world-2`](https://www.npmjs.com/package/@reactor-models/lingbot-world-2)             | Interactive world model you drive like a game. Two-axis WASD driving, per-latent `set_camera_pose` motion (mouse-look, roll, orbit, jump arcs, crouch dips), hold-key world events, a layered prompt workbench with live editor + inspector, attn-window / KV-cache knobs.         |
 | [`longlive-v2/`](./longlive-v2)         | [`@reactor-models/longlive-v2`](https://www.npmjs.com/package/@reactor-models/longlive-v2)                     | Multi-shot **director's storyboard**. Compose shots (`set_shot`) and cuts (`scene_cut`) on a chunk timeline, schedule beats with `schedule_shot` / `schedule_scene_cut`, then direct live. Surfaces the per-scene 48-chunk budget and how cuts extend length. Snap-clip recording. |
 | [`sana-streaming/`](./sana-streaming)   | [`@reactor-team/js-sdk`](https://www.npmjs.com/package/@reactor-team/js-sdk) (generic; no typed model package) | Streaming **V2V editor**. Live webcam transform via manual `camera` publish, file-clip editing with side-by-side compare, mid-stream re-prompting, seed control, snap-clip recording.                                                                                              |
+| [`xmax/`](./xmax)                       | [`@reactor-team/js-sdk`](https://www.npmjs.com/package/@reactor-team/js-sdk) (typed client vendored in-app)    | Streaming **V2V editor** on XMAX X2. Webcam, file-clip, or still-image sources on one `source` track, side-by-side compare, mid-stream re-prompting, reference-image conditioning via `uploadFile`, drag-to-steer pointer on the output, keep-backlog toggle, snap-clip recording. |
 
 ## Running an example
 
@@ -33,6 +34,7 @@ npx create-reactor-app my-app --model lingbot
 npx create-reactor-app my-app --model lingbot-world-2
 npx create-reactor-app my-app --model longlive-v2
 npx create-reactor-app my-app --model sana-streaming
+npx create-reactor-app my-app --model xmax
 ```
 
 `create-reactor-app` pulls from this folder on `main`, so anything that lands here ships to the CLI on the next release of `create-reactor-app`.
