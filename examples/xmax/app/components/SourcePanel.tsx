@@ -1,8 +1,9 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { useX2 } from "@/app/lib/x2/sdk.react";
 import type { X2SourceMode } from "@/app/lib/types";
-import { Button, Panel, SegmentedToggle } from "./ui";
+import { Button, Panel, SegmentedToggle, Switch } from "./ui";
 import { ImagePicker } from "./ImagePicker";
 import { VideoPicker } from "./VideoPicker";
 import { WebcamSource } from "./WebcamSource";
@@ -48,13 +49,40 @@ export function SourcePanel({
   const { reset, setKeepBacklog, status } = useX2();
   const ready = status === "ready";
 
-  // The checkbox renders the model's own keep_backlog (echoed back via
-  // state_update after set_keep_backlog), so it can never drift from the
-  // policy actually in effect. False drops stale source frames so the edit
-  // tracks "now" (right for webcam); true consumes every frame in order for
-  // smoother motion at the cost of growing delay (right for clips and
-  // drag-to-animate).
+  // `keepBacklog` is the model's echoed policy (via state_update): false drops
+  // stale source frames so the edit tracks "now" (right for webcam); true
+  // consumes every frame in order for smoother motion at the cost of growing
+  // delay (right for clips and drag-to-animate). It's the source of truth, but
+  // it only arrives after a round trip and takes effect from the next block, so
+  // driving the switch straight off it leaves it dead for a beat after a click.
+  //
+  // `pending` holds the value the user just asked for and drives the switch
+  // immediately (optimistic). It clears when the echo confirms it, or after a
+  // timeout that falls back to the echoed truth — the command send is
+  // fire-and-forget (it never rejects, and a rejected command comes back as a
+  // separate command_error banner), so without the timeout a request the model
+  // never applied would leave the switch stuck showing a lie.
+  const [pending, setPending] = useState<boolean | null>(null);
+  const pendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const displayKeepBacklog = pending ?? keepBacklog;
+
+  useEffect(() => {
+    if (pending !== null && keepBacklog === pending) {
+      setPending(null);
+      if (pendingTimer.current) clearTimeout(pendingTimer.current);
+    }
+  }, [keepBacklog, pending]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingTimer.current) clearTimeout(pendingTimer.current);
+    };
+  }, []);
+
   const toggleKeepBacklog = (value: boolean) => {
+    setPending(value);
+    if (pendingTimer.current) clearTimeout(pendingTimer.current);
+    pendingTimer.current = setTimeout(() => setPending(null), 4000);
     setKeepBacklog({ keep_backlog: value }).catch(console.error);
   };
 
@@ -96,22 +124,24 @@ export function SourcePanel({
         )
       )}
 
-      <label className="mt-3 flex items-start gap-2">
-        <input
-          type="checkbox"
-          checked={keepBacklog}
-          disabled={!ready}
-          onChange={(e) => toggleKeepBacklog(e.target.checked)}
-          className="mt-0.5 accent-[var(--color-brand)] disabled:opacity-40"
-        />
+      <div className="mt-3 flex items-start justify-between gap-3">
         <span className="min-w-0 text-xs text-zinc-400">
           Keep frame backlog
           <span className="block text-zinc-600">
-            On: every frame, smoother motion, growing delay. Off: newest frames,
-            bounded latency.
+            {pending !== null
+              ? "Applying…"
+              : displayKeepBacklog
+                ? "Every frame: smoother motion, growing delay."
+                : "Newest frames: bounded latency."}
           </span>
         </span>
-      </label>
+        <Switch
+          aria-label="Keep frame backlog"
+          checked={displayKeepBacklog}
+          disabled={!ready}
+          onChange={toggleKeepBacklog}
+        />
+      </div>
 
       {generating ? (
         <div className="mt-3 flex items-center gap-2">
