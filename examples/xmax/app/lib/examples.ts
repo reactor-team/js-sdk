@@ -5,8 +5,8 @@ export interface PromptExample {
 
 // English translations of the model's own demo prompts (its validation
 // samples, originally in Chinese). Each pairs with a demo asset:
-// 1 -> rabbit.jpg + ball.mp4, 2 -> gunqiushou.jpg + hand.mp4,
-// 3 -> bear.jpg + woman.mp4, 4 -> man_static.mp4 + the drag pointer.
+// 1 -> kitten.jpg + ball.mp4, 2 -> hand.mp4 + any reference image,
+// 3 -> knight.jpg + woman.mp4, 4 -> man_static.mp4 + the drag pointer.
 export const PROMPT_EXAMPLES: readonly PromptExample[] = [
   {
     label: "Swap object for character",

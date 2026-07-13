@@ -5,9 +5,9 @@ export interface PresetClip {
 }
 
 // The model's own demo source videos, matching its validation samples. Each
-// pairs with a demo prompt chip: ball + "swap object for character" (rabbit
-// reference), hand + "character in scene" (ball-roller reference), woman +
-// "replace with reference" (bear reference), and man_static + "follow the
+// pairs with a demo prompt chip: ball + "swap object for character" (kitten
+// reference), hand + "character in scene" (pick any reference), woman +
+// "replace with reference" (knight reference), and man_static + "follow the
 // drag" (steer with the pointer instead of a reference image).
 export const PRESET_CLIPS: readonly PresetClip[] = [
   {
@@ -38,10 +38,14 @@ export interface PresetImage {
   src: string;
 }
 
-// The model's demo images. They double as image-mode sources (streamed as a
-// constant feed for drag-to-animate) and as reference-image presets.
+// Demo images. They double as image-mode sources (streamed as a constant
+// feed for drag-to-animate) and as reference-image presets. The model's own
+// validation images are third-party IP, so instead we ship generated
+// originals: one clean single subject each, on a plain backdrop, so they
+// isolate cleanly for a character swap and read well as a steerable subject.
 export const PRESET_IMAGES: readonly PresetImage[] = [
-  { id: "rabbit", label: "Rabbit", src: "/refs/rabbit.jpg" },
-  { id: "gunqiushou", label: "Ball-roller", src: "/refs/gunqiushou.jpg" },
-  { id: "bear", label: "Bear", src: "/refs/bear.jpg" },
+  { id: "kitten", label: "Kitten", src: "/refs/kitten.jpg" },
+  { id: "knight", label: "Knight", src: "/refs/knight.jpg" },
+  { id: "wizard", label: "Wizard", src: "/refs/wizard.jpg" },
+  { id: "dragon", label: "Dragon", src: "/refs/dragon.jpg" },
 ] as const;
