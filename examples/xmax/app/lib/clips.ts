@@ -46,5 +46,4 @@ export const PRESET_IMAGES: readonly PresetImage[] = [
   { id: "kitten", label: "Kitten", src: "/refs/kitten.jpg" },
   { id: "knight", label: "Knight", src: "/refs/knight.jpg" },
   { id: "wizard", label: "Wizard", src: "/refs/wizard.jpg" },
-  { id: "dragon", label: "Dragon", src: "/refs/dragon.jpg" },
 ] as const;
