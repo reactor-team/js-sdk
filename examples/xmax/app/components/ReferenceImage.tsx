@@ -5,6 +5,55 @@ import { useX2 } from "@/app/lib/x2/sdk.react";
 import { PRESET_IMAGES } from "@/app/lib/clips";
 import { Panel, cn, EYEBROW, FOCUS_RING, errorMessage } from "./ui";
 
+// The runtime feeds the reference image to the model as a driving video, and
+// its GStreamer pipeline scrambles the color channels when a streamed frame's
+// width or height isn't a multiple of 4 — an arbitrarily-sized upload shears
+// the output into desaturated streaks, worst right after a mid-run swap. Floor
+// each dimension to the nearest multiple of 4 and center-crop to it before
+// upload (shaves at most 3px per side, no visible change). The demo presets
+// are already mod-4, so this is a no-op for them; it only rescues odd-sized
+// user uploads. Best-effort: any failure returns the original file so the
+// upload still goes through.
+async function toMod4(file: File): Promise<Blob> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error("decode failed"));
+      image.src = url;
+    });
+    const w = Math.max(4, Math.floor(img.naturalWidth / 4) * 4);
+    const h = Math.max(4, Math.floor(img.naturalHeight / 4) * 4);
+    if (w === img.naturalWidth && h === img.naturalHeight) return file;
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    // Center-crop the shaved pixels rather than scaling, so nothing distorts.
+    ctx.drawImage(
+      img,
+      (img.naturalWidth - w) / 2,
+      (img.naturalHeight - h) / 2,
+      w,
+      h,
+      0,
+      0,
+      w,
+      h,
+    );
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/png"),
+    );
+    return blob ?? file;
+  } catch {
+    return file;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 // Reference-image panel for character/object insertion or swap. Picking an
 // image uploads it via the SDK's presigned-URL protocol (uploadFile) and then
 // sends set_reference_image with the returned FileRef; the model answers with
@@ -49,7 +98,10 @@ export function ReferenceImage({
     setBusy(true);
     setError(null);
     try {
-      const ref = await uploadFile(file);
+      // Normalize to mod-4 dimensions first (see toMod4): the runtime streams
+      // the reference as a driving video and scrambles the color channels on
+      // any frame whose width or height isn't a multiple of 4.
+      const ref = await uploadFile(await toMod4(file), { name: file.name });
       // Reset before applying the new reference. A soft in-place swap leaves
       // the session strided to the previous reference's resolution, so a
       // differently-sized image mis-strides the frame buffer and shears the
