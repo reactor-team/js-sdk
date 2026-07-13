@@ -278,6 +278,19 @@ function keyToHoldSlot(key: string): number | undefined {
   return undefined;
 }
 
+// Alphabetic hotkeys for DIRECTOR events, so a solo player can act (numbers 1-9
+// + WASD) AND direct (letters) at the same time. Assigned in scene director-order
+// (1st director event -> "t", 2nd -> "y", ...). Letters deliberately avoid every
+// player control: WASD move, Q/E roll, O orbit, C crouch, J/Space jump, M mouse,
+// R rotation, and the arrow-look keys. DirectorPanel labels its SCENE buttons
+// from this same string so the on-screen keys always match.
+export const DIRECTOR_HOTKEYS = "tyupfghbnvxz";
+function keyToDirectorIndex(key: string): number | undefined {
+  if (key.length !== 1) return undefined;
+  const i = DIRECTOR_HOTKEYS.indexOf(key.toLowerCase());
+  return i >= 0 ? i : undefined;
+}
+
 function PadButton({
   label,
   pressed,
@@ -1763,6 +1776,42 @@ export function LingbotWorldController({ className }: { className?: string }) {
     [recomputePromptAndSend, logPlayerCmd],
   );
 
+  // Fire a DIRECTOR event straight from its alphabetic hotkey (DIRECTOR_HOTKEYS),
+  // so a solo player can act (numbers/WASD) AND direct (letters) at once. Mirrors
+  // the Director panel's fireEvent: assert the clause as a sustained shared-History
+  // fact (role "human") + apply any vital. dirIndex is the event's director-order
+  // position (same order as sceneDirEventsRef / the panel's SCENE buttons). No-op
+  // if not connected to the coordinator (character keeps playing regardless).
+  const fireDirectorEvent = useCallback(
+    (dirIndex: number) => {
+      if (!coordConnectedRef.current) return;
+      const ev = sceneDirEventsRef.current[dirIndex];
+      if (!ev) return;
+      const key = "scene:" + ev.name.toLowerCase().replace(/\s+/g, "_");
+      coordWsRef.current?.send(
+        JSON.stringify({
+          op: "assert",
+          role: "human",
+          fact: { key, clause: ev.clause, weight: 2, life: { kind: "sustained" } },
+        }),
+      );
+      if (ev.health !== undefined || ev.addItem) {
+        coordWsRef.current?.send(
+          JSON.stringify({
+            op: "vital",
+            role: "human",
+            change: { health: ev.health, addItem: ev.addItem },
+          }),
+        );
+      }
+      logPlayerCmd("director_fire", {
+        key: DIRECTOR_HOTKEYS[dirIndex],
+        name: ev.name,
+      });
+    },
+    [logPlayerCmd],
+  );
+
   useEffect(() => {
     const onBlur = () => {
       moveLStackRef.current = [];
@@ -1901,6 +1950,15 @@ export function LingbotWorldController({ className }: { className?: string }) {
       if (slot !== undefined) {
         e.preventDefault();
         holdPress(slot);
+        return;
+      }
+
+      // Alphabetic hotkeys fire DIRECTOR events (checked AFTER all player controls
+      // above, so WASD/roll/etc. always win — player actions are never blocked).
+      const dir = keyToDirectorIndex(e.key);
+      if (dir !== undefined) {
+        e.preventDefault();
+        fireDirectorEvent(dir);
         return;
       }
     };

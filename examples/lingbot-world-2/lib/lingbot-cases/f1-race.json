@@ -52,6 +52,16 @@
         "name": "Rain Sweeps In",
         "actor": "director",
         "detail": "Dark storm clouds roll over the circuit and rain sweeps across the track; the tarmac turns wet and glossy, spray kicking up off the surface, and the rain stays, slicking the racing line."
+      },
+      {
+        "name": "Rabbit on the Track",
+        "actor": "director",
+        "detail": "A rabbit hops out onto the racetrack ahead and stops in the racing line, sitting in the middle of the tarmac directly in the car's path with its ears twitching, staying put on the track as the car bears down on it."
+      },
+      {
+        "name": "Road Fire",
+        "actor": "director",
+        "detail": "A wall of fire erupts across the racetrack ahead, orange flames and black smoke rising off the tarmac and spanning the full width of the road in the car's path; it stays, burning across the track."
       }
     ],
     "jumpPrompt": "The race car launches off a ramp, all four wheels lifting clear of the track as it sails through the air, then drops back down and lands hard on the asphalt with a bounce of its suspension.",

@@ -4,8 +4,8 @@
 
 run_director() watches the latest-frame file, builds the invariant-bounded
 system prompt from the scene + live state, calls decide(), parses the JSON, and
-emits assert/vital ops (role="ai") to the coordinator. Backends: director_vlm.py
-(local Qwen2.5-VL) and director_nim.py (NVIDIA NIM inference).
+emits assert/vital ops (role="ai") to the coordinator. Backend: director_nim.py
+(NVIDIA NIM inference).
 """
 import asyncio
 import json

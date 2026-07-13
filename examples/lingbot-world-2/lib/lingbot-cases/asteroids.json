@@ -62,6 +62,16 @@
         "name": "UFO Appears",
         "actor": "director",
         "detail": "A sleek alien UFO — a smooth metallic saucer ringed with pulsing green and violet lights — drops out of the starfield ahead and glides into view among the asteroids, hovering silently with a soft glow; its rotating underside sweeps thin beams of light across the drifting rocks as it settles into the scene."
+      },
+      {
+        "name": "Land on Planet",
+        "actor": "player",
+        "detail": "The ship descends toward a nearby planet, dropping through its upper atmosphere as the curved surface swells to fill the view, and settles down onto the planet's terrain, dust kicking up around the landing site as it touches down."
+      },
+      {
+        "name": "Planet Appears",
+        "actor": "director",
+        "detail": "A large planet swings into view ahead in space, its curved horizon and banded surface rising into frame and dominating the starfield, growing steadily larger as the ship approaches; it stays, looming ahead."
       }
     ],
     "jumpPrompt": "The ship pitches up and climbs, its thrusters flaring as the nose lifts and it ascends above the asteroid field toward the open starfield, then settles into level flight higher up.",

@@ -14,6 +14,12 @@ type Life = { kind: "sustained" } | { kind: "steps"; n: number } | { kind: "inst
 
 const MODES = ["human", "ai", "both"] as const;
 
+// Alphabetic hotkeys for director scene events — MUST stay in sync with
+// DIRECTOR_HOTKEYS in LingbotWorldController.tsx (the source of truth). The i-th
+// SCENE button is fired by the i-th letter, both by clicking here and by the
+// player's keyboard, so the character can be driven and directed at once.
+const DIRECTOR_HOTKEYS = "tyupfghbnvxz";
+
 function btn(active = false) {
   return cn(
     "h-7 rounded border px-2.5 font-mono text-[11px] transition-colors disabled:opacity-30",
@@ -56,7 +62,6 @@ export function DirectorPanel({
   const [connected, setConnected] = useState(false);
   const [gameName, setGameName] = useState("");
   const [facts, setFacts] = useState("");
-  const [vitals, setVitals] = useState<{ health: number; maxHealth: number; inventory: string[] } | null>(null);
   const [mode, setMode] = useState("both");
   const [key, setKey] = useState("");
   const [clause, setClause] = useState("");
@@ -75,7 +80,6 @@ export function DirectorPanel({
       try {
         const m = JSON.parse(String(e.data));
         if (m.type === "facts") setFacts(m.prompt || "");
-        else if (m.type === "vitals") setVitals({ health: m.health, maxHealth: m.maxHealth, inventory: m.inventory });
         else if (m.type === "mode") setMode(m.mode);
         else if (m.type === "scene_events") setSceneEvents(m.events || []);
       } catch {
@@ -188,8 +192,13 @@ export function DirectorPanel({
         <>
           <div className="flex items-center gap-1">
             <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">scene</span>
-            {sceneEvents.map((ev) => (
+            {sceneEvents.map((ev, i) => (
               <button key={ev.name} className={btn()} title={ev.clause} onClick={() => fireEvent(ev)}>
+                {DIRECTOR_HOTKEYS[i] && (
+                  <kbd className="mr-1 rounded bg-white/15 px-1 font-mono text-[9px] uppercase text-emerald-200/90">
+                    {DIRECTOR_HOTKEYS[i]}
+                  </kbd>
+                )}
                 {ev.name}
               </button>
             ))}
@@ -225,11 +234,8 @@ export function DirectorPanel({
         </button>
       </div>
 
-      {/* Live readout + close, pushed right */}
+      {/* Live projected-prompt readout + close, pushed right */}
       <div className="ml-auto flex items-center gap-2 min-w-0">
-        <span className="font-mono text-[10px] text-amber-200/80 whitespace-nowrap">
-          {vitals ? `HP ${vitals.health}/${vitals.maxHealth}` : "HP —"}
-        </span>
         <span
           className="font-mono text-[10px] text-emerald-200/70 truncate max-w-[16rem]"
           title={facts || "—"}

@@ -795,6 +795,35 @@ function EventCard({
         {showSub(!!diff?.nameChanged) && (
           <DiffMark variant="edited" label="name" />
         )}
+        {/* PLAYER vs DIRECTOR: is this a hold-key the CHARACTER performs (player)
+            or a persistent WORLD event the Human Director fires (director)? */}
+        <div className="flex items-center overflow-hidden rounded border border-white/15 font-mono text-[10px]">
+          {(["player", "director"] as const).map((a) => {
+            const on = (event.actor ?? "player") === a;
+            return (
+              <button
+                key={a}
+                type="button"
+                onClick={() => onChange({ ...event, actor: a })}
+                title={
+                  a === "director"
+                    ? "Director action — a persistent WORLD event fired from the Human Director panel or its alphabetic hotkey (not a character move)"
+                    : "Player action — a hold-key the CHARACTER performs (number key / WASD)"
+                }
+                className={cn(
+                  "px-2 py-1 uppercase tracking-wide transition-colors",
+                  on
+                    ? a === "director"
+                      ? "bg-fuchsia-400/25 text-fuchsia-200"
+                      : "bg-emerald-400/25 text-emerald-200"
+                    : "text-white/35 hover:text-white/70",
+                )}
+              >
+                {a}
+              </button>
+            );
+          })}
+        </div>
         <Button
           size="sm"
           variant="ghost"

@@ -57,6 +57,11 @@
         "name": "Reinforcements Arrive",
         "actor": "director",
         "detail": "More shadowy figures step out of the darkness at the far end of the alley and close in, fanning out under the flickering neon; they stay, surrounding the fight."
+      },
+      {
+        "name": "Enemies Attack",
+        "actor": "director",
+        "detail": "The figures lurking in the alley lunge at the officer all at once — fists, knives, and clubs swinging in from the shadows as the attackers close the distance and strike, driving the officer back against the wet brick wall under the flickering neon."
       }
     ],
     "hud": {
