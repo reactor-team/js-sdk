@@ -1,14 +1,14 @@
 {
   "id": "case1_0036",
   "name": "Noir Alley Patrol",
-  "description": "Third-person noir alley — key 1 = fires pistol, key 2 = flamethrower, key 3 = fires rocket launcher, key 4 = knife attack, key 5 = forward roll, key 6 = fall and die, key 7 = thugs emerge, key 8 = gunman above, director: masked assailant; director oddballs: chicken / yeti / drone",
+  "description": "Third-person noir alley — key 1 = fires pistol, key 2 = flamethrower, key 3 = fires rocket launcher, key 4 = knife attack, key 5 = forward roll, key 6 = fall and die, key 7 = thugs emerge, key 8 = gunman above, director oddballs: chicken / drone",
   "image": {
     "label": "Noir Alley Patrol",
     "src": "/lingbot-cases/noir-alley-patrol.jpg"
   },
   "scene": {
     "base": {
-      "default": "A lone uniformed police officer in dark blue tactical gear in a narrow urban alley at night. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE shop door straight ahead at a fixed position AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles on the wet asphalt, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces.",
+      "default": "A lone uniformed police officer in dark blue tactical gear, holding a flashlight in one hand whose bright white beam cuts through the darkness down the alley ahead, in a narrow urban alley at night. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE shop door straight ahead at a fixed position AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles on the wet asphalt, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces.",
       "downed": "A narrow urban alley at night where a uniformed police officer in dark blue tactical gear now lies COLLAPSED, FACE-DOWN and MOTIONLESS on the wet asphalt, sprawled in a spreading puddle, his weapon fallen from his hand nearby — he does not get up. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE shop door straight ahead at a fixed position AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces, rain pooling around the still body."
     },
     "camera": {
@@ -35,27 +35,56 @@
       {
         "name": "Fire Pistol",
         "actor": "player",
-        "detail": "The officer raises his service pistol in both gloved hands, arms extended ahead of him, and fires down the dark alley; the muzzle flash lights the falling rain, the recoil kicks the pistol back in his grip, and a spent casing clatters onto the wet asphalt."
+        "detail": "The officer raises his service pistol in both gloved hands, arms extended ahead of him, and fires down the dark alley; the muzzle flash lights the falling rain, the recoil kicks the pistol back in his grip, and a spent casing clatters onto the wet asphalt.",
+        "health": 0
       },
       {
         "name": "Flamethrower",
         "actor": "player",
-        "detail": "The officer levels a flamethrower in both hands and unleashes a long, continuous jet of roaring flame straight ahead down the alley — one sustained, billowing stream of orange fire and black smoke that pours forward without pause, not separate shots, lighting up the wet brick walls and hissing against the falling rain."
+        "detail": "The officer levels a flamethrower in both hands and unleashes a long, continuous jet of roaring flame straight ahead down the alley — one sustained, billowing stream of orange fire and black smoke that pours forward without pause, not separate shots, lighting up the wet brick walls and hissing against the falling rain.",
+        "health": 0
       },
       {
         "name": "Fire Rocket Launcher",
         "actor": "player",
-        "detail": "The officer hoists a shoulder-fired rocket launcher — an RPG: a long, heavy cylindrical steel tube resting across his shoulder, its wide bore pointing down the alley, gripped with both hands, not a handheld gun — and fires; the rocket blasts from the tube's mouth and flies off into the distance down the rain-slicked alley, dragging a long tail of orange flame and white smoke behind it, then slams into the distant brickwork and erupts in a massive fireball of flame, smoke, and flying debris."
+        "detail": "The officer hoists a shoulder-fired rocket launcher — an RPG: a long, heavy cylindrical steel tube resting across his shoulder, its wide bore pointing down the alley, gripped with both hands, not a handheld gun — and fires; the rocket blasts from the tube's mouth and flies off into the distance down the rain-slicked alley, dragging a long tail of orange flame and white smoke behind it, then slams into the distant brickwork and erupts in a massive fireball of flame, smoke, and flying debris.",
+        "health": 0
       },
       {
         "name": "Knife Attack",
         "actor": "player",
-        "detail": "The officer draws a combat knife into his gloved hand and slashes at the air in a swift, practiced motion; the steel blade flashes in the ambient light as it cuts through the rain and his grip tightens on the handle."
+        "detail": "The officer draws a combat knife into his gloved hand and slashes at the air in a swift, practiced motion; the steel blade flashes in the ambient light as it cuts through the rain and his grip tightens on the handle.",
+        "health": 0
       },
       {
         "name": "Forward Roll",
         "actor": "player",
-        "detail": "The officer drops into a low crouch and executes a forward roll across the wet asphalt, tucking his shoulder and rising smoothly back to his feet."
+        "detail": "The officer drops into a low crouch and executes a forward roll across the wet asphalt, tucking his shoulder and rising smoothly back to his feet.",
+        "health": 0
+      },
+      {
+        "name": "Take Cover",
+        "actor": "player",
+        "health": 15,
+        "detail": "The officer darts to the side and ducks down behind the green dumpster, pressing his back to it and lowering his head under cover, then peeks back out ready."
+      },
+      {
+        "name": "Raise Shield",
+        "actor": "player",
+        "health": 5,
+        "detail": "The officer brings up a black riot shield in front of himself, bracing behind it in a low guard, the shield taking the rain as he holds firm, then lowers it back down."
+      },
+      {
+        "name": "Sidestep Dodge",
+        "actor": "player",
+        "detail": "The officer sharply sidesteps and weaves to one side, snapping his body out of the line of fire in a quick evasive shuffle across the wet asphalt, then re-settles into a ready stance.",
+        "health": 5
+      },
+      {
+        "name": "Block",
+        "actor": "player",
+        "detail": "The officer raises both gloved forearms crossed in front of his face and chest in a tight defensive guard, bracing against an incoming blow, then drops the guard and re-settles.",
+        "health": 5
       },
       {
         "name": "Fall and Die",
@@ -63,45 +92,41 @@
         "baseVersion": "downed",
         "cameraVersion": "downed",
         "movementVersion": "downed",
-        "detail": "The officer staggers, his knees buckle, and he collapses forward onto the wet asphalt, his body going limp as he sprawls face-down and STAYS DOWN, lying motionless in the spreading puddle without getting back up; his weapon slips from his gloved hand and clatters away across the ground, and he remains still on the ground in the falling rain as the blue and red ambient light glints off the water pooling around him."
-      },
-      {
-        "name": "Thugs Emerge",
-        "actor": "director",
-        "detail": "Two or three shadowy thugs in dark coats step out from the doorways and from behind the green dumpster along the rain-soaked alley, fanning out and closing in on the officer under the flickering neon; they stay, blocking the alley ahead."
+        "detail": "The officer staggers, his knees buckle, and he collapses forward onto the wet asphalt, his body going limp as he sprawls face-down and STAYS DOWN, lying motionless in the spreading puddle without getting back up; his weapon slips from his gloved hand and clatters away across the ground, and he remains still on the ground in the falling rain as the blue and red ambient light glints off the water pooling around him.",
+        "health": -100
       },
       {
         "name": "Gunman on the Fire Escape",
         "actor": "director",
-        "detail": "An armed gunman appears at the top of the fire escape above the alley, leveling a pistol down toward the officer, his silhouette lit by the blue and red ambient light and the falling rain; he stays up there, covering the alley from above."
+        "detail": "An armed gunman appears at the top of the fire escape above the alley, leveling a pistol down toward the officer, his silhouette lit by the blue and red ambient light and the falling rain; he stays up there, covering the alley from above.",
+        "health": -20
       },
       {
-        "name": "Masked Assailant",
+        "name": "Gunman Falls",
         "actor": "director",
-        "detail": "A single masked assailant in a hooded raincoat steps silently out of the shadows beside the neon shop sign, a knife glinting in one gloved hand, and advances on the officer through the downpour; he stays, stalking closer."
+        "detail": "The gunman at the top of the fire escape is hit — he lurches, his pistol slips from his hand, and he pitches forward over the railing, tumbling down through the falling rain to slam onto the wet asphalt below, where he lands sprawled and motionless in the spreading puddle; the fire escape above him is now empty."
       },
       {
         "name": "Chicken Struts In",
         "actor": "director",
-        "detail": "A single scruffy chicken struts out into the middle of the rain-soaked alley, bobbing its head and pecking at the wet asphalt between the puddles, utterly out of place under the blue and red neon; it stays, wandering around near the officer's feet."
-      },
-      {
-        "name": "Yeti Emerges",
-        "actor": "director",
-        "detail": "A huge shaggy white yeti lumbers out of the shadows at the far end of the alley, its matted fur dripping in the rain, towering over the green dumpster as it steps into the neon glow and looms toward the officer; it stays, filling the alley ahead."
+        "detail": "A single scruffy chicken struts out into the middle of the rain-soaked alley, bobbing its head and pecking at the wet asphalt between the puddles, utterly out of place under the blue and red neon; it stays, wandering around near the officer's feet.",
+        "health": 0
       },
       {
         "name": "Drone Descends",
         "actor": "director",
-        "detail": "A small quadcopter drone drops down into the alley from above, hovering at head height with its rotors spinning and a red camera light glowing, drifting and bobbing as it tracks the officer through the falling rain; it stays, hovering nearby."
-      },
-      {
-        "name": "Enemies Attack",
-        "actor": "director",
-        "detail": "The figures lurking in the alley lunge at the officer all at once — fists, knives, and clubs swinging in from the shadows as the attackers close the distance and strike, driving the officer back against the wet brick wall under the flickering neon."
+        "detail": "A small quadcopter drone drops down into the alley from above, hovering at head height with its rotors spinning and a red camera light glowing, drifting and bobbing as it tracks the officer through the falling rain; it stays, hovering nearby.",
+        "health": -10
       }
     ],
-    "hud": { "show": true, "maxHealth": 100, "health": 100, "inventory": ["a service pistol"] },
+    "hud": {
+      "show": true,
+      "maxHealth": 100,
+      "health": 100,
+      "inventory": [
+        "a service pistol"
+      ]
+    },
     "jumpPrompt": "The officer springs upward off both feet, leaping high off the wet asphalt, his boots lifting clear of the ground before he drops back down and lands in a low crouch.",
     "crouchPrompt": "The camera lowers toward the ground as the character crouches down low, bending the knees and ducking the head into a compact, hunched stance; the viewpoint sinks smoothly to a low, near-ground vantage and settles there, close to the floor.",
     "standPrompt": "The character straightens back up out of the crouch, rising to full standing height as the camera lifts smoothly back to its normal eye-level vantage."

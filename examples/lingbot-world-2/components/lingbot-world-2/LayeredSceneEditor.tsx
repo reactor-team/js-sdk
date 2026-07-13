@@ -935,6 +935,35 @@ function EventCard({
             )}
           />
         </div>
+        {/* Spawn/kill: signed delta on the shared entity count when fired.
+            +N = spawn (enemies appear), −N = kill/despawn. Director events use it
+            so pressing a spawn key ups the count. */}
+        <div className="flex flex-col gap-1">
+          <FieldLabel>count · Δ</FieldLabel>
+          <Input
+            type="number"
+            inputMode="numeric"
+            value={event.count ?? ""}
+            placeholder="0"
+            onChange={(e) => {
+              const raw = e.target.value.trim();
+              const v = raw === "" ? undefined : Number(raw);
+              onChange({
+                ...event,
+                count: v !== undefined && Number.isFinite(v) ? v : undefined,
+              });
+            }}
+            title="Signed change to the shared entity/spawn count when this event fires. +N = spawn (enemies appear), −N = kill/despawn. Blank = no effect. Clamped at 0."
+            className={cn(
+              "h-8 w-20 font-mono text-[12px] tabular-nums",
+              (event.count ?? 0) > 0
+                ? "text-amber-300"
+                : (event.count ?? 0) < 0
+                  ? "text-sky-300"
+                  : undefined,
+            )}
+          />
+        </div>
         <label className="ml-auto flex items-center gap-2 font-mono text-[11px] text-white/70 cursor-pointer">
           <input
             type="checkbox"

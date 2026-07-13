@@ -1,6 +1,7 @@
 {
   "id": "case_balloons",
   "name": "Balloon Courtyard",
+  "hidden": true,
   "description": "Third-person concrete courtyard of drifting white balloons — key 1 = kick balloon (burst), key 2 = punch balloon, key 3 = stomp balloon, key 4 = spin-kick combo",
   "image": {
     "label": "Balloon Courtyard",

@@ -66,9 +66,14 @@ export function DirectorPanel({
   const [key, setKey] = useState("");
   const [clause, setClause] = useState("");
   const [objective, setObjective] = useState<{ summary?: string; director?: string } | null>(null);
-  const [sceneEvents, setSceneEvents] = useState<
-    { name: string; clause: string; health?: number; addItem?: string }[]
+  const [showState, setShowState] = useState(false); // optional coordinator-state view
+  const [coordFacts, setCoordFacts] = useState<
+    { key: string; clause: string; weight: number; remaining: string }[]
   >([]);
+  const [sceneEvents, setSceneEvents] = useState<
+    { name: string; clause: string; health?: number; addItem?: string; count?: number }[]
+  >([]);
+  const [count, setCount] = useState(0); // shared entity/spawn count
 
   useEffect(() => {
     if (!visible || !wsUrl) return;
@@ -84,6 +89,11 @@ export function DirectorPanel({
         else if (m.type === "mode") setMode(m.mode);
         else if (m.type === "scene_events") setSceneEvents(m.events || []);
         else if (m.type === "objective") setObjective(m.objective || null);
+        else if (m.type === "count") setCount(m.count ?? 0);
+        else if (m.type === "state") {
+          setCoordFacts(m.facts || []);
+          if (typeof m.count === "number") setCount(m.count);
+        }
       } catch {
         /* ignore */
       }
@@ -169,12 +179,14 @@ export function DirectorPanel({
   };
   // Fire a director-owned scene event: assert its clause (prominent, sustained)
   // and apply any vitals it carries (e.g. a "die" event sets health).
-  const fireEvent = (ev: { name: string; clause: string; health?: number; addItem?: string }) => {
+  const fireEvent = (ev: { name: string; clause: string; health?: number; addItem?: string; count?: number }) => {
     const k = "scene:" + ev.name.toLowerCase().replace(/\s+/g, "_");
     send({ op: "assert", role: "human", fact: { key: k, clause: ev.clause, weight: 2, life: { kind: "sustained" } } });
     if (ev.health !== undefined || ev.addItem) {
       send({ op: "vital", role: "human", change: { health: ev.health, addItem: ev.addItem } });
     }
+    // Spawn/kill: bump the shared entity count when the event carries a delta.
+    if (ev.count) send({ op: "count", role: "human", delta: ev.count });
   };
 
   if (!visible) return null;
@@ -208,6 +220,14 @@ export function DirectorPanel({
         {gameName && (
           <span className="font-mono text-[11px] text-emerald-300/90 whitespace-nowrap">· {gameName}</span>
         )}
+        {count > 0 && (
+          <span
+            className="font-mono text-[11px] text-amber-300/90 whitespace-nowrap"
+            title="Shared entity/spawn count — bumped by director spawn/kill events"
+          >
+            · {count} spawned
+          </span>
+        )}
       </div>
       <div className="flex items-center gap-1">
         {MODES.map((mo) => (
@@ -216,6 +236,9 @@ export function DirectorPanel({
           </button>
         ))}
       </div>
+      <button className={btn(showState)} onClick={() => setShowState((v) => !v)} title="Show the live coordinator state (History facts + lifetimes)">
+        state
+      </button>
       <Sep />
 
       {/* Objective — player goal (summary) + the Director agent's standing intent */}
@@ -234,6 +257,26 @@ export function DirectorPanel({
               </span>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Optional coordinator-state view — live History facts + remaining lifetime */}
+      {showState && (
+        <div className="flex basis-full flex-col gap-0.5 rounded border border-white/10 bg-black/40 p-1.5 max-h-32 overflow-y-auto">
+          <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">
+            state · history · {coordFacts.length} fact{coordFacts.length === 1 ? "" : "s"}
+          </span>
+          {coordFacts.length === 0 ? (
+            <span className="font-mono text-[10px] text-white/30">— empty —</span>
+          ) : (
+            coordFacts.map((f) => (
+              <div key={f.key} className="flex items-start gap-1.5 font-mono text-[10px]">
+                <span className="shrink-0 rounded bg-white/10 px-1 text-emerald-200/80">{f.remaining}</span>
+                <span className="shrink-0 text-sky-200/70">{f.key}</span>
+                <span className="text-white/60 truncate" title={f.clause}>{f.clause}</span>
+              </div>
+            ))
+          )}
         </div>
       )}
 

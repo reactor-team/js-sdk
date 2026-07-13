@@ -97,6 +97,11 @@ export interface NamedEvent {
   health?: number;
   addItem?: string;
   removeItem?: string;
+  // Optional signed delta on the shared entity/spawn count when this event
+  // fires. +N for a spawn (enemies appear), −N for a kill/despawn. Director
+  // events use this so pressing a spawn key bumps the count; the coordinator
+  // clamps it at 0. First slice of a real GameState entity model.
+  count?: number;
 }
 
 // Per-scene HUD configuration. Optional — omitted → HUD hidden. Sets the

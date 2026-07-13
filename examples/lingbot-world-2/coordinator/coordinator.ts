@@ -50,6 +50,11 @@ const wss = new WebSocketServer({ port: PORT });
 const MAX_HEALTH = 100;
 const vitals = { health: MAX_HEALTH, maxHealth: MAX_HEALTH, inventory: [] as string[] };
 
+// Shared entity/spawn count — the first slice of a real GameState. Director
+// events that spawn (enemies appear) carry a `count` delta and bump this;
+// death events carry a negative delta. Clamped at 0, reset on scene switch.
+let entityCount = 0;
+
 function sendAll(msg: string): void {
   for (const client of wss.clients) {
     if (client.readyState === WebSocket.OPEN) client.send(msg);
@@ -68,11 +73,17 @@ function broadcastState(): void {
       type: "state",
       mode: directorMode,
       vitals,
+      count: entityCount,
       objective,
       facts: history.snapshot(),
       sceneEvents,
     }),
   );
+}
+
+function broadcastCount(): void {
+  sendAll(JSON.stringify({ type: "count", count: entityCount }));
+  broadcastState();
 }
 
 function broadcastVitals(): void {
@@ -125,7 +136,7 @@ let sceneEvents: SceneEvent[] = [];
 let objective: unknown = null; // the active scene's objective (summary + director)
 
 interface Op {
-  op: "assert" | "retract" | "clear" | "tick" | "vital" | "mode" | "log" | "scene_events" | "objective";
+  op: "assert" | "retract" | "clear" | "tick" | "vital" | "mode" | "log" | "scene_events" | "objective" | "count";
   fact?: Fact;
   key?: string;
   change?: VitalChange;
@@ -135,6 +146,8 @@ interface Op {
   detail?: unknown; // for op:"log" — command payload
   events?: SceneEvent[]; // for op:"scene_events"
   objective?: unknown; // for op:"objective"
+  delta?: number; // for op:"count" — signed spawn/kill delta
+  set?: number; // for op:"count" — absolute set (overrides delta)
 }
 
 function broadcastSceneEvents(): void {
@@ -180,7 +193,7 @@ wss.on("connection", (ws) => {
     }
     // Director-mode gate: drop the switched-off director's ops.
     if (
-      (m.op === "assert" || m.op === "retract" || m.op === "vital") &&
+      (m.op === "assert" || m.op === "retract" || m.op === "vital" || m.op === "count") &&
       !opAllowed(m.role)
     ) {
       logCommand({ role: m.role, op: m.op, gated: true }); // record the drop too
@@ -231,7 +244,17 @@ wss.on("connection", (ws) => {
         break;
       case "clear":
         history.clear();
+        entityCount = 0; // scene switch / reset wipes the spawn count too
         broadcast();
+        break;
+      case "count":
+        // Director spawn/kill bumps the shared count. `set` is absolute; else
+        // `delta` is signed. Clamped at 0.
+        entityCount =
+          m.set !== undefined
+            ? Math.max(0, m.set)
+            : Math.max(0, entityCount + (m.delta ?? 0));
+        broadcastCount();
         break;
       case "tick":
         // Only re-broadcast when something actually expired this chunk.

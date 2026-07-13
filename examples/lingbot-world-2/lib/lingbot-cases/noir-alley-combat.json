@@ -1,6 +1,7 @@
 {
   "id": "case1_0036_combat",
   "name": "Noir Alley Combat",
+  "hidden": true,
   "description": "Third-person noir alley melee — key 1 = punch combo, key 2 = roundhouse kick, key 3 = baton strike, key 4 = grapple takedown, key 5 = dodge roll",
   "image": {
     "label": "Noir Alley Combat",
@@ -15,7 +16,7 @@
   },
   "scene": {
     "base": {
-      "default": "A lone uniformed police officer in dark blue tactical gear in a narrow urban alley at night. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE shop door straight ahead at a fixed position AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles on the wet asphalt, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces."
+      "default": "A lone uniformed police officer in dark blue tactical gear, holding a flashlight in one hand whose bright white beam cuts through the darkness down the alley ahead, in a narrow urban alley at night. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE shop door straight ahead at a fixed position AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles on the wet asphalt, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces."
     },
     "camera": {
       "default": {

@@ -1,6 +1,7 @@
 {
   "id": "portal_world_09",
   "name": "Portal Gun",
+  "hidden": true,
   "description": "Third-person portal-gun — key 1 = open portal, key 2 = cyberpunk-city portal, key 3 = forest portal, key 4 = portal blast, key 5 = close portal",
   "image": {
     "label": "Portal Gun",

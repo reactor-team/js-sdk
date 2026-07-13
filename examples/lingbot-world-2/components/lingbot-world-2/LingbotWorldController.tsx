@@ -602,7 +602,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
   // The active scene's DIRECTOR events (scene change / death), extracted for the
   // Director panel/AI to fire. Kept in a ref so we can re-push on (re)connect.
   const sceneDirEventsRef = useRef<
-    { name: string; clause: string; health?: number; addItem?: string }[]
+    { name: string; clause: string; health?: number; addItem?: string; count?: number }[]
   >([]);
   const pushSceneEvents = useCallback((sc: StructuredScene | null) => {
     const list = (sc?.events ?? [])
@@ -612,6 +612,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
         clause: typeof e.detail === "string" ? e.detail : e.detail.static,
         health: e.health,
         addItem: e.addItem,
+        count: e.count,
       }));
     sceneDirEventsRef.current = list;
     // Bridge the current scene's director events to the in-app Human Director
@@ -1664,6 +1665,12 @@ export function LingbotWorldController({ className }: { className?: string }) {
             role: "human",
             change: { health: ev.health, addItem: ev.addItem },
           }),
+        );
+      }
+      // Spawn/kill count: pressing a director key bumps the shared entity count.
+      if (ev.count) {
+        coordWsRef.current?.send(
+          JSON.stringify({ op: "count", role: "human", delta: ev.count }),
         );
       }
       logPlayerCmd("director_fire", {
