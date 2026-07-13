@@ -139,6 +139,9 @@ export interface Objective {
   success?: string[];
   failure?: string[];
   durationChunks?: number;
+  // Name of a scene event fired on WIN. Win = surviving `durationChunks` alive
+  // (a survival proxy for the success condition, since we have no perception).
+  reward?: string;
 }
 
 export interface StructuredExample {

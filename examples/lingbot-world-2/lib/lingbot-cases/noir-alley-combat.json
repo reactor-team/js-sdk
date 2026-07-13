@@ -10,8 +10,12 @@
   "objective": {
     "summary": "Clear the alley — win the fight without dropping below zero health.",
     "director": "Escalate the threat as the fight goes on: start with rain and gloom, then roll in fog, spawn a second attacker ahead, and ramp the pressure the longer the player survives.",
-    "success": ["the alley is clear and the officer is still standing"],
-    "failure": ["the officer's health reaches zero"],
+    "success": [
+      "the alley is clear and the officer is still standing"
+    ],
+    "failure": [
+      "the officer's health reaches zero"
+    ],
     "durationChunks": 20
   },
   "scene": {
@@ -64,7 +68,8 @@
       {
         "name": "Enemies Appear",
         "actor": "director",
-        "detail": "A group of dark, armed figures appears far down the road at the distant far end of the alley, small and silhouetted against the neon glow through the falling rain, then starts advancing up the wet street toward the officer, steadily growing larger as they close the distance; they keep coming."
+        "detail": "A group of dark, armed figures appears far down the road at the distant far end of the alley, small and silhouetted against the neon glow through the falling rain, then starts advancing up the wet street toward the officer, steadily growing larger as they close the distance; they keep coming.",
+        "count": 3
       },
       {
         "name": "Enemies Attack",

@@ -63,6 +63,15 @@
         "health": 0
       },
       {
+        "name": "Fall and Die",
+        "actor": "player",
+        "baseVersion": "downed",
+        "cameraVersion": "downed",
+        "movementVersion": "downed",
+        "detail": "The officer staggers, his knees buckle, and he collapses forward onto the wet asphalt, his body going limp as he sprawls face-down and STAYS DOWN, lying motionless in the spreading puddle without getting back up; his weapon slips from his gloved hand and clatters away across the ground, and he remains still on the ground in the falling rain as the blue and red ambient light glints off the water pooling around him.",
+        "health": -100
+      },
+      {
         "name": "Take Cover",
         "actor": "player",
         "health": 15,
@@ -87,36 +96,36 @@
         "health": 5
       },
       {
-        "name": "Fall and Die",
-        "actor": "director",
-        "baseVersion": "downed",
-        "cameraVersion": "downed",
-        "movementVersion": "downed",
-        "detail": "The officer staggers, his knees buckle, and he collapses forward onto the wet asphalt, his body going limp as he sprawls face-down and STAYS DOWN, lying motionless in the spreading puddle without getting back up; his weapon slips from his gloved hand and clatters away across the ground, and he remains still on the ground in the falling rain as the blue and red ambient light glints off the water pooling around him.",
-        "health": -100
-      },
-      {
         "name": "Gunman on the Fire Escape",
         "actor": "director",
         "detail": "An armed gunman appears at the top of the fire escape above the alley, leveling a pistol down toward the officer, his silhouette lit by the blue and red ambient light and the falling rain; he stays up there, covering the alley from above.",
-        "health": -20
+        "health": -20,
+        "count": 1
       },
       {
         "name": "Gunman Falls",
         "actor": "director",
-        "detail": "The gunman at the top of the fire escape is hit — he lurches, his pistol slips from his hand, and he pitches forward over the railing, tumbling down through the falling rain to slam onto the wet asphalt below, where he lands sprawled and motionless in the spreading puddle; the fire escape above him is now empty."
+        "detail": "The gunman at the top of the fire escape is hit — he lurches, his pistol slips from his hand, and he pitches forward over the railing, tumbling down through the falling rain to slam onto the wet asphalt below, where he lands sprawled and motionless in the spreading puddle; the fire escape above him is now empty.",
+        "count": -1
       },
       {
         "name": "Chicken Struts In",
         "actor": "director",
         "detail": "A single scruffy chicken struts out into the middle of the rain-soaked alley, bobbing its head and pecking at the wet asphalt between the puddles, utterly out of place under the blue and red neon; it stays, wandering around near the officer's feet.",
-        "health": 0
+        "health": 0,
+        "count": 1
       },
       {
         "name": "Drone Descends",
         "actor": "director",
         "detail": "A small quadcopter drone drops down into the alley from above, hovering at head height with its rotors spinning and a red camera light glowing, drifting and bobbing as it tracks the officer through the falling rain; it stays, hovering nearby.",
-        "health": -10
+        "health": -10,
+        "count": 1
+      },
+      {
+        "name": "Portal Shows Up",
+        "actor": "director",
+        "detail": "A swirling blue portal tears open in the air ahead down the alley — a shimmering vortex of light and rippling distortion, drifting particles ringing its edge, hanging steady and pulsing against the wet brick."
       }
     ],
     "hud": {
@@ -130,5 +139,17 @@
     "jumpPrompt": "The officer springs upward off both feet, leaping high off the wet asphalt, his boots lifting clear of the ground before he drops back down and lands in a low crouch.",
     "crouchPrompt": "The camera lowers toward the ground as the character crouches down low, bending the knees and ducking the head into a compact, hunched stance; the viewpoint sinks smoothly to a low, near-ground vantage and settles there, close to the floor.",
     "standPrompt": "The character straightens back up out of the crouch, rising to full standing height as the camera lifts smoothly back to its normal eye-level vantage."
+  },
+  "objective": {
+    "summary": "Reach the end of the alley without dying.",
+    "director": "Make the walk down the alley tense: throw gunmen, a drone and obstacles into the players path as they advance, then ease off as they near the far end.",
+    "success": [
+      "the officer reaches the far end of the alley still standing"
+    ],
+    "failure": [
+      "the officer's health reaches zero"
+    ],
+    "durationChunks": 24,
+    "reward": "Portal Shows Up"
   }
 }

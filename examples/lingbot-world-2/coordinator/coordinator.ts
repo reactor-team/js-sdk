@@ -55,6 +55,24 @@ const vitals = { health: MAX_HEALTH, maxHealth: MAX_HEALTH, inventory: [] as str
 // death events carry a negative delta. Clamped at 0, reset on scene switch.
 let entityCount = 0;
 
+// Objective win tracking: survive `objective.durationChunks` alive → fire
+// `objective.reward`. `chunks` counts tick ops; `won` fires the reward once.
+let chunks = 0;
+let won = false;
+
+function checkWin(): void {
+  const obj = objective as { durationChunks?: number; reward?: string } | null;
+  if (won || !obj?.reward || !obj.durationChunks) return;
+  if (chunks < obj.durationChunks || vitals.health <= 0) return;
+  const ev = sceneEvents.find((e) => e.name === obj.reward);
+  if (!ev) return;
+  won = true;
+  const key = "scene:" + ev.name.toLowerCase().replace(/\s+/g, "_");
+  history.assert({ key, clause: ev.clause, weight: 2, life: { kind: "sustained" } });
+  console.log(`[coordinator] WIN — fired reward "${ev.name}" (survived ${chunks} chunks)`);
+  broadcast();
+}
+
 function sendAll(msg: string): void {
   for (const client of wss.clients) {
     if (client.readyState === WebSocket.OPEN) client.send(msg);
@@ -220,6 +238,8 @@ wss.on("connection", (ws) => {
         break;
       case "objective":
         objective = m.objective ?? null;
+        chunks = 0;
+        won = false; // new scene's objective — restart the win clock
         broadcastObjective();
         break;
 
@@ -245,6 +265,8 @@ wss.on("connection", (ws) => {
       case "clear":
         history.clear();
         entityCount = 0; // scene switch / reset wipes the spawn count too
+        chunks = 0;
+        won = false; // reset the objective win on scene switch / reset
         broadcast();
         break;
       case "count":
@@ -257,6 +279,8 @@ wss.on("connection", (ws) => {
         broadcastCount();
         break;
       case "tick":
+        chunks += 1;
+        checkWin(); // survive durationChunks alive → fire the objective reward
         // Only re-broadcast when something actually expired this chunk.
         if (history.advance()) broadcast();
         break;
