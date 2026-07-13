@@ -162,11 +162,19 @@ export function PointerOverlay({
         (active ? "cursor-crosshair" : "pointer-events-none")
       }
     >
+      {/* The drag marker: a press ripple (one-shot — the marker mounts on
+          pointerdown and unmounts on release, so the animation runs once per
+          drag), a brand-glow ring that follows the gesture, and a center dot
+          on the exact coordinate being streamed. */}
       {dot && (
         <span
-          className="pointer-events-none absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-brand/70 shadow-[0_0_12px_rgba(255,255,255,0.7)]"
+          className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2"
           style={{ left: dot.left, top: dot.top }}
-        />
+        >
+          <span className="absolute -inset-4 animate-pointer-press rounded-full border-2 border-brand" />
+          <span className="block h-7 w-7 rounded-full border-2 border-white/90 bg-brand/20 shadow-[0_0_16px_2px] shadow-brand/50" />
+          <span className="absolute top-1/2 left-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white" />
+        </span>
       )}
     </div>
   );

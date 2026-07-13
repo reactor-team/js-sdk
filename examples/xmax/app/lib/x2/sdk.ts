@@ -20,12 +20,10 @@ export const X2Tracks = [
 ] as const;
 
 /** Track names the client can publish into (sendonly, from the client's perspective). */
-export type X2SendTrackName =
-  "source";
+export type X2SendTrackName = "source";
 
 /** Track names the client can subscribe to (recvonly, from the client's perspective). */
-export type X2RecvTrackName =
-  "main_video";
+export type X2RecvTrackName = "main_video";
 
 /** Set the editing instruction that guides the re-render (for example a character swap or insertion). A non-empty prompt is required before generation begins; setting it while generating applies from the next block. Emits `prompt_accepted`, then `state_update`. */
 export interface X2SetPromptParams {
@@ -370,9 +368,12 @@ export class X2Model extends Reactor {
    * @returns Unsubscribe function
    */
 
-  onPromptAccepted(handler: (message: X2PromptAcceptedMessage) => void): () => void {
+  onPromptAccepted(
+    handler: (message: X2PromptAcceptedMessage) => void,
+  ): () => void {
     return this.onMessage((msg) => {
-      if (msg.type === "prompt_accepted") handler(msg as X2PromptAcceptedMessage);
+      if (msg.type === "prompt_accepted")
+        handler(msg as X2PromptAcceptedMessage);
     });
   }
 
@@ -381,9 +382,12 @@ export class X2Model extends Reactor {
    * @returns Unsubscribe function
    */
 
-  onReferenceImageAccepted(handler: (message: X2ReferenceImageAcceptedMessage) => void): () => void {
+  onReferenceImageAccepted(
+    handler: (message: X2ReferenceImageAcceptedMessage) => void,
+  ): () => void {
     return this.onMessage((msg) => {
-      if (msg.type === "reference_image_accepted") handler(msg as X2ReferenceImageAcceptedMessage);
+      if (msg.type === "reference_image_accepted")
+        handler(msg as X2ReferenceImageAcceptedMessage);
     });
   }
 
@@ -392,9 +396,12 @@ export class X2Model extends Reactor {
    * @returns Unsubscribe function
    */
 
-  onPointerChanged(handler: (message: X2PointerChangedMessage) => void): () => void {
+  onPointerChanged(
+    handler: (message: X2PointerChangedMessage) => void,
+  ): () => void {
     return this.onMessage((msg) => {
-      if (msg.type === "pointer_changed") handler(msg as X2PointerChangedMessage);
+      if (msg.type === "pointer_changed")
+        handler(msg as X2PointerChangedMessage);
     });
   }
 
@@ -403,9 +410,12 @@ export class X2Model extends Reactor {
    * @returns Unsubscribe function
    */
 
-  onGenerationStarted(handler: (message: X2GenerationStartedMessage) => void): () => void {
+  onGenerationStarted(
+    handler: (message: X2GenerationStartedMessage) => void,
+  ): () => void {
     return this.onMessage((msg) => {
-      if (msg.type === "generation_started") handler(msg as X2GenerationStartedMessage);
+      if (msg.type === "generation_started")
+        handler(msg as X2GenerationStartedMessage);
     });
   }
 
@@ -414,9 +424,12 @@ export class X2Model extends Reactor {
    * @returns Unsubscribe function
    */
 
-  onGenerationStopped(handler: (message: X2GenerationStoppedMessage) => void): () => void {
+  onGenerationStopped(
+    handler: (message: X2GenerationStoppedMessage) => void,
+  ): () => void {
     return this.onMessage((msg) => {
-      if (msg.type === "generation_stopped") handler(msg as X2GenerationStoppedMessage);
+      if (msg.type === "generation_stopped")
+        handler(msg as X2GenerationStoppedMessage);
     });
   }
 
@@ -425,7 +438,9 @@ export class X2Model extends Reactor {
    * @returns Unsubscribe function
    */
 
-  onCommandError(handler: (message: X2CommandErrorMessage) => void): () => void {
+  onCommandError(
+    handler: (message: X2CommandErrorMessage) => void,
+  ): () => void {
     return this.onMessage((msg) => {
       if (msg.type === "command_error") handler(msg as X2CommandErrorMessage);
     });

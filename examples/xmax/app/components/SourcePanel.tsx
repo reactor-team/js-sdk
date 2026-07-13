@@ -104,8 +104,8 @@ export function SourcePanel({
         <span className="min-w-0 text-xs text-zinc-400">
           Keep frame backlog
           <span className="block text-zinc-600">
-            On: every frame, smoother motion, growing delay. Off: newest
-            frames, bounded latency.
+            On: every frame, smoother motion, growing delay. Off: newest frames,
+            bounded latency.
           </span>
         </span>
       </label>

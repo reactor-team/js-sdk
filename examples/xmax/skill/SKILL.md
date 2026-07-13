@@ -21,12 +21,12 @@ Treat it as read-only (`DO NOT EDIT` — regenerate instead). When `@reactor-mod
 
 ## The four concepts you'll touch
 
-| Concept        | What it is                                                                         | Hook / API                                                                 |
-| -------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| **Connection** | The lifecycle of the model session (`disconnected → connecting → waiting → ready`) | `useX2()` → `status`, `connect`, `disconnect`                              |
-| **Commands**   | Things you send TO the model. Always async.                                        | `useX2()` → `setPrompt({...})`, `setPointer({...})`, `reset()`, …          |
-| **Messages**   | Things the model sends BACK — the `state_update` snapshot, acks, errors.           | `useX2StateUpdate((msg) => …)`, `useX2CommandError(…)`, one hook per type  |
-| **Tracks**     | Video in (`source`, published by the client) and out (`main_video`).               | `useX2()` → `publish` / `unpublish`, `<X2MainVideoView />`                 |
+| Concept        | What it is                                                                         | Hook / API                                                                |
+| -------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| **Connection** | The lifecycle of the model session (`disconnected → connecting → waiting → ready`) | `useX2()` → `status`, `connect`, `disconnect`                             |
+| **Commands**   | Things you send TO the model. Always async.                                        | `useX2()` → `setPrompt({...})`, `setPointer({...})`, `reset()`, …         |
+| **Messages**   | Things the model sends BACK — the `state_update` snapshot, acks, errors.           | `useX2StateUpdate((msg) => …)`, `useX2CommandError(…)`, one hook per type |
+| **Tracks**     | Video in (`source`, published by the client) and out (`main_video`).               | `useX2()` → `publish` / `unpublish`, `<X2MainVideoView />`                |
 
 The full wire surface — every command, every message, the `state_update` payload — is the model's schema reference on docs.reactor.inc. When this guide says "check the schema", that's the page it means.
 
@@ -63,10 +63,10 @@ The example passes `connectOptions={{ autoConnect: false }}` so the user clicks 
 
 The model broadcasts a `state_update` message on connect and after every observable change: the full picture (`prompt`, `has_reference_image`, `pointer_x/y/active`, `keep_backlog`, `generating`, `width`, `height`). It is the **single source of truth**. The app never infers session state from its own button clicks.
 
-`Workspace` (in `app/XmaxApp.tsx`) reduces the snapshot into the app-level `X2UiState` (`app/lib/types.ts`). Two wire quirks the reducer already handles — keep them handled:
+`Workspace` (in `app/XmaxApp.tsx`) feeds every snapshot through `reduce()` (`app/lib/state.ts`) into the app-level `X2UiState` (`app/lib/types.ts`). Two wire quirks the reducer already handles — keep them handled:
 
 - `prompt`, `width`, and `height` are typed `unknown` (nullable on the wire); the model only ever sends values or null.
-- The snapshot only says *whether* a reference image is set. The decoded dimensions arrive separately on `reference_image_accepted`, so the reducer drops the stale dimensions ack whenever the snapshot reports no reference.
+- The snapshot only says _whether_ a reference image is set. The decoded dimensions arrive separately on `reference_image_accepted`, so the reducer drops the stale dimensions ack whenever the snapshot reports no reference.
 
 Two rules to keep:
 
@@ -92,7 +92,7 @@ await setPrompt({ prompt: "make it watercolor" });
 The typed client delivers each message type through its own hook; `Workspace` subscribes once per type it cares about:
 
 | Message                    | Hook                          | What the app does                                                                 |
-| -------------------------- | ----------------------------- | ---------------------------------------------------------------------------------- |
+| -------------------------- | ----------------------------- | --------------------------------------------------------------------------------- |
 | `state_update`             | `useX2StateUpdate`            | Feeds the reducer. Everything the UI gates on comes from here.                    |
 | `generation_stopped`       | `useX2GenerationStopped`      | Blacks out the stage; bumps the reset nonce only when `reason === "reset"`.       |
 | `reference_image_accepted` | `useX2ReferenceImageAccepted` | Records the decoded dimensions for the readout.                                   |
@@ -133,6 +133,8 @@ The model acks with `reference_image_accepted { width, height }` — the decoded
 1. **Coordinates are normalized (0..1) in the output frame**, not the DOM box. The overlay accounts for `object-fit: contain` letterboxing using the model-reported output aspect (`width`/`height` from `state_update`), so a drag on the visible video maps to the frame the model is editing.
 2. **Sends are throttled (~33 ms) with a trailing send**, so the last position of a fast gesture always lands.
 3. **Release always sends `active: false`.** A pointer left active keeps steering the model after the user let go.
+
+The sidebar's `PointerPanel.tsx` renders the raw `pointer_x` / `pointer_y` / `pointer_active` values from the `state_update` echo — the model's view of the pointer, not the local gesture. It shows exactly what a `set_pointer` call carries, in every source mode.
 
 ## Keep backlog — the latency / completeness dial
 

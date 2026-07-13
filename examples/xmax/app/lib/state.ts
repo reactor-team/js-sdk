@@ -19,6 +19,9 @@ export function reduce(state: X2UiState, msg: X2StateUpdateMessage): X2UiState {
     outputHeight: (msg.height as number | null) ?? null,
     hasReference: msg.has_reference_image,
     keepBacklog: msg.keep_backlog,
+    pointerX: msg.pointer_x,
+    pointerY: msg.pointer_y,
+    pointerActive: msg.pointer_active,
     referenceAccepted: msg.has_reference_image ? state.referenceAccepted : null,
   };
   const changed = (Object.keys(next) as (keyof X2UiState)[]).some(

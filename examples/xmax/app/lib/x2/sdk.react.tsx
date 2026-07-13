@@ -148,8 +148,7 @@ export function useX2() {
       sendCommand("set_reference_image", params),
     setPointer: (params: X2SetPointerParams): Promise<void> =>
       sendCommand("set_pointer", params),
-    reset: (): Promise<void> =>
-      sendCommand("reset", {}),
+    reset: (): Promise<void> => sendCommand("reset", {}),
     setPointerX: (params: X2SetPointerXParams): Promise<void> =>
       sendCommand("set_pointer_x", params),
     setPointerY: (params: X2SetPointerYParams): Promise<void> =>
@@ -165,12 +164,8 @@ export function useX2() {
  * Subscribe to any X2 message with a fully-typed handler.
  * The handler receives a discriminated X2Message.
  */
-export function useX2Message(
-  handler: (message: X2Message) => void,
-): void {
-  useReactorMessage((msg: unknown) =>
-    handler(_unwrapMessage<X2Message>(msg)),
-  );
+export function useX2Message(handler: (message: X2Message) => void): void {
+  useReactorMessage((msg: unknown) => handler(_unwrapMessage<X2Message>(msg)));
 }
 
 /**
@@ -298,9 +293,7 @@ export type X2MainVideoViewProps = Omit<ReactorViewProps, "track">;
  *
  * Thin wrapper around `<ReactorView>` with `track` pre-bound. Accepts every other `ReactorViewProps` (`audioTrack`, `className`, `style`, `videoObjectFit`, `muted`, …). Must be rendered inside `<X2Provider>`.
  */
-export function X2MainVideoView(
-  props: X2MainVideoViewProps,
-): ReactElement {
+export function X2MainVideoView(props: X2MainVideoViewProps): ReactElement {
   return <ReactorView {...props} track="main_video" />;
 }
 
@@ -311,8 +304,6 @@ export type X2SourceViewProps = Omit<WebcamStreamProps, "track">;
  *
  * Thin wrapper around `<WebcamStream>` with `track` pre-bound. Requests `getUserMedia()` on mount, auto-publishes when the connection reaches `ready`, cleans up on unmount. Must be rendered inside `<X2Provider>`.
  */
-export function X2SourceView(
-  props: X2SourceViewProps,
-): ReactElement {
+export function X2SourceView(props: X2SourceViewProps): ReactElement {
   return <WebcamStream {...props} track="source" />;
 }

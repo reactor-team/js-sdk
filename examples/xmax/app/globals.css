@@ -21,6 +21,21 @@
   --color-brand: var(--reactor-color-light-gold);
   --color-brand-fg: var(--reactor-color-interstellar);
   --color-active: var(--reactor-color-flora-light);
+
+  /* One-shot ripple confirming a press on the drag-to-steer overlay
+   * (animate-pointer-press). `both` keeps it invisible after it runs. */
+  --animate-pointer-press: pointer-press 0.4s ease-out both;
+
+  @keyframes pointer-press {
+    from {
+      transform: scale(0.3);
+      opacity: 0.9;
+    }
+    to {
+      transform: scale(1);
+      opacity: 0;
+    }
+  }
 }
 
 html,

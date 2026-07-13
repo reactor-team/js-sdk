@@ -14,8 +14,9 @@ Where generation models produce video from a prompt alone, X2 edits the video yo
 │   • keep backlog     │   on the right — drag on the output   │
 │     · reset          │   to steer the subject                │
 │  Prompt + presets    ├───────────────────────────────────────┤
-│  Reference image     │   status row (generating · resolution │
-│  Snap clip           │            · ref ✓ · prompt)          │
+│  Pointer readout     │   status row (generating · resolution │
+│  Reference image     │            · ref ✓ · prompt)          │
+│  Snap clip           │                                       │
 └──────────────────────┴───────────────────────────────────────┘
 ```
 
@@ -38,7 +39,7 @@ Get a **production** API key (`rk_...`) from the [Reactor dashboard](https://rea
 - **Image** - pick a still image and the app repeats it as a constant feed. Set a prompt and drag on the output to animate the scene.
 - **Steer the prompt** - setting a prompt is what arms generation; re-prompt mid-stream at any time and the new edit lands at the next chunk boundary, with no re-render and no break in the stream. Prompts are editing instructions, not scene descriptions - the [prompt guide](https://docs.reactor.inc/model-api-reference/xmax/prompt-guide) covers how to write edits that land where you aim them.
 - **Reference image** - upload an image the model conditions on (a face, an outfit, a style target). The upload rides `uploadFile()` and lands as a `set_reference_image` command; swapping it mid-stream restarts generation automatically.
-- **Drag to steer** - press and drag on the edited output to drive the model's pointer (`set_pointer`, normalized 0..1 output-frame coordinates). Releasing deactivates it.
+- **Drag to steer** - press and drag on the edited output to drive the model's pointer (`set_pointer`, normalized 0..1 output-frame coordinates). Releasing deactivates it. Works in every source mode; the sidebar's Pointer panel shows the raw `pointer_x` / `pointer_y` / `pointer_active` values as the model echoes them back in `state_update`, so you can watch exactly what the API receives.
 - **Keep backlog** - a checkbox on the source panel toggles `set_keep_backlog`: keep every source frame queued (edit all of them, latency grows) or drop stale frames to stay real-time.
 - **Snap a clip** - capture the last N seconds of the stream (model-agnostic recording).
 
@@ -52,23 +53,25 @@ XMAX has no published `@reactor-models/*` package yet, so the app vendors the ge
 
 ## Code tour
 
-| Path                                    | What it is                                                                       |
-| --------------------------------------- | --------------------------------------------------------------------------------- |
-| `app/XmaxApp.tsx`                       | `X2Provider` shell + layout + the `state_update` reducer and event handlers      |
-| `app/lib/x2/sdk.ts` / `sdk.react.tsx`   | The vendored generated typed client (provider, `useX2`, per-message hooks)       |
-| `app/components/SourcePanel.tsx`        | Source toggle (webcam / video / image), keep-backlog, reset                      |
-| `app/components/WebcamSource.tsx`       | Webcam capture + self-view (in the panel); produces the `source` track           |
-| `app/components/VideoSource.tsx`        | Plays a chosen clip and streams it into `source` via `captureStream()` (stage)   |
-| `app/components/ImageSource.tsx`        | Repeats a still image as a constant canvas-captured feed (stage)                 |
-| `app/components/VideoPicker.tsx`        | Preset + local-file picker for the video source                                  |
-| `app/components/ImagePicker.tsx`        | Preset + local-file picker for the image source                                  |
-| `app/components/useSourcePublisher.ts`  | Single owner of the `source` slot; reconciles the wire to the latest track       |
-| `app/components/Prompt.tsx`             | Prompt textarea + Apply, preset chips, active prompt                             |
-| `app/components/ReferenceImage.tsx`     | Reference upload (`uploadFile` → `set_reference_image`), preview, accepted dims  |
-| `app/components/PointerOverlay.tsx`     | Drag-to-steer overlay mapping pointer to output-frame coords (`set_pointer`)     |
-| `app/components/Stage.tsx`              | Edited output — single in webcam mode; split with the source in video / image    |
-| `app/api/reactor/token/route.ts`        | Mints the short-lived JWT server-side                                            |
-| `app/components/SnapClip.tsx`           | Model-agnostic clip recording on `@reactor-team/js-sdk` (drop-in)                |
+| Path                                   | What it is                                                                       |
+| -------------------------------------- | -------------------------------------------------------------------------------- |
+| `app/XmaxApp.tsx`                      | `X2Provider` shell + layout + one-shot handlers for the discrete model events    |
+| `app/lib/x2/sdk.ts` / `sdk.react.tsx`  | The vendored generated typed client (provider, `useX2`, per-message hooks)       |
+| `app/lib/state.ts` / `types.ts`        | `X2UiState` and the reducer projecting `state_update` snapshots into it          |
+| `app/components/SourcePanel.tsx`       | Source toggle (webcam / video / image), keep-backlog, reset                      |
+| `app/components/WebcamSource.tsx`      | Webcam capture + self-view (in the panel); produces the `source` track           |
+| `app/components/VideoSource.tsx`       | Plays a chosen clip and streams it into `source` via `captureStream()` (stage)   |
+| `app/components/ImageSource.tsx`       | Repeats a still image as a constant canvas-captured feed (stage)                 |
+| `app/components/VideoPicker.tsx`       | Preset + local-file picker for the video source                                  |
+| `app/components/ImagePicker.tsx`       | Preset + local-file picker for the image source                                  |
+| `app/components/useSourcePublisher.ts` | Single owner of the `source` slot; reconciles the wire to the latest track       |
+| `app/components/Prompt.tsx`            | Prompt textarea + Apply, preset chips, active prompt                             |
+| `app/components/ReferenceImage.tsx`    | Reference upload (`uploadFile` → `set_reference_image`), preview, accepted dims  |
+| `app/components/PointerOverlay.tsx`    | Drag-to-steer overlay mapping pointer to output-frame coords (`set_pointer`)     |
+| `app/components/PointerPanel.tsx`      | Sidebar readout of the model-echoed `pointer_x` / `pointer_y` / `pointer_active` |
+| `app/components/Stage.tsx`             | Edited output — single in webcam mode; split with the source in video / image    |
+| `app/api/reactor/token/route.ts`       | Mints the short-lived JWT server-side                                            |
+| `app/components/SnapClip.tsx`          | Model-agnostic clip recording on `@reactor-team/js-sdk` (drop-in)                |
 
 ## Going further
 

@@ -41,16 +41,12 @@ import { StatusBadge } from "./components/StatusBadge";
 import { CommandError } from "./components/CommandError";
 import { SourcePanel } from "./components/SourcePanel";
 import { ReferenceImage } from "./components/ReferenceImage";
+import { PointerPanel } from "./components/PointerPanel";
 import { Prompt } from "./components/Prompt";
 import { Stage } from "./components/Stage";
 import { SnapClip } from "./components/SnapClip";
 import { useSourcePublisher } from "./components/useSourcePublisher";
-
-// The Reactor API the SDK talks to. Override with
-// NEXT_PUBLIC_REACTOR_API_URL for local / staging environments;
-// defaults to production.
-const REACTOR_API_URL =
-  process.env.NEXT_PUBLIC_REACTOR_API_URL || "https://api.reactor.inc";
+import { REACTOR_API_URL } from "@/app/lib/config";
 
 // JWT resolver passed to <X2Provider getJwt>. The SDK calls it on every
 // Reactor API request, so it must be a resolver, not a static string. The
@@ -101,9 +97,7 @@ function Workspace() {
   // here; useSourcePublisher is the single owner of the `source` slot and
   // reconciles the wire to the latest track, so mode switches can't race
   // two publishers.
-  const [sourceTrack, setSourceTrack] = useState<MediaStreamTrack | null>(
-    null,
-  );
+  const [sourceTrack, setSourceTrack] = useState<MediaStreamTrack | null>(null);
   const publishError = useSourcePublisher(sourceTrack);
 
   // URLs of the media selected in "video" / "image" mode (object URL for a
@@ -249,6 +243,11 @@ function Workspace() {
             onTrack={setSourceTrack}
           />
           <Prompt key={`p${resetNonce}`} activePrompt={ui.activePrompt} />
+          <PointerPanel
+            x={ui.pointerX}
+            y={ui.pointerY}
+            active={ui.pointerActive}
+          />
           <ReferenceImage
             key={`r${resetNonce}`}
             generating={ui.generating}

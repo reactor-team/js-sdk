@@ -45,7 +45,10 @@ export function useSourcePublisher(
         // Converge on the latest desired track. The loop re-reads
         // desiredRef each pass, so a switch that lands mid-publish is
         // picked up by the same loop instead of spawning a second one.
-        while (mountedRef.current && desiredRef.current !== publishedRef.current) {
+        while (
+          mountedRef.current &&
+          desiredRef.current !== publishedRef.current
+        ) {
           const want = desiredRef.current;
           try {
             if (want) {

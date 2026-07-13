@@ -76,7 +76,6 @@ export function ReferenceImage({
     }
   }
 
-
   return (
     <Panel label="Reference image">
       <div className="mb-2 flex flex-wrap gap-1.5">

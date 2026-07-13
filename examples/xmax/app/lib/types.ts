@@ -25,6 +25,11 @@ export interface X2UiState {
   hasReference: boolean;
   /** Current source-frame policy (see the set_keep_backlog command). */
   keepBacklog: boolean;
+  /** Drag-pointer position, normalized to the output frame (0..1). */
+  pointerX: number;
+  pointerY: number;
+  /** Whether a drag gesture is currently steering the edited subject. */
+  pointerActive: boolean;
   /** Last reference_image_accepted ack ({width, height} of the decoded image). */
   referenceAccepted: { width: number; height: number } | null;
 }
@@ -36,5 +41,9 @@ export const DEFAULT_UI_STATE: X2UiState = {
   outputHeight: null,
   hasReference: false,
   keepBacklog: false,
+  // The model's documented defaults: centered, not pressed.
+  pointerX: 0.5,
+  pointerY: 0.5,
+  pointerActive: false,
   referenceAccepted: null,
 };

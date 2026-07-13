@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { REACTOR_API_URL } from "@/app/lib/config";
 
 // How long we ask Reactor to make the JWT valid for. The server caps
 // this at its configured maximum (currently 6h), so asking for more
@@ -36,7 +37,7 @@ export async function GET() {
     );
   }
 
-  const res = await fetch("https://api.reactor.inc/tokens", {
+  const res = await fetch(`${REACTOR_API_URL}/tokens`, {
     method: "POST",
     headers: {
       "Reactor-API-Key": apiKey,
