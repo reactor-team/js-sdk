@@ -16,22 +16,30 @@
         "static": "Over-the-shoulder third-person view from behind the figure, the figure and the glowing portal device centred in frame at constant size, the swirling portal visible ahead — never a first-person view. Neither the figure nor the camera moves; look-input is the only camera motion, arcing around the stationary centred figure while held.",
         "dynamic": "Strict over-the-shoulder third-person view from close behind the figure, its back and the portal device filling frame centre, the swirling portal ahead — never first-person. It holds a fixed position behind the figure and tracks it forward; look-input becomes the figure changing heading."
       },
-      "empty": { "static": "", "dynamic": "" }
+      "empty": {
+        "static": "",
+        "dynamic": ""
+      }
     },
     "movement": {
       "default": {
         "static": "The figure stands still in the fog, weight settled, the portal device humming in its grip and casting flickering blue light across its arms as the swirling vortex ahead pulses and drifts and volumetric haze curls around its boots.",
         "dynamic": "The figure advances at a steady pace through the fog-filled chamber, boots echoing on the dark metal floor, the portal device held ready and its blue glow sweeping the walls as machinery and drifting haze slide past."
       },
-      "empty": { "static": "", "dynamic": "" }
+      "empty": {
+        "static": "",
+        "dynamic": ""
+      }
     },
     "events": [
       {
         "name": "Open Portal",
+        "actor": "player",
         "detail": "The figure levels the portal device and fires; a fresh swirling portal blooms open ahead on the chamber wall — a spinning liquid vortex of blue light, shimmering particles and rippling distortion spiralling outward from the point of impact, then holding steady and pulsing."
       },
       {
         "name": "Cyberpunk City Portal",
+        "actor": "director",
         "baseVersion": "empty",
         "cameraVersion": "empty",
         "movementVersion": "empty",
@@ -39,6 +47,7 @@
       },
       {
         "name": "Forest Portal",
+        "actor": "director",
         "baseVersion": "empty",
         "cameraVersion": "empty",
         "movementVersion": "empty",
@@ -46,10 +55,12 @@
       },
       {
         "name": "Portal Blast",
+        "actor": "player",
         "detail": "The figure thrusts the device forward and a surging bolt of blue portal energy fires straight ahead, crackling with electric arcs and trailing shimmering particles, then bursts against the far wall in a ripple of distortion before the device settles back to a steady hum."
       },
       {
         "name": "Close Portal",
+        "actor": "player",
         "detail": "The swirling portal ahead collapses inward, its vortex spiralling tighter and its glow drawing down to a single bright point before it winks out with a soft shimmer, leaving only the dim fog-filled chamber and the device's faint blue hum."
       }
     ],

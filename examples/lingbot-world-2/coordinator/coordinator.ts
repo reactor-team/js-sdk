@@ -97,8 +97,18 @@ interface VitalChange {
   reset?: boolean;
 }
 
+// A director-owned scene event (scene change / death), forwarded by the Player
+// from the active scene so the Director panel/AI can fire it.
+interface SceneEvent {
+  name: string;
+  clause: string;
+  health?: number;
+  addItem?: string;
+}
+let sceneEvents: SceneEvent[] = [];
+
 interface Op {
-  op: "assert" | "retract" | "clear" | "tick" | "vital" | "mode" | "log";
+  op: "assert" | "retract" | "clear" | "tick" | "vital" | "mode" | "log" | "scene_events";
   fact?: Fact;
   key?: string;
   change?: VitalChange;
@@ -106,6 +116,14 @@ interface Op {
   mode?: "both" | "human" | "ai"; // for op:"mode"
   cmd?: string; // for op:"log" — a player-side command (event/prompt/…)
   detail?: unknown; // for op:"log" — command payload
+  events?: SceneEvent[]; // for op:"scene_events"
+}
+
+function broadcastSceneEvents(): void {
+  const msg = JSON.stringify({ type: "scene_events", events: sceneEvents });
+  for (const client of wss.clients) {
+    if (client.readyState === WebSocket.OPEN) client.send(msg);
+  }
 }
 
 function broadcastMode(): void {
@@ -121,6 +139,7 @@ wss.on("connection", (ws) => {
   ws.send(JSON.stringify({ type: "facts", prompt: history.project() }));
   ws.send(JSON.stringify({ type: "vitals", ...vitals }));
   ws.send(JSON.stringify({ type: "mode", mode: directorMode }));
+  ws.send(JSON.stringify({ type: "scene_events", events: sceneEvents }));
 
   ws.on("message", (data) => {
     let m: Op;
@@ -151,6 +170,10 @@ wss.on("connection", (ws) => {
     switch (m.op) {
       case "log":
         break; // record-only; nothing to apply
+      case "scene_events":
+        sceneEvents = m.events ?? [];
+        broadcastSceneEvents();
+        break;
 
       case "mode":
         if (m.mode) {

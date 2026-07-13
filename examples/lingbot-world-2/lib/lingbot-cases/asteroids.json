@@ -25,34 +25,42 @@
     "events": [
       {
         "name": "Fire Cannons",
+        "actor": "player",
         "detail": "The ship's forward laser cannons open fire straight ahead, spitting rapid bright blue energy bolts that streak into the asteroid field; the muzzles flash, the hull shudders faintly with each shot, and a nearby asteroid bursts into glowing fragments and rock dust."
       },
       {
         "name": "Launch Missiles",
+        "actor": "player",
         "detail": "Twin missiles blast from the ship's underwing hardpoints and streak ahead down the field, dragging long trails of white smoke and orange flame as they corkscrew toward a distant asteroid, then slam into it and erupt in a bright expanding fireball of debris."
       },
       {
         "name": "Afterburner Boost",
+        "actor": "player",
         "detail": "The ship's blue thrusters flare into a brilliant white-hot afterburner and the ship surges forward with a sudden burst of speed, the asteroids stretching and rushing past in a blur of motion streaks as the engines roar."
       },
       {
         "name": "Barrel Roll",
+        "actor": "player",
         "detail": "The ship snaps into a fast barrel roll, rotating cleanly around its own axis to dodge, its thrusters tracing a spiraling blue arc through the drifting rocks before it levels out and steadies."
       },
       {
         "name": "Deploy Shield",
+        "actor": "player",
         "detail": "A translucent hexagonal energy shield flickers to life and wraps around the ship in a glowing blue dome, rippling and sparking as bits of rock and dust glance off it, then holding steady around the hull."
       },
       {
         "name": "Shatter Asteroid",
+        "actor": "player",
         "detail": "The ship locks onto the large spire-shaped asteroid straight ahead and unleashes a concentrated burst of blue cannon fire into it; the impacts flare bright, jagged cracks race across the rock, and the asteroid SPLITS APART into several massive tumbling chunks that break away and drift in different directions, trailing glowing debris, sparks, and expanding clouds of rock dust as the pieces spread across the field."
       },
       {
         "name": "Turbo Boost",
+        "actor": "player",
         "detail": "The ship slams into full overdrive — every engine igniting into a massive white-blue plume as a shockwave ripples off the hull and the ship rockets forward at extreme speed; the entire asteroid field smears into long streaking light trails warping past, the distant stars stretch into thin lines, and the thrusters scream at maximum burn."
       },
       {
         "name": "UFO Appears",
+        "actor": "director",
         "detail": "A sleek alien UFO — a smooth metallic saucer ringed with pulsing green and violet lights — drops out of the starfield ahead and glides into view among the asteroids, hovering silently with a soft glow; its rotating underside sweeps thin beams of light across the drifting rocks as it settles into the scene."
       }
     ],

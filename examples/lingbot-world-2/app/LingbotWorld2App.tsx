@@ -142,6 +142,7 @@ function MainContent() {
 
           {/* Video + controls — stacked in the right column */}
           <div className="order-1 flex min-w-0 flex-col gap-4 lg:order-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+            <DirectorPanel visible={directorOpen} onClose={() => setDirectorOpen(false)} />
             <div className="relative bg-black rounded-xl overflow-hidden border border-white/[0.08] aspect-video">
               <LingbotWorld2MainVideoView
                 videoObjectFit="contain"
@@ -166,7 +167,6 @@ function MainContent() {
                   Human Director
                 </Button>
               )}
-              <DirectorPanel visible={directorOpen} onClose={() => setDirectorOpen(false)} />
             </div>
 
             <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 sm:p-4">

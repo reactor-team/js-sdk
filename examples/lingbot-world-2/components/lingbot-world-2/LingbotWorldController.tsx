@@ -744,6 +744,48 @@ export function LingbotWorldController({ className }: { className?: string }) {
     }
   }, []);
 
+  // The active scene's DIRECTOR events (scene change / death), extracted for the
+  // Director panel/AI to fire. Kept in a ref so we can re-push on (re)connect.
+  const sceneDirEventsRef = useRef<
+    { name: string; clause: string; health?: number; addItem?: string }[]
+  >([]);
+  const pushSceneEvents = useCallback((sc: StructuredScene | null) => {
+    const list = (sc?.events ?? [])
+      .filter((e) => e.actor === "director")
+      .map((e) => ({
+        name: e.name,
+        clause: typeof e.detail === "string" ? e.detail : e.detail.static,
+        health: e.health,
+        addItem: e.addItem,
+      }));
+    sceneDirEventsRef.current = list;
+    // Bridge the current scene's director events to the in-app Human Director
+    // panel directly (works with NO coordinator connection), so the panel
+    // updates per game the moment a scene is selected.
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("directorSceneEvents", JSON.stringify(list));
+      window.dispatchEvent(
+        new CustomEvent("director-scene-events", { detail: list }),
+      );
+    }
+    if (coordConnectedRef.current) {
+      coordWsRef.current?.send(JSON.stringify({ op: "scene_events", events: list }));
+    }
+  }, []);
+
+  // Broadcast the selected game's title to the UI (Director panel etc.) whenever
+  // the active example changes, via the same localStorage + window-event bridge.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const title = activeExampleId
+      ? (STRUCTURED_EXAMPLES[activeExampleId]?.name ?? "")
+      : "";
+    window.localStorage.setItem("activeSceneName", title);
+    window.dispatchEvent(
+      new CustomEvent("active-scene-name", { detail: title }),
+    );
+  }, [activeExampleId]);
+
   const recomputePromptAndSend = useCallback(() => {
     // Vertical (jump/crouch) sentence appended to the prose so it matches the
     // motion. Jump: for hold/prompt while held; for charge only once the arc is
@@ -826,16 +868,43 @@ export function LingbotWorldController({ className }: { className?: string }) {
     [],
   );
 
-  // Connect to the shared coordinator when configured. On `facts` we cache the
-  // server's projected clauses and re-narrate; a Director on any machine writing
-  // to the same server thus steers this Player's prompt.
+  // Runtime-switchable coordinator WS, DEFAULTING to the local History
+  // coordinator (ws://localhost:8090) so the human-director loop is on by
+  // default. Shared with the Director panel via localStorage + a window event,
+  // so changing it there reconnects the Player here with no restart.
+  const [coordWsUrl, setCoordWsUrl] = useState<string>(
+    () =>
+      (typeof window !== "undefined" &&
+        window.localStorage.getItem("coordinatorWs")) ||
+      process.env.NEXT_PUBLIC_COORDINATOR_WS ||
+      "ws://localhost:8090",
+  );
   useEffect(() => {
-    const url = process.env.NEXT_PUBLIC_COORDINATOR_WS;
-    if (!url) return; // local History mode (#1) — nothing to connect
+    const onEv = (e: Event) =>
+      setCoordWsUrl((e as CustomEvent).detail || "ws://localhost:8090");
+    if (typeof window !== "undefined")
+      window.addEventListener("coordinator-ws", onEv);
+    return () => {
+      if (typeof window !== "undefined")
+        window.removeEventListener("coordinator-ws", onEv);
+    };
+  }, []);
+
+  // Connect to the shared coordinator. On `facts` we cache the server's projected
+  // clauses and re-narrate; a Director writing to the same server thus steers this
+  // Player's prompt. If the server is unreachable the socket errors and we fall
+  // back to local History (coordConnectedRef stays false).
+  useEffect(() => {
+    const url = coordWsUrl;
+    if (!url) return;
     const ws = new WebSocket(url);
     coordWsRef.current = ws;
     ws.onopen = () => {
       coordConnectedRef.current = true;
+      // Re-push the current scene's director events for a late-connecting panel.
+      if (sceneDirEventsRef.current.length) {
+        ws.send(JSON.stringify({ op: "scene_events", events: sceneDirEventsRef.current }));
+      }
     };
     ws.onclose = () => {
       coordConnectedRef.current = false;
@@ -866,7 +935,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
       coordWsRef.current = null;
       ws.close();
     };
-  }, []);
+  }, [coordWsUrl]);
 
   // ── on-screen HUD: shared player vitals + inventory ───────────────────────
   // Health/inventory are SHARED state changed by EITHER role via events: the
@@ -1658,6 +1727,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
     (slot: number) => {
       const events = sceneRef.current?.events;
       if (!events || slot < 0 || slot >= events.length) return;
+      if (events[slot]?.actor === "director") return; // director-only, not a player key
       if (!heldSlotsRef.current.includes(slot)) {
         heldSlotsRef.current = [...heldSlotsRef.current, slot];
         const ev = events[slot];
@@ -2038,6 +2108,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
           setScene(opts.scene);
           setActiveExampleId(opts.id);
           initHud(opts.scene.hud); // set starting vitals + show/hide from JSON
+          pushSceneEvents(opts.scene); // hand director events to the Director panel
           const p = composePrompt(opts.scene, false, []).trim();
           lastSentPromptRef.current = p;
           await lw2.setPrompt({ prompt: p });
@@ -2067,17 +2138,38 @@ export function LingbotWorldController({ className }: { className?: string }) {
       pushLookH,
       pushLookV,
       initHud,
+      pushSceneEvents,
     ],
   );
 
+  // Remembers a preset chosen while disconnected so it fully applies (upload
+  // image + prompt + start) automatically once we connect.
+  const pendingExampleRef = useRef<StructuredExample | null>(null);
+
   const applyExample = useCallback(
     async (ex: StructuredExample) => {
-      if (!isReady || isUploading) return;
+      if (isUploading) return;
       // Resolve the example's scene through the override store: if the user
       // has edited this example before, those edits are applied from the
       // start. Otherwise the pristine constant is used.
       const effective = effectiveSceneFor(ex.id);
       if (!effective) return;
+
+      // Load a preset WITHOUT a connection: set the local scene + preview image
+      // + editor + director events so it can be browsed and edited offline. The
+      // coordinator calls (upload/setImage/setPrompt/start) are deferred and
+      // fire automatically on connect (effect below).
+      if (!isReady) {
+        sceneRef.current = effective;
+        setScene(effective);
+        setActiveExampleId(ex.id);
+        setSentImagePreview(ex.image.src);
+        initHud(effective.hud);
+        pushSceneEvents(effective);
+        pendingExampleRef.current = ex;
+        return;
+      }
+
       await applyScene({
         id: ex.id,
         scene: effective,
@@ -2085,8 +2177,24 @@ export function LingbotWorldController({ className }: { className?: string }) {
         errorLabel: "Failed to apply example",
       });
     },
-    [isReady, isUploading, effectiveSceneFor, applyScene],
+    [
+      isReady,
+      isUploading,
+      effectiveSceneFor,
+      applyScene,
+      initHud,
+      pushSceneEvents,
+    ],
   );
+
+  // When a preset was chosen while disconnected, apply it fully on connect.
+  useEffect(() => {
+    if (isReady && pendingExampleRef.current) {
+      const ex = pendingExampleRef.current;
+      pendingExampleRef.current = null;
+      void applyExample(ex);
+    }
+  }, [isReady, applyExample]);
 
   // ---- Lifecycle ----
 
@@ -2361,8 +2469,10 @@ export function LingbotWorldController({ className }: { className?: string }) {
               const hasOverride = Boolean(
                 override && pristine && !scenesEqual(override, pristine),
               );
-              const applyDisabled =
-                !isReady || isUploading || !!loadingExampleId;
+              // Selectable even while disconnected: picking a preset loads it
+              // locally (scene + preview + editor); the coordinator apply is
+              // deferred until connect. Only block during an in-flight apply.
+              const applyDisabled = isUploading || !!loadingExampleId;
               return (
                 <div
                   key={ex.id}
@@ -2988,6 +3098,8 @@ export function LingbotWorldController({ className }: { className?: string }) {
           </span>
           <div className="flex flex-wrap gap-1">
             {scene.events.slice(0, MAX_EVENTS).map((event, slot) => {
+              // Director-owned events (scene change / death) aren't player keys.
+              if (event.actor === "director") return null;
               const detailEmpty =
                 typeof event.detail === "string"
                   ? !event.detail.trim()

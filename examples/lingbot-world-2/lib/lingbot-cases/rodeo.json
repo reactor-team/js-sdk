@@ -25,30 +25,37 @@
     "events": [
       {
         "name": "Buck",
+        "actor": "player",
         "detail": "The bull explodes into a violent buck, kicking its hind legs high and slamming its front hooves back down, hurling the cowboy up out of the saddle and back down again as dust bursts off the dirt; he snaps his free arm out, clings to the rope and rides it out."
       },
       {
         "name": "Spin",
+        "actor": "player",
         "detail": "The bull drops its shoulder and spins hard in a tight circle, whipping around again and again with its hooves tearing at the dirt, the cowboy leaning against the turn and fighting to stay centred over its back, then it straightens out of the spin."
       },
       {
         "name": "Thrown Off",
+        "actor": "player",
         "detail": "The bull heaves in a savage twist and flings the cowboy clear off its back; he tumbles through the air and hits the dirt in a rolling sprawl, dust flying up around him, then scrambles up onto his feet as the bull veers away."
       },
       {
         "name": "Wave Hat",
+        "actor": "player",
         "detail": "The cowboy sweeps his wide-brimmed hat off with his free hand and waves it high over his head in a showy flourish toward the roaring grandstand, then settles it back down and re-grips for balance."
       },
       {
         "name": "Barrel Turn",
+        "actor": "player",
         "detail": "The bull thunders up to the blue barrel ahead and cuts a hard, tight turn around it, hooves carving a spray of dirt as it whips around the marker, the cowboy leaning deep into the turn, then it powers back out across the arena."
       },
       {
-        "name": "Rabbit Appears",
-        "detail": "The cowboy stays mounted on the bull, unchanged in pose and position, while ahead across the arena dirt a small brown rabbit hops out onto the churned ground, pausing with its ears twitching, then hopping a little further and settling."
+        "name": "Dust Storm Rolls In",
+        "actor": "director",
+        "detail": "A thick wall of tan dust rolls in across the rodeo arena, wind kicking up swirling clouds that haze the air and dim the light; the dust hangs over the ring and lingers."
       },
       {
         "name": "Arena Fire",
+        "actor": "director",
         "detail": "The cowboy stays mounted on the bull, unchanged in pose and position, while flames erupt across the arena dirt ahead of him — a spreading blaze of orange fire and thick black smoke rising from the ground in the middle of the arena, heat rippling the air above the burning dirt."
       }
     ],

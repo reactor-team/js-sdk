@@ -79,6 +79,11 @@ export const DEFAULT_LAYER_VERSION = "default";
 
 export interface NamedEvent {
   name: string;
+  // Who controls this event. "player" (default) = a character action bound to a
+  // hold-key 1..9 the player presses. "director" = a world/scene event (scene
+  // change, weather, death) NOT given to the player; it's fired from the
+  // Director panel/AI and applied as a persistent History fact.
+  actor?: "player" | "director";
   // Which layer versions this event is authored against. Omit (or set
   // to "default") to compose against the layer's default version;
   // otherwise must be a key in the corresponding layer registry.

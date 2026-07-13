@@ -5,3 +5,9 @@ node_modules
 *.log
 .DS_Store
 *.tsbuildinfo
+
+# coordinator runtime artifacts
+__pycache__/
+*.pyc
+coordinator/commands.jsonl
+coordinator/frame.png

@@ -34,26 +34,32 @@
     "events": [
       {
         "name": "Fire Pistol",
+        "actor": "player",
         "detail": "The officer raises his service pistol in both gloved hands, arms extended ahead of him, and fires down the dark alley; the muzzle flash lights the falling rain, the recoil kicks the pistol back in his grip, and a spent casing clatters onto the wet asphalt."
       },
       {
         "name": "Flamethrower",
+        "actor": "player",
         "detail": "The officer levels a flamethrower in both hands and unleashes a long, continuous jet of roaring flame straight ahead down the alley — one sustained, billowing stream of orange fire and black smoke that pours forward without pause, not separate shots, lighting up the wet brick walls and hissing against the falling rain."
       },
       {
         "name": "Fire Rocket Launcher",
+        "actor": "player",
         "detail": "The officer hoists a shoulder-fired rocket launcher — an RPG: a long, heavy cylindrical steel tube resting across his shoulder, its wide bore pointing down the alley, gripped with both hands, not a handheld gun — and fires; the rocket blasts from the tube's mouth and flies off into the distance down the rain-slicked alley, dragging a long tail of orange flame and white smoke behind it, then slams into the distant brickwork and erupts in a massive fireball of flame, smoke, and flying debris."
       },
       {
         "name": "Knife Attack",
+        "actor": "player",
         "detail": "The officer draws a combat knife into his gloved hand and slashes at the air in a swift, practiced motion; the steel blade flashes in the ambient light as it cuts through the rain and his grip tightens on the handle."
       },
       {
         "name": "Forward Roll",
+        "actor": "player",
         "detail": "The officer drops into a low crouch and executes a forward roll across the wet asphalt, tucking his shoulder and rising smoothly back to his feet."
       },
       {
         "name": "Fall and Die",
+        "actor": "director",
         "baseVersion": "downed",
         "cameraVersion": "downed",
         "movementVersion": "downed",

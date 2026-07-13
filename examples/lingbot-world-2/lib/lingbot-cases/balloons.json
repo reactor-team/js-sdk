@@ -1,0 +1,65 @@
+{
+  "id": "case_balloons",
+  "name": "Balloon Courtyard",
+  "description": "Third-person concrete courtyard of drifting white balloons — key 1 = kick balloon (burst), key 2 = punch balloon, key 3 = stomp balloon, key 4 = spin-kick combo",
+  "image": {
+    "label": "Balloon Courtyard",
+    "src": "/lingbot-cases/balloons.jpg"
+  },
+  "scene": {
+    "base": {
+      "default": "A lone figure in dark clothing standing in a vast grey concrete courtyard scattered with large white translucent spherical balloons that drift and bob at head height. The world contains EXACTLY ONE long low concrete building with square dark openings on the left at a fixed position AND EXACTLY ONE dense cluster of white balloons on the right at a fixed position AND EXACTLY ONE low concrete wall straight ahead at a fixed position AND EXACTLY ONE single large balloon drifting high overhead at a fixed position. Overcast grey sky with heavy soft clouds, wet reflective concrete ground, diffuse muted daylight, moody cinematic tone, desaturated cool colors, high detail.",
+      "empty": ""
+    },
+    "camera": {
+      "default": {
+        "static": "Third-person view from behind the figure, their dark back and body centred in frame at constant size, the pale balloons drifting ahead of them — never a first-person view. Neither figure nor camera moves on its own; look-input is the only camera motion, arcing around the stationary centred figure while held.",
+        "dynamic": "Strict third-person rear view from close behind the figure, their back filling frame centre as they move through the balloons across the wet concrete — never first-person. It holds a fixed rear position and does not rotate around them; look-input becomes the figure changing heading."
+      },
+      "empty": {
+        "static": "",
+        "dynamic": ""
+      }
+    },
+    "movement": {
+      "default": {
+        "static": "The figure stands still on the wet concrete among the slowly drifting white balloons, weight settled, only a faint idle sway as the balloons bob and turn softly in the still grey air.",
+        "dynamic": "The figure strides forward across the courtyard, weaving between the big drifting balloons, footsteps echoing on the wet concrete as the pale spheres part and roll aside and the low building slides past."
+      },
+      "empty": {
+        "static": "",
+        "dynamic": ""
+      }
+    },
+    "events": [
+      {
+        "name": "Kick Balloon",
+        "actor": "player",
+        "detail": "The figure swings a leg and kicks a nearby white balloon square-on; the balloon INSTANTLY BURSTS — its translucent skin exploding apart with a sharp pop and shredding into fluttering pale scraps that scatter and drift down onto the wet concrete, the balloon gone as the figure's foot follows through."
+      },
+      {
+        "name": "Punch Balloon",
+        "actor": "player",
+        "detail": "The figure throws a quick jab and punches a drifting balloon; it POPS instantly with a soft burst, the thin white membrane tearing open and collapsing as the shreds flutter to the ground around the figure's fist — the popped balloon is gone, leaving empty air where it drifted."
+      },
+      {
+        "name": "Stomp Balloon",
+        "actor": "player",
+        "detail": "The figure jumps up and stomps down onto a low balloon resting near the concrete; it bursts flat under the boot with a loud pop and a puff of air, pale shreds scattering across the wet ground — the burst balloon is gone, only flat shreds left on the ground."
+      },
+      {
+        "name": "Spin-Kick Combo",
+        "actor": "player",
+        "detail": "The figure spins into a wide roundhouse kick, sweeping a leg through a whole cluster of white balloons; they BURST one after another in a rapid chain of pops, torn pale membranes fluttering down all across the grey courtyard — every balloon caught in the sweep is gone, leaving clear air across the courtyard."
+      },
+      {
+        "name": "Balloons Flood In",
+        "actor": "director",
+        "detail": "A great drift of new white translucent balloons rolls in across the courtyard and fills the air, more and more of the pale spheres crowding in and bobbing around the figure at head height, and they stay, packing the grey concrete space with drifting balloons."
+      }
+    ],
+    "jumpPrompt": "The figure springs upward off both feet, leaping high off the wet concrete up toward the drifting balloons, boots lifting clear of the ground before dropping back down and landing in a low crouch.",
+    "crouchPrompt": "The camera lowers as the figure crouches down low over the wet concrete, ducking beneath the bobbing balloons into a compact stance; the viewpoint sinks smoothly to a low, near-ground vantage and settles there.",
+    "standPrompt": "The figure straightens back up out of the crouch, rising to full standing height as the camera lifts smoothly back to its normal eye-level vantage among the pale balloons."
+  }
+}

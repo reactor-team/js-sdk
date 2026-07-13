@@ -25,23 +25,33 @@
     "events": [
       {
         "name": "Nitro Boost",
+        "actor": "player",
         "detail": "Bright blue flames burst from the race car's exhausts and it surges forward with a hard kick of speed, the scenery streaking past in a blur and a shimmering heat trail rippling behind it, before it eases back to its normal pace."
       },
       {
         "name": "Drift",
+        "actor": "player",
         "detail": "The race car breaks traction and slides sideways through a sweeping corner, the rear stepping out and thick white tyre smoke billowing off the screaming rear wheels, then it snaps straight again and powers on down the track."
       },
       {
         "name": "Crash",
+        "actor": "player",
         "detail": "The race car slams into the barriers ahead in a violent collision — crumpling bodywork, shattering carbon fibre and flying debris, tyre smoke and sparks bursting off the asphalt as it grinds to a jarring halt against the wall, then settles."
       },
       {
         "name": "Overtake",
+        "actor": "player",
         "detail": "The race car darts to one side and surges past a rival car just ahead, drawing level and then pulling cleanly in front of it down the straight, before settling back into the racing line."
       },
       {
         "name": "Handbrake Turn",
+        "actor": "player",
         "detail": "The race car yanks into a sharp handbrake turn, the rear whipping around in a tight spin with a screech of rubber and a plume of tyre smoke, then it straightens up pointing down the track and settles."
+      },
+      {
+        "name": "Rain Sweeps In",
+        "actor": "director",
+        "detail": "Dark storm clouds roll over the circuit and rain sweeps across the track; the tarmac turns wet and glossy, spray kicking up off the surface, and the rain stays, slicking the racing line."
       }
     ],
     "jumpPrompt": "The race car launches off a ramp, all four wheels lifting clear of the track as it sails through the air, then drops back down and lands hard on the asphalt with a bounce of its suspension.",
