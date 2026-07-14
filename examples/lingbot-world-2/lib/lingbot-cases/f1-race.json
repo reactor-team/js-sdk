@@ -1,7 +1,7 @@
 {
   "id": "car_racing_08",
   "name": "Circuit Racer",
-  "description": "First-person cockpit car racing — key 1 = nitro boost, key 2 = drift, key 3 = crash, key 4 = overtake, key 5 = handbrake turn",
+  "description": "First-person cockpit car racing — key 1 = nitro boost, key 2 = drift, key 3 = crash, key 4 = handbrake turn, key 5 = brake hard, key 6 = DRS boost, key 7 = ride the kerb",
   "image": {
     "label": "Circuit Racer",
     "src": "/lingbot-cases/circuit.jpg"
@@ -26,45 +26,88 @@
       {
         "name": "Nitro Boost",
         "actor": "player",
-        "detail": "The driver's gloved thumb stabs a button on the steering wheel and the dash flares bright — the engine screams higher and the view lunges forward, the track ahead smearing into streaks of speed through the windscreen as the car rockets down the straight, then eases back to pace."
+        "detail": "The driver's gloved thumb stabs a button on the steering wheel and the dash flares bright — the engine screams higher and the view lunges forward, the track ahead smearing into streaks of speed through the windscreen as the car rockets down the straight, then eases back to pace. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone."
       },
       {
         "name": "Drift",
         "actor": "player",
-        "detail": "The gloved hands throw the wheel hard over and the whole cockpit view slews sideways, the kerbs and barriers swinging across the windscreen as the rear steps out in a smoking slide, then the hands catch it and the view snaps back straight down the track."
+        "detail": "The gloved hands throw the wheel hard over and the whole cockpit view slews sideways, the kerbs and barriers swinging across the windscreen as the rear steps out in a smoking slide, then the hands catch it and the view snaps back straight down the track. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone."
       },
       {
         "name": "Crash",
         "actor": "player",
-        "detail": "The view lurches violently as the car slams into the barrier ahead — the windscreen fills with flying carbon-fibre debris and spinning sky and track, the wheel wrenching in the gloved hands and the dash flashing red warnings, before it grinds to a juddering, shuddering halt."
-      },
-      {
-        "name": "Overtake",
-        "actor": "player",
-        "detail": "The rear wing and gearbox of a rival car loom up ahead in the windscreen and the view surges up alongside it, the rival's bodywork sliding past the halo, before pulling cleanly in front and settling back into the racing line ahead."
+        "detail": "The view lurches violently as the car slams into the barrier ahead — the windscreen fills with flying carbon-fibre debris and spinning sky and track, the wheel wrenching in the gloved hands and the dash flashing red warnings, before it grinds to a juddering, shuddering halt. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone."
       },
       {
         "name": "Handbrake Turn",
         "actor": "player",
-        "detail": "The gloved hands yank the wheel and the cockpit whips around in a tight spin, the track, barriers and grandstands sweeping in a full arc across the windscreen with a screech of rubber, then the view settles pointing back down the circuit."
+        "detail": "The gloved hands yank the wheel and the cockpit whips around in a tight spin, the track, barriers and grandstands sweeping in a full arc across the windscreen with a screech of rubber, then the view settles pointing back down the circuit. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone."
+      },
+      {
+        "name": "Brake Hard",
+        "actor": "player",
+        "detail": "The driver's gloved hands squeeze and the view pitches hard forward as the car brakes sharply into the corner, the nose dipping and the tyres chirping and locking on the asphalt, the track rushing up in the windscreen, before it settles back level. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
+        "health": 5
+      },
+      {
+        "name": "DRS Boost",
+        "actor": "player",
+        "detail": "The gloved thumb flicks the DRS on the steering wheel and the dash lights up, and the view surges away down the straight as drag drops off — the track and barriers streaking faster past the halo and windscreen, then it eases as the wing closes. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
+        "health": 0
+      },
+      {
+        "name": "Ride the Kerb",
+        "actor": "player",
+        "detail": "The view drops onto the red-and-white kerb at the corner and the whole cockpit judders and rattles violently, the wheel shaking in the gloved hands and the horizon bouncing through the windscreen, before the car settles back onto the smooth asphalt. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
+        "health": -5
       },
       {
         "name": "Rain Sweeps In",
         "actor": "director",
-        "detail": "Dark storm clouds roll over and rain sweeps across the windscreen — droplets streaking and beading over the glass and halo, the track ahead darkening and glistening wet, spray kicking up off the nose; the rain stays, slicking the view ahead."
+        "detail": "Dark storm clouds roll over and rain sweeps across the windscreen — droplets streaking and beading over the glass and halo, the track ahead darkening and glistening wet, spray kicking up off the nose; the rain stays, slicking the view ahead. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone."
       },
       {
         "name": "Rabbit on the Track",
         "actor": "director",
-        "detail": "A rabbit darts out onto the track ahead in the windscreen and stops in the racing line directly in the car's path, ears twitching, staying put on the tarmac as the view rushes toward it."
+        "detail": "A rabbit darts out onto the track ahead in the windscreen and stops in the racing line directly in the car's path, ears twitching, staying put on the tarmac as the view rushes toward it. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone."
       },
       {
         "name": "Road Fire",
         "actor": "director",
-        "detail": "A wall of fire erupts across the track ahead in the windscreen, orange flames and black smoke rising off the tarmac and spanning the full width of the road directly in the car's path; it stays, burning across the view ahead, heat shimmering over the halo."
+        "detail": "EXACTLY ONE single wall of fire erupts across the track ahead in the windscreen — one lone wall of orange flames and black smoke rising off the tarmac and spanning the full width of the road directly in the car's path, no second fire and no other flames anywhere else; the view bears down on it and blasts through, and NO further fire appears after it, only the one, heat shimmering over the halo.",
+        "count": 1
+      },
+      {
+        "actor": "director",
+        "name": "Puddle on the Track",
+        "detail": "A wide sheet of standing water lies across the track ahead in the windscreen; the view rushes toward it and blasts through, a wall of spray exploding up over the halo and glass, the cockpit hydroplaning for a moment before the track grips again. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
+        "health": -5
+      },
+      {
+        "actor": "director",
+        "name": "Oil Slick Ahead",
+        "detail": "A dark oil slick spreads across the track ahead in the windscreen; the view hits it and slews sideways, the barriers swinging across the glass as the rear slides, before it snaps back straight down the track. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
+        "health": -8
+      },
+      {
+        "actor": "director",
+        "name": "Tunnel Section",
+        "detail": "The track ahead dives into a dark tunnel — the bright sky vanishes from the windscreen and the walls close in, strings of overhead lights strobing past over the halo, before the view bursts back out into open daylight. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
+        "health": 0
+      },
+      {
+        "actor": "director",
+        "name": "Sun Glare",
+        "detail": "The low sun drops to the end of the straight and blazes straight into the windscreen — a blinding wash of golden glare flooding the cockpit and washing out the track ahead, lens flare streaking across the halo and glass, before the view crests into shade. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
+        "health": -5
       }
     ],
-    "hud": { "show": true, "maxHealth": 100, "health": 100, "inventory": [] },
+    "hud": {
+      "show": true,
+      "maxHealth": 100,
+      "health": 100,
+      "inventory": []
+    },
     "jumpPrompt": "The track kinks up into a ramp and the viewpoint launches off the crest — the nose and halo tilting up into open sky and the horizon dropping away, before the car slams back down onto the asphalt with a hard jolt through the wheel and suspension.",
     "crouchPrompt": "The view sinks lower into the cockpit toward the wheel and the nose, dropping to a low, fast, close-to-the-track vantage that emphasises the sense of speed.",
     "standPrompt": "The view lifts smoothly back up to its normal cockpit height behind the wheel, returning to the standard forward-looking vantage over the nose."

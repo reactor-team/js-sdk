@@ -39,42 +39,42 @@
         "name": "Punch Combo",
         "actor": "player",
         "health": -5,
-        "detail": "The officer snaps forward with a fast three-punch combination — jab, cross, then a heavy hook — his gloved fists driving straight ahead through the falling rain, water spraying off his knuckles with each strike, before he pulls his guard back up and settles."
+        "detail": "The officer snaps forward with a fast three-punch combination — jab, cross, then a heavy hook — his gloved fists driving straight ahead through the falling rain, water spraying off his knuckles with each strike, before he pulls his guard back up and settles. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
       },
       {
         "name": "Roundhouse Kick",
         "actor": "player",
         "health": -5,
-        "detail": "The officer plants his lead foot and whips his rear leg around in a fast roundhouse kick, his boot sweeping in a wide arc ahead of him and flinging a sheet of spray off the wet asphalt, then he brings the leg back down and re-settles into his stance."
+        "detail": "The officer plants his lead foot and whips his rear leg around in a fast roundhouse kick, his boot sweeping in a wide arc ahead of him and flinging a sheet of spray off the wet asphalt, then he brings the leg back down and re-settles into his stance. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
       },
       {
         "name": "Baton Strike",
         "actor": "player",
         "health": -8,
-        "detail": "The officer draws a collapsible steel baton, flicks it open with a sharp snap, and swings it down and across in a swift overhead strike ahead of him; the metal glints in the blue and red light and hisses through the rain before he lowers it back to his side."
+        "detail": "The officer draws a collapsible steel baton, flicks it open with a sharp snap, and swings it down and across in a swift overhead strike ahead of him; the metal glints in the blue and red light and hisses through the rain before he lowers it back to his side. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
       },
       {
         "name": "Grapple Takedown",
         "actor": "player",
         "health": -12,
-        "detail": "The officer lunges forward, seizes an unseen opponent ahead of him, pivots his hips and hurls them down onto the wet asphalt with a heavy splash of spray, then straightens back up over the spot, breathing hard."
+        "detail": "The officer lunges forward, seizes an unseen opponent ahead of him, pivots his hips and hurls them down onto the wet asphalt with a heavy splash of spray, then straightens back up over the spot, breathing hard. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
       },
       {
         "name": "Dodge Roll",
         "actor": "player",
         "health": 10,
-        "detail": "The officer drops into a low crouch and executes a fast forward roll across the wet asphalt, tucking his shoulder and rising smoothly back to his feet in a ready stance."
+        "detail": "The officer drops into a low crouch and executes a fast forward roll across the wet asphalt, tucking his shoulder and rising smoothly back to his feet in a ready stance. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
       },
       {
         "name": "Enemies Appear",
         "actor": "director",
-        "detail": "A group of dark, armed figures appears far down the road at the distant far end of the alley, small and silhouetted against the neon glow through the falling rain, then starts advancing up the wet street toward the officer, steadily growing larger as they close the distance; they keep coming.",
+        "detail": "A group of dark, armed figures appears far down the road at the distant far end of the alley, small and silhouetted against the neon glow through the falling rain, then starts advancing up the wet street toward the officer, steadily growing larger as they close the distance; they keep coming. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
         "count": 3
       },
       {
         "name": "Enemies Attack",
         "actor": "director",
-        "detail": "The figures that came up the road close the last of the distance and attack the officer all at once — fists, knives, and clubs swinging in from straight ahead as they drive him back against the wet brick wall under the flickering neon."
+        "detail": "The figures that came up the road close the last of the distance and attack the officer all at once — fists, knives, and clubs swinging in from straight ahead as they drive him back against the wet brick wall under the flickering neon. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
       }
     ],
     "hud": {

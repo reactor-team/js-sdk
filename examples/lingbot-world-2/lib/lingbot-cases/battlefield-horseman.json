@@ -26,17 +26,17 @@
       {
         "name": "Snowstorm Approaches",
         "actor": "director",
-        "detail": "The sky darkens rapidly and a heavy blizzard sweeps in across the battlefield, howling wind driving dense sheets of thick snow sideways through the air. The whirling snowfall quickly builds into a near-whiteout, snow piling up over the muddy terrain, the warrior's armor and hood, the horse's back, and the scattered debris, frost creeping across every surface as the war-torn field is swallowed by a cold, roaring, white-grey storm."
+        "detail": "The sky darkens rapidly and a heavy blizzard sweeps in across the battlefield, howling wind driving dense sheets of thick snow sideways through the air. The whirling snowfall quickly builds into a near-whiteout, snow piling up over the muddy terrain, the warrior's armor and hood, the horse's back, and the scattered debris, frost creeping across every surface as the war-torn field is swallowed by a cold, roaring, white-grey storm. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
       },
       {
         "name": "Horse Lunge Strike",
         "actor": "player",
-        "detail": "The warrior leans forward, guiding the horse into a sudden lunge. The large curved blade swings in a wide, downward arc, cleaving through the mud and shattering a nearby wooden shield into splinters."
+        "detail": "The warrior leans forward, guiding the horse into a sudden lunge. The large curved blade swings in a wide, downward arc, cleaving through the mud and shattering a nearby wooden shield into splinters. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
       },
       {
         "name": "Casts Fire Magic",
         "actor": "player",
-        "detail": "The warrior raises the large curved blade high overhead toward the sky, and dark storm-clouds gather above as the blade glows with channeled energy. In answer, a rain of blazing fireballs streaks down from the sky, slamming into the muddy battlefield one after another in bursts of fire, smoke, and flying debris."
+        "detail": "The warrior raises the large curved blade high overhead toward the sky, and dark storm-clouds gather above as the blade glows with channeled energy. In answer, a rain of blazing fireballs streaks down from the sky, slamming into the muddy battlefield one after another in bursts of fire, smoke, and flying debris. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
       }
     ],
     "jumpPrompt": "The horse leaps upward, launching off its hind legs so all four hooves lift clear of the muddy ground, the warrior rising with it in the saddle before the horse comes back down and lands.",

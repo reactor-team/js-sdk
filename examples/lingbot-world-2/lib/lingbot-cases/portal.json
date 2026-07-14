@@ -36,7 +36,7 @@
       {
         "name": "Open Portal",
         "actor": "player",
-        "detail": "The figure levels the portal device and fires; a fresh swirling portal blooms open ahead on the chamber wall — a spinning liquid vortex of blue light, shimmering particles and rippling distortion spiralling outward from the point of impact, then holding steady and pulsing."
+        "detail": "The figure levels the portal device and fires; a fresh swirling portal blooms open ahead on the chamber wall — a spinning liquid vortex of blue light, shimmering particles and rippling distortion spiralling outward from the point of impact, then holding steady and pulsing. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
       },
       {
         "name": "Cyberpunk City Portal",
@@ -44,7 +44,7 @@
         "baseVersion": "empty",
         "cameraVersion": "empty",
         "movementVersion": "empty",
-        "detail": "Over-the-shoulder third-person view of a figure holding a glowing blue portal device, seen from behind. Directly ahead the portal has snapped fully open into a huge, crystal-clear circular gateway that completely fills the centre of the frame — and beyond it, edge to edge, a vast neon-lit CYBERPUNK CITY at night: towering skyscrapers stacked with glowing holographic signs, dense rain-slick streets far below, flying vehicles streaming between the buildings, purple and cyan light flooding out through the gateway and washing over the figure and the dim metal chamber around it. The city is bright, sharp and dominant, not faint — it is the main subject of the shot. Unreal Engine 5, ray-traced reflections, volumetric haze, hyper-realistic, 8K."
+        "detail": "Over-the-shoulder third-person view of a figure holding a glowing blue portal device, seen from behind. Directly ahead the portal has snapped fully open into a huge, crystal-clear circular gateway that completely fills the centre of the frame — and beyond it, edge to edge, a vast neon-lit CYBERPUNK CITY at night: towering skyscrapers stacked with glowing holographic signs, dense rain-slick streets far below, flying vehicles streaming between the buildings, purple and cyan light flooding out through the gateway and washing over the figure and the dim metal chamber around it. The city is bright, sharp and dominant, not faint — it is the main subject of the shot. Unreal Engine 5, ray-traced reflections, volumetric haze, hyper-realistic, 8K. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
       },
       {
         "name": "Forest Portal",
@@ -52,20 +52,27 @@
         "baseVersion": "empty",
         "cameraVersion": "empty",
         "movementVersion": "empty",
-        "detail": "Over-the-shoulder third-person view of a figure holding a glowing blue portal device, seen from behind. Directly ahead the portal has snapped fully open into a huge, crystal-clear circular gateway that completely fills the centre of the frame — and beyond it, edge to edge, a dense SUNLIT FOREST: tall green trees, thick shafts of golden light pouring down through the canopy, ferns and drifting pollen, a mossy floor stretching into the woods, warm green daylight flooding out through the gateway and washing over the figure and the dim metal chamber around it. The forest is bright, sharp and dominant, not faint — it is the main subject of the shot. Unreal Engine 5, ray-traced lighting, volumetric god rays, hyper-realistic, 8K."
+        "detail": "Over-the-shoulder third-person view of a figure holding a glowing blue portal device, seen from behind. Directly ahead the portal has snapped fully open into a huge, crystal-clear circular gateway that completely fills the centre of the frame — and beyond it, edge to edge, a dense SUNLIT FOREST: tall green trees, thick shafts of golden light pouring down through the canopy, ferns and drifting pollen, a mossy floor stretching into the woods, warm green daylight flooding out through the gateway and washing over the figure and the dim metal chamber around it. The forest is bright, sharp and dominant, not faint — it is the main subject of the shot. Unreal Engine 5, ray-traced lighting, volumetric god rays, hyper-realistic, 8K. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
       },
       {
         "name": "Portal Blast",
         "actor": "player",
-        "detail": "The figure thrusts the device forward and a surging bolt of blue portal energy fires straight ahead, crackling with electric arcs and trailing shimmering particles, then bursts against the far wall in a ripple of distortion before the device settles back to a steady hum."
+        "detail": "The figure thrusts the device forward and a surging bolt of blue portal energy fires straight ahead, crackling with electric arcs and trailing shimmering particles, then bursts against the far wall in a ripple of distortion before the device settles back to a steady hum. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
       },
       {
         "name": "Close Portal",
         "actor": "player",
-        "detail": "The swirling portal ahead collapses inward, its vortex spiralling tighter and its glow drawing down to a single bright point before it winks out with a soft shimmer, leaving only the dim fog-filled chamber and the device's faint blue hum."
+        "detail": "The swirling portal ahead collapses inward, its vortex spiralling tighter and its glow drawing down to a single bright point before it winks out with a soft shimmer, leaving only the dim fog-filled chamber and the device's faint blue hum. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
       }
     ],
-    "hud": { "show": true, "maxHealth": 100, "health": 100, "inventory": ["a portal gun"] },
+    "hud": {
+      "show": true,
+      "maxHealth": 100,
+      "health": 100,
+      "inventory": [
+        "a portal gun"
+      ]
+    },
     "jumpPrompt": "The figure springs upward off both feet, leaping high off the metal floor, its boots lifting clear of the ground before it drops back down and lands in a low crouch.",
     "crouchPrompt": "The camera lowers toward the ground as the figure crouches down low, bending its knees and ducking into a compact, hunched stance; the viewpoint sinks smoothly to a low, near-ground vantage and settles there, close to the floor.",
     "standPrompt": "The figure straightens back up out of the crouch, rising to full standing height as the camera lifts smoothly back to its normal eye-level vantage."

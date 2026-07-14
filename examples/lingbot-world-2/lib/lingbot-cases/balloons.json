@@ -36,27 +36,27 @@
       {
         "name": "Kick Balloon",
         "actor": "player",
-        "detail": "The figure swings a leg and kicks a nearby white balloon square-on; the balloon INSTANTLY BURSTS — its translucent skin exploding apart with a sharp pop and shredding into fluttering pale scraps that scatter and drift down onto the wet concrete, the balloon gone as the figure's foot follows through."
+        "detail": "The figure swings a leg and kicks a nearby white balloon square-on; the balloon INSTANTLY BURSTS — its translucent skin exploding apart with a sharp pop and shredding into fluttering pale scraps that scatter and drift down onto the wet concrete, the balloon gone as the figure's foot follows through. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
       },
       {
         "name": "Punch Balloon",
         "actor": "player",
-        "detail": "The figure throws a quick jab and punches a drifting balloon; it POPS instantly with a soft burst, the thin white membrane tearing open and collapsing as the shreds flutter to the ground around the figure's fist — the popped balloon is gone, leaving empty air where it drifted."
+        "detail": "The figure throws a quick jab and punches a drifting balloon; it POPS instantly with a soft burst, the thin white membrane tearing open and collapsing as the shreds flutter to the ground around the figure's fist — the popped balloon is gone, leaving empty air where it drifted. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
       },
       {
         "name": "Stomp Balloon",
         "actor": "player",
-        "detail": "The figure jumps up and stomps down onto a low balloon resting near the concrete; it bursts flat under the boot with a loud pop and a puff of air, pale shreds scattering across the wet ground — the burst balloon is gone, only flat shreds left on the ground."
+        "detail": "The figure jumps up and stomps down onto a low balloon resting near the concrete; it bursts flat under the boot with a loud pop and a puff of air, pale shreds scattering across the wet ground — the burst balloon is gone, only flat shreds left on the ground. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
       },
       {
         "name": "Spin-Kick Combo",
         "actor": "player",
-        "detail": "The figure spins into a wide roundhouse kick, sweeping a leg through a whole cluster of white balloons; they BURST one after another in a rapid chain of pops, torn pale membranes fluttering down all across the grey courtyard — every balloon caught in the sweep is gone, leaving clear air across the courtyard."
+        "detail": "The figure spins into a wide roundhouse kick, sweeping a leg through a whole cluster of white balloons; they BURST one after another in a rapid chain of pops, torn pale membranes fluttering down all across the grey courtyard — every balloon caught in the sweep is gone, leaving clear air across the courtyard. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
       },
       {
         "name": "Balloons Flood In",
         "actor": "director",
-        "detail": "A great drift of new white translucent balloons rolls in across the courtyard and fills the air, more and more of the pale spheres crowding in and bobbing around the figure at head height, and they stay, packing the grey concrete space with drifting balloons."
+        "detail": "A great drift of new white translucent balloons rolls in across the courtyard and fills the air, more and more of the pale spheres crowding in and bobbing around the figure at head height, and they stay, packing the grey concrete space with drifting balloons. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
       }
     ],
     "jumpPrompt": "The figure springs upward off both feet, leaping high off the wet concrete up toward the drifting balloons, boots lifting clear of the ground before dropping back down and landing in a low crouch.",

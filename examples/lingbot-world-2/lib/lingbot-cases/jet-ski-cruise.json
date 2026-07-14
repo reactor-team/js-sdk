@@ -18,122 +18,122 @@
     },
     "movement": {
       "default": {
-        "static": "The man sits upright on the jet ski, hands resting on the handlebars, the craft bobbing gently on the swell as small wavelets lap against the hull and the calm water settles around it.",
-        "dynamic": "The jet ski surges forward across the water, its rear thruster churning the turquoise sea into a wake of white foam, spray fanning out to either side as the man leans into the ride and the hull skips over the swell."
+        "static": "The man sits upright on the jet ski, hands resting on the handlebars, the craft bobbing gently on the swell as small wavelets lap against the hull and the calm water settles around it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
+        "dynamic": "The jet ski surges forward across the water, its rear thruster churning the turquoise sea into a wake of white foam, spray fanning out to either side as the man leans into the ride and the hull skips over the swell. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water."
       }
     },
     "events": [
       {
         "name": "Meteor Shower",
         "actor": "director",
-        "detail": "Single meteors fall from high in the sky one after another — each a giant burning ball of rock dragging a long tail of fire and smoke straight down toward the sea. One by one they crash into the water far off near the horizon, away from the rider and never on the path ahead, each erupting in a huge fiery explosion and a towering burst of white spray before the next one follows."
+        "detail": "Single meteors fall from high in the sky one after another — each a giant burning ball of rock dragging a long tail of fire and smoke straight down toward the sea. One by one they crash into the water far off near the horizon, away from the rider and never on the path ahead, each erupting in a huge fiery explosion and a towering burst of white spray before the next one follows. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water."
       },
       {
         "name": "Sunset Glow",
         "actor": "director",
-        "detail": "The daylight deepens into a fiery sunset: the sun sinks low and rests right on the horizon, a huge, swollen orange-red disc half-dipping into the sea, while the sky above ignites in deep bands of amber, rose, and violet. Directly beneath it, the sun's reflection blazes across the water — a brilliant, unbroken path of molten gold stretching from the horizon straight toward the viewer, the rippling sea breaking it into shimmering streaks on every wavelet, the beach glowing warm amber."
+        "detail": "The daylight deepens into a fiery sunset: the sun sinks low and rests right on the horizon, a huge, swollen orange-red disc half-dipping into the sea, while the sky above ignites in deep bands of amber, rose, and violet. Directly beneath it, the sun's reflection blazes across the water — a brilliant, unbroken path of molten gold stretching from the horizon straight toward the viewer, the rippling sea breaking it into shimmering streaks on every wavelet, the beach glowing warm amber. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water."
       },
       {
         "name": "Rides with Torch",
         "actor": "player",
-        "detail": "The rider raises a burning torch high overhead in one hand, its orange flame streaming and flickering in the wind and trailing a ribbon of smoke, while his other hand grips the handlebars and the jet ski drives forward across the water, spray fanning off the hull."
+        "detail": "The rider raises a burning torch high overhead in one hand, its orange flame streaming and flickering in the wind and trailing a ribbon of smoke, while his other hand grips the handlebars and the jet ski drives forward across the water, spray fanning off the hull. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water."
       },
       {
         "name": "Jump the Wake",
         "actor": "player",
-        "detail": "The rider guns the throttle up the face of a swell and launches the jet ski clean off the crest into the air, spray fanning out beneath him, then splashes back down onto the turquoise water and levels back out. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone.",
+        "detail": "The rider guns the throttle up the face of a swell and launches the jet ski clean off the crest into the air, spray fanning out beneath him, then splashes back down onto the turquoise water and levels back out. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": 0
       },
       {
         "name": "Hard Carve",
         "actor": "player",
-        "detail": "The rider leans hard into a sharp banking turn, the jet ski carving across the water and throwing a tall arc of spray off its side, then straightens back onto a level heading. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone.",
+        "detail": "The rider leans hard into a sharp banking turn, the jet ski carving across the water and throwing a tall arc of spray off its side, then straightens back onto a level heading. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": 0
       },
       {
         "name": "Throttle Boost",
         "actor": "player",
-        "detail": "The rider slams the throttle wide open for a burst of speed, the nose of the jet ski lifting as a long rooster-tail of spray streams up behind him, then eases back down to a steady cruising pace. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone.",
+        "detail": "The rider slams the throttle wide open for a burst of speed, the nose of the jet ski lifting as a long rooster-tail of spray streams up behind him, then eases back down to a steady cruising pace. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": 0
       },
       {
         "name": "Spin 360",
         "actor": "player",
-        "detail": "The rider whips the jet ski into a tight spinning 360, the hull skating around and sweeping a full ring of spray across the water, then settles back facing forward. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone.",
+        "detail": "The rider whips the jet ski into a tight spinning 360, the hull skating around and sweeping a full ring of spray across the water, then settles back facing forward. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": 0
       },
       {
         "name": "Barrel Roll",
         "actor": "player",
-        "detail": "The rider launches the jet ski off a wave and rolls it fully over in mid-air, a complete barrel roll above the turquoise water, before coming back down and landing upright, riding on. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone.",
+        "detail": "The rider launches the jet ski off a wave and rolls it fully over in mid-air, a complete barrel roll above the turquoise water, before coming back down and landing upright, riding on. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": 0
       },
       {
         "name": "Cut the Engine",
         "actor": "player",
-        "detail": "The rider throttles down and coasts to a gentle stop, the jet ski bobbing on the swell with the engine idling and the water settling around it, then throttles back up and rides on. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone.",
+        "detail": "The rider throttles down and coasts to a gentle stop, the jet ski bobbing on the swell with the engine idling and the water settling around it, then throttles back up and rides on. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": 5
       },
       {
         "name": "Wave to Shore",
         "actor": "player",
-        "detail": "The rider lifts one hand off the handlebar and waves toward the palm-lined beach as the jet ski coasts along, then grips the handlebar again and rides on. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone.",
+        "detail": "The rider lifts one hand off the handlebar and waves toward the palm-lined beach as the jet ski coasts along, then grips the handlebar again and rides on. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": 0
       },
       {
         "name": "Shark Appears",
         "actor": "director",
-        "detail": "A single dark triangular dorsal fin rises and cuts through the turquoise water ahead, slicing across the surface and crossing the jet ski's path — ONLY the top fin shows above the water, the shark's body staying hidden below the surface; the fin stays, circling on the surface nearby. EXACTLY ONE shark in the water — a single lone shark, no second shark, no duplicate and no clone."
+        "detail": "A single dark triangular dorsal fin rises and cuts through the turquoise water ahead, slicing across the surface and crossing the jet ski's path — ONLY the top fin shows above the water, the shark's body staying hidden below the surface; the fin stays, circling on the surface nearby. EXACTLY ONE shark in the water — a single lone shark, no second shark, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water."
       },
       {
         "name": "Shark Lunges",
         "actor": "director",
-        "detail": "The dark dorsal fin surges fast across the surface straight toward the jet ski, cutting a sharp wake right up alongside it in a rush of spray — ONLY the top fin breaks the surface, the shark's body staying below the water — then it veers off and keeps pace through the wake. EXACTLY ONE shark in the water — a single lone shark, no second shark, no duplicate and no clone."
+        "detail": "The dark dorsal fin surges fast across the surface straight toward the jet ski, cutting a sharp wake right up alongside it in a rush of spray — ONLY the top fin breaks the surface, the shark's body staying below the water — then it veers off and keeps pace through the wake. EXACTLY ONE shark in the water — a single lone shark, no second shark, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water."
       },
       {
         "name": "Dolphins Leap Alongside",
         "actor": "director",
-        "detail": "A pod of sleek dolphins surfaces and leaps in formation alongside the jet ski, arcing out of the turquoise water and diving back in one after another, spray glittering in the sunlight as they keep pace beside the rider, then peel away back into the sea.",
+        "detail": "A pod of sleek dolphins surfaces and leaps in formation alongside the jet ski, arcing out of the turquoise water and diving back in one after another, spray glittering in the sunlight as they keep pace beside the rider, then peel away back into the sea. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": 5,
         "count": 1
       },
       {
         "name": "Storm Rolls In",
         "actor": "director",
-        "detail": "The sky darkens as heavy storm clouds roll across the sun, the wind whips up, and the calm turquoise sea churns into grey chop crested with whitecaps while cold rain sweeps across the water, streaking the surface and drumming on the jet ski.",
+        "detail": "The sky darkens as heavy storm clouds roll across the sun, the wind whips up, and the calm turquoise sea churns into grey chop crested with whitecaps while cold rain sweeps across the water, streaking the surface and drumming on the jet ski. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": -10
       },
       {
         "name": "Waterspout Forms",
         "actor": "director",
-        "detail": "A towering waterspout twists up from the sea on the horizon ahead — a swirling column of water and mist spinning between the dark clouds and the churning surface, dragging a ring of spray around its base as it looms out across the water ahead.",
+        "detail": "A towering waterspout twists up from the sea on the horizon ahead — a swirling column of water and mist spinning between the dark clouds and the churning surface, dragging a ring of spray around its base as it looms out across the water ahead. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": -15,
         "count": 1
       },
       {
         "name": "Whale Breaches",
         "actor": "director",
-        "detail": "The rider on the jet ski remains the main subject, unchanged, while off to one side a massive whale breaches out of the deep — a huge dark body rising clear of the sea and crashing back down in an enormous explosion of white spray and rolling waves, before it slips back beneath the surface.",
+        "detail": "The rider on the jet ski remains the main subject, unchanged, while off to one side a massive whale breaches out of the deep — a huge dark body rising clear of the sea and crashing back down in an enormous explosion of white spray and rolling waves, before it slips back beneath the surface. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": 0,
         "count": 1
       },
       {
         "name": "Bioluminescent Night",
         "actor": "director",
-        "detail": "The scene sweeps into night: the sky deepens to star-scattered black and the water turns dark, and everywhere the jet ski cuts the surface it blazes with electric-blue bioluminescence, glowing trails and swirls lighting up in its wake and around the hull.",
+        "detail": "The scene sweeps into night: the sky deepens to star-scattered black and the water turns dark, and everywhere the jet ski cuts the surface it blazes with electric-blue bioluminescence, glowing trails and swirls lighting up in its wake and around the hull. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": 0
       },
       {
         "name": "Volcanic Island Erupts",
         "actor": "director",
-        "detail": "The distant rocky outcrop on the horizon erupts into a volcano — glowing orange lava streaming down its slopes and a towering plume of black ash and smoke rising into the sky, embers raining into the sea around its base and lighting the water with a deep red glow across the swell.",
+        "detail": "The distant rocky outcrop on the horizon erupts into a volcano — glowing orange lava streaming down its slopes and a towering plume of black ash and smoke rising into the sky, embers raining into the sea around its base and lighting the water with a deep red glow across the swell. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": -10,
         "count": 1
       },
       {
         "name": "Rogue Wave",
         "actor": "director",
-        "detail": "A towering rogue wave rears up ahead — a steep wall of dark water rising far above the jet ski, its crest curling and foaming as it sweeps toward the rider, then it barrels down in a churning collapse of white spray and heaving surf before the sea levels back out.",
+        "detail": "A towering rogue wave rears up ahead — a steep wall of dark water rising far above the jet ski, its crest curling and foaming as it sweeps toward the rider, then it barrels down in a churning collapse of white spray and heaving surf before the sea levels back out. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": -15
       }
     ],

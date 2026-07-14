@@ -116,20 +116,20 @@
       {
         "name": "Gunman Falls",
         "actor": "director",
-        "detail": "THE single gunman in the gray jacket and mask up on the fire escape — the only one, a lone figure in a gray jacket and mask with no tactical gear — is hit, staggers, and topples from the fire escape, tumbling down through the rain to crumple onto the wet asphalt of the alley below, where he comes to rest FACE-DOWN, MOTIONLESS and LIFELESS. From then on he stays there on the ground — a dead body sprawled in the puddle that does not move, does not rise, and remains lying lifeless for the rest of the scene.",
+        "detail": "THE single gunman in the gray jacket and mask up on the fire escape — the only one, a lone figure in a gray jacket and mask with no tactical gear — is hit, staggers, and topples from the fire escape, tumbling down through the rain to crumple onto the wet asphalt of the alley below, where he comes to rest FACE-DOWN, MOTIONLESS and LIFELESS. From then on he stays there on the ground — a dead body sprawled in the puddle that does not move, does not rise, and remains lying lifeless for the rest of the scene. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
         "count": -1
       },
       {
         "name": "Chicken Struts In",
         "actor": "director",
-        "detail": "A single scruffy chicken struts out into the middle of the rain-soaked alley, bobbing its head and pecking at the wet asphalt between the puddles, utterly out of place under the blue and red neon; it stays, wandering around near the officer's feet.",
+        "detail": "A single scruffy chicken struts out into the middle of the rain-soaked alley, bobbing its head and pecking at the wet asphalt between the puddles, utterly out of place under the blue and red neon; it stays, wandering around near the officer's feet. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
         "health": 0,
         "count": 1
       },
       {
         "name": "Drone Descends",
         "actor": "director",
-        "detail": "A small quadcopter drone drops down into the alley from above, hovering at head height with its rotors spinning and a red camera light glowing, drifting and bobbing as it tracks the officer through the falling rain; it stays, hovering nearby.",
+        "detail": "A small quadcopter drone drops down into the alley from above, hovering at head height with its rotors spinning and a red camera light glowing, drifting and bobbing as it tracks the officer through the falling rain; it stays, hovering nearby. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
         "health": -10,
         "count": 1
       },
@@ -139,13 +139,13 @@
         "baseVersion": "downed",
         "cameraVersion": "downed",
         "movementVersion": "downed",
-        "detail": "The officer staggers, his knees buckle, and he collapses forward onto the wet asphalt, his body going limp as he sprawls face-down and STAYS DOWN, lying motionless in the spreading puddle without getting back up; his weapon slips from his gloved hand and clatters away across the ground, and he remains still on the ground in the falling rain as the blue and red ambient light glints off the water pooling around him.",
+        "detail": "The officer staggers, his knees buckle, and he collapses forward onto the wet asphalt, his body going limp as he sprawls face-down and STAYS DOWN, lying motionless in the spreading puddle without getting back up; his weapon slips from his gloved hand and clatters away across the ground, and he remains still on the ground in the falling rain as the blue and red ambient light glints off the water pooling around him. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
         "health": -100
       },
       {
         "name": "Exit Door Appears",
         "actor": "director",
-        "detail": "A shop doorway in the brick building along the side of the lane swings wide open and floods with bright warm golden light — a glowing rectangle of light opening up in the lane-side wall partway down the alley, set into the side of the building, its glow spilling out across the wet cobblestones and reflecting in the puddles, an unmistakable lit exit appearing on the building at the side of the lane where there was only shadow before, and it stays open and glowing.",
+        "detail": "A shop doorway in the brick building along the side of the lane swings wide open and floods with bright warm golden light — a glowing rectangle of light opening up in the lane-side wall partway down the alley, set into the side of the building, its glow spilling out across the wet cobblestones and reflecting in the puddles, an unmistakable lit exit appearing on the building at the side of the lane where there was only shadow before, and it stays open and glowing. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
         "health": 0
       },
       {
@@ -154,13 +154,13 @@
         "baseVersion": "empty",
         "cameraVersion": "empty",
         "movementVersion": "empty",
-        "detail": "Over-the-shoulder third-person view from behind the uniformed police officer in dark blue tactical gear as he reaches the glowing shop doorway in the building at the side of the lane and turns and steps through it out of the rain into a warm, brightly lit interior — golden light spills across the threshold onto the wet pavement, the dark rainy alley and its heavy downpour fall away behind him out of frame as he crosses inside, and the door swings closed behind him, muffling the rain, until he comes to a stop safe inside the calm, warm-lit room. Cinematic noir, warm interior light against the cold blue night left behind.",
+        "detail": "Over-the-shoulder third-person view from behind the uniformed police officer in dark blue tactical gear as he reaches the glowing shop doorway in the building at the side of the lane and turns and steps through it out of the rain into a warm, brightly lit interior — golden light spills across the threshold onto the wet pavement, the dark rainy alley and its heavy downpour fall away behind him out of frame as he crosses inside, and the door swings closed behind him, muffling the rain, until he comes to a stop safe inside the calm, warm-lit room. Cinematic noir, warm interior light against the cold blue night left behind. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
         "health": 0
       },
       {
         "name": "Portal Shows Up",
         "actor": "director",
-        "detail": "A swirling blue portal opens FLAT ON THE GROUND on the wet asphalt of the alley directly ahead, lying horizontally on the street at the officer’s feet like a glowing pool set into the road — NOT in the sky, NOT floating in the air, flat on the ground — a horizontal vortex of blue light and rippling distortion in the wet street, drifting particles ringing its edge, ready to be stepped into."
+        "detail": "A swirling blue portal opens FLAT ON THE GROUND on the wet asphalt of the alley directly ahead, lying horizontally on the street at the officer’s feet like a glowing pool set into the road — NOT in the sky, NOT floating in the air, flat on the ground — a horizontal vortex of blue light and rippling distortion in the wet street, drifting particles ringing its edge, ready to be stepped into. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
       }
     ],
     "hud": {
