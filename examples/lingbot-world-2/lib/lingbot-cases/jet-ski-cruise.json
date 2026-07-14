@@ -8,7 +8,7 @@
   },
   "scene": {
     "base": {
-      "default": "A man in a red life vest on a white and red jet ski on turquoise water near a sandy beach lined with palm trees, a distant rocky outcrop on the horizon. Sunlit coastal atmosphere with light glinting off the calm sea."
+      "default": "A man in a red life vest on a white and red jet ski on turquoise water near a sandy beach lined with palm trees, a distant rocky outcrop on the horizon. Sunlit coastal atmosphere with light glinting off the calm sea. The jet ski stays up on the surface of the water the whole time, planing across the top of the waves — it never sinks, submerges, or goes underwater, always riding on the surface."
     },
     "camera": {
       "default": {
@@ -39,14 +39,102 @@
         "detail": "The rider raises a burning torch high overhead in one hand, its orange flame streaming and flickering in the wind and trailing a ribbon of smoke, while his other hand grips the handlebars and the jet ski drives forward across the water, spray fanning off the hull."
       },
       {
+        "name": "Jump the Wake",
+        "actor": "player",
+        "detail": "The rider guns the throttle up the face of a swell and launches the jet ski clean off the crest into the air, spray fanning out beneath him, then splashes back down onto the turquoise water and levels back out. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone.",
+        "health": 0
+      },
+      {
+        "name": "Hard Carve",
+        "actor": "player",
+        "detail": "The rider leans hard into a sharp banking turn, the jet ski carving across the water and throwing a tall arc of spray off its side, then straightens back onto a level heading. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone.",
+        "health": 0
+      },
+      {
+        "name": "Throttle Boost",
+        "actor": "player",
+        "detail": "The rider slams the throttle wide open for a burst of speed, the nose of the jet ski lifting as a long rooster-tail of spray streams up behind him, then eases back down to a steady cruising pace. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone.",
+        "health": 0
+      },
+      {
+        "name": "Spin 360",
+        "actor": "player",
+        "detail": "The rider whips the jet ski into a tight spinning 360, the hull skating around and sweeping a full ring of spray across the water, then settles back facing forward. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone.",
+        "health": 0
+      },
+      {
+        "name": "Barrel Roll",
+        "actor": "player",
+        "detail": "The rider launches the jet ski off a wave and rolls it fully over in mid-air, a complete barrel roll above the turquoise water, before coming back down and landing upright, riding on. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone.",
+        "health": 0
+      },
+      {
+        "name": "Cut the Engine",
+        "actor": "player",
+        "detail": "The rider throttles down and coasts to a gentle stop, the jet ski bobbing on the swell with the engine idling and the water settling around it, then throttles back up and rides on. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone.",
+        "health": 5
+      },
+      {
+        "name": "Wave to Shore",
+        "actor": "player",
+        "detail": "The rider lifts one hand off the handlebar and waves toward the palm-lined beach as the jet ski coasts along, then grips the handlebar again and rides on. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone.",
+        "health": 0
+      },
+      {
         "name": "Shark Appears",
         "actor": "director",
-        "detail": "A large shark surfaces in the clear turquoise water ahead, its dark dorsal fin slicing through the surface and cutting across the jet ski's path, its long shadow gliding just beneath the waves; it stays, circling in the water nearby."
+        "detail": "A single dark triangular dorsal fin rises and cuts through the turquoise water ahead, slicing across the surface and crossing the jet ski's path — ONLY the top fin shows above the water, the shark's body staying hidden below the surface; the fin stays, circling on the surface nearby. EXACTLY ONE shark in the water — a single lone shark, no second shark, no duplicate and no clone."
       },
       {
         "name": "Shark Lunges",
         "actor": "director",
-        "detail": "The shark surges up out of the water right beside the jet ski, jaws breaking the surface in a burst of white spray and foam, then twists back under and keeps pace alongside through the wake."
+        "detail": "The dark dorsal fin surges fast across the surface straight toward the jet ski, cutting a sharp wake right up alongside it in a rush of spray — ONLY the top fin breaks the surface, the shark's body staying below the water — then it veers off and keeps pace through the wake. EXACTLY ONE shark in the water — a single lone shark, no second shark, no duplicate and no clone."
+      },
+      {
+        "name": "Dolphins Leap Alongside",
+        "actor": "director",
+        "detail": "A pod of sleek dolphins surfaces and leaps in formation alongside the jet ski, arcing out of the turquoise water and diving back in one after another, spray glittering in the sunlight as they keep pace beside the rider, then peel away back into the sea.",
+        "health": 5,
+        "count": 1
+      },
+      {
+        "name": "Storm Rolls In",
+        "actor": "director",
+        "detail": "The sky darkens as heavy storm clouds roll across the sun, the wind whips up, and the calm turquoise sea churns into grey chop crested with whitecaps while cold rain sweeps across the water, streaking the surface and drumming on the jet ski.",
+        "health": -10
+      },
+      {
+        "name": "Waterspout Forms",
+        "actor": "director",
+        "detail": "A towering waterspout twists up from the sea on the horizon ahead — a swirling column of water and mist spinning between the dark clouds and the churning surface, dragging a ring of spray around its base as it looms out across the water ahead.",
+        "health": -15,
+        "count": 1
+      },
+      {
+        "name": "Whale Breaches",
+        "actor": "director",
+        "detail": "The rider on the jet ski remains the main subject, unchanged, while off to one side a massive whale breaches out of the deep — a huge dark body rising clear of the sea and crashing back down in an enormous explosion of white spray and rolling waves, before it slips back beneath the surface.",
+        "health": 0,
+        "count": 1
+      },
+      {
+        "name": "Bioluminescent Night",
+        "actor": "director",
+        "detail": "The scene sweeps into night: the sky deepens to star-scattered black and the water turns dark, and everywhere the jet ski cuts the surface it blazes with electric-blue bioluminescence, glowing trails and swirls lighting up in its wake and around the hull.",
+        "health": 0
+      },
+      {
+        "name": "Volcanic Island Erupts",
+        "actor": "director",
+        "detail": "The distant rocky outcrop on the horizon erupts into a volcano — glowing orange lava streaming down its slopes and a towering plume of black ash and smoke rising into the sky, embers raining into the sea around its base and lighting the water with a deep red glow across the swell.",
+        "health": -10,
+        "count": 1
+      },
+      {
+        "name": "Rogue Wave",
+        "actor": "director",
+        "detail": "A towering rogue wave rears up ahead — a steep wall of dark water rising far above the jet ski, its crest curling and foaming as it sweeps toward the rider, then it barrels down in a churning collapse of white spray and heaving surf before the sea levels back out.",
+        "health": -15
       }
     ],
     "jumpPrompt": "The man and his jet ski leap up off the water, the hull lifting clear of the sea surface and rising into the air for a moment before dropping back down with a splash.",

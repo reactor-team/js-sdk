@@ -1,72 +1,72 @@
 {
   "id": "car_racing_08",
   "name": "Circuit Racer",
-  "description": "Third-person car racing — key 1 = nitro boost, key 2 = drift, key 3 = crash, key 4 = overtake, key 5 = handbrake turn",
+  "description": "First-person cockpit car racing — key 1 = nitro boost, key 2 = drift, key 3 = crash, key 4 = overtake, key 5 = handbrake turn",
   "image": {
     "label": "Circuit Racer",
-    "src": "/lingbot-cases/f1-race.jpg"
+    "src": "/lingbot-cases/circuit.jpg"
   },
   "scene": {
     "base": {
-      "default": "A sleek low-slung race car, seen from behind, on a wide smooth asphalt racing circuit under a bright sky. The world contains EXACTLY ONE tall start-finish gantry spanning the track ahead at a fixed position AND EXACTLY ONE grandstand on the left at a fixed position AND EXACTLY ONE stack of red-and-white tyre barriers on the right at a fixed position. Crisp painted kerbs edge the track, run-off gravel traps beyond, distant hills and banner-lined fences under a clear blue sky. Glossy car bodywork, sharp reflections, sunny daytime racing-game look, photorealistic."
+      "default": "First-person onboard cockpit view from inside a Formula 1 race car — the driver's gloved hands gripping the steering wheel with its lit digital dash display at the centre foreground, looking out over the nose and the halo through the windscreen down a wide smooth asphalt racing circuit ahead. The world contains EXACTLY ONE steering wheel with its glowing dash display held in the driver's gloved hands at the centre of the frame at a fixed position AND EXACTLY ONE start-finish gantry spanning the track ahead at a fixed position AND EXACTLY ONE grandstand on the left at a fixed position. Crisp painted red-and-white kerbs edge the track, gravel run-off beyond, banner-lined fences and distant hills under a clear blue sky. Bright sunny racing-game look, motion-blurred asphalt rushing beneath the nose, photorealistic."
     },
     "camera": {
       "default": {
-        "static": "Third-person chase view from behind the race car, the car centred in frame at constant size and distance. Neither the car nor the camera moves; look-input is the only camera motion, arcing around the stationary centred car while held.",
-        "dynamic": "Strict third-person chase view from close behind and slightly above the race car, the car filling frame centre as the camera holds a fixed position behind it and tracks it forward down the track. The camera does not rotate around the car; look-input becomes the car changing heading, steering left and right."
+        "static": "First-person cockpit view, the steering wheel and glowing dash held steady at the centre of the frame in the driver's gloved hands, the track visible ahead through the halo and windscreen. Neither the viewpoint nor the car moves on its own; arrow-key look-input is the only source of camera motion, panning the view around the fixed cockpit while held.",
+        "dynamic": "Strict first-person cockpit view, the steering wheel and dash holding steady at the centre of the frame as the viewpoint advances forward down the track through the windscreen and halo; the car does not turn on its own — look-input becomes the car changing heading, the circuit sweeping past the cockpit."
       }
     },
     "movement": {
       "default": {
-        "static": "The race car idles on the track, engine rumbling and exhaust heat shimmering behind it, the bodywork trembling faintly with the running motor as sunlight glints off the glossy paint.",
-        "dynamic": "The race car accelerates hard down the circuit, tyres gripping the asphalt, the low bodywork pressed close to the ground as the kerbs, grandstands and barriers blur past and the engine roars, throwing up a faint heat haze in its wake."
+        "static": "The car idles on the track, the steering wheel steady in the driver's gloved hands and the dash lights glowing, the view over the nose barely trembling with the idling engine; the track ahead holds still. The viewpoint does not surge forward or accelerate on its own unless an action is triggered.",
+        "dynamic": "The viewpoint rushes forward down the circuit, the asphalt and painted kerbs streaking past beneath the nose and the barriers and grandstands sweeping by on either side, the wheel shifting in the gloved hands as the track blurs ahead through the halo and windscreen."
       }
     },
     "events": [
       {
         "name": "Nitro Boost",
         "actor": "player",
-        "detail": "Bright blue flames burst from the race car's exhausts and it surges forward with a hard kick of speed, the scenery streaking past in a blur and a shimmering heat trail rippling behind it, before it eases back to its normal pace."
+        "detail": "The driver's gloved thumb stabs a button on the steering wheel and the dash flares bright — the engine screams higher and the view lunges forward, the track ahead smearing into streaks of speed through the windscreen as the car rockets down the straight, then eases back to pace."
       },
       {
         "name": "Drift",
         "actor": "player",
-        "detail": "The race car breaks traction and slides sideways through a sweeping corner, the rear stepping out and thick white tyre smoke billowing off the screaming rear wheels, then it snaps straight again and powers on down the track."
+        "detail": "The gloved hands throw the wheel hard over and the whole cockpit view slews sideways, the kerbs and barriers swinging across the windscreen as the rear steps out in a smoking slide, then the hands catch it and the view snaps back straight down the track."
       },
       {
         "name": "Crash",
         "actor": "player",
-        "detail": "The race car slams into the barriers ahead in a violent collision — crumpling bodywork, shattering carbon fibre and flying debris, tyre smoke and sparks bursting off the asphalt as it grinds to a jarring halt against the wall, then settles."
+        "detail": "The view lurches violently as the car slams into the barrier ahead — the windscreen fills with flying carbon-fibre debris and spinning sky and track, the wheel wrenching in the gloved hands and the dash flashing red warnings, before it grinds to a juddering, shuddering halt."
       },
       {
         "name": "Overtake",
         "actor": "player",
-        "detail": "The race car darts to one side and surges past a rival car just ahead, drawing level and then pulling cleanly in front of it down the straight, before settling back into the racing line."
+        "detail": "The rear wing and gearbox of a rival car loom up ahead in the windscreen and the view surges up alongside it, the rival's bodywork sliding past the halo, before pulling cleanly in front and settling back into the racing line ahead."
       },
       {
         "name": "Handbrake Turn",
         "actor": "player",
-        "detail": "The race car yanks into a sharp handbrake turn, the rear whipping around in a tight spin with a screech of rubber and a plume of tyre smoke, then it straightens up pointing down the track and settles."
+        "detail": "The gloved hands yank the wheel and the cockpit whips around in a tight spin, the track, barriers and grandstands sweeping in a full arc across the windscreen with a screech of rubber, then the view settles pointing back down the circuit."
       },
       {
         "name": "Rain Sweeps In",
         "actor": "director",
-        "detail": "Dark storm clouds roll over the circuit and rain sweeps across the track; the tarmac turns wet and glossy, spray kicking up off the surface, and the rain stays, slicking the racing line."
+        "detail": "Dark storm clouds roll over and rain sweeps across the windscreen — droplets streaking and beading over the glass and halo, the track ahead darkening and glistening wet, spray kicking up off the nose; the rain stays, slicking the view ahead."
       },
       {
         "name": "Rabbit on the Track",
         "actor": "director",
-        "detail": "A rabbit hops out onto the racetrack ahead and stops in the racing line, sitting in the middle of the tarmac directly in the car's path with its ears twitching, staying put on the track as the car bears down on it."
+        "detail": "A rabbit darts out onto the track ahead in the windscreen and stops in the racing line directly in the car's path, ears twitching, staying put on the tarmac as the view rushes toward it."
       },
       {
         "name": "Road Fire",
         "actor": "director",
-        "detail": "A wall of fire erupts across the racetrack ahead, orange flames and black smoke rising off the tarmac and spanning the full width of the road in the car's path; it stays, burning across the track."
+        "detail": "A wall of fire erupts across the track ahead in the windscreen, orange flames and black smoke rising off the tarmac and spanning the full width of the road directly in the car's path; it stays, burning across the view ahead, heat shimmering over the halo."
       }
     ],
     "hud": { "show": true, "maxHealth": 100, "health": 100, "inventory": [] },
-    "jumpPrompt": "The race car launches off a ramp, all four wheels lifting clear of the track as it sails through the air, then drops back down and lands hard on the asphalt with a bounce of its suspension.",
-    "crouchPrompt": "The camera drops low toward the track surface behind the car, sinking to a fast, close-to-the-ground chase vantage that emphasises the sense of speed.",
-    "standPrompt": "The camera lifts smoothly back up to its normal chase height behind the car, returning to the standard following vantage."
+    "jumpPrompt": "The track kinks up into a ramp and the viewpoint launches off the crest — the nose and halo tilting up into open sky and the horizon dropping away, before the car slams back down onto the asphalt with a hard jolt through the wheel and suspension.",
+    "crouchPrompt": "The view sinks lower into the cockpit toward the wheel and the nose, dropping to a low, fast, close-to-the-track vantage that emphasises the sense of speed.",
+    "standPrompt": "The view lifts smoothly back up to its normal cockpit height behind the wheel, returning to the standard forward-looking vantage over the nose."
   }
 }

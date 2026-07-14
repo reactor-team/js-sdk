@@ -25,12 +25,12 @@
     "events": [
       {
         "name": "Buck",
-        "actor": "player",
+        "actor": "director",
         "detail": "The bull explodes into a violent buck, kicking its hind legs high and slamming its front hooves back down, hurling the cowboy up out of the saddle and back down again as dust bursts off the dirt; he snaps his free arm out, clings to the rope and rides it out."
       },
       {
         "name": "Spin",
-        "actor": "player",
+        "actor": "director",
         "detail": "The bull drops its shoulder and spins hard in a tight circle, whipping around again and again with its hooves tearing at the dirt, the cowboy leaning against the turn and fighting to stay centred over its back, then it straightens out of the spin."
       },
       {
@@ -47,6 +47,30 @@
         "name": "Barrel Turn",
         "actor": "player",
         "detail": "The bull thunders up to the blue barrel ahead and cuts a hard, tight turn around it, hooves carving a spray of dirt as it whips around the marker, the cowboy leaning deep into the turn, then it powers back out across the arena."
+      },
+      {
+        "name": "Spur the Bull",
+        "actor": "player",
+        "detail": "The cowboy digs his boot heels and spurs hard into the heaving flanks of the bull, urging it on, and the bull kicks and bucks even more violently beneath him as dust flies up from the arena floor. EXACTLY ONE cowboy and ONE bull in frame — a single lone rider on a single bull, no second rider, no second bull, no duplicate and no clone.",
+        "health": -5
+      },
+      {
+        "name": "Tighten Grip",
+        "actor": "player",
+        "detail": "The cowboy clamps down, wrapping the rope tighter around his gloved hand and squeezing hard with his legs, hunkering low and locked against the back of the bull as it heaves under him, then holds steady. EXACTLY ONE cowboy and ONE bull in frame — a single lone rider on a single bull, no second rider, no second bull, no duplicate and no clone.",
+        "health": 10
+      },
+      {
+        "name": "Lean Back",
+        "actor": "player",
+        "detail": "The cowboy throws his weight back and drops his free arm for balance as the front end of the bull rears up, countering the buck and staying centred over its back before settling forward again. EXACTLY ONE cowboy and ONE bull in frame — a single lone rider on a single bull, no second rider, no second bull, no duplicate and no clone.",
+        "health": 5
+      },
+      {
+        "name": "Free Hand High",
+        "actor": "player",
+        "detail": "The cowboy flings his free hand high overhead in classic rodeo form, arm raised and fingers splayed for balance and style as he rides the bucking bull, then brings it back down to brace on the rope. EXACTLY ONE cowboy and ONE bull in frame — a single lone rider on a single bull, no second rider, no second bull, no duplicate and no clone.",
+        "health": 0
       },
       {
         "name": "Dust Storm Rolls In",
@@ -97,9 +121,27 @@
         "name": "Crowd Waves",
         "actor": "director",
         "detail": "The whole crowd rises and drops in a rhythmic wave rolling along the bleachers, arms and hats pumping up and down in unison, the grandstand rippling with synchronized motion."
+      },
+      {
+        "name": "Rodeo Clown Distracts",
+        "actor": "director",
+        "detail": "A rodeo clown in a painted face and baggy bright costume darts out into the arena waving his arms and a red flag, capering just ahead of the bull to draw its attention and kicking up dust as he dances across the churned dirt.",
+        "health": 5,
+        "count": 1
+      },
+      {
+        "name": "Floodlights Flicker",
+        "actor": "director",
+        "detail": "The arena floodlights buzz and flicker, stuttering down toward darkness and plunging the dusty ring into deep shadow before snapping back on in a harsh white glare that throws long shifting shadows across the churned dirt.",
+        "health": -5
       }
     ],
-    "hud": { "show": true, "maxHealth": 100, "health": 100, "inventory": [] },
+    "hud": {
+      "show": true,
+      "maxHealth": 100,
+      "health": 100,
+      "inventory": []
+    },
     "jumpPrompt": "The bull launches upward off all four hooves, leaping clear of the arena dirt with the cowboy rising with it, then drops back down and lands heavily in a spray of dust.",
     "crouchPrompt": "The camera lowers toward the arena floor as the cowboy hunches down low over the bull's shoulders, tucking into a compact, braced stance; the viewpoint sinks smoothly to a low, near-ground vantage and settles there, close to the churned dirt.",
     "standPrompt": "The cowboy rises back up out of the crouch, straightening tall over the bull's back as the camera lifts smoothly back to its normal above-and-behind vantage."

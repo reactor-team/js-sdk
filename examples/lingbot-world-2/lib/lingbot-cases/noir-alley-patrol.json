@@ -1,117 +1,122 @@
 {
   "id": "case1_0036",
   "name": "Noir Alley Patrol",
-  "description": "Third-person noir alley — key 1 = fires pistol, key 2 = flamethrower, key 3 = fires rocket launcher, key 4 = knife attack, key 5 = forward roll, key 6 = fall and die, key 7 = thugs emerge, key 8 = gunman above, director oddballs: chicken / drone",
+  "description": "Third-person noir alley — key 1 = fires pistol, key 2 = flamethrower, key 3 = fires rocket launcher, key 4 = knife attack, key 5 = forward roll, key 6 = use flashlight, gunman on the fire escape, director oddballs: chicken / drone",
   "image": {
     "label": "Noir Alley Patrol",
     "src": "/lingbot-cases/noir-alley-patrol.jpg"
   },
   "scene": {
     "base": {
-      "default": "A lone uniformed police officer in dark blue tactical gear, holding a flashlight in one hand whose bright white beam cuts through the darkness down the alley ahead, in a narrow urban alley at night. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE shop door straight ahead at a fixed position AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles on the wet asphalt, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces.",
-      "downed": "A narrow urban alley at night where a uniformed police officer in dark blue tactical gear now lies COLLAPSED, FACE-DOWN and MOTIONLESS on the wet asphalt, sprawled in a spreading puddle, his weapon fallen from his hand nearby — he does not get up. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE shop door straight ahead at a fixed position AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces, rain pooling around the still body."
+      "default": "A lone uniformed police officer in dark blue tactical gear, his hands completely empty and open, holding nothing, empty-handed by default with no weapon or item in his hands unless an action is triggered, in a narrow urban alley at night. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE glowing shop doorway set into the brick building along the side of the lane at a fixed position, its open doorway lit with warm golden light spilling out across the wet cobblestones AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles on the wet asphalt, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces.",
+      "downed": "A narrow urban alley at night where a uniformed police officer in dark blue tactical gear now lies COLLAPSED, FACE-DOWN and MOTIONLESS on the wet asphalt, sprawled in a spreading puddle, his empty hands limp at his sides — he does not get up. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE glowing shop doorway set into the brick building along the side of the lane at a fixed position, its open doorway lit with warm golden light spilling out across the wet cobblestones AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces, rain pooling around the still body.",
+      "empty": ""
     },
     "camera": {
       "default": {
-        "static": "Third-person view from behind the officer, his back and body centred in frame at constant size, any weapon in his hands visible ahead — never a first-person view. Neither officer nor camera moves; look-input is the only camera motion, arcing around the stationary centred officer while held.",
-        "dynamic": "Strict third-person rear view from close behind and slightly above the officer, his back and body filling frame centre, any weapon in his hands visible ahead — never first-person. It holds a fixed rear position and does not rotate around him; look-input becomes the officer changing heading."
+        "static": "Third-person view from behind the officer, his back and body centred in frame at constant size, his hands completely empty and holding nothing, carrying no weapon or item by default and none drawn — never a first-person view. Neither officer nor camera moves; look-input is the only camera motion, arcing around the stationary centred officer while held.",
+        "dynamic": "Strict third-person rear view from close behind and slightly above the officer, his back and body filling frame centre, his hands completely empty and holding nothing, carrying no weapon or item by default and none drawn — never first-person. It holds a fixed rear position and does not rotate around him; look-input becomes the officer changing heading."
       },
       "downed": {
         "static": "Low third-person view close to the wet asphalt, looking along the fallen officer's motionless body sprawled face-down in the puddle; the camera sits near the ground and does not move on its own, look-input slowly arcs around the still body while held.",
         "dynamic": "Low ground-level third-person view holding on the officer lying motionless face-down on the rain-slicked asphalt; the camera stays low near the water and does not rotate on its own."
+      },
+      "empty": {
+        "static": "",
+        "dynamic": ""
       }
     },
     "movement": {
       "default": {
-        "static": "The officer stands still on the wet asphalt, weight settled, only his shoulders rising and falling with slow breaths as rain streams off his tactical gear and drips from his fingertips into the spreading puddles.",
-        "dynamic": "The officer advances at a steady patrol pace down the alley, boots splashing through the puddles and kicking up fine spray, his gear shifting with each stride as the rain streaks past and the wet asphalt slides beneath him."
+        "static": "The officer stands still on the wet asphalt, weight settled, only his shoulders rising and falling with slow breaths as rain streams off his tactical gear and drips from his fingertips into the spreading puddles. He does NOT fire or shoot any weapon on his own — no muzzle flash, no gunfire, no weapon discharge unless a firing action is triggered.",
+        "dynamic": "The officer advances at a steady patrol pace down the alley, boots splashing through the puddles and kicking up fine spray, his gear shifting with each stride as the rain streaks past and the wet asphalt slides beneath him. He does NOT fire or shoot any weapon on his own — no muzzle flash, no gunfire, no weapon discharge unless a firing action is triggered."
       },
       "downed": {
         "static": "The officer lies completely still, face-down and motionless on the wet asphalt, not moving or rising — only the falling rain and the ripples spreading through the puddle around his body move in the scene.",
         "dynamic": "The officer stays collapsed and motionless on the ground and does not rise; he remains face-down as rain streaks past and water pools around his still body."
+      },
+      "empty": {
+        "static": "",
+        "dynamic": ""
       }
     },
     "events": [
       {
         "name": "Fire Pistol",
         "actor": "player",
-        "detail": "The officer raises his service pistol in both gloved hands, arms extended ahead of him, and fires down the dark alley; the muzzle flash lights the falling rain, the recoil kicks the pistol back in his grip, and a spent casing clatters onto the wet asphalt.",
+        "detail": "The officer raises his service pistol in both gloved hands, arms extended ahead of him, and fires down the dark alley; the muzzle flash lights the falling rain, the recoil kicks the pistol back in his grip, and a spent casing clatters onto the wet asphalt. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone.",
         "health": 0
       },
       {
         "name": "Flamethrower",
         "actor": "player",
-        "detail": "The officer levels a flamethrower in both hands and unleashes a long, continuous jet of roaring flame straight ahead down the alley — one sustained, billowing stream of orange fire and black smoke that pours forward without pause, not separate shots, lighting up the wet brick walls and hissing against the falling rain.",
+        "detail": "The officer levels a flamethrower in both hands and unleashes a long, continuous jet of roaring flame straight ahead down the alley — one sustained, billowing stream of orange fire and black smoke that pours forward without pause, not separate shots, lighting up the wet brick walls and hissing against the falling rain. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone.",
         "health": 0
       },
       {
         "name": "Fire Rocket Launcher",
         "actor": "player",
-        "detail": "The officer hoists a shoulder-fired rocket launcher — an RPG: a long, heavy cylindrical steel tube resting across his shoulder, its wide bore pointing down the alley, gripped with both hands, not a handheld gun — and fires; the rocket blasts from the tube's mouth and flies off into the distance down the rain-slicked alley, dragging a long tail of orange flame and white smoke behind it, then slams into the distant brickwork and erupts in a massive fireball of flame, smoke, and flying debris.",
+        "detail": "The officer hoists a shoulder-fired rocket launcher — an RPG: a long, heavy cylindrical steel tube resting across his shoulder, its wide bore pointing down the alley, gripped with both hands, not a handheld gun — and fires; the rocket blasts from the tube's mouth and flies off into the distance down the rain-slicked alley, dragging a long tail of orange flame and white smoke behind it, then slams into the distant brickwork and erupts in a massive fireball of flame, smoke, and flying debris. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone.",
         "health": 0
       },
       {
         "name": "Knife Attack",
         "actor": "player",
-        "detail": "The officer draws a combat knife into his gloved hand and slashes at the air in a swift, practiced motion; the steel blade flashes in the ambient light as it cuts through the rain and his grip tightens on the handle.",
+        "detail": "The officer draws a combat knife into his gloved hand and slashes at the air in a swift, practiced motion; the steel blade flashes in the ambient light as it cuts through the rain and his grip tightens on the handle. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone.",
         "health": 0
       },
       {
         "name": "Kick",
         "actor": "player",
         "health": 0,
-        "detail": "The officer drives a hard front kick straight ahead, his boot slamming forward into the space in front of him with a splash of spray off the wet asphalt, then plants back down into a ready stance."
+        "detail": "The officer drives a hard front kick straight ahead, his boot slamming forward into the space in front of him with a splash of spray off the wet asphalt, then plants back down into a ready stance. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone."
       },
       {
         "name": "Forward Roll",
         "actor": "player",
-        "detail": "The officer drops into a low crouch and executes a forward roll across the wet asphalt, tucking his shoulder and rising smoothly back to his feet.",
+        "detail": "The officer drops into a low crouch and executes a forward roll across the wet asphalt, tucking his shoulder and rising smoothly back to his feet. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone.",
         "health": 0
       },
       {
-        "name": "Fall and Die",
+        "name": "Use Flashlight",
         "actor": "player",
-        "baseVersion": "downed",
-        "cameraVersion": "downed",
-        "movementVersion": "downed",
-        "detail": "The officer staggers, his knees buckle, and he collapses forward onto the wet asphalt, his body going limp as he sprawls face-down and STAYS DOWN, lying motionless in the spreading puddle without getting back up; his weapon slips from his gloved hand and clatters away across the ground, and he remains still on the ground in the falling rain as the blue and red ambient light glints off the water pooling around him.",
-        "health": -100
+        "detail": "The officer raises the flashlight in his gloved hand and sweeps its harsh white beam across the alley ahead, the shaft of light cutting through the falling rain and sliding over the wet brick walls, the green dumpster and the shop door, catching the drifting drops and glistening puddles, before he steadies the beam pointing straight down the alley. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone.",
+        "health": 10
       },
       {
         "name": "Take Cover",
         "actor": "player",
         "health": 15,
-        "detail": "The officer darts to the side and ducks down behind the green dumpster, pressing his back to it and lowering his head under cover, then peeks back out ready."
+        "detail": "The officer darts to the side and ducks down behind the green dumpster, pressing his back to it and lowering his head under cover, then peeks back out ready. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone."
       },
       {
         "name": "Raise Shield",
         "actor": "player",
         "health": 5,
-        "detail": "The officer brings up a black riot shield in front of himself, bracing behind it in a low guard, the shield taking the rain as he holds firm, then lowers it back down."
+        "detail": "The officer brings up a black riot shield in front of himself, bracing behind it in a low guard, the shield taking the rain as he holds firm, then lowers it back down. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone."
       },
       {
         "name": "Sidestep Dodge",
         "actor": "player",
-        "detail": "The officer sharply sidesteps and weaves to one side, snapping his body out of the line of fire in a quick evasive shuffle across the wet asphalt, then re-settles into a ready stance.",
+        "detail": "The officer sharply sidesteps and weaves to one side, snapping his body out of the line of fire in a quick evasive shuffle across the wet asphalt, then re-settles into a ready stance. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone.",
         "health": 5
       },
       {
         "name": "Block",
         "actor": "player",
-        "detail": "The officer raises both gloved forearms crossed in front of his face and chest in a tight defensive guard, bracing against an incoming blow, then drops the guard and re-settles.",
+        "detail": "The officer raises both gloved forearms crossed in front of his face and chest in a tight defensive guard, bracing against an incoming blow, then drops the guard and re-settles. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone.",
         "health": 5
       },
       {
         "name": "Gunman on the Fire Escape",
         "actor": "director",
-        "detail": "EXACTLY ONE gunman appears on the metal fire escape above the alley ahead — a single lone figure in a plain black outfit, black hoodie and black trousers, NO tactical gear, NO SWAT vest and no police markings, clearly not an officer. He raises a pistol and fires down toward the street, muzzle flashing in the rain, then ducks back. There is only ONE gunman, dressed in plain black.",
-        "health": -20,
+        "detail": "EXACTLY ONE gunman appears high up on the metal fire escape above the alley ahead — a single lone figure in a gray jacket with a mask covering his face, NO tactical gear, NO SWAT vest and no police markings, clearly not an officer. He raises a pistol and fires down toward the street, muzzle flashing in the rain, then ducks back. In response, the officer below reacts — he flinches and snaps his head and his raised weapon up toward the gunman on the fire escape, ducking low and recoiling as the gunfire cracks down from above. He STAYS UP on the fire escape overhead the entire time and does NOT climb or come down to street level — he remains elevated above the alley, never reaching the ground. There is only ONE gunman, in a gray jacket and mask.",
         "count": 1
       },
       {
         "name": "Gunman Falls",
         "actor": "director",
-        "detail": "THE single gunman in the plain black outfit up on the fire escape — the only one, a lone figure in a black hoodie and black trousers with no tactical gear — is hit, staggers, and topples from the fire escape, tumbling down through the rain to crumple onto the wet asphalt of the alley below, where he lies still.",
+        "detail": "THE single gunman in the gray jacket and mask up on the fire escape — the only one, a lone figure in a gray jacket and mask with no tactical gear — is hit, staggers, and topples from the fire escape, tumbling down through the rain to crumple onto the wet asphalt of the alley below, where he comes to rest FACE-DOWN, MOTIONLESS and LIFELESS. From then on he stays there on the ground — a dead body sprawled in the puddle that does not move, does not rise, and remains lying lifeless for the rest of the scene.",
         "count": -1
       },
       {
@@ -127,6 +132,30 @@
         "detail": "A small quadcopter drone drops down into the alley from above, hovering at head height with its rotors spinning and a red camera light glowing, drifting and bobbing as it tracks the officer through the falling rain; it stays, hovering nearby.",
         "health": -10,
         "count": 1
+      },
+      {
+        "name": "Player Falls and Dies",
+        "actor": "director",
+        "baseVersion": "downed",
+        "cameraVersion": "downed",
+        "movementVersion": "downed",
+        "detail": "The officer staggers, his knees buckle, and he collapses forward onto the wet asphalt, his body going limp as he sprawls face-down and STAYS DOWN, lying motionless in the spreading puddle without getting back up; his weapon slips from his gloved hand and clatters away across the ground, and he remains still on the ground in the falling rain as the blue and red ambient light glints off the water pooling around him.",
+        "health": -100
+      },
+      {
+        "name": "Exit Door Appears",
+        "actor": "director",
+        "detail": "A shop doorway in the brick building along the side of the lane swings wide open and floods with bright warm golden light — a glowing rectangle of light opening up in the lane-side wall partway down the alley, set into the side of the building, its glow spilling out across the wet cobblestones and reflecting in the puddles, an unmistakable lit exit appearing on the building at the side of the lane where there was only shadow before, and it stays open and glowing.",
+        "health": 0
+      },
+      {
+        "name": "Reach the Door / Extraction",
+        "actor": "director",
+        "baseVersion": "empty",
+        "cameraVersion": "empty",
+        "movementVersion": "empty",
+        "detail": "Over-the-shoulder third-person view from behind the uniformed police officer in dark blue tactical gear as he reaches the glowing shop doorway in the building at the side of the lane and turns and steps through it out of the rain into a warm, brightly lit interior — golden light spills across the threshold onto the wet pavement, the dark rainy alley and its heavy downpour fall away behind him out of frame as he crosses inside, and the door swings closed behind him, muffling the rain, until he comes to a stop safe inside the calm, warm-lit room. Cinematic noir, warm interior light against the cold blue night left behind.",
+        "health": 0
       },
       {
         "name": "Portal Shows Up",

@@ -887,6 +887,28 @@ export function LingbotWorldController({ className }: { className?: string }) {
     };
   }, [applyVital]);
 
+  // Auto game-over: when health hits 0, "hold" the scene's "Falls and Dies" event
+  // so composePrompt swaps to the downed base/camera/movement (the officer
+  // collapses face-down and stays down). Reuses the same held-event compose path
+  // as a player hold-key; auto-releases if health is restored (reset), returning
+  // to the live scene. Requires a "Falls and Dies" event with baseVersion:"downed".
+  useEffect(() => {
+    const sc = sceneRef.current;
+    if (!sc) return;
+    const deathIdx = sc.events.findIndex((e) => e.name === "Player Falls and Dies");
+    if (deathIdx < 0) return;
+    const held = heldSlotsRef.current.includes(deathIdx);
+    if (hudHealth <= 0 && !held) {
+      heldSlotsRef.current = [...heldSlotsRef.current, deathIdx];
+      setHeldSlots([...heldSlotsRef.current]);
+      recomputePromptAndSendRef.current();
+    } else if (hudHealth > 0 && held) {
+      heldSlotsRef.current = heldSlotsRef.current.filter((s) => s !== deathIdx);
+      setHeldSlots([...heldSlotsRef.current]);
+      recomputePromptAndSendRef.current();
+    }
+  }, [hudHealth]);
+
   // Console hook — same entry point the Player events and Director use.
   useEffect(() => {
     const hud = {
