@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useX2, useX2StateUpdate } from "@/app/lib/x2/sdk.react";
+import { useX2, useX2StateUpdate } from "@reactor-models/x2";
 import {
   DEFAULT_POINTER_READOUT,
   type X2PointerReadout,

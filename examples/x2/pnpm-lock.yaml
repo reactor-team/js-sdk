@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@reactor-models/x2':
+        specifier: ^0.5.2
+        version: 0.5.2(hls.js@1.6.16)(react@19.2.7)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.7))
       '@reactor-team/js-sdk':
         specifier: ^2.12.0
         version: 2.12.0(hls.js@1.6.16)(react@19.2.7)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.7))
@@ -258,6 +261,11 @@ packages:
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
+
+  '@reactor-models/x2@0.5.2':
+    resolution: {integrity: sha512-N+ocyzwCDG+NQRpvvqV6uxiqL4IW8ky4gKrIJla8syyAdcrApip79qfG6zP0LtolngKVyui7wVvKlotrlLikAQ==}
+    peerDependencies:
+      react: '>=18'
 
   '@reactor-team/js-sdk@2.12.0':
     resolution: {integrity: sha512-64WcP8tmUSbSjdv3joEG9ddJIL6PgK35N2lG8BE6yN153dhMHB4TTVkUxN0OUr6ZF2uXyLUJBHKzPymbp0aRZQ==}
@@ -766,6 +774,15 @@ snapshots:
 
   '@next/swc-win32-x64-msvc@15.5.20':
     optional: true
+
+  '@reactor-models/x2@0.5.2(hls.js@1.6.16)(react@19.2.7)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.7))':
+    dependencies:
+      '@reactor-team/js-sdk': 2.12.0(hls.js@1.6.16)(react@19.2.7)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.7))
+      react: 19.2.7
+    transitivePeerDependencies:
+      - hls.js
+      - supports-color
+      - zustand
 
   '@reactor-team/js-sdk@2.12.0(hls.js@1.6.16)(react@19.2.7)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.7))':
     dependencies:

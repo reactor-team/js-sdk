@@ -7,20 +7,16 @@
 // prompt you can swap mid-stream, an optional reference image, and a
 // drag-to-steer pointer on the output.
 //
-// X2 has no published `@reactor-models/*` package yet, so this app
-// vendors the generated typed client at app/lib/x2/ (the same code the
-// package would ship). It bakes the model name and tracks into
-// <X2Provider> and exposes typed commands and per-message hooks, so the
-// app reads the same as the sibling examples:
+// The typed client comes from the published `@reactor-models/x2`
+// package. It bakes the model name and tracks into <X2Provider> and
+// exposes typed commands and per-message hooks, so the app reads the
+// same as the sibling examples:
 //
 //   <X2Provider getJwt={fetchToken} />       — session lifecycle
 //   useX2()                                  — status + typed commands
 //   setPrompt({ prompt })                    — model commands
 //   useX2StateUpdate((msg) => …)             — model → client messages
 //   <X2MainVideoView />                      — the live output
-//
-// When the package ships, delete app/lib/x2/ and import the same names
-// from `@reactor-models/x2` instead.
 import { useEffect, useRef, useState } from "react";
 import {
   X2Provider,
@@ -29,7 +25,7 @@ import {
   useX2GenerationStopped,
   useX2ReferenceImageAccepted,
   useX2StateUpdate,
-} from "@/app/lib/x2/sdk.react";
+} from "@reactor-models/x2";
 import {
   DEFAULT_UI_STATE,
   type X2SourceMode,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useX2 } from "@/app/lib/x2/sdk.react";
+import { useX2 } from "@reactor-models/x2";
 import type { X2SourceMode } from "@/app/lib/types";
 import { Button, Panel, SegmentedToggle, Switch } from "./ui";
 import { ImagePicker } from "./ImagePicker";

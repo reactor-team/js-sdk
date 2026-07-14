@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useX2 } from "@/app/lib/x2/sdk.react";
+import { useX2 } from "@reactor-models/x2";
 import { PRESET_IMAGES } from "@/app/lib/clips";
 import { Panel, cn, EYEBROW, FOCUS_RING, errorMessage } from "./ui";
 

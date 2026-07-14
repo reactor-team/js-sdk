@@ -1,6 +1,6 @@
 ---
 name: building-x2-frontends
-description: Extend this cloned XMAX X2 example app — add new controls, sources, or knobs on top of the Reactor JS SDK without breaking the patterns the existing code uses. Covers the vendored typed client, the connection / commands / messages / tracks model, the single-owner source publish, the state_update reducer, the reference-image upload path, the pointer protocol, the auth route, and clip capture.
+description: Extend this cloned XMAX X2 example app — add new controls, sources, or knobs on top of the Reactor JS SDK without breaking the patterns the existing code uses. Covers the typed @reactor-models/x2 client, the connection / commands / messages / tracks model, the single-owner source publish, the state_update reducer, the reference-image upload path, the pointer protocol, the auth route, and clip capture.
 ---
 
 # Building on this XMAX X2 app
@@ -13,11 +13,9 @@ All the code referenced below already exists in this folder. Read this guide alo
 
 XMAX X2 is a **real-time streaming video-to-video editing model**. The client publishes a live video track to the model, describes an edit in plain text, and the model streams the edited video back — continuously, while you re-prompt mid-stream, swap the reference image, or drag a pointer across the output to steer the subject. The frontend's job reduces to (a) producing and publishing exactly one source track, (b) sending commands (`set_prompt`, `set_reference_image`, `set_pointer`, `set_keep_backlog`, `reset`), and (c) mirroring the model's `state_update` snapshot into the UI.
 
-## The typed client is vendored, not installed
+## The typed client is the published `@reactor-models/x2` package
 
-X2 has no published `@reactor-models/*` package yet, so this app vendors the generated typed client at `app/lib/x2/` — `sdk.ts` (the `X2Model` class, command/message types) and `sdk.react.tsx` (`X2Provider`, `useX2`, per-message hooks, `<X2MainVideoView>`). It is the same code the package will ship, generated from the model's schema, and it only depends on `@reactor-team/js-sdk`.
-
-Treat it as read-only (`DO NOT EDIT` — regenerate instead). When `@reactor-models/x2` publishes, delete `app/lib/x2/` and import the same names from the package; nothing else changes.
+The typed client is installed from npm as [`@reactor-models/x2`](https://www.npmjs.com/package/@reactor-models/x2) — the `X2Model` class and command/message types, plus the React surface (`X2Provider`, `useX2`, per-message hooks, `<X2MainVideoView>`). It is generated from the model's schema and only depends on `@reactor-team/js-sdk`.
 
 ## The four concepts you'll touch
 
@@ -180,7 +178,7 @@ The pattern, if you rebuild it:
 9. **Leaving the pointer active.** Every drag must end with `active: false`, including cancel paths (pointer leave, unmount).
 10. **Importing `@reactor-team/ui` React components into Server Components.** Runtime error. Use the theme tokens.
 11. **Storing `Clip` objects or sharing clip URLs.** They expire in minutes. Download the MP4.
-12. **Editing `app/lib/x2/` by hand.** It's generated. Fix the schema and regenerate, or wait for `@reactor-models/x2` and swap the imports.
+12. **Hand-rolling a parallel typed client.** `@reactor-models/x2` is generated from the model's schema; import from it instead of re-declaring command or message types locally.
 
 ## Checklist for new components
 
@@ -191,4 +189,4 @@ The pattern, if you rebuild it:
 - [ ] `command_error` still surfaces (don't swallow it)
 - [ ] Command payloads use the typed methods off `useX2()` — no raw `sendCommand` strings
 - [ ] Colors via theme utilities / `app/components/ui` primitives, not raw hex
-- [ ] `app/lib/x2/` untouched; base `@reactor-team/js-sdk` imported only where the typed client doesn't cover (SnapClip / recording)
+- [ ] Typed surface imported from `@reactor-models/x2`; base `@reactor-team/js-sdk` imported only where the typed client doesn't cover (SnapClip / recording)

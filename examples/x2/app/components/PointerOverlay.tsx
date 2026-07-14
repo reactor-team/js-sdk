@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useX2 } from "@/app/lib/x2/sdk.react";
+import { useX2 } from "@reactor-models/x2";
 
 // Model docs: the pointer is sampled once per generated block, so ~30 Hz is
 // plenty. Sends are throttled with a trailing timer so the last position of a

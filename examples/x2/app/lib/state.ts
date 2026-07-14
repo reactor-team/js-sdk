@@ -1,4 +1,4 @@
-import type { X2StateUpdateMessage } from "./x2/sdk";
+import type { X2StateUpdateMessage } from "@reactor-models/x2";
 import type { X2UiState } from "./types";
 
 // Projects model `state_update` snapshots into X2UiState. Returns the

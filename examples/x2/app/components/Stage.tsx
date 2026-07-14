@@ -1,6 +1,6 @@
 "use client";
 
-import { X2MainVideoView } from "@/app/lib/x2/sdk.react";
+import { X2MainVideoView } from "@reactor-models/x2";
 import type { X2SourceMode, X2UiState } from "@/app/lib/types";
 import { ImageSource } from "./ImageSource";
 import { PointerOverlay } from "./PointerOverlay";

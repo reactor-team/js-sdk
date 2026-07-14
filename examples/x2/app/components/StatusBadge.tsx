@@ -1,6 +1,6 @@
 "use client";
 
-import { useX2 } from "@/app/lib/x2/sdk.react";
+import { useX2 } from "@reactor-models/x2";
 import { Button, Panel, cn } from "./ui";
 
 // The status badge teaches the four-state connection machine:

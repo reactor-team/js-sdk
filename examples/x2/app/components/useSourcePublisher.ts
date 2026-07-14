@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useX2 } from "@/app/lib/x2/sdk.react";
+import { useX2 } from "@reactor-models/x2";
 import { errorMessage } from "./ui";
 
 // The single owner of the `source` slot. Every input mode (webcam, video,

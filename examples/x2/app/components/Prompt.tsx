@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useX2 } from "@/app/lib/x2/sdk.react";
+import { useX2 } from "@reactor-models/x2";
 import { PROMPT_EXAMPLES } from "@/app/lib/examples";
 import { Button, Panel, cn, EYEBROW, FOCUS_RING } from "./ui";
 
