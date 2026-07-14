@@ -7,7 +7,7 @@
 // prompt you can swap mid-stream, an optional reference image, and a
 // drag-to-steer pointer on the output.
 //
-// XMAX has no published `@reactor-models/*` package yet, so this app
+// X2 has no published `@reactor-models/*` package yet, so this app
 // vendors the generated typed client at app/lib/x2/ (the same code the
 // package would ship). It bakes the model name and tracks into
 // <X2Provider> and exposes typed commands and per-message hooks, so the
@@ -20,7 +20,7 @@
 //   <X2MainVideoView />                      — the live output
 //
 // When the package ships, delete app/lib/x2/ and import the same names
-// from `@reactor-models/xmax` instead.
+// from `@reactor-models/x2` instead.
 import { useEffect, useRef, useState } from "react";
 import {
   X2Provider,
@@ -64,7 +64,7 @@ async function fetchToken(): Promise<string> {
 
 // No `autoConnect`: the user clicks Connect so they see the
 // disconnected -> connecting -> waiting -> ready state machine first-hand.
-export function XmaxApp() {
+export function X2App() {
   return (
     <X2Provider
       apiUrl={REACTOR_API_URL}

@@ -1,11 +1,11 @@
-import { XmaxApp } from "./XmaxApp";
+import { X2App } from "./X2App";
 import { SetupRequired } from "./SetupRequired";
 
 // The page is a Server Component. Its only job is to check whether
 // the app is configured (REACTOR_API_KEY is present) and render the
 // right tree:
 //   - missing key  -> friendly <SetupRequired /> landing
-//   - present      -> <XmaxApp />, which fetches the JWT itself
+//   - present      -> <X2App />, which fetches the JWT itself
 //
 // We don't mint the token here. Token minting lives behind
 // /api/reactor/token so the same client-side flow works whether the
@@ -18,5 +18,5 @@ export const dynamic = "force-dynamic";
 
 export default function Page() {
   const hasKey = !!process.env.REACTOR_API_KEY;
-  return hasKey ? <XmaxApp /> : <SetupRequired />;
+  return hasKey ? <X2App /> : <SetupRequired />;
 }

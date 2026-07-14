@@ -22,7 +22,7 @@ Where generation models produce video from a prompt alone, X2 edits the video yo
 
 ## Quick start
 
-> **Start a standalone project:** `npx create-reactor-app my-app --model=xmax` scaffolds this example into a fresh app — no clone needed. The steps below are for running it in-place from a monorepo checkout.
+> **Start a standalone project:** `npx create-reactor-app my-app --model=x2` scaffolds this example into a fresh app — no clone needed. The steps below are for running it in-place from a monorepo checkout.
 
 ```bash
 cp .env.example .env.local  # then add your REACTOR_API_KEY
@@ -58,13 +58,13 @@ The model is the **source of truth**: it broadcasts a full `state_update` snapsh
 
 > **Streaming a clip, not uploading it.** A selected video is played in a `<video>` element and captured with `captureStream()`; that track is published as `source`. What you see in the source pane is literally what the model receives. A still image works the same way — it's painted to a canvas and captured as a constant 24 fps stream.
 
-XMAX has no published `@reactor-models/*` package yet, so the app vendors the generated typed client at `app/lib/x2/` — the same code that package will ship. `<X2Provider getJwt={fetchToken}>` bakes in the model name and tracks; `useX2()` exposes status plus typed commands (`setPrompt`, `setReferenceImage`, `setPointer`, `setKeepBacklog`, `reset`, `uploadFile`); per-message hooks (`useX2StateUpdate`, `useX2GenerationStopped`, …) replace a hand-rolled message switch; and `<X2MainVideoView />` renders the live output. When the package ships, delete `app/lib/x2/` and import the same names from it.
+X2 has no published `@reactor-models/*` package yet, so the app vendors the generated typed client at `app/lib/x2/` — the same code that package will ship. `<X2Provider getJwt={fetchToken}>` bakes in the model name and tracks; `useX2()` exposes status plus typed commands (`setPrompt`, `setReferenceImage`, `setPointer`, `setKeepBacklog`, `reset`, `uploadFile`); per-message hooks (`useX2StateUpdate`, `useX2GenerationStopped`, …) replace a hand-rolled message switch; and `<X2MainVideoView />` renders the live output. When the package ships, delete `app/lib/x2/` and import the same names from it.
 
 ## Code tour
 
 | Path                                   | What it is                                                                       |
 | -------------------------------------- | -------------------------------------------------------------------------------- |
-| `app/XmaxApp.tsx`                      | `X2Provider` shell + layout + one-shot handlers for the discrete model events    |
+| `app/X2App.tsx`                        | `X2Provider` shell + layout + one-shot handlers for the discrete model events    |
 | `app/lib/x2/sdk.ts` / `sdk.react.tsx`  | The vendored generated typed client (provider, `useX2`, per-message hooks)       |
 | `app/lib/state.ts` / `types.ts`        | `X2UiState` and the reducer projecting `state_update` snapshots into it          |
 | `app/components/SourcePanel.tsx`       | Source toggle (webcam / video / image), keep-backlog, reset                      |
