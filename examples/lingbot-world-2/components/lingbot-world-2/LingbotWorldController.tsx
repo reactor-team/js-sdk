@@ -2888,16 +2888,30 @@ export function LingbotWorldController({ className }: { className?: string }) {
   const joyDispY = joyDragging ? joy.y : _wasdY;
   const joyLit = joyDragging || _wasdX !== 0 || _wasdY !== 0;
 
+  // DEV: keep the HUD synced to the active scene's `hud` while idle, so it shows
+  // (with the scene's health/inventory) even before connecting and after a reload
+  // restore — not just on a fresh preset click, which is the only thing that
+  // currently calls initHud. Skipped while generating so live health from events
+  // isn't overwritten. Remove this effect (and restore `visible={isReady && hudShow}`)
+  // to go back to connect-gated HUD.
+  useEffect(() => {
+    if (!isGenerating) initHud(scene?.hud);
+  }, [scene, isGenerating, initHud]);
+
   // Player HUD — health bar + inventory. Returned separately so the app can
   // mount it INSIDE the video's relative container (absolute overlay on the
   // viewport), not in the controls panel below it.
+  // DEV: visible is gated on `hudShow` only (was `isReady && hudShow`) so the HUD
+  // shows as soon as a scene opts in, even before the model connects — initHud
+  // already runs offline on preset select. Restore `isReady && hudShow` to hide
+  // it again on the idle/pre-connect page.
   const hud = (
     <Hud
       health={hudHealth}
       maxHealth={hudMaxHealth}
       inventory={hudInventory}
       objective={hudObjective}
-      visible={isReady && hudShow}
+      visible={true}
     />
   );
 

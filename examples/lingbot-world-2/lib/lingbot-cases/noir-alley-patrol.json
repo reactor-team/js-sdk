@@ -57,6 +57,12 @@
         "health": 0
       },
       {
+        "name": "Kick",
+        "actor": "player",
+        "health": 0,
+        "detail": "The officer drives a hard front kick straight ahead, his boot slamming forward into the space in front of him with a splash of spray off the wet asphalt, then plants back down into a ready stance."
+      },
+      {
         "name": "Forward Roll",
         "actor": "player",
         "detail": "The officer drops into a low crouch and executes a forward roll across the wet asphalt, tucking his shoulder and rising smoothly back to his feet.",
@@ -98,14 +104,14 @@
       {
         "name": "Gunman on the Fire Escape",
         "actor": "director",
-        "detail": "An armed gunman appears at the top of the fire escape above the alley, leveling a pistol down toward the officer, his silhouette lit by the blue and red ambient light and the falling rain; he stays up there, covering the alley from above.",
+        "detail": "EXACTLY ONE gunman appears on the metal fire escape above the alley ahead — a single lone figure in a plain black outfit, black hoodie and black trousers, NO tactical gear, NO SWAT vest and no police markings, clearly not an officer. He raises a pistol and fires down toward the street, muzzle flashing in the rain, then ducks back. There is only ONE gunman, dressed in plain black.",
         "health": -20,
         "count": 1
       },
       {
         "name": "Gunman Falls",
         "actor": "director",
-        "detail": "The gunman at the top of the fire escape is hit — he lurches, his pistol slips from his hand, and he pitches forward over the railing, tumbling down through the falling rain to slam onto the wet asphalt below, where he lands sprawled and motionless in the spreading puddle; the fire escape above him is now empty.",
+        "detail": "THE single gunman in the plain black outfit up on the fire escape — the only one, a lone figure in a black hoodie and black trousers with no tactical gear — is hit, staggers, and topples from the fire escape, tumbling down through the rain to crumple onto the wet asphalt of the alley below, where he lies still.",
         "count": -1
       },
       {
@@ -125,7 +131,7 @@
       {
         "name": "Portal Shows Up",
         "actor": "director",
-        "detail": "A swirling blue portal tears open in the air ahead down the alley — a shimmering vortex of light and rippling distortion, drifting particles ringing its edge, hanging steady and pulsing against the wet brick."
+        "detail": "A swirling blue portal opens FLAT ON THE GROUND on the wet asphalt of the alley directly ahead, lying horizontally on the street at the officer’s feet like a glowing pool set into the road — NOT in the sky, NOT floating in the air, flat on the ground — a horizontal vortex of blue light and rippling distortion in the wet street, drifting particles ringing its edge, ready to be stepped into."
       }
     ],
     "hud": {
