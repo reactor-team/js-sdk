@@ -22,7 +22,7 @@ Where generation models produce video from a prompt alone, X2 edits the video yo
 
 ## Quick start
 
-> **Start a standalone project:** `npx create-reactor-app my-app --model=xmax` scaffolds this example into a fresh app — no clone needed. The steps below are for running it in-place from a monorepo checkout.
+> **Start a standalone project:** `npx create-reactor-app my-app --model=x2` scaffolds this example into a fresh app — no clone needed. The steps below are for running it in-place from a monorepo checkout.
 
 ```bash
 cp .env.example .env.local  # then add your REACTOR_API_KEY
@@ -38,7 +38,7 @@ Get a **production** API key (`rk_...`) from the [Reactor dashboard](https://rea
 - **Video** - pick a preset clip or a local file. Instead of uploading it, the app **plays it and streams its frames into the same `source` track**, so the model edits it on its live path — the source pane and the edited pane share one feed and can't drift apart.
 - **Image** - pick a still image and the app repeats it as a constant feed. Set a prompt and drag on the output to animate the scene.
 - **Steer the prompt** - setting a prompt is what arms generation; re-prompt mid-stream at any time and the new edit lands at the next chunk boundary, with no re-render and no break in the stream. Prompts are editing instructions, not scene descriptions - the [prompt guide](https://docs.reactor.inc/model-api-reference/xmax/prompt-guide) covers how to write edits that land where you aim them.
-- **Reference image** - upload an image the model conditions on (a face, an outfit, a style target). The upload rides `uploadFile()` and lands as a `set_reference_image` command; swapping it mid-stream **resets the run and re-arms your prompt automatically** so the model re-locks to the new reference (a differently-sized reference would otherwise shear the output into desaturated streaks). Uploads are also floored to mod-4 dimensions first: the runtime streams the reference as driving video, and its GStreamer pipeline scrambles the color channels on any frame whose width or height isn't a multiple of 4.
+- **Reference image** - upload an image the model conditions on (a face, an outfit, a style target). The upload rides `uploadFile()` and lands as a `set_reference_image` command; swapping it mid-stream restarts generation automatically. Uploads are floored to mod-4 dimensions first: the runtime streams the reference as driving video, and its GStreamer pipeline scrambles the color channels on any frame whose width or height isn't a multiple of 4.
 - **Drag to steer** - press and drag on the edited output to drive the model's pointer (`set_pointer`, normalized 0..1 output-frame coordinates). Releasing deactivates it. Works in every source mode; the sidebar's Pointer panel shows the raw `pointer_x` / `pointer_y` / `pointer_active` values as the model echoes them back in `state_update`, so you can watch exactly what the API receives.
 - **Keep backlog** - a checkbox on the source panel toggles `set_keep_backlog`: keep every source frame queued (edit all of them, latency grows) or drop stale frames to stay real-time.
 - **Snap a clip** - capture the last N seconds of the stream (model-agnostic recording).
@@ -58,13 +58,13 @@ The model is the **source of truth**: it broadcasts a full `state_update` snapsh
 
 > **Streaming a clip, not uploading it.** A selected video is played in a `<video>` element and captured with `captureStream()`; that track is published as `source`. What you see in the source pane is literally what the model receives. A still image works the same way — it's painted to a canvas and captured as a constant 24 fps stream.
 
-XMAX has no published `@reactor-models/*` package yet, so the app vendors the generated typed client at `app/lib/x2/` — the same code that package will ship. `<X2Provider getJwt={fetchToken}>` bakes in the model name and tracks; `useX2()` exposes status plus typed commands (`setPrompt`, `setReferenceImage`, `setPointer`, `setKeepBacklog`, `reset`, `uploadFile`); per-message hooks (`useX2StateUpdate`, `useX2GenerationStopped`, …) replace a hand-rolled message switch; and `<X2MainVideoView />` renders the live output. When the package ships, delete `app/lib/x2/` and import the same names from it.
+X2 has no published `@reactor-models/*` package yet, so the app vendors the generated typed client at `app/lib/x2/` — the same code that package will ship. `<X2Provider getJwt={fetchToken}>` bakes in the model name and tracks; `useX2()` exposes status plus typed commands (`setPrompt`, `setReferenceImage`, `setPointer`, `setKeepBacklog`, `reset`, `uploadFile`); per-message hooks (`useX2StateUpdate`, `useX2GenerationStopped`, …) replace a hand-rolled message switch; and `<X2MainVideoView />` renders the live output. When the package ships, delete `app/lib/x2/` and import the same names from it.
 
 ## Code tour
 
 | Path                                   | What it is                                                                       |
 | -------------------------------------- | -------------------------------------------------------------------------------- |
-| `app/XmaxApp.tsx`                      | `X2Provider` shell + layout + one-shot handlers for the discrete model events    |
+| `app/X2App.tsx`                        | `X2Provider` shell + layout + one-shot handlers for the discrete model events    |
 | `app/lib/x2/sdk.ts` / `sdk.react.tsx`  | The vendored generated typed client (provider, `useX2`, per-message hooks)       |
 | `app/lib/state.ts` / `types.ts`        | `X2UiState` and the reducer projecting `state_update` snapshots into it          |
 | `app/components/SourcePanel.tsx`       | Source toggle (webcam / video / image), keep-backlog, reset                      |

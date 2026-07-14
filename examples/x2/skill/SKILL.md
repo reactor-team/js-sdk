@@ -1,5 +1,5 @@
 ---
-name: building-xmax-frontends
+name: building-x2-frontends
 description: Extend this cloned XMAX X2 example app — add new controls, sources, or knobs on top of the Reactor JS SDK without breaking the patterns the existing code uses. Covers the vendored typed client, the connection / commands / messages / tracks model, the single-owner source publish, the state_update reducer, the reference-image upload path, the pointer protocol, the auth route, and clip capture.
 ---
 
@@ -15,9 +15,9 @@ XMAX X2 is a **real-time streaming video-to-video editing model**. The client pu
 
 ## The typed client is vendored, not installed
 
-XMAX has no published `@reactor-models/*` package yet, so this app vendors the generated typed client at `app/lib/x2/` — `sdk.ts` (the `X2Model` class, command/message types) and `sdk.react.tsx` (`X2Provider`, `useX2`, per-message hooks, `<X2MainVideoView>`). It is the same code the package will ship, generated from the model's schema, and it only depends on `@reactor-team/js-sdk`.
+X2 has no published `@reactor-models/*` package yet, so this app vendors the generated typed client at `app/lib/x2/` — `sdk.ts` (the `X2Model` class, command/message types) and `sdk.react.tsx` (`X2Provider`, `useX2`, per-message hooks, `<X2MainVideoView>`). It is the same code the package will ship, generated from the model's schema, and it only depends on `@reactor-team/js-sdk`.
 
-Treat it as read-only (`DO NOT EDIT` — regenerate instead). When `@reactor-models/xmax` publishes, delete `app/lib/x2/` and import the same names from the package; nothing else changes.
+Treat it as read-only (`DO NOT EDIT` — regenerate instead). When `@reactor-models/x2` publishes, delete `app/lib/x2/` and import the same names from the package; nothing else changes.
 
 ## The four concepts you'll touch
 
@@ -63,7 +63,7 @@ The example passes `connectOptions={{ autoConnect: false }}` so the user clicks 
 
 The model broadcasts a `state_update` message on connect and after every observable change: the full picture (`prompt`, `has_reference_image`, `pointer_x/y/active`, `keep_backlog`, `generating`, `width`, `height`). It is the **single source of truth**. The app never infers session state from its own button clicks.
 
-`Workspace` (in `app/XmaxApp.tsx`) feeds every snapshot through `reduce()` (`app/lib/state.ts`) into the app-level `X2UiState` (`app/lib/types.ts`). Two wire quirks the reducer already handles — keep them handled:
+`Workspace` (in `app/X2App.tsx`) feeds every snapshot through `reduce()` (`app/lib/state.ts`) into the app-level `X2UiState` (`app/lib/types.ts`). Two wire quirks the reducer already handles — keep them handled:
 
 - `prompt`, `width`, and `height` are typed `unknown` (nullable on the wire); the model only ever sends values or null.
 - The snapshot only says _whether_ a reference image is set. The decoded dimensions arrive separately on `reference_image_accepted`, so the reducer drops the stale dimensions ack whenever the snapshot reports no reference.
@@ -84,7 +84,7 @@ await setPrompt({ prompt: "make it watercolor" });
 
 - **Gate every interactive control on `status === "ready"`** — commands sent earlier reject.
 - **Prompts are hot-swappable.** `setPrompt` mid-stream applies from the next generated block; no restart, no re-render. This is the model's signature capability — lead with it in anything you build. Prompts cap at 1000 characters (`maxLength` on the schema).
-- **`reset()` stops the run.** The stage blacks itself out until frames from the next run land (the WebRTC `<video>` would otherwise freeze on the last edited frame — see `stageCleared` in `XmaxApp.tsx`).
+- **`reset()` stops the run.** The stage blacks itself out until frames from the next run land (the WebRTC `<video>` would otherwise freeze on the last edited frame — see `stageCleared` in `X2App.tsx`).
 - The split pointer commands (`setPointerX`, `setPointerY`, `setPointerActive`) exist for integrations that can only send one scalar at a time; the app uses the combined `setPointer({ x, y, active })`.
 
 ## Receiving messages
@@ -180,7 +180,7 @@ The pattern, if you rebuild it:
 9. **Leaving the pointer active.** Every drag must end with `active: false`, including cancel paths (pointer leave, unmount).
 10. **Importing `@reactor-team/ui` React components into Server Components.** Runtime error. Use the theme tokens.
 11. **Storing `Clip` objects or sharing clip URLs.** They expire in minutes. Download the MP4.
-12. **Editing `app/lib/x2/` by hand.** It's generated. Fix the schema and regenerate, or wait for `@reactor-models/xmax` and swap the imports.
+12. **Editing `app/lib/x2/` by hand.** It's generated. Fix the schema and regenerate, or wait for `@reactor-models/x2` and swap the imports.
 
 ## Checklist for new components
 

@@ -7,7 +7,7 @@
 // prompt you can swap mid-stream, an optional reference image, and a
 // drag-to-steer pointer on the output.
 //
-// XMAX has no published `@reactor-models/*` package yet, so this app
+// X2 has no published `@reactor-models/*` package yet, so this app
 // vendors the generated typed client at app/lib/x2/ (the same code the
 // package would ship). It bakes the model name and tracks into
 // <X2Provider> and exposes typed commands and per-message hooks, so the
@@ -20,7 +20,7 @@
 //   <X2MainVideoView />                      — the live output
 //
 // When the package ships, delete app/lib/x2/ and import the same names
-// from `@reactor-models/xmax` instead.
+// from `@reactor-models/x2` instead.
 import { useEffect, useRef, useState } from "react";
 import {
   X2Provider,
@@ -64,7 +64,7 @@ async function fetchToken(): Promise<string> {
 
 // No `autoConnect`: the user clicks Connect so they see the
 // disconnected -> connecting -> waiting -> ready state machine first-hand.
-export function XmaxApp() {
+export function X2App() {
   return (
     <X2Provider
       apiUrl={REACTOR_API_URL}
@@ -145,15 +145,10 @@ function Workspace() {
     );
   };
 
-  // Bumped by a user-initiated reset (the Source panel's Reset button) and
-  // used as a React key on children that hold local draft state (prompt
-  // draft, reference preview), remounting them to clear those drafts in step
-  // with the reset, which clears prompt, reference image, and pointer
-  // server-side. Driven by the reset *action*, not the generation_stopped
-  // message, because the app also issues resets that must keep drafts:
-  // swapping the reference image resets to re-lock the model's resolution and
-  // then re-arms the prompt (see ReferenceImage), so its preview and the
-  // prompt must survive that reset.
+  // Bumped on a user reset and used as a React key on children that hold
+  // local draft state (prompt draft, reference preview), remounting them in
+  // step with the model's reset — which clears prompt, reference image, and
+  // pointer server-side.
   const [resetNonce, setResetNonce] = useState(0);
 
   // While generation is stopped, black out the stage (the WebRTC view would
@@ -168,12 +163,12 @@ function Workspace() {
     setUi((s) => reduce(s, msg));
   });
 
-  useX2GenerationStopped(() => {
-    // Black out the stage on any stop. The draft-clearing remount is driven
-    // by the reset action (resetNonce, from the Source panel), not this
-    // message, so the reference-swap reset leaves the prompt and preview
-    // intact while a user reset clears them.
+  useX2GenerationStopped((msg) => {
     setStageCleared(true);
+    // A `reference_image_changed` stop is an automatic restart (a fresh
+    // generation_started follows immediately) — keep drafts. Only a user
+    // reset remounts the draft-holding children.
+    if (msg.reason === "reset") setResetNonce((n) => n + 1);
   });
 
   useX2ReferenceImageAccepted((msg) => {
@@ -246,7 +241,6 @@ function Workspace() {
             onSelectVideo={(url) => setVideoUrl(url)}
             onSelectImage={(url) => setImageUrl(url)}
             onTrack={setSourceTrack}
-            onUserReset={() => setResetNonce((n) => n + 1)}
           />
           <Prompt key={`p${resetNonce}`} activePrompt={ui.activePrompt} />
           <PointerPanel />
@@ -255,7 +249,6 @@ function Workspace() {
             generating={ui.generating}
             hasReference={ui.hasReference}
             accepted={ui.referenceAccepted}
-            activePrompt={ui.activePrompt}
           />
           <SnapClip />
         </aside>
