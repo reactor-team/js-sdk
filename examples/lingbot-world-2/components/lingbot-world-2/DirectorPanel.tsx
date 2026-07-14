@@ -71,7 +71,7 @@ export function DirectorPanel({
     { key: string; clause: string; weight: number; remaining: string }[]
   >([]);
   const [sceneEvents, setSceneEvents] = useState<
-    { name: string; clause: string; health?: number; addItem?: string; count?: number }[]
+    { name: string; clause: string; health?: number; addItem?: string; count?: number; available?: boolean }[]
   >([]);
   const [count, setCount] = useState(0); // shared entity/spawn count
 
@@ -286,7 +286,13 @@ export function DirectorPanel({
           <div className="flex basis-full flex-wrap items-center gap-1 min-w-0">
             <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">scene</span>
             {sceneEvents.map((ev, i) => (
-              <button key={ev.name} disabled={humanDisabled} className={cn(btn(), "whitespace-nowrap")} title={ev.clause} onClick={() => fireEvent(ev)}>
+              <button
+                key={ev.name}
+                disabled={humanDisabled || ev.available === false}
+                className={cn(btn(), "whitespace-nowrap", ev.available === false && "opacity-40")}
+                title={ev.available === false ? `${ev.name} — locked (prerequisite not met yet)` : ev.clause}
+                onClick={() => fireEvent(ev)}
+              >
                 {DIRECTOR_HOTKEYS[i] && (
                   <kbd className="mr-1 rounded bg-white/15 px-1 font-mono text-[9px] uppercase text-emerald-200/90">
                     {DIRECTOR_HOTKEYS[i]}

@@ -8,7 +8,9 @@
 import { HoldChip } from "@/components/lingbot-world-2/ControlPrimitives";
 import type { StructuredScene } from "@/lib/lingbot-world-prompts";
 
-const MAX_EVENTS = 9; // keys 1-9
+// Render up to this many hold-key chips. Keyboard number keys only reach slots
+// 0-8 (keys 1-9, see keyToHoldSlot); chips beyond that are click-only.
+const MAX_EVENTS = 24;
 
 export function EventChips({
   scene,

@@ -116,8 +116,13 @@
       {
         "name": "Gunman Falls",
         "actor": "director",
-        "detail": "THE single gunman in the gray jacket and mask up on the fire escape — the only one, a lone figure in a gray jacket and mask with no tactical gear — is hit, staggers, and topples from the fire escape, tumbling down through the rain to crumple onto the wet asphalt of the alley below, where he comes to rest FACE-DOWN, MOTIONLESS and LIFELESS. From then on he stays there on the ground — a dead body sprawled in the puddle that does not move, does not rise, and remains lying lifeless for the rest of the scene. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
-        "count": -1
+        "detail": "THE single gunman in the gray jacket and mask up on the fire escape — the only one, a lone masked figure in a gray jacket with no tactical gear — is hit, jerks, and slumps down dead right there ON the fire escape, crumpling against the metal railing and going limp draped over the landing high above the alley. He STAYS UP on the fire escape exactly where he was — he does NOT fall, topple, tumble, jump or drop down to the ground or the street below, staying elevated up on the fire escape the whole time — and remains up there motionless and lifeless for the rest of the scene. EXACTLY ONE gunman, no second gunman, no duplicate and no clone.",
+        "count": -1,
+        "requires": {
+          "fired": [
+            "Gunman on the Fire Escape"
+          ]
+        }
       },
       {
         "name": "Chicken Struts In",
@@ -140,7 +145,10 @@
         "cameraVersion": "downed",
         "movementVersion": "downed",
         "detail": "The officer staggers, his knees buckle, and he collapses forward onto the wet asphalt, his body going limp as he sprawls face-down and STAYS DOWN, lying motionless in the spreading puddle without getting back up; his weapon slips from his gloved hand and clatters away across the ground, and he remains still on the ground in the falling rain as the blue and red ambient light glints off the water pooling around him. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
-        "health": -100
+        "health": -100,
+        "requires": {
+          "maxHealth": 0
+        }
       },
       {
         "name": "Exit Door Appears",
@@ -155,12 +163,47 @@
         "cameraVersion": "empty",
         "movementVersion": "empty",
         "detail": "Over-the-shoulder third-person view from behind the uniformed police officer in dark blue tactical gear as he reaches the glowing shop doorway in the building at the side of the lane and turns and steps through it out of the rain into a warm, brightly lit interior — golden light spills across the threshold onto the wet pavement, the dark rainy alley and its heavy downpour fall away behind him out of frame as he crosses inside, and the door swings closed behind him, muffling the rain, until he comes to a stop safe inside the calm, warm-lit room. Cinematic noir, warm interior light against the cold blue night left behind. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "health": 0,
+        "requires": {
+          "fired": [
+            "Exit Door Appears"
+          ]
+        }
+      },
+      {
+        "name": "Police Car Turns Up",
+        "actor": "director",
+        "detail": "The officer stays the focus, unchanged in pose, while a single police squad car turns up and rolls into the alley, pulling to a stop nearby with its red-and-blue roof lights flashing and washing the wet brick walls and puddles in pulsing colour, its headlights cutting through the falling rain; the car stays parked there with its lights turning, and NO ONE gets out of it. EXACTLY ONE police car and EXACTLY ONE officer — a single squad car with no extra people and no second officer, no duplicate and no clone.",
+        "health": 10,
+        "count": 1
+      },
+      {
+        "name": "Enter the Door",
+        "actor": "player",
+        "baseVersion": "empty",
+        "cameraVersion": "empty",
+        "movementVersion": "empty",
+        "detail": "Over-the-shoulder third-person view from behind the uniformed police officer in dark blue tactical gear as he steps through the open glowing lane-side doorway and crosses inside out of the rain into a warm, brightly lit interior — the dark rainy alley and its downpour falling away behind him as the door closes, until he comes to a stop safe inside the calm, warm-lit room. EXACTLY ONE police officer, a single lone officer, no duplicate and no clone.",
+        "requires": {
+          "fired": [
+            "Exit Door Appears"
+          ]
+        },
         "health": 0
       },
       {
-        "name": "Portal Shows Up",
-        "actor": "director",
-        "detail": "A swirling blue portal opens FLAT ON THE GROUND on the wet asphalt of the alley directly ahead, lying horizontally on the street at the officer’s feet like a glowing pool set into the road — NOT in the sky, NOT floating in the air, flat on the ground — a horizontal vortex of blue light and rippling distortion in the wet street, drifting particles ringing its edge, ready to be stepped into. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "name": "Get in the Car",
+        "actor": "player",
+        "baseVersion": "empty",
+        "cameraVersion": "empty",
+        "movementVersion": "empty",
+        "detail": "Over-the-shoulder third-person view from behind the uniformed police officer in dark blue tactical gear as he strides up to the parked police squad car with its red-and-blue lights flashing, pulls open the driver door and climbs inside out of the rain; the door swings shut and the squad car pulls away down the rain-slicked street, its lights receding into the night. EXACTLY ONE police officer and EXACTLY ONE police car, no second officer, no second car, no duplicate and no clone.",
+        "requires": {
+          "fired": [
+            "Police Car Turns Up"
+          ]
+        },
+        "health": 0
       }
     ],
     "hud": {

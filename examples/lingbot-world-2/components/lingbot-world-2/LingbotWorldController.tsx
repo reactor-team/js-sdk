@@ -16,9 +16,12 @@ import {
   cloneScene,
   emptyScene,
   scenesEqual,
+  isEventAvailable,
   type StructuredExample,
   type StructuredScene,
   type Objective,
+  type NamedEvent,
+  type GateState,
 } from "@/lib/lingbot-world-prompts";
 import { History, type Fact } from "@/lib/history";
 
@@ -557,6 +560,34 @@ export function LingbotWorldController({ className }: { className?: string }) {
   }, [scene]);
   const heldSlotsRef = useRef<number[]>([]);
 
+  // Declarative event gating: names of events that have fired this session, plus
+  // a version counter so the UI (player keys + Director panel) re-derives event
+  // availability when the fired-set changes. Reset on scene select / restart.
+  const firedEventsRef = useRef<Set<string>>(new Set());
+  const [firedVersion, setFiredVersion] = useState(0);
+  // Ref mirrors of the HUD vitals so the imperative event handlers read fresh
+  // values without stale closures (synced from state by effects below).
+  const hudHealthRef = useRef(100);
+  const hudInventoryRef = useRef<string[]>([]);
+  const gateStateNow = useCallback(
+    (): GateState => ({
+      fired: firedEventsRef.current,
+      chunks: 0, // local play has no chunk clock; connected mode gates on `fired`
+      health: hudHealthRef.current,
+      inventory: hudInventoryRef.current,
+    }),
+    [],
+  );
+  const isAvailableNow = useCallback(
+    (ev?: NamedEvent | null) => (ev ? isEventAvailable(ev, gateStateNow()) : true),
+    [gateStateNow],
+  );
+  const recordFired = useCallback((name?: string) => {
+    if (!name || firedEventsRef.current.has(name)) return;
+    firedEventsRef.current.add(name);
+    setFiredVersion((v) => v + 1);
+  }, []);
+
   // Persistent world facts contributed on top of the scene prose — Director
   // interventions (weather/time/spawns) and any timed effects. composePrompt()
   // owns the scene layer (base/camera/movement/held events, the ephemeral
@@ -602,9 +633,10 @@ export function LingbotWorldController({ className }: { className?: string }) {
   // The active scene's DIRECTOR events (scene change / death), extracted for the
   // Director panel/AI to fire. Kept in a ref so we can re-push on (re)connect.
   const sceneDirEventsRef = useRef<
-    { name: string; clause: string; health?: number; addItem?: string; count?: number }[]
+    { name: string; clause: string; health?: number; addItem?: string; count?: number; available?: boolean }[]
   >([]);
   const pushSceneEvents = useCallback((sc: StructuredScene | null) => {
+    const gs = gateStateNow();
     const list = (sc?.events ?? [])
       .filter((e) => e.actor === "director")
       .map((e) => ({
@@ -613,6 +645,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
         health: e.health,
         addItem: e.addItem,
         count: e.count,
+        available: isEventAvailable(e, gs),
       }));
     sceneDirEventsRef.current = list;
     // Bridge the current scene's director events to the in-app Human Director
@@ -627,7 +660,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
     if (coordConnectedRef.current) {
       coordWsRef.current?.send(JSON.stringify({ op: "scene_events", events: list }));
     }
-  }, []);
+  }, [gateStateNow]);
 
   // The active scene's objective — HUD shows `summary`, Director panel/AI use
   // `director`. Bridged to the in-app panel (localStorage + event) and, when
@@ -831,6 +864,14 @@ export function LingbotWorldController({ className }: { className?: string }) {
   const [hudHealth, setHudHealth] = useState(100);
   const [hudInventory, setHudInventory] = useState<string[]>([]);
   const [hudObjective, setHudObjective] = useState<string>(""); // objective.summary
+  // Keep the gate refs (read by imperative event handlers) synced to HUD state.
+  useEffect(() => { hudHealthRef.current = hudHealth; }, [hudHealth]);
+  useEffect(() => { hudInventoryRef.current = hudInventory; }, [hudInventory]);
+  // Re-push director events (with fresh `available` flags) whenever the fired-set
+  // or health changes, so gated events unlock live in the Director panel.
+  useEffect(() => {
+    if (sceneRef.current) pushSceneEvents(sceneRef.current);
+  }, [firedVersion, hudHealth, pushSceneEvents]);
 
   // Initialise the HUD from a scene's `hud` config (on scene apply / reset).
   const initHud = useCallback((cfg?: {
@@ -840,6 +881,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
     inventory?: string[];
   }) => {
     const max = Math.min(100, cfg?.maxHealth ?? 100); // hard ceiling: 100
+    // Reset event gating for the new scene so fired-state doesn't leak across scenes.
+    firedEventsRef.current = new Set();
+    setFiredVersion((v) => v + 1);
     hudMaxHealthRef.current = max;
     setHudMaxHealth(max);
     setHudShow(cfg ? cfg.show !== false : false); // hidden unless the scene opts in
@@ -1631,9 +1675,11 @@ export function LingbotWorldController({ className }: { className?: string }) {
       const events = sceneRef.current?.events;
       if (!events || slot < 0 || slot >= events.length) return;
       if (events[slot]?.actor === "director") return; // director events use ALPHABETIC hotkeys (fireDirectorEvent), not number keys
+      if (!isAvailableNow(events[slot])) return; // gated: prerequisites not met yet
       if (!heldSlotsRef.current.includes(slot)) {
         heldSlotsRef.current = [...heldSlotsRef.current, slot];
         const ev = events[slot];
+        recordFired(ev?.name);
         logPlayerCmd("event_press", { slot, name: ev?.name });
         // Player event may change shared vitals (fires once, on fresh press).
         // Prefer the event's explicit vital fields; fall back to name keywords.
@@ -1647,7 +1693,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
       setHeldSlots(heldSlotsRef.current);
       recomputePromptAndSend();
     },
-    [recomputePromptAndSend, applyVital, logPlayerCmd],
+    [recomputePromptAndSend, applyVital, logPlayerCmd, isAvailableNow, recordFired],
   );
 
   const holdRelease = useCallback(
@@ -1672,6 +1718,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
       if (!coordConnectedRef.current) return;
       const ev = sceneDirEventsRef.current[dirIndex];
       if (!ev) return;
+      const full = sceneRef.current?.events.find((e) => e.name === ev.name);
+      if (full && !isAvailableNow(full)) return; // gated: prerequisites not met yet
+      recordFired(ev.name);
       const key = "scene:" + ev.name.toLowerCase().replace(/\s+/g, "_");
       coordWsRef.current?.send(
         JSON.stringify({

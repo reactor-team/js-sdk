@@ -4,7 +4,7 @@
   "description": "Third-person rodeo bull ride — key 1 = buck, key 2 = spin, key 3 = thrown off, key 4 = wave hat, key 5 = barrel turn, key 6 = rabbit appears, key 7 = arena fire, director controls the bull: bucks violently / spins hard / charges the rail / throws the rider; audience (visual): crowd erupts / recoils / stills / waves",
   "image": {
     "label": "Rodeo Bull Ride",
-    "src": "/lingbot-cases/battlefield-horseman.jpg"
+    "src": "/lingbot-cases/rodeo.jpg"
   },
   "scene": {
     "base": {
