@@ -666,6 +666,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
   // `director`. Bridged to the in-app panel (localStorage + event) and, when
   // present, the coordinator. Kept in a ref to re-push on (re)connect.
   const objectiveRef = useRef<Objective | null>(null);
+  const activeGameRef = useRef<string>(""); // active scene slug, re-pushed on (re)connect
   const pushObjective = useCallback((obj: Objective | null) => {
     objectiveRef.current = obj ?? null;
     setHudObjective(obj?.summary ?? "");
@@ -691,8 +692,12 @@ export function LingbotWorldController({ className }: { className?: string }) {
     );
     // Clear stale director facts from the shared History on game switch, so the
     // previous game's asserted world events (weather, spawns, etc.) don't carry over.
+    // Also publish the active game's slug so the AI director can reload that scene
+    // (re-derive its probes/identity/events) and follow the UI selection.
+    activeGameRef.current = activeExampleId ?? "";
     if (activeExampleId && coordConnectedRef.current) {
       coordWsRef.current?.send(JSON.stringify({ op: "clear" }));
+      coordWsRef.current?.send(JSON.stringify({ op: "game", role: "player", slug: activeExampleId }));
     }
   }, [activeExampleId]);
 
@@ -816,6 +821,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
       }
       if (objectiveRef.current) {
         ws.send(JSON.stringify({ op: "objective", objective: objectiveRef.current }));
+      }
+      if (activeGameRef.current) {
+        ws.send(JSON.stringify({ op: "game", role: "player", slug: activeGameRef.current }));
       }
     };
     ws.onclose = () => {

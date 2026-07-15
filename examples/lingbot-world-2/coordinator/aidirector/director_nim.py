@@ -10,6 +10,7 @@ Needs an nvapi key in NVIDIA_API_KEY. Runs the shared director loop.
 """
 import argparse
 import asyncio
+import glob
 import json
 import os
 
@@ -62,11 +63,53 @@ def main():
         scene_json = json.load(open(args.scene, encoding="utf-8"))
         probe = make_probe(vlm, scene_json, debug=debug)
 
+    # reload_game(slug) lets the director FOLLOW the UI: on a game switch it loads
+    # that scene file and rebuilds identity + events + the probe checklist.
+    # The UI's slug is the JSON `id`, which is NOT the filename for most scenes, so
+    # resolve by scanning: index every case by BOTH its `id` and its filename stem.
+    # Returns (scene, probe, image_abspath) or None if the slug can't be resolved.
+    cases_dir = os.path.dirname(args.scene) or "../lib/lingbot-cases"
+    img_dir = os.path.join(os.path.dirname(cases_dir), "..", "public", "lingbot-cases")
+
+    def _index_cases():
+        idx = {}
+        for p in glob.glob(os.path.join(cases_dir, "*.json")):
+            idx[os.path.splitext(os.path.basename(p))[0]] = p  # by filename stem
+            try:
+                jid = json.load(open(p, encoding="utf-8")).get("id")
+            except (OSError, json.JSONDecodeError):
+                continue
+            if jid:
+                idx[jid] = p  # and by JSON id (what the UI broadcasts)
+        return idx
+
+    scene_index = _index_cases()
+
+    def reload_game(slug):
+        path = scene_index.get(slug)
+        if not path:
+            scene_index.update(_index_cases())  # rescan once in case a scene was added
+            path = scene_index.get(slug)
+        if not path or not os.path.isfile(path):
+            return None
+        with open(path, encoding="utf-8") as f:
+            sj = json.load(f)
+        new_scene = load_scene(path)
+        new_probe = make_probe(vlm, sj, debug=debug) if not args.no_probe else None
+        # Resolve the scene's still image (for the cloud-mode frame feed). image.src
+        # is a web path like /lingbot-cases/foo.jpg; fall back to the file stem.
+        src = (sj.get("image") or {}).get("src") or ""
+        if src.startswith("/lingbot-cases/"):
+            img = os.path.join(img_dir, os.path.basename(src))
+        else:
+            img = os.path.join(img_dir, os.path.splitext(os.path.basename(path))[0] + ".jpg")
+        return new_scene, new_probe, os.path.abspath(img)
+
     print(f"[director] NVIDIA inference: {args.model}  probes={'on' if probe else 'off'}  "
           f"debug={'on' if debug else 'off'}", flush=True)
     asyncio.run(
         run_director(decide, args.url, args.frame, scene, args.interval, args.once,
-                     probe=probe, debug=debug)
+                     probe=probe, debug=debug, reload_game=reload_game)
     )
 
 

@@ -114,13 +114,35 @@ def load_scene(path):
     return {"base": base, "dir_events": dir_events, "objective": director_goal}
 
 
+def _norm_name(s):
+    """Normalize an event name for matching: the model may reply with the display
+    name ("Gold Coin Appears") OR the slug form ("gold_coin_appears") — treat them
+    the same by lowercasing and unifying underscores/spaces."""
+    return str(s).strip().lower().replace("_", " ")
+
+
+def _event_summary(clause):
+    """Distinct one-liner for the candidate list. Strips the shared "explorer
+    unchanged … ONLY the world … changes:" boilerplate so each event reads
+    differently (else clause[:N] is identical for every event and the model
+    can't tell them apart)."""
+    idx = clause.find("changes:")
+    text = clause[idx + len("changes:"):].strip() if idx != -1 else clause
+    return text[:130]
+
+
 def build_system(scene, state):
     fired = state.get("fired") or []
+    fired_lower = {f.lower() for f in fired}
     dir_events = scene.get("dir_events") or []
+    # Prefer events NOT already fired this session so the arc actually ADVANCES
+    # (don't just re-offer an already-active event). If everything has fired,
+    # reopen the full list so repeats become allowed again.
+    available = [e for e in dir_events if e["name"] and e["name"].lower() not in fired_lower]
+    if not available:
+        available = [e for e in dir_events if e["name"]]
     events_list = (
-        "\n".join(
-            f'- "{e["name"]}": {e["clause"][:90]}' for e in dir_events if e["name"]
-        )
+        "\n".join(f'- "{e["name"]}": {_event_summary(e["clause"])}' for e in available)
         or "(this scene has no director events)"
     )
     obs = state.get("observations") or {}
@@ -137,11 +159,14 @@ def build_system(scene, state):
     )
 
 
-async def run_director(decide, url, frame_path, scene, interval, once, probe=None, debug=False):
+async def run_director(decide, url, frame_path, scene, interval, once, probe=None, debug=False,
+                       reload_game=None):
     # Latest state pushed by the coordinator (facts + vitals) for prompt context.
     # `fired` = short memory of the arc (event names introduced); `step` = pacing.
     # `observations` = the probe read of the current frame (the AI director's eyes).
     state = {"facts": "", "health": 100, "fired": [], "step": 0, "observations": {}}
+    # Probe lives in a holder so a game switch (see the "game" message) can swap it.
+    pstate = {"probe": probe}
     last_key_clause = {}  # dedup: only re-assert when a key's clause changes
     last_mtime = 0.0
     last_idle_msg = None  # throttle: only re-print an idle reason when it changes
@@ -153,27 +178,102 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
     dbg(f"config: url={url} frame={os.path.abspath(frame_path)} interval={interval}s "
         f"probe={'on' if probe else 'off'} events={len(scene.get('dir_events') or [])}")
 
-    async with websockets.connect(url) as ws:
+    # No coordinator -> no billed decisions. If we can't reach it, exit cleanly
+    # (don't crash with a traceback, and don't spend a single NVIDIA call).
+    try:
+        ws = await websockets.connect(url)
+    except Exception as e:  # noqa: BLE001 — any connect failure means "no server"
+        print(f"[director] cannot reach coordinator at {url}: {type(e).__name__}: {e}", flush=True)
+        print("[director] NOT starting — the director makes no billed decisions without a coordinator. "
+              "Start it (run_coordinator.bat / start.bat) and relaunch.", flush=True)
+        return
+
+    connected = {"ok": True}  # flipped False when the socket closes (see listen())
+    async with ws:
         print(f"[director] connected to {url}", flush=True)
+        # A "game" = the active scene + objective. Log the start of this one, and
+        # remember its objective so a later change (UI switched games) is detected.
+        state["objective_summary"] = scene.get("objective") or ""
+        print(f"[director] === GAME START === {scene.get('objective') or '(no objective)'}", flush=True)
 
         async def listen():
-            async for raw in ws:
-                try:
-                    m = json.loads(raw)
-                except json.JSONDecodeError:
-                    continue
-                if m.get("type") == "facts":
-                    state["facts"] = m.get("prompt", "")
-                    dbg(f"<- facts: {(m.get('prompt') or '')[:160]}")
-                elif m.get("type") == "vitals":
-                    state["health"] = m.get("health", state["health"])
-                    dbg(f"<- vitals: health={state['health']}")
-                elif m.get("type") == "mode":
-                    dbg(f"<- mode: {m.get('mode')}")
+            try:
+                async for raw in ws:
+                    try:
+                        m = json.loads(raw)
+                    except json.JSONDecodeError:
+                        continue
+                    if m.get("type") == "facts":
+                        state["facts"] = m.get("prompt", "")
+                        dbg(f"<- facts: {(m.get('prompt') or '')[:160]}")
+                    elif m.get("type") == "vitals":
+                        state["health"] = m.get("health", state["health"])
+                        dbg(f"<- vitals: health={state['health']}")
+                    elif m.get("type") == "mode":
+                        dbg(f"<- mode: {m.get('mode')}")
+                    elif m.get("type") == "game":
+                        # The UI selected a game. Reload that FULL scene file (identity +
+                        # events + probe checklist) so we truly follow the UI, not just
+                        # swap the event list. reload_game() returns (scene, probe)|None.
+                        slug = m.get("slug") or ""
+                        if slug and slug != state.get("game_slug") and reload_game is not None:
+                            loaded = reload_game(slug)
+                            if loaded:
+                                new_scene, new_probe, img_path = loaded
+                                scene.clear()
+                                scene.update(new_scene)
+                                pstate["probe"] = new_probe
+                                state["game_slug"] = slug
+                                state["objective_summary"] = scene.get("objective") or ""
+                                state["fired"] = []
+                                state["step"] = 0
+                                last_key_clause.clear()
+                                try:
+                                    # the frame-feed loop reads this to feed the matching still
+                                    with open("active_game.txt", "w", encoding="utf-8") as f:
+                                        f.write(img_path)
+                                except OSError:
+                                    pass
+                                print(f"[director] === GAME START === {slug}: "
+                                      f"{scene.get('objective') or '(no objective)'} "
+                                      f"({len(scene.get('dir_events') or [])} events, "
+                                      f"probes={'on' if new_probe else 'off'})", flush=True)
+                            else:
+                                dbg(f"game '{slug}': scene file not found — keeping current")
+                    elif m.get("type") == "scene_events":
+                        # The Player publishes the active scene's director events; rebuild
+                        # our action set from them so a UI game switch retargets us live
+                        # (without this, we'd keep firing the launch scene's events).
+                        evs = m.get("events") or []
+                        scene["dir_events"] = [
+                            {"name": e.get("name", ""), "clause": e.get("clause", ""),
+                             "health": e.get("health"), "addItem": e.get("addItem")}
+                            for e in evs if e.get("name")
+                        ]
+                        dbg(f"<- scene_events: {len(scene['dir_events'])} events -> {[e['name'] for e in scene['dir_events']]}")
+                    elif m.get("type") == "objective":
+                        obj = m.get("objective") or {}
+                        summ = (obj.get("director") or obj.get("summary") or "") if isinstance(obj, dict) else ""
+                        if summ != state.get("objective_summary"):
+                            # Game changed -> retarget objective, reset arc, announce it.
+                            state["objective_summary"] = summ
+                            scene["objective"] = summ  # build_system reads this
+                            state["fired"] = []
+                            state["step"] = 0
+                            last_key_clause.clear()
+                            print(f"[director] === GAME START === {summ or '(no objective)'}", flush=True)
+            finally:
+                connected["ok"] = False  # socket closed -> stop deciding (no billing)
 
         listener = asyncio.create_task(listen())
         try:
             while True:
+                # No coordinator -> stop: don't spend a single NVIDIA call with
+                # nowhere to send the result.
+                if not connected["ok"]:
+                    print("[director] coordinator disconnected — stopping (no billed "
+                          "decisions without a server).", flush=True)
+                    break
                 # Frame source: the file, only when it changed since last look.
                 if not os.path.exists(frame_path):
                     # This is the usual "no action" cause: cloud video never writes
@@ -205,9 +305,9 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                         # Probes first (the AI director's eyes): read the frame into a
                         # verified observation map, and emit any invariant re-anchor ops
                         # (subject off-frame, duplicate, submerged) before deciding.
-                        if probe is not None:
+                        if pstate["probe"] is not None:
                             try:
-                                p_ops, p_obs = probe(frame)
+                                p_ops, p_obs = pstate["probe"](frame)
                                 state["observations"] = p_obs
                                 for op in p_ops:
                                     dbg(f"-> probe op: {json.dumps(op)}")
@@ -241,12 +341,12 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                             # The AI may ONLY fire the scene's authored director
                             # events (by name) — same as the human's scene buttons.
                             by_name = {
-                                e["name"].lower(): e for e in (scene.get("dir_events") or [])
+                                _norm_name(e["name"]): e for e in (scene.get("dir_events") or [])
                             }
                             wanted = result.get("events", []) or []
                             dbg(f"decide wants to fire: {wanted or '(nothing)'}")
                             for name in wanted:
-                                ev = by_name.get(str(name).strip().lower())
+                                ev = by_name.get(_norm_name(name))
                                 if not ev or not ev["clause"]:
                                     dbg(f"  drop '{name}': not an authored director event")
                                     continue

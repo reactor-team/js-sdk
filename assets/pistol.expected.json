@@ -1,0 +1,19 @@
+{
+  "_comment": "Ground-truth probe expectations for pistol.jpg on the noir-alley-patrol scene. Paths are relative to this file (assets/). Used by coordinator/test_probes.py --expect. Exit 1 on any false negative/positive.",
+  "image": "pistol.jpg",
+  "scene": "../examples/lingbot-world-2/lib/lingbot-cases/noir-alley-patrol.json",
+  "expect_true": [
+    "reach_the_door_extraction"
+  ],
+  "expect_false": [
+    "subject_out_of_frame",
+    "duplicate_subject",
+    "state:downed",
+    "gunman_on_the_fire_escape",
+    "gunman_falls",
+    "drone_descends",
+    "chicken_struts_in",
+    "police_car_turns_up",
+    "exit_door_appears"
+  ]
+}

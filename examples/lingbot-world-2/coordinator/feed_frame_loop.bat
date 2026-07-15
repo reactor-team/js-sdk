@@ -1,5 +1,5 @@
 @echo off
-setlocal enableextensions
+setlocal enableextensions enabledelayedexpansion
 REM ==========================================================================
 REM Repeatedly feed the AI director a still frame so it keeps deciding. In cloud
 REM video mode nothing writes the frame tap, so this stands in as the frame
@@ -15,8 +15,12 @@ set "SLUG=%~1"
 if "%SLUG%"=="" set "SLUG=templerun"
 set "SECS=%~2"
 if "%SECS%"=="" set "SECS=8"
-echo feeding "%SLUG%" every %SECS%s  (Ctrl+C to stop)
+echo feeding "%SLUG%" every %SECS%s ^(follows active_game.txt if the UI switches games; Ctrl+C to stop^)
 :loop
-call "%HERE%feed_frame.bat" "%SLUG%"
+REM Follow the UI's active game: the director writes the current slug here on a
+REM game switch, so the fed still image matches whatever scene is loaded.
+set "CUR=%SLUG%"
+if exist "%HERE%active_game.txt" set /p CUR=<"%HERE%active_game.txt"
+call "%HERE%feed_frame.bat" "!CUR!"
 timeout /t %SECS% /nobreak >nul
 goto loop

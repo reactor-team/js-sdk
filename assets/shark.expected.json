@@ -1,0 +1,24 @@
+{
+  "_comment": "Ground-truth probe expectations for shark.jpg on the jet-ski-cruise scene. Paths relative to this file (assets/). NOTE: shark_appears is expected TRUE (a shark fin IS in the frame) but the small/soft fin currently reads as a dolphin on the 12B VLM, so this assertion documents a KNOWN false negative — it will FAIL until a clearer frame or stronger model. The invariants below are the robust must-stay-clean checks.",
+  "image": "shark.jpg",
+  "scene": "../examples/lingbot-world-2/lib/lingbot-cases/jet-ski-cruise.json",
+  "expect_true": [
+    "shark_appears"
+  ],
+  "expect_false": [
+    "submerged",
+    "duplicate_subject",
+    "subject_out_of_frame",
+    "state:overboard",
+    "dolphins_leap_alongside",
+    "meteor_shower",
+    "storm_rolls_in",
+    "waterspout_forms",
+    "whale_breaches",
+    "rogue_wave",
+    "thrown_from_the_jet_ski",
+    "bioluminescent_night",
+    "sunset_glow",
+    "volcanic_island_erupts"
+  ]
+}

@@ -171,9 +171,10 @@ interface SceneEvent {
 }
 let sceneEvents: SceneEvent[] = [];
 let objective: unknown = null; // the active scene's objective (summary + director)
+let activeGame = ""; // active scene slug (UI selection) — the AI director follows this
 
 interface Op {
-  op: "assert" | "retract" | "clear" | "tick" | "vital" | "mode" | "log" | "scene_events" | "objective" | "count";
+  op: "assert" | "retract" | "clear" | "tick" | "vital" | "mode" | "log" | "scene_events" | "objective" | "count" | "game";
   fact?: Fact;
   key?: string;
   change?: VitalChange;
@@ -185,6 +186,7 @@ interface Op {
   objective?: unknown; // for op:"objective"
   delta?: number; // for op:"count" — signed spawn/kill delta
   set?: number; // for op:"count" — absolute set (overrides delta)
+  slug?: string; // for op:"game" — active scene slug
 }
 
 function broadcastSceneEvents(): void {
@@ -202,6 +204,10 @@ function broadcastMode(): void {
   broadcastState();
 }
 
+function broadcastGame(): void {
+  sendAll(JSON.stringify({ type: "game", slug: activeGame }));
+}
+
 wss.on("connection", (ws) => {
   console.log(`[coordinator] client connected  (${wss.clients.size} total)`);
   ws.on("close", () =>
@@ -214,6 +220,7 @@ wss.on("connection", (ws) => {
   ws.send(JSON.stringify({ type: "mode", mode: directorMode }));
   ws.send(JSON.stringify({ type: "scene_events", events: sceneEvents }));
   ws.send(JSON.stringify({ type: "objective", objective }));
+  if (activeGame) ws.send(JSON.stringify({ type: "game", slug: activeGame }));
   ws.send(
     JSON.stringify({
       type: "state",
@@ -286,12 +293,34 @@ wss.on("connection", (ws) => {
         sceneEvents = m.events ?? [];
         broadcastSceneEvents();
         break;
-      case "objective":
+      case "game":
+        if (m.slug && m.slug !== activeGame) {
+          activeGame = m.slug;
+          console.log(`[coordinator] active game -> ${activeGame}`);
+          broadcastGame(); // the AI director reloads this scene
+        }
+        break;
+      case "objective": {
+        // A changed objective = a game switch. Wipe stale world state so the new
+        // game starts clean (old director facts / inventory / spawn count gone).
+        const prevSummary = (objective as { summary?: string } | null)?.summary ?? "";
+        const nextSummary = (m.objective as { summary?: string } | null)?.summary ?? "";
         objective = m.objective ?? null;
         chunks = 0;
-        won = false; // new scene's objective — restart the win clock
+        won = false; // new objective — restart the win clock
+        if (prevSummary !== nextSummary) {
+          history.clear();
+          entityCount = 0;
+          vitals.health = vitals.maxHealth;
+          vitals.inventory = [];
+          console.log(`[coordinator] GAME CHANGE -> reset state (objective: ${nextSummary || "none"})`);
+          broadcastVitals();
+          broadcastCount();
+          broadcast();
+        }
         broadcastObjective();
         break;
+      }
 
       case "mode":
         if (m.mode) {
