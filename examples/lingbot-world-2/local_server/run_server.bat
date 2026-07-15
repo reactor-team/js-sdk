@@ -9,5 +9,5 @@ REM Point the UI: .env.local -> NEXT_PUBLIC_COORDINATOR_URL=http://localhost:808
 set "ARGS=%*"
 where wsl >nul 2>&1 || ( echo ERROR: WSL not installed. & exit /b 1 )
 echo Starting local backend on http://localhost:8080  (args: %ARGS%)  Ctrl+C to stop
-wsl -e bash -lc "cd /mnt/c/workspace/world/REACTOR_js-sdk/examples/lingbot-world-2/local_server && /home/kschmid/lingbot-venv/bin/python server.py --port 8080 %ARGS%"
+wsl -e bash -lc "cd /mnt/c/workspace/world/REACTOR_js-sdk/examples/lingbot-world-2/local_server && LINGBOT_FRAME_TAP=/mnt/c/workspace/world/REACTOR_js-sdk/examples/lingbot-world-2/coordinator/frame.png /home/kschmid/lingbot-venv/bin/python server.py --port 8080 %ARGS%"
 endlocal

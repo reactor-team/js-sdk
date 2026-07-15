@@ -16,19 +16,15 @@ Usage (defaults to a jet-ski frame + scene):
         --health 40 --fired "Shark Appears,Storm Rolls In" --step 12
 """
 import argparse
-import base64
-import io
 import json
 import os
 import time
 
-from openai import OpenAI
 from PIL import Image
 
-from director_common import load_scene, build_system, parse_json, USER_TEXT, MODELS, resolve_model
+from director_common import load_scene, build_system, parse_json, USER_TEXT, resolve_model
+from client import NVIDIA_URL, DEFAULT_MODEL, make_client, vlm_call
 
-NVIDIA_URL = "https://inference-api.nvidia.com/v1"
-DEFAULT_MODEL = MODELS["cosmos"]  # fastest + accurate
 DEFAULT_IMAGE = "../../../assets/shark.jpg"
 DEFAULT_SCENE = "../lib/lingbot-cases/jet-ski-cruise.json"
 
@@ -48,6 +44,10 @@ def main():
     ap.add_argument("--facts", default="", help="current persistent world facts text")
     ap.add_argument("--step", type=int, default=1, help="elapsed chunks (pacing signal)")
     ap.add_argument("--dump", default="director_debug.json", help="write the full exchange here")
+    ap.add_argument("--expect-none", action="store_true",
+                    help="assert the director fires NO event (e.g. one is already in progress) -> exit 1 if it fires")
+    ap.add_argument("--expect-fire", default="",
+                    help="comma-separated event names the director MUST fire -> exit 1 if any missing")
     args = ap.parse_args()
     args.model = resolve_model(args.model)  # expand a shortcut (cosmos) to the full slug
 
@@ -67,35 +67,15 @@ def main():
           f"health={args.health}  step={args.step}  fired={fired or '(none)'}", flush=True)
 
     img = Image.open(args.image).convert("RGB")
-    if max(img.size) > args.max_px:
-        s = args.max_px / max(img.size)
-        img = img.resize((int(img.width * s), int(img.height * s)))
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=80)
-    b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
 
-    messages = [
-        {"role": "system", "content": system_text},
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": USER_TEXT},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
-            ],
-        },
-    ]
-
-    client = OpenAI(api_key=api_key, base_url=args.base_url, max_retries=2, timeout=120)
+    client = make_client(api_key, args.base_url)
     print(f"[director] model={args.model}  image={args.image} ({img.width}x{img.height})", flush=True)
     _t0 = time.perf_counter()
-    resp = client.chat.completions.create(
-        model=args.model, messages=messages, temperature=0.0, max_tokens=args.max_tokens
-    )
+    reply, resp = vlm_call(client, args.model, img, system_text, USER_TEXT,
+                           args.max_tokens, args.max_px)
     _elapsed = time.perf_counter() - _t0
     if not resp.choices:
         raise SystemExit("empty response (no choices)")
-
-    reply = (resp.choices[0].message.content or "").strip()
     parsed = parse_json(reply)
     by_name = {e["name"].lower(): e for e in dir_events}
     fired_now = []
@@ -135,6 +115,25 @@ def main():
         tok = f"  tokens: prompt={usage.prompt_tokens} completion={usage.completion_tokens}"
     print(f"\n[director] reply time: {_elapsed:.2f}s{tok}", flush=True)
     print(f"[director] OUTPUT FILE: {os.path.abspath(args.dump)}", flush=True)
+
+    # Assertions on the decision.
+    exp_fire = [s.strip() for s in args.expect_fire.split(",") if s.strip()]
+    if args.expect_none or exp_fire:
+        fired_names = {e["name"].lower() for e in fired_now}
+        failures = []
+        if args.expect_none and fired_now:
+            failures.append("expected NO event (one in progress) but fired: "
+                            + ", ".join(e["name"] for e in fired_now))
+        for name in exp_fire:
+            if name.lower() not in fired_names:
+                failures.append(f"expected to fire '{name}' but did not")
+        print("\n===== ASSERTIONS =====")
+        print(f"  fired: {[e['name'] for e in fired_now] or '(none)'}")
+        print(f"  RESULT: {'PASS' if not failures else 'FAIL'}")
+        for f in failures:
+            print("  -", f)
+        if failures:
+            raise SystemExit(1)
 
 
 if __name__ == "__main__":

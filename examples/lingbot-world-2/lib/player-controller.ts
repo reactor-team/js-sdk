@@ -13,6 +13,20 @@
 // Nothing persists here — a sticky effect or an equipped tool is a coordinator fact that
 // this controller emitted and reads back via setFacts(). Persistence is repetition, but
 // the coordinator does the repeating.
+//
+// ── WIRING STATUS (read before extending) ──────────────────────────────────────
+// LIVE path today: the only caller (LingbotWorldController) constructs this with NO
+// `rules` and drives it via setMoving() / setHeld() / narrate(). That path is fully
+// behavior-preserving — narrate() == the old composePrompt plus the read-through facts.
+//
+// INERT until press/release EDGES are wired: press(), release(), the gated/transition/
+// sticky rule kinds, and everything they reach — equip()/activeTool, damage()/heal(),
+// observe(). Nothing calls press()/release() yet (the caller mirrors held keys in bulk via
+// setHeld(), which never crosses a rule), and no scene passes a `rules` map, so these are
+// designed-but-dormant. They are the intended extension point (per-scene EventRule → ops),
+// not dead code to delete — but treat them as UNTESTED: before relying on any of them, wire
+// real press/release edges + a `rules` map at the call site and exercise the op emission.
+// ───────────────────────────────────────────────────────────────────────────────
 
 import {
   composePrompt,
@@ -144,6 +158,9 @@ export class PlayerController {
     this.held = new Set(slots);
   }
 
+  // NOTE: press()/release() are the INERT edge path (see WIRING STATUS up top). No caller
+  // feeds these yet — the live path mirrors held keys in bulk via setHeld(). The gated/
+  // transition/sticky branches below are the extension point, currently untested.
   press(slot: number) {
     const rule = this.ruleFor(slot);
     switch (rule.kind) {

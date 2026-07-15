@@ -10,51 +10,19 @@ Needs an nvapi key in NVIDIA_API_KEY. Runs the shared director loop.
 """
 import argparse
 import asyncio
-import base64
-import io
 import json
 import os
 
-from openai import OpenAI
-
-from director_common import USER_TEXT, load_scene, make_probe, run_director, MODELS, resolve_model
-
-# NVIDIA inference hub (OpenAI-compatible). The openai client appends
-# /chat/completions, so strip it from the gateway URL like inference_api does.
-NVIDIA_URL = "https://inference-api.nvidia.com/v1"
-DEFAULT_MODEL = MODELS["cosmos"]  # 8B VL reasoner — fastest + accurate
+from director_common import USER_TEXT, load_scene, make_probe, run_director, resolve_model
+from client import NVIDIA_URL, DEFAULT_MODEL, make_client, vlm_call
 
 
 def make_vlm(client, model, max_px):
-    """General VLM call: vlm(frame, system, user_text, max_tokens) -> reply text.
+    """vlm(frame, system, user_text, max_tokens) -> reply text, over the shared vlm_call.
     Shared by the director's decide() and the probe checklist."""
     def vlm(frame, system, user_text, max_tokens=384):
-        img = frame
-        if max(img.size) > max_px:  # downscale to stay under the request-size limit
-            s = max_px / max(img.size)
-            img = img.resize((int(img.width * s), int(img.height * s)))
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=80)
-        b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
-        messages = [
-            {"role": "system", "content": system},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": user_text},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{b64}"},
-                    },
-                ],
-            },
-        ]
-        resp = client.chat.completions.create(
-            model=model, messages=messages, temperature=0.0, max_tokens=max_tokens
-        )
-        if not resp.choices:
-            return ""
-        return (resp.choices[0].message.content or "").strip()
+        text, _resp = vlm_call(client, model, frame, system, user_text, max_tokens, max_px)
+        return text
 
     return vlm
 
@@ -79,7 +47,7 @@ def main():
     if not api_key:
         raise SystemExit("Set NVIDIA_API_KEY (nvapi-... key) in the environment.")
 
-    client = OpenAI(api_key=api_key, base_url=args.base_url, max_retries=2, timeout=120)
+    client = make_client(api_key, args.base_url)
     vlm = make_vlm(client, args.model, args.max_px)
     decide = lambda frame, system: vlm(frame, system, USER_TEXT, 384)  # noqa: E731
     scene = load_scene(args.scene)

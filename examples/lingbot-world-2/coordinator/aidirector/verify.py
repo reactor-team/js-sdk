@@ -16,7 +16,7 @@ import os
 import subprocess
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))  # .../coordinator/vlm
+HERE = os.path.dirname(os.path.abspath(__file__))  # .../coordinator/aidirector
 COORD = os.path.dirname(HERE)                       # .../coordinator (cwd for the scripts)
 PY = os.path.join(COORD, ".venv", "Scripts", "python.exe")
 if not os.path.isfile(PY):
@@ -55,20 +55,30 @@ def main():
     # 2. probes path, cosmos (default) -> must PASS the shark fixture
     results.append(("probes:cosmos", run(
         "probes:cosmos",
-        [PY, "vlm/test_probes.py", "--model", "cosmos", "--expect", SHARK_EXPECT, "--dump", "verify_probes.json"],
+        [PY, "aidirector/test_probes.py", "--model", "cosmos", "--expect", SHARK_EXPECT, "--dump", "verify_probes.json"],
         needs="RESULT: PASS")))
 
     # 3. director decision, cosmos (== run_director_nim's per-frame logic) -> must decide
     results.append(("director:cosmos", run(
         "director:cosmos",
-        [PY, "vlm/test_director.py", "--model", "cosmos", "--dump", "verify_director.json"],
+        [PY, "aidirector/test_director.py", "--model", "cosmos", "--dump", "verify_director.json"],
         needs="DIRECTOR DECISION")))
+
+    # 3b. pacing: an event is already in progress -> the director must fire NOTHING
+    results.append(("director:no-stack", run(
+        "director:no-stack (event in progress -> no fire)",
+        [PY, "aidirector/test_director.py", "--model", "cosmos",
+         "--facts", "A shark is RIGHT NOW circling and lunging at the jet ski, its dorsal fin "
+                    "cutting the water right beside the rider -- the shark attack is in progress.",
+         "--fired", "Shark Appears,Shark Lunges",
+         "--expect-none", "--dump", "verify_nostack.json"],
+        needs="RESULT: PASS")))
 
     # 4. optional: the qwen shortcut override works end-to-end
     if args.full:
         results.append(("probes:qwen", run(
             "probes:qwen (override)",
-            [PY, "vlm/test_probes.py", "--model", "qwen", "--max-tokens", "6000",
+            [PY, "aidirector/test_probes.py", "--model", "qwen", "--max-tokens", "6000",
              "--expect", SHARK_EXPECT, "--dump", "verify_qwen.json"],
             needs="RESULT: PASS")))
 

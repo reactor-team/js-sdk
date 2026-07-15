@@ -17,7 +17,7 @@ decide(frame: PIL.Image, system_prompt: str) -> str   # raw model reply
 - Input: the latest frame + the invariant-bounded system prompt (built by
   `director_common.build_system`).
 - Output: raw text, expected to contain a JSON object (Contract 2).
-- Implementer: `vlm/director_nim.py` (NVIDIA inference hub, OpenAI-compatible).
+- Implementer: `aidirector/director_nim.py` (NVIDIA inference hub, OpenAI-compatible).
 - The loop that consumes it: `director_common.run_director(decide, …)`.
 
 ## 2. AI Director reply schema (VLM output)  _[AI-only]_
@@ -81,7 +81,9 @@ human player's hold-keys and are NOT in the director set.
 
 ## 5. Frame handoff  _[AI-only]_
 
-- Player writes the latest rendered frame to a file (default `frame.png`).
+- The renderer taps the latest frame to a file (default `frame.png`) via
+  `LINGBOT_FRAME_TAP` — `local_server/engine.py` writes it atomically (tmp + replace).
+  (The cloud/Reactor path streams to the browser only; frame-tap needs the local backend.)
 - The director watches its mtime; each new frame = one look = one `step`/chunk of pacing.
 - File-based on purpose: decouples the Python director from the browser/DataChannel.
 
@@ -142,6 +144,7 @@ map of the scene's derived predicates — one yes/no per derived probe (§4.1):
 observations: Record<string, boolean>;   // predicate -> yes/no from the latest frame
 ```
 Keys come from each probe's `observe`: director-event presence (`shark_appears`),
+player-action detection (`doing_fire_pistol` — is the character doing this now?),
 invariant checks (`submerged`, `duplicate_subject`), version state (`state:overboard`).
 Rules gate on it directly:
 ```ts
@@ -151,6 +154,29 @@ Two things a probe answer can do: (a) emit a **coordinator op** (§3 — assert/
 shared/persistent effect), and/or (b) write this **observation** (the client-side,
 gate-able bool). Richer typed state (enums, counts, confidence, an entity list, an
 `environment` object) is a possible later extension — v1 is flat booleans.
+
+**Derivation — the checklist comes from the scene, not by hand** (`aidirector/scene_probes.py`).
+State is read by asking the VLM a list of **yes/no questions in ONE call**, then mapping
+each answer to an op — no open-ended event picking, no prose parsing (that reliability is
+the point). `derive_probes(scene)` turns the game JSON into the checklist:
+
+| Scene element | Derived question | On answer |
+|---|---|---|
+| **director event** (Shark Appears…) | "Is this visible now: `<event>`?" | record it's present |
+| **player action** (`doing_fire_pistol`) | "Is the character doing this now?" | write the observation |
+| **invariant** ("never submerges", "EXACTLY ONE … no clone") | "Is it violated?" | **yes → re-anchor** (assert the fix) |
+| **alt base version** (`overboard`) | "Is the scene in the `<state>` state?" | note the state |
+
+Authoring the scene once yields both the questions and the state slots. **Temperature 0**;
+debounce (apply an op only when its answer **changed** since the last frame). The two pure
+halves (no VLM/coordinator deps): `derive_probes(scene) → {system, probes:[{id,q,…}]}` and
+`resolve(answers, probes) → (ops, observations)`.
+
+**Wiring.** Live consumer: `director_common.make_probe(vlm, scene_json)` builds the
+checklist once and asks it per frame; `run_director` sends the ops before deciding (the
+probe pass = the AI director's eyes; `director_nim.py --no-probe` skips it). Dev harness:
+`aidirector/test_probes.py` (frame + scene → checklist → one call → printed answers/observations/
+ops, dry-run; `run_test_probes.bat`) — deletable independently of the live path.
 
 ## Invariants
 - The coordinator touches **no video** — ops in, projected clauses out. Video stays

@@ -10,30 +10,12 @@ emits assert/vital ops (role="ai") to the coordinator. Backend: director_nim.py
 import asyncio
 import json
 import os
-import re
 
 import websockets
 from PIL import Image
 
 from scene_probes import derive_probes, resolve
-
-# Named vision-model shortcuts (pass e.g. --model cosmos). All multimodal + accessible on
-# the default-models key. Benchmarked on the 26-probe shark checklist (does it detect the
-# fin the small model misreads as a dolphin):
-#   cosmos ~4s PASS (8B VL reasoner, fastest+accurate — DEFAULT) | nemotron ~7s FAIL (12B VL)
-#   gemini ~3s PASS | minimax ~19s FAIL* (accurate focused) | qwen ~59s PASS (397B, slow)
-MODELS = {
-    "cosmos":   "nvidia/nvidia/cosmos3-nano-reasoner",
-    "nemotron": "nvidia/nvidia/nemotron-nano-12b-v2-vl",
-    "gemini":   "gcp/google/gemini-3.5-flash",
-    "minimax":  "nvidia/minimaxai/minimax-m2.7",
-    "qwen":     "nvidia/qwen/qwen3-5-397b-a17b",
-}
-
-
-def resolve_model(name):
-    """Expand a shortcut (cosmos) to its full slug; pass a raw slug through unchanged."""
-    return MODELS.get(name, name)
+from client import MODELS, resolve_model, parse_json  # noqa: F401  re-exported (shared plumbing)
 
 # The Director's charter. The AI Director has the SAME action set as the human
 # Director: it may ONLY trigger the scene's authored director events (by name) —
@@ -58,6 +40,8 @@ Do NOT invent new events or write your own prose:
 
 RULES:
 - Trigger an event only when it is PLAUSIBLE and fitting given what is visible in the frame and the objective.
+- If the Current world facts or Verified observations show an event is ALREADY in progress, do NOT
+  fire it again or stack a competing one — return an empty list and let the current event play out.
 - Choose 0-2 events. An empty list is correct when nothing should change yet.
 
 Respond with ONLY a JSON object, no prose:
@@ -140,17 +124,6 @@ def build_system(scene, state):
         observed=observed,
         health=state.get("health", "?"),
     )
-
-
-def parse_json(text):
-    # The model may wrap JSON in prose/fences; grab the first {...} block.
-    m = re.search(r"\{.*\}", text or "", re.DOTALL)
-    if not m:
-        return None
-    try:
-        return json.loads(m.group(0))
-    except json.JSONDecodeError:
-        return None
 
 
 async def run_director(decide, url, frame_path, scene, interval, once, probe=None):

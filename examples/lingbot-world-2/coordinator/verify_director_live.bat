@@ -6,5 +6,5 @@ if "%NVIDIA_API_KEY%"=="" ( echo ERROR: set NVIDIA_API_KEY ^(nvapi-... key^) fir
 cd /d "%~dp0"
 if "%PY%"=="" set "PY=%~dp0.venv\Scripts\python.exe"
 if not exist "%PY%" set "PY=python"
-"%PY%" vlm/verify_director_live.py %*
+"%PY%" aidirector/verify_director_live.py %*
 endlocal

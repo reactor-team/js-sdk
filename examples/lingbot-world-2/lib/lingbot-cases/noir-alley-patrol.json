@@ -110,13 +110,13 @@
       {
         "name": "Gunman on the Fire Escape",
         "actor": "director",
-        "detail": "EXACTLY ONE gunman appears high up on the metal fire escape above the alley ahead — a single lone figure in a gray jacket with a mask covering his face, NO tactical gear, NO SWAT vest and no police markings, clearly not an officer. He raises a pistol and fires down toward the street, muzzle flashing in the rain, then ducks back. In response, the officer below reacts — he flinches and snaps his head up toward the gunman on the fire escape, his own hands empty and his service pistol holstered, ducking low and recoiling as the gunfire cracks down from above. He STAYS UP on the fire escape overhead the entire time and does NOT climb or come down to street level — he remains elevated above the alley, never reaching the ground. There is only ONE gunman, in a gray jacket and mask.",
+        "detail": "EXACTLY ONE gunman appears high up on the metal fire escape above the alley ahead — a single lone figure in a gray jacket with a mask covering his face, NO tactical gear, NO SWAT vest and no police markings, clearly not an officer. He raises a pistol and fires down toward the street, muzzle flashing in the rain, then ducks back. In response, the officer below reacts — he flinches and snaps his head up toward the gunman on the fire escape, his own hands empty and his service pistol holstered, ducking low and recoiling as the gunfire cracks down from above. He STAYS UP on the fire escape overhead the entire time and does NOT climb or come down to street level — he remains elevated above the alley, never reaching the ground. There is only ONE gunman, in a gray jacket and mask. The uniformed police officer himself stays the focus of the frame, unchanged in pose, position and appearance throughout — only the world around him changes.",
         "count": 1
       },
       {
         "name": "Gunman Falls",
         "actor": "director",
-        "detail": "THE single gunman in the gray jacket and mask up on the fire escape — the only one, a lone masked figure in a gray jacket with no tactical gear — is hit, jerks, and slumps down dead right there ON the fire escape, crumpling against the metal railing and going limp draped over the landing high above the alley. He STAYS UP on the fire escape exactly where he was — he does NOT fall, topple, tumble, jump or drop down to the ground or the street below, staying elevated up on the fire escape the whole time — and remains up there motionless and lifeless for the rest of the scene. EXACTLY ONE gunman, no second gunman, no duplicate and no clone.",
+        "detail": "THE single gunman in the gray jacket and mask up on the fire escape — the only one, a lone masked figure in a gray jacket with no tactical gear — is hit, jerks, and slumps down dead right there ON the fire escape, crumpling against the metal railing and going limp draped over the landing high above the alley. He STAYS UP on the fire escape exactly where he was — he does NOT fall, topple, tumble, jump or drop down to the ground or the street below, staying elevated up on the fire escape the whole time — and remains up there motionless and lifeless for the rest of the scene. EXACTLY ONE gunman, no second gunman, no duplicate and no clone. The uniformed police officer himself stays the focus of the frame, unchanged in pose, position and appearance throughout — only the world around him changes.",
         "count": -1,
         "requires": {
           "fired": [
@@ -127,14 +127,14 @@
       {
         "name": "Chicken Struts In",
         "actor": "director",
-        "detail": "A single scruffy chicken struts out into the middle of the rain-soaked alley, bobbing its head and pecking at the wet asphalt between the puddles, utterly out of place under the blue and red neon; it stays, wandering around near the officer's feet. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "detail": "A single scruffy chicken struts out into the middle of the rain-soaked alley, bobbing its head and pecking at the wet asphalt between the puddles, utterly out of place under the blue and red neon; it stays, wandering around near the officer's feet. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The uniformed police officer himself stays the focus of the frame, unchanged in pose, position and appearance throughout — only the world around him changes.",
         "health": 0,
         "count": 1
       },
       {
         "name": "Drone Descends",
         "actor": "director",
-        "detail": "A small quadcopter drone drops down into the alley from above, hovering at head height with its rotors spinning and a red camera light glowing, drifting and bobbing as it tracks the officer through the falling rain; it stays, hovering nearby. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "detail": "A small quadcopter drone drops down into the alley from above, hovering at head height with its rotors spinning and a red camera light glowing, drifting and bobbing as it tracks the officer through the falling rain; it stays, hovering nearby. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The uniformed police officer himself stays the focus of the frame, unchanged in pose, position and appearance throughout — only the world around him changes.",
         "health": -10,
         "count": 1
       },
@@ -153,7 +153,7 @@
       {
         "name": "Exit Door Appears",
         "actor": "director",
-        "detail": "A shop doorway in the brick building along the side of the lane swings wide open and floods with bright warm golden light — a glowing rectangle of light opening up in the lane-side wall partway down the alley, set into the side of the building, its glow spilling out across the wet cobblestones and reflecting in the puddles, an unmistakable lit exit appearing on the building at the side of the lane where there was only shadow before, and it stays open and glowing. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "detail": "A shop doorway in the brick building along the side of the lane swings wide open and floods with bright warm golden light — a glowing rectangle of light opening up in the lane-side wall partway down the alley, set into the side of the building, its glow spilling out across the wet cobblestones and reflecting in the puddles, an unmistakable lit exit appearing on the building at the side of the lane where there was only shadow before, and it stays open and glowing. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The uniformed police officer himself stays the focus of the frame, unchanged in pose, position and appearance throughout — only the world around him changes.",
         "health": 0
       },
       {

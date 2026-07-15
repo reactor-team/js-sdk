@@ -167,7 +167,7 @@ function MainContent() {
                   onClick={() => setDirectorOpen(true)}
                   className="absolute top-3 right-3 z-40 h-7 px-3 font-mono text-[11px] bg-black/70 border-white/15 hover:bg-black/85 text-white/80"
                 >
-                  Human Director
+                  Director mode
                 </Button>
               )}
             </div>

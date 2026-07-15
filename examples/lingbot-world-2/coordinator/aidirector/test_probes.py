@@ -3,7 +3,7 @@
 Builds on scene_probes.py: derive the checklist FROM a game JSON, ask the VLM all
 probes in ONE call, then resolve the answers into coordinator ops + observations.
 Dry-run by design (prints everything; sends nothing). This is the test harness for
-the derive_probes -> VLM -> resolve path (DESIGN_vlm_state_probes.md).
+the derive_probes -> VLM -> resolve path (CONTRACT.md §6.3).
 
 Needs an nvapi key in NVIDIA_API_KEY. Deps: openai, Pillow.
 
@@ -13,50 +13,18 @@ Usage (defaults to the shark frame + jet-ski scene):
         --scene ../lib/lingbot-cases/jet-ski-cruise.json
 """
 import argparse
-import base64
-import io
 import json
 import os
-import re
 import sys
 import time
 
-from openai import OpenAI
 from PIL import Image
 
 from scene_probes import derive_probes, resolve
+from client import NVIDIA_URL, DEFAULT_MODEL, MODELS, make_client, vlm_call, parse_json
 
-NVIDIA_URL = "https://inference-api.nvidia.com/v1"
-
-# Named vision-model shortcuts: pass e.g. --model cosmos. All are multimodal + accessible
-# on the default-models key. Benchmarked on the 26-probe shark checklist (accuracy = does
-# it detect the shark fin that the small model reads as a dolphin):
-#   cosmos   ~4s  PASS   8B VL reasoner — fastest AND accurate  (RECOMMENDED)
-#   nemotron ~7s  FAIL   12B VL         — fast but misses hard cases
-#   gemini   ~3s  PASS   fast VL flash
-#   minimax  ~19s FAIL*  VL reasoner    — accurate when focused, degrades on big batches
-#   qwen     ~59s PASS   397B VL reasoner — accurate but very slow
-MODELS = {
-    "cosmos":   "nvidia/nvidia/cosmos3-nano-reasoner",
-    "nemotron": "nvidia/nvidia/nemotron-nano-12b-v2-vl",
-    "gemini":   "gcp/google/gemini-3.5-flash",
-    "minimax":  "nvidia/minimaxai/minimax-m2.7",
-    "qwen":     "nvidia/qwen/qwen3-5-397b-a17b",
-}
-DEFAULT_MODEL = MODELS["cosmos"]  # fastest + accurate (see table above)
 DEFAULT_IMAGE = "../../../assets/shark.jpg"
 DEFAULT_SCENE = "../lib/lingbot-cases/jet-ski-cruise.json"
-
-
-def parse_json(text):
-    text = re.sub(r"<think>.*?</think>", "", text or "", flags=re.DOTALL)  # strip reasoning traces
-    m = re.search(r"\{.*\}", text, re.DOTALL)
-    if not m:
-        return None
-    try:
-        return json.loads(m.group(0))
-    except json.JSONDecodeError:
-        return None
 
 
 def main():
@@ -123,35 +91,16 @@ def main():
         user_text += "\n\n/no_think"  # Qwen3 soft-switch: skip the reasoning trace
 
     img = Image.open(args.image).convert("RGB")
-    if max(img.size) > args.max_px:
-        s = args.max_px / max(img.size)
-        img = img.resize((int(img.width * s), int(img.height * s)))
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=80)
-    b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
 
-    messages = [
-        {"role": "system", "content": derived["system"]},
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": user_text},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
-            ],
-        },
-    ]
-
-    client = OpenAI(api_key=api_key, base_url=args.base_url, max_retries=2, timeout=120)
+    client = make_client(api_key, args.base_url)
     print(f"[probes] model={args.model}  image={args.image} ({img.width}x{img.height})", flush=True)
     _t0 = time.perf_counter()
-    resp = client.chat.completions.create(
-        model=args.model, messages=messages, temperature=0.0, max_tokens=args.max_tokens
-    )
+    reply, resp = vlm_call(client, args.model, img, derived["system"], user_text,
+                           args.max_tokens, args.max_px)
     _elapsed = time.perf_counter() - _t0
     if not resp.choices:
         raise SystemExit("empty response (no choices)")
 
-    reply = (resp.choices[0].message.content or "").strip()
     answers = parse_json(reply) or {}
     ops, obs = resolve(answers, probes) if answers else ([], {})
 

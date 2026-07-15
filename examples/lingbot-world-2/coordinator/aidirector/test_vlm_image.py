@@ -14,15 +14,13 @@ Usage:
     python test_vlm_image.py --image frame.png --scene ../lib/lingbot-cases/templerun.json
 """
 import argparse
-import base64
-import io
-import json
 import os
 import sys
 import time
 
-from openai import OpenAI
 from PIL import Image
+
+from client import NVIDIA_URL, make_client, vlm_call
 
 # Director-mode helpers are optional (need director_common -> websockets). Import at
 # top; guard so the plain image test still works without those deps installed.
@@ -32,8 +30,6 @@ try:
 except Exception:
     _HAS_DIRECTOR = False
 
-# NVIDIA inference hub (OpenAI-compatible); the client appends /chat/completions.
-NVIDIA_URL = "https://inference-api.nvidia.com/v1"
 DEFAULT_MODEL = "nvidia/nvidia/nemotron-nano-12b-v2-vl"  # small NVIDIA VLM
 DEFAULT_PROMPT = "Describe this image in detail. What is shown, and what is happening?"
 
@@ -72,38 +68,17 @@ def main():
         system_text = build_system(director_scene, state)
         user_text = DIRECTOR_USER_TEXT
 
-    # Load, downscale to stay under the request-size limit, encode as base64 JPEG.
     img = Image.open(args.image).convert("RGB")
-    if max(img.size) > args.max_px:
-        s = args.max_px / max(img.size)
-        img = img.resize((int(img.width * s), int(img.height * s)))
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=80)
-    b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
 
-    messages = [
-        {"role": "system", "content": system_text},
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": user_text},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
-            ],
-        },
-    ]
-
-    client = OpenAI(api_key=api_key, base_url=args.base_url, max_retries=2, timeout=120)
+    client = make_client(api_key, args.base_url)
     print(f"[vlm-test] model={args.model}  image={args.image} ({img.width}x{img.height})", flush=True)
     _t0 = time.perf_counter()
-    resp = client.chat.completions.create(
-        model=args.model, messages=messages, temperature=args.temperature, max_tokens=args.max_tokens
-    )
+    reply, resp = vlm_call(client, args.model, img, system_text, user_text,
+                           args.max_tokens, args.max_px, args.temperature)
     _elapsed = time.perf_counter() - _t0
     if not resp.choices:
         print("[vlm-test] empty response (no choices)", file=sys.stderr)
         raise SystemExit(1)
-
-    reply = (resp.choices[0].message.content or "").strip()
     print("\n===== VLM RESULT =====")
     print(reply)
     print("======================")

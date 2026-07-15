@@ -19,7 +19,7 @@ import sys
 
 import websockets
 
-HERE = os.path.dirname(os.path.abspath(__file__))  # .../coordinator/vlm
+HERE = os.path.dirname(os.path.abspath(__file__))  # .../coordinator/aidirector
 COORD = os.path.dirname(HERE)                       # .../coordinator (cwd for the director)
 PY = os.path.join(COORD, ".venv", "Scripts", "python.exe")
 if not os.path.isfile(PY):
@@ -49,7 +49,7 @@ async def main():
     async with websockets.serve(handler, "localhost", PORT):
         print(f"[mock] coordinator listening on ws://localhost:{PORT}", flush=True)
         proc = await asyncio.create_subprocess_exec(
-            PY, "vlm/director_nim.py", "--once", "--model", "cosmos",
+            PY, "aidirector/director_nim.py", "--once", "--model", "cosmos",
             "--url", f"ws://localhost:{PORT}", "--scene", SCENE, "--frame", FRAME,
             cwd=COORD, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
         )

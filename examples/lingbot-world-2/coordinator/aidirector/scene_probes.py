@@ -1,7 +1,7 @@
 """Derive a yes/no VLM checklist FROM the game definition (lib/lingbot-cases/*.json).
 
 The scene JSON is the single source: it both queries the VLM (the questions) and
-updates state (the ops). See DESIGN_vlm_state_probes.md.
+updates state (the ops). See CONTRACT.md §6.3.
 
     director events      -> "Is this visible now?"            (presence observation)
     player actions       -> "Is the character doing this now?" (verify the action rendered)
