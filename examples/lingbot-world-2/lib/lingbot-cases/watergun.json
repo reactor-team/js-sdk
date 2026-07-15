@@ -80,7 +80,7 @@
       {
         "name": "Green Slime Blast",
         "actor": "player",
-        "detail": "The player sucks the dark green quarry water up into the blaster and unloads it as a thick, glowing green slime stream, a heavy rope of bright green lake water arcing across the aqua park and splattering over the target in a vivid green splash that drips and clings to the inflatables, then the stream cuts off.",
+        "detail": "The player sucks the dark green quarry water up into the blaster and unloads it as a thick, glowing green slime stream, a heavy rope of bright green lake water arcing across the aqua park and slamming into the target — leaving BOLD, vivid neon-green splat marks that burst outward and STAIN wherever they land. Every inflatable platform and any opponent it hits is left coated in bright, saturated green splotches, thick dripping streaks and glistening slime that cling to the surface as strong, high-contrast green stains and stay clearly marked long after the stream cuts off.",
         "removeItem": "water"
       },
       {
@@ -88,6 +88,18 @@
         "actor": "director",
         "detail": "A rival player in a life vest pops up from behind an inflatable platform ahead and opens fire with their own water blaster, jets of water arcing straight toward the camera and splattering across the lens, the rival ducking and weaving as they keep firing.",
         "health": -12
+      },
+      {
+        "name": "Rival Shoots Back",
+        "actor": "director",
+        "health": -10,
+        "detail": "A rival player in a life vest on the floats ahead returns fire, sending a hard jet of water straight back at the camera that splatters and streams across the lens, the view flinching and blurring under the soaking before the water runs off. EXACTLY ONE rival in frame — a single opponent, no duplicate and no clone."
+      },
+      {
+        "name": "Rival Slimes You",
+        "actor": "director",
+        "health": -12,
+        "detail": "A rival player ahead unloads a thick rope of glowing PURPLE slime straight at the camera — a heavy jet of vivid neon-purple goo, a completely DIFFERENT colour from the player's own green slime — that splatters across the lens and clings, oozing and dripping down the view in bold, saturated purple streaks and splotches that stay clearly marked before they slowly run off. EXACTLY ONE rival in frame — a single opponent, no duplicate and no clone."
       },
       {
         "name": "Player Falls In",
@@ -119,7 +131,9 @@
       "show": true,
       "maxHealth": 100,
       "health": 100,
-      "inventory": ["water"]
+      "inventory": [
+        "water"
+      ]
     },
     "jumpPrompt": "The player leaps up and forward off the edge of the inflatable platform, sailing over a gap of open water with the blaster held out, then lands splashing onto the next float and steadies.",
     "crouchPrompt": "The view drops low as the player crouches down behind the raised edge of an inflatable platform for cover, only the top of the water blaster peeking over, and holds low.",

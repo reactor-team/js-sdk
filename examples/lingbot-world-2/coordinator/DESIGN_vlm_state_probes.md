@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Status** | Draft · 2026-07-15 |
-| **Related** | `scene_probes.py`, `test_probes.py`, [CONTRACT.md](./CONTRACT.md) |
+| **Related** | `vlm/scene_probes.py`, `vlm/test_probes.py`, [CONTRACT.md](./CONTRACT.md) |
 
 ## Idea
 
@@ -43,14 +43,14 @@ Richer typed/entity state is possible later but not needed for v1.
 
 ## Files
 
-- **`scene_probes.py`** — the whole thing, ~2 functions, both driven by the scene JSON:
+- **`vlm/scene_probes.py`** — the whole thing, ~2 functions, both driven by the scene JSON:
   - `derive_probes(scene)` → the yes/no checklist (**queries** the VLM).
   - `resolve(answers, probes)` → coordinator ops + flat observations (**updates** state).
-- **`test_probes.py`** — a **dev-only test harness** (frame + scene → checklist → one VLM
+- **`vlm/test_probes.py`** — a **dev-only test harness** (frame + scene → checklist → one VLM
   call → printed answers / observations / coordinator ops, dry-run — sends nothing). Defaults
   to `../../../assets/shark.jpg` + `jet-ski-cruise.json`; run via `run_test_probes.bat`. Use it
   to eyeball a scene's checklist against a real frame and tune probe wording.
 - **Production consumer (not yet wired)** — the intended live path is the AI director
   (`director_common.py`) calling `derive_probes` → VLM → `resolve` → sending the ops, replacing
-  its open-ended event-picking. `scene_probes.py` holds the pure `derive_probes`/`resolve` halves;
+  its open-ended event-picking. `vlm/scene_probes.py` holds the pure `derive_probes`/`resolve` halves;
   the VLM-calling glue still needs to be added there. The dev harness can be deleted independently.

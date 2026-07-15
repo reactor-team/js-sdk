@@ -17,7 +17,7 @@ decide(frame: PIL.Image, system_prompt: str) -> str   # raw model reply
 - Input: the latest frame + the invariant-bounded system prompt (built by
   `director_common.build_system`).
 - Output: raw text, expected to contain a JSON object (Contract 2).
-- Implementer: `director_nim.py` (NVIDIA inference hub, OpenAI-compatible).
+- Implementer: `vlm/director_nim.py` (NVIDIA inference hub, OpenAI-compatible).
 - The loop that consumes it: `director_common.run_director(decide, …)`.
 
 ## 2. AI Director reply schema (VLM output)  _[AI-only]_

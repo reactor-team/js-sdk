@@ -8,5 +8,5 @@ if "%NVIDIA_API_KEY%"=="" ( echo ERROR: set NVIDIA_API_KEY ^(nvapi-... key^) fir
 set "HERE=%~dp0"
 if "%SCENE%"=="" set "SCENE=../lib/lingbot-cases/noir-alley-combat.json"
 if "%FRAME%"=="" set "FRAME=frame.png"
-wsl -e bash -lc "cd /mnt/c/workspace/world/REACTOR_js-sdk/examples/lingbot-world-2/coordinator && NVIDIA_API_KEY='%NVIDIA_API_KEY%' /home/kschmid/lingbot-venv/bin/python director_nim.py --url ws://localhost:8090 --scene '%SCENE%' --frame '%FRAME%' %*"
+wsl -e bash -lc "cd /mnt/c/workspace/world/REACTOR_js-sdk/examples/lingbot-world-2/coordinator && NVIDIA_API_KEY='%NVIDIA_API_KEY%' /home/kschmid/lingbot-venv/bin/python vlm/director_nim.py --url ws://localhost:8090 --scene '%SCENE%' --frame '%FRAME%' %*"
 endlocal
