@@ -17,12 +17,12 @@ import os
 
 from openai import OpenAI
 
-from director_common import USER_TEXT, load_scene, make_probe, run_director
+from director_common import USER_TEXT, load_scene, make_probe, run_director, MODELS, resolve_model
 
 # NVIDIA inference hub (OpenAI-compatible). The openai client appends
 # /chat/completions, so strip it from the gateway URL like inference_api does.
 NVIDIA_URL = "https://inference-api.nvidia.com/v1"
-DEFAULT_MODEL = "nvidia/nvidia/nemotron-nano-12b-v2-vl"  # small NVIDIA VLM
+DEFAULT_MODEL = MODELS["cosmos"]  # 8B VL reasoner — fastest + accurate
 
 
 def make_vlm(client, model, max_px):
@@ -66,12 +66,14 @@ def main():
     ap.add_argument("--scene", default="", help="scene JSON (for base identity + event list)")
     ap.add_argument("--interval", type=float, default=3.0, help="seconds between frame checks")
     ap.add_argument("--once", action="store_true", help="run one proposal and exit (test)")
-    ap.add_argument("--model", default=DEFAULT_MODEL, help="NVIDIA inference model id")
+    ap.add_argument("--model", default=DEFAULT_MODEL,
+                    help="model id OR a shortcut: cosmos|nemotron|gemini|minimax|qwen")
     ap.add_argument("--base-url", default=NVIDIA_URL, help="OpenAI-compatible base URL")
     ap.add_argument("--max-px", type=int, default=768, help="max frame dimension sent")
     ap.add_argument("--no-probe", action="store_true",
                     help="disable the probe pass (the AI director's eyes); decide from the frame alone")
     args = ap.parse_args()
+    args.model = resolve_model(args.model)  # expand a shortcut (cosmos) to the full slug
 
     api_key = os.environ.get("NVIDIA_API_KEY")
     if not api_key:

@@ -9,5 +9,10 @@ node_modules
 # coordinator runtime artifacts
 __pycache__/
 *.pyc
+.venv/
 coordinator/commands.jsonl
 coordinator/frame.png
+# test/dump JSON outputs (test_probes.py / test_director.py --dump); keep package files
+coordinator/*.json
+!coordinator/package.json
+!coordinator/package-lock.json

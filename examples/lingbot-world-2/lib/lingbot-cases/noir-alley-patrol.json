@@ -8,14 +8,14 @@
   },
   "scene": {
     "base": {
-      "default": "A lone uniformed police officer in dark blue tactical gear, his hands completely empty and open, holding nothing, empty-handed by default with no weapon or item in his hands unless an action is triggered, in a narrow urban alley at night. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE glowing shop doorway set into the brick building along the side of the lane at a fixed position, its open doorway lit with warm golden light spilling out across the wet cobblestones AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles on the wet asphalt, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces.",
-      "downed": "A narrow urban alley at night where a uniformed police officer in dark blue tactical gear now lies COLLAPSED, FACE-DOWN and MOTIONLESS on the wet asphalt, sprawled in a spreading puddle, his empty hands limp at his sides — he does not get up. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE glowing shop doorway set into the brick building along the side of the lane at a fixed position, its open doorway lit with warm golden light spilling out across the wet cobblestones AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces, rain pooling around the still body.",
+      "default": "A lone uniformed police officer in dark blue tactical gear, his hands completely empty and open, resting at his sides and holding nothing, empty-handed by default with NO pistol, gun, rifle or weapon of any kind in his hands, his service pistol kept holstered at his hip and never drawn or raised unless a firing action is triggered, in a narrow urban alley at night. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE glowing exit door at the far end of the alley straight ahead at a fixed position, a heavy door set into the wall at the very end of the lane, its edges outlined in bright glowing light that spills out across the wet cobblestones and marks the way out AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles on the wet asphalt, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces.",
+      "downed": "A narrow urban alley at night where a uniformed police officer in dark blue tactical gear now lies COLLAPSED, FACE-DOWN and MOTIONLESS on the wet asphalt, sprawled in a spreading puddle, his empty hands limp at his sides — he does not get up. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE glowing exit door at the far end of the alley straight ahead at a fixed position, a heavy door set into the wall at the very end of the lane, its edges outlined in bright glowing light that spills out across the wet cobblestones and marks the way out AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces, rain pooling around the still body.",
       "empty": ""
     },
     "camera": {
       "default": {
-        "static": "Third-person view from behind the officer, his back and body centred in frame at constant size, his hands completely empty and holding nothing, carrying no weapon or item by default and none drawn — never a first-person view. Neither officer nor camera moves; look-input is the only camera motion, arcing around the stationary centred officer while held.",
-        "dynamic": "Strict third-person rear view from close behind and slightly above the officer, his back and body filling frame centre, his hands completely empty and holding nothing, carrying no weapon or item by default and none drawn — never first-person. It holds a fixed rear position and does not rotate around him; look-input becomes the officer changing heading."
+        "static": "Third-person view from behind the officer, his back and body centred in frame at constant size, his hands completely empty and holding nothing, his service pistol holstered at his hip and not drawn, carrying no weapon or item by default and none drawn — never a first-person view. Neither officer nor camera moves; look-input is the only camera motion, arcing around the stationary centred officer while held.",
+        "dynamic": "Strict third-person rear view from close behind and slightly above the officer, his back and body filling frame centre, his hands completely empty and holding nothing, his service pistol holstered at his hip and not drawn, carrying no weapon or item by default and none drawn — never first-person. It holds a fixed rear position and does not rotate around him; look-input becomes the officer changing heading."
       },
       "downed": {
         "static": "Low third-person view close to the wet asphalt, looking along the fallen officer's motionless body sprawled face-down in the puddle; the camera sits near the ground and does not move on its own, look-input slowly arcs around the still body while held.",
@@ -29,7 +29,7 @@
     "movement": {
       "default": {
         "static": "The officer stands still on the wet asphalt, weight settled, only his shoulders rising and falling with slow breaths as rain streams off his tactical gear and drips from his fingertips into the spreading puddles. He does NOT fire or shoot any weapon on his own — no muzzle flash, no gunfire, no weapon discharge unless a firing action is triggered.",
-        "dynamic": "The officer advances at a steady patrol pace down the alley, boots splashing through the puddles and kicking up fine spray, his gear shifting with each stride as the rain streaks past and the wet asphalt slides beneath him. He does NOT fire or shoot any weapon on his own — no muzzle flash, no gunfire, no weapon discharge unless a firing action is triggered."
+        "dynamic": "The officer advances at a steady patrol pace down the alley toward the glowing exit door at the far end of the lane, boots splashing through the puddles and kicking up fine spray, his gear shifting with each stride as the rain streaks past and the wet asphalt slides beneath him; the glowing exit door draws steadily closer and larger straight ahead, its bright outline swelling and its light spreading further across the wet cobblestones as he nears the end of the lane. He does NOT fire or shoot any weapon on his own — no muzzle flash, no gunfire, no weapon discharge unless a firing action is triggered."
       },
       "downed": {
         "static": "The officer lies completely still, face-down and motionless on the wet asphalt, not moving or rising — only the falling rain and the ripples spreading through the puddle around his body move in the scene.",
@@ -69,48 +69,48 @@
         "name": "Kick",
         "actor": "player",
         "health": 0,
-        "detail": "The officer drives a hard front kick straight ahead, his boot slamming forward into the space in front of him with a splash of spray off the wet asphalt, then plants back down into a ready stance. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone."
+        "detail": "The officer drives a hard front kick straight ahead, his boot slamming forward into the space in front of him with a splash of spray off the wet asphalt, then plants back down into a ready stance. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone. Throughout this action his hands hold NO gun and his service pistol stays holstered at his hip — he does not draw, hold, raise or point any firearm."
       },
       {
         "name": "Forward Roll",
         "actor": "player",
-        "detail": "The officer drops into a low crouch and executes a forward roll across the wet asphalt, tucking his shoulder and rising smoothly back to his feet. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone.",
+        "detail": "The officer drops into a low crouch and executes a forward roll across the wet asphalt, tucking his shoulder and rising smoothly back to his feet. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone. Throughout this action his hands hold NO gun and his service pistol stays holstered at his hip — he does not draw, hold, raise or point any firearm.",
         "health": 0
       },
       {
         "name": "Use Flashlight",
         "actor": "player",
-        "detail": "The officer raises the flashlight in his gloved hand and sweeps its harsh white beam across the alley ahead, the shaft of light cutting through the falling rain and sliding over the wet brick walls, the green dumpster and the shop door, catching the drifting drops and glistening puddles, before he steadies the beam pointing straight down the alley. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone.",
+        "detail": "The officer raises the flashlight in his gloved hand and sweeps its harsh white beam across the alley ahead, the shaft of light cutting through the falling rain and sliding over the wet brick walls, the green dumpster and the shop door, catching the drifting drops and glistening puddles, before he steadies the beam pointing straight down the alley. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone. Throughout this action, aside from the item already in his hands, he holds NO gun and his service pistol stays holstered at his hip — he does not draw, raise or point any firearm.",
         "health": 10
       },
       {
         "name": "Take Cover",
         "actor": "player",
         "health": 15,
-        "detail": "The officer darts to the side and ducks down behind the green dumpster, pressing his back to it and lowering his head under cover, then peeks back out ready. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone."
+        "detail": "The officer darts to the side and ducks down behind the green dumpster, pressing his back to it and lowering his head under cover, then peeks back out ready. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone. Throughout this action his hands hold NO gun and his service pistol stays holstered at his hip — he does not draw, hold, raise or point any firearm."
       },
       {
         "name": "Raise Shield",
         "actor": "player",
         "health": 5,
-        "detail": "The officer brings up a black riot shield in front of himself, bracing behind it in a low guard, the shield taking the rain as he holds firm, then lowers it back down. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone."
+        "detail": "The officer brings up a black riot shield in front of himself, bracing behind it in a low guard, the shield taking the rain as he holds firm, then lowers it back down. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone. Throughout this action, aside from the item already in his hands, he holds NO gun and his service pistol stays holstered at his hip — he does not draw, raise or point any firearm."
       },
       {
         "name": "Sidestep Dodge",
         "actor": "player",
-        "detail": "The officer sharply sidesteps and weaves to one side, snapping his body out of the line of fire in a quick evasive shuffle across the wet asphalt, then re-settles into a ready stance. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone.",
+        "detail": "The officer sharply sidesteps and weaves to one side, snapping his body out of the line of fire in a quick evasive shuffle across the wet asphalt, then re-settles into a ready stance. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone. Throughout this action his hands hold NO gun and his service pistol stays holstered at his hip — he does not draw, hold, raise or point any firearm.",
         "health": 5
       },
       {
         "name": "Block",
         "actor": "player",
-        "detail": "The officer raises both gloved forearms crossed in front of his face and chest in a tight defensive guard, bracing against an incoming blow, then drops the guard and re-settles. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone.",
+        "detail": "The officer raises both gloved forearms crossed in front of his face and chest in a tight defensive guard, bracing against an incoming blow, then drops the guard and re-settles. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone. Throughout this action his hands hold NO gun and his service pistol stays holstered at his hip — he does not draw, hold, raise or point any firearm.",
         "health": 5
       },
       {
         "name": "Gunman on the Fire Escape",
         "actor": "director",
-        "detail": "EXACTLY ONE gunman appears high up on the metal fire escape above the alley ahead — a single lone figure in a gray jacket with a mask covering his face, NO tactical gear, NO SWAT vest and no police markings, clearly not an officer. He raises a pistol and fires down toward the street, muzzle flashing in the rain, then ducks back. In response, the officer below reacts — he flinches and snaps his head and his raised weapon up toward the gunman on the fire escape, ducking low and recoiling as the gunfire cracks down from above. He STAYS UP on the fire escape overhead the entire time and does NOT climb or come down to street level — he remains elevated above the alley, never reaching the ground. There is only ONE gunman, in a gray jacket and mask.",
+        "detail": "EXACTLY ONE gunman appears high up on the metal fire escape above the alley ahead — a single lone figure in a gray jacket with a mask covering his face, NO tactical gear, NO SWAT vest and no police markings, clearly not an officer. He raises a pistol and fires down toward the street, muzzle flashing in the rain, then ducks back. In response, the officer below reacts — he flinches and snaps his head up toward the gunman on the fire escape, his own hands empty and his service pistol holstered, ducking low and recoiling as the gunfire cracks down from above. He STAYS UP on the fire escape overhead the entire time and does NOT climb or come down to street level — he remains elevated above the alley, never reaching the ground. There is only ONE gunman, in a gray jacket and mask.",
         "count": 1
       },
       {

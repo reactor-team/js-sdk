@@ -2,6 +2,10 @@
   "id": "case2_1012",
   "name": "Jet Ski Cruise",
   "description": "Third-person jet ski freestyle — tricks: rides with torch, jump the wake, spin 360, barrel roll, backflip, nose pop, slalom weave, superman, cut engine, wave; jump off / jump back on; director: meteor shower, sunset, sharks, storms, etc.",
+  "objective": {
+    "summary": "Stay on the jet ski and preserve your fuel — keep riding on the surface near the safe shallow water and don't run dry.",
+    "director": "Work against the rider: try to throw them off the jet ski and lure them out into deeper, more dangerous open water away from the safe shallow beach. Favor events that unseat, endanger, or draw the rider seaward — Rogue Wave, Waterspout Forms, Storm Rolls In, Shark Lunges, and ultimately Thrown from the Jet Ski — and push the scene toward the deep open sea on the horizon, wasting the rider's fuel and stranding them. Escalate the danger over time and build on what has already happened; do not just repeat the same event back-to-back."
+  },
   "image": {
     "label": "Jet Ski Cruise",
     "src": "/lingbot-cases/jet-ski-cruise.jpg"
@@ -107,24 +111,14 @@
         "health": 0
       },
       {
-        "name": "Meteor Shower",
-        "actor": "director",
-        "detail": "Single meteors fall from high in the sky one after another — each a giant burning ball of rock dragging a long tail of fire and smoke straight down toward the sea. One by one they crash into the water far off near the horizon, away from the rider and never on the path ahead, each erupting in a huge fiery explosion and a towering burst of white spray before the next one follows. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water."
-      },
-      {
-        "name": "Sunset Glow",
-        "actor": "director",
-        "detail": "The daylight deepens into a fiery sunset: the sun sinks low and rests right on the horizon, a huge, swollen orange-red disc half-dipping into the sea, while the sky above ignites in deep bands of amber, rose, and violet. Directly beneath it, the sun's reflection blazes across the water — a brilliant, unbroken path of molten gold stretching from the horizon straight toward the viewer, the rippling sea breaking it into shimmering streaks on every wavelet, the beach glowing warm amber. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water."
-      },
-      {
         "name": "Shark Appears",
         "actor": "director",
-        "detail": "A single dark triangular dorsal fin rises and cuts through the turquoise water ahead, slicing across the surface and crossing the jet ski's path — ONLY the top fin shows above the water, the shark's body staying hidden below the surface; the fin circles on the surface nearby for a short while, then turns away and dives back down beneath the water, slipping into the deep and vanishing from sight — the shark is gone and does not come back. EXACTLY ONE shark in the water — a single lone shark, no second shark, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water."
+        "detail": "A single tall, upright, rigid, sharply pointed SHARK's dorsal fin — a dark grey stiff triangular shark fin standing straight up out of the water, unmistakably a shark and NOT a dolphin, never a curved or hooked dolphin fin, never rolling or arcing like a dolphin — rises and knifes in a straight steady line through the turquoise water ahead, slicing across the surface and crossing the jet ski's path — ONLY the top fin shows above the water, the shark's body staying hidden below the surface; the fin circles on the surface nearby for a short while, then turns away and dives back down beneath the water, slipping into the deep and vanishing from sight — the shark is gone and does not come back. EXACTLY ONE shark in the water — a single lone shark, no second shark, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water."
       },
       {
         "name": "Shark Lunges",
         "actor": "director",
-        "detail": "The dark dorsal fin surges fast across the surface straight toward the jet ski, cutting a sharp wake right up alongside it in a rush of spray — ONLY the top fin breaks the surface, the shark's body staying below the water — then it veers off and keeps pace through the wake. EXACTLY ONE shark in the water — a single lone shark, no second shark, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
+        "detail": "The tall, upright, rigid, sharply pointed SHARK's dorsal fin — a dark grey stiff triangular shark fin standing straight up out of the water, unmistakably a shark and NOT a dolphin's curved or hooked fin, never rolling or arcing like a dolphin — surges fast across the surface straight toward the jet ski, cutting a sharp wake right up alongside it in a rush of spray — ONLY the top fin breaks the surface, the shark's body staying below the water — then it veers off and keeps pace through the wake. EXACTLY ONE shark in the water — a single lone shark, no second shark, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "requires": {
           "fired": [
             "Shark Appears"
@@ -183,7 +177,7 @@
         "baseVersion": "overboard",
         "cameraVersion": "overboard",
         "movementVersion": "overboard",
-        "detail": "The jet ski slams into a wave and bucks hard, and the rider is thrown clean off — flung sideways off the craft and crashing down into the turquoise water in a huge burst of white spray, tumbling under and surfacing in his red life vest, bobbing in the swell as the now-riderless jet ski veers away and coasts to a stop nearby; the man is in the water, no longer on the jet ski. EXACTLY ONE man, a single lone rider, no duplicate and no clone.",
+        "detail": "The jet ski hits a wave and bucks hard and the rider is thrown clean off, flung sideways off the craft and crashing straight down INTO the turquoise water in a burst of white spray, plunging under and surfacing in his red life vest. From then on he is IN THE WATER — floating, swimming and treading water in the sea in his life vest, the now-riderless jet ski drifting to a stop nearby; he is fully in the water and NOT on the jet ski, NOT flung up into the air, and does not climb back aboard on his own. EXACTLY ONE man in the water, a single lone rider, no second man, no duplicate and no clone.",
         "health": -100
       }
     ],

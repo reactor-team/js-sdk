@@ -26,52 +26,98 @@
       {
         "name": "Fire Cannons",
         "actor": "player",
-        "detail": "The ship's forward laser cannons open fire straight ahead, spitting rapid bright blue energy bolts that streak into the asteroid field; the muzzles flash, the hull shudders faintly with each shot, and a nearby asteroid bursts into glowing fragments and rock dust. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "The ship's forward laser cannons open fire straight ahead, spitting rapid bright blue energy bolts that streak into the asteroid field; the muzzles flash, the hull shudders faintly with each shot, and a nearby asteroid bursts into glowing fragments and rock dust. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "health": 0
       },
       {
         "name": "Launch Missiles",
         "actor": "player",
-        "detail": "Twin missiles blast from the ship's underwing hardpoints and streak ahead down the field, dragging long trails of white smoke and orange flame as they corkscrew toward a distant asteroid, then slam into it and erupt in a bright expanding fireball of debris. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "A single missile blasts from the ship's underwing hardpoint and streaks ahead down the field, dragging a long trail of white smoke and orange flame as it corkscrews toward a distant asteroid, then slams into it and erupts in a bright expanding fireball of debris. EXACTLY ONE rocket in frame — one single missile, no second missile, no twin missiles, no duplicate and no clone. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "health": 0
       },
       {
         "name": "Afterburner Boost",
         "actor": "player",
-        "detail": "The ship's blue thrusters flare into a brilliant white-hot afterburner and the ship surges forward with a sudden burst of speed, the asteroids stretching and rushing past in a blur of motion streaks as the engines roar. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "The ship's blue thrusters flare into a brilliant white-hot afterburner and the ship surges forward with a sudden burst of speed, the asteroids stretching and rushing past in a blur of motion streaks as the engines roar. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "health": 0
       },
       {
         "name": "Barrel Roll",
         "actor": "player",
-        "detail": "The ship snaps into a fast barrel roll, rotating cleanly around its own axis to dodge, its thrusters tracing a spiraling blue arc through the drifting rocks before it levels out and steadies. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "The ship snaps into a fast barrel roll, rotating cleanly around its own axis to dodge, its thrusters tracing a spiraling blue arc through the drifting rocks before it levels out and steadies. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "health": 5
       },
       {
         "name": "Deploy Shield",
         "actor": "player",
-        "detail": "A translucent hexagonal energy shield flickers to life and wraps around the ship in a glowing blue dome, rippling and sparking as bits of rock and dust glance off it, then holding steady around the hull. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "A translucent hexagonal energy shield flickers to life and wraps around the ship in a glowing blue dome, rippling and sparking as bits of rock and dust glance off it, then holding steady around the hull. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "health": 15
       },
       {
         "name": "Shatter Asteroid",
         "actor": "player",
-        "detail": "The ship locks onto the large spire-shaped asteroid straight ahead and unleashes a concentrated burst of blue cannon fire into it; the impacts flare bright, jagged cracks race across the rock, and the asteroid SPLITS APART into several massive tumbling chunks that break away and drift in different directions, trailing glowing debris, sparks, and expanding clouds of rock dust as the pieces spread across the field. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "The ship locks onto the large spire-shaped asteroid straight ahead and unleashes a concentrated burst of blue cannon fire into it; the impacts flare bright, jagged cracks race across the rock, and the asteroid SPLITS APART into several massive tumbling chunks that break away and drift in different directions, trailing glowing debris, sparks, and expanding clouds of rock dust as the pieces spread across the field. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "health": 0
       },
       {
         "name": "Turbo Boost",
         "actor": "player",
-        "detail": "The ship slams into full overdrive — every engine igniting into a massive white-blue plume as a shockwave ripples off the hull and the ship rockets forward at extreme speed; the entire asteroid field smears into long streaking light trails warping past, the distant stars stretch into thin lines, and the thrusters scream at maximum burn. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "The ship slams into full overdrive — every engine igniting into a massive white-blue plume as a shockwave ripples off the hull and the ship rockets forward at extreme speed; the entire asteroid field smears into long streaking light trails warping past, the distant stars stretch into thin lines, and the thrusters scream at maximum burn. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "health": -5
       },
       {
         "name": "UFO Appears",
         "actor": "director",
-        "detail": "A sleek alien UFO — a smooth metallic saucer ringed with pulsing green and violet lights — drops out of the starfield ahead and glides into view among the asteroids, hovering silently with a soft glow; its rotating underside sweeps thin beams of light across the drifting rocks as it settles into the scene. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "A sleek alien UFO — a smooth metallic saucer ringed with pulsing green and violet lights — drops out of the starfield ahead and glides into view among the asteroids, hovering silently with a soft glow; its rotating underside sweeps thin beams of light across the drifting rocks as it settles into the scene. EXACTLY ONE UFO in frame — one single saucer, no second UFO, no duplicate and no clone of it. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "health": -5
       },
       {
         "name": "Land on Planet",
         "actor": "player",
-        "detail": "The ship descends toward a nearby planet, dropping through its upper atmosphere as the curved surface swells to fill the view, and settles down onto the planet's terrain, dust kicking up around the landing site as it touches down. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "The ship descends toward a nearby planet, dropping through its upper atmosphere as the curved surface swells to fill the view, and settles down onto the planet's terrain, dust kicking up around the landing site as it touches down. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "health": 10
       },
       {
         "name": "Planet Appears",
         "actor": "director",
-        "detail": "A large planet swings into view ahead in space, its curved horizon and banded surface rising into frame and dominating the starfield, growing steadily larger as the ship approaches; it stays, looming ahead. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "A large planet swings into view ahead in space, its curved horizon and banded surface rising into frame and dominating the starfield, growing steadily larger as the ship approaches; it stays, looming ahead. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "health": 0
+      },
+      {
+        "name": "Enemy Fighter Attacks",
+        "actor": "director",
+        "detail": "A single hostile alien fighter — a lean dart-shaped craft with glowing red engine slits — swoops in from the starfield ahead and strafes the ship, spitting streaks of red plasma fire that flash past the hull and scatter off the asteroids. EXACTLY ONE enemy fighter in frame — one single attacker, no second fighter, no duplicate and no clone of it. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "health": -10
+      },
+      {
+        "name": "Asteroid Storm",
+        "actor": "director",
+        "detail": "A dense surge of tumbling pale-grey asteroids sweeps in across the whole field, the rocks crowding thick and close and hurtling past the ship on every side as dust and debris fill the black space; the storm of rock keeps coming. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "health": -8
+      },
+      {
+        "name": "Solar Flare",
+        "actor": "director",
+        "detail": "The distant bright star on the right erupts in a blinding solar flare, a searing wave of white-gold light and radiation washing across the asteroid field and flooding the frame with harsh glare as the rocks flash bright and heat-haze ripples through space; the glare lingers. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "health": -5
+      },
+      {
+        "name": "Wormhole Opens",
+        "actor": "director",
+        "detail": "A swirling blue-violet wormhole tears open in the starfield straight ahead, a churning spiral vortex of glowing energy that warps the stars around its rim and pulls drifting dust and small rocks spiraling into its core, hanging open ahead. EXACTLY ONE wormhole in frame — one single vortex, no second wormhole, no duplicate and no clone of it. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "health": 0
+      },
+      {
+        "name": "Comet Streaks By",
+        "actor": "director",
+        "detail": "A single brilliant comet blazes across the starfield, a bright icy nucleus trailing a long glowing blue-white tail that sweeps a luminous arc through the black sky behind the drifting asteroids, then carries on across the frame. EXACTLY ONE comet in frame — one single comet, no second comet, no duplicate and no clone of it. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "health": 0
+      },
+      {
+        "name": "Repair Beacon Appears",
+        "actor": "director",
+        "detail": "A friendly repair beacon — a compact drone-buoy pulsing with steady green light and ringed by a soft healing glow — drifts into view among the asteroids ahead and hovers, sweeping a gentle restorative beam of green energy over the ship's hull. EXACTLY ONE repair beacon in frame — one single buoy, no second beacon, no duplicate and no clone of it. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "health": 10
       }
     ],
     "jumpPrompt": "The ship pitches up and climbs, its thrusters flaring as the nose lifts and it ascends above the asteroid field toward the open starfield, then settles into level flight higher up.",

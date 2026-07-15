@@ -17,6 +17,24 @@ from PIL import Image
 
 from scene_probes import derive_probes, resolve
 
+# Named vision-model shortcuts (pass e.g. --model cosmos). All multimodal + accessible on
+# the default-models key. Benchmarked on the 26-probe shark checklist (does it detect the
+# fin the small model misreads as a dolphin):
+#   cosmos ~4s PASS (8B VL reasoner, fastest+accurate — DEFAULT) | nemotron ~7s FAIL (12B VL)
+#   gemini ~3s PASS | minimax ~19s FAIL* (accurate focused) | qwen ~59s PASS (397B, slow)
+MODELS = {
+    "cosmos":   "nvidia/nvidia/cosmos3-nano-reasoner",
+    "nemotron": "nvidia/nvidia/nemotron-nano-12b-v2-vl",
+    "gemini":   "gcp/google/gemini-3.5-flash",
+    "minimax":  "nvidia/minimaxai/minimax-m2.7",
+    "qwen":     "nvidia/qwen/qwen3-5-397b-a17b",
+}
+
+
+def resolve_model(name):
+    """Expand a shortcut (cosmos) to its full slug; pass a raw slug through unchanged."""
+    return MODELS.get(name, name)
+
 # The Director's charter. The AI Director has the SAME action set as the human
 # Director: it may ONLY trigger the scene's authored director events (by name) —
 # it does not invent free-form prose. The authored clause + vitals are applied

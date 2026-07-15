@@ -25,10 +25,10 @@ import time
 from openai import OpenAI
 from PIL import Image
 
-from director_common import load_scene, build_system, parse_json, USER_TEXT
+from director_common import load_scene, build_system, parse_json, USER_TEXT, MODELS, resolve_model
 
 NVIDIA_URL = "https://inference-api.nvidia.com/v1"
-DEFAULT_MODEL = "nvidia/nvidia/nemotron-nano-12b-v2-vl"
+DEFAULT_MODEL = MODELS["cosmos"]  # fastest + accurate
 DEFAULT_IMAGE = "../../../assets/shark.jpg"
 DEFAULT_SCENE = "../lib/lingbot-cases/jet-ski-cruise.json"
 
@@ -37,7 +37,8 @@ def main():
     ap = argparse.ArgumentParser(description="Test the AI director's event decision on one frame + state.")
     ap.add_argument("--image", default=DEFAULT_IMAGE, help="frame the director looks at")
     ap.add_argument("--scene", default=DEFAULT_SCENE, help="game JSON (identity + objective + event list)")
-    ap.add_argument("--model", default=DEFAULT_MODEL, help="NVIDIA inference model id")
+    ap.add_argument("--model", default=DEFAULT_MODEL,
+                    help="model id OR a shortcut: cosmos|nemotron|gemini|minimax|qwen")
     ap.add_argument("--base-url", default=NVIDIA_URL, help="OpenAI-compatible base URL")
     ap.add_argument("--max-px", type=int, default=768, help="max image dimension sent")
     ap.add_argument("--max-tokens", type=int, default=256, help="max tokens in the reply")
@@ -48,6 +49,7 @@ def main():
     ap.add_argument("--step", type=int, default=1, help="elapsed chunks (pacing signal)")
     ap.add_argument("--dump", default="director_debug.json", help="write the full exchange here")
     args = ap.parse_args()
+    args.model = resolve_model(args.model)  # expand a shortcut (cosmos) to the full slug
 
     api_key = os.environ.get("NVIDIA_API_KEY")
     if not api_key:

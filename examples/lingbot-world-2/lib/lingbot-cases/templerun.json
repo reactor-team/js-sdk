@@ -2,6 +2,10 @@
   "id": "templerun",
   "name": "Temple Run",
   "description": "Third-person temple runner — key 1 = slide, key 2 = turn left, key 3 = turn right, key 4 = grab coins, key 5 = stumble, key 6 = power sprint; Space = jump, C = crouch",
+  "objective": {
+    "summary": "Outrun the temple and survive the chase.",
+    "director": "Hunt the runner and escalate the danger over time: start with the lone Demon Ape Charges to build pressure, then bring the Enemy Horde Floods In as he speeds up, and interleave hazards (Fire Trap, Rockslide, Statue Awakens, Bridge Collapses) so the threat keeps rising. Space out coin rewards (Coin Rush, Gold Coin Appears) between the danger. Don't repeat the same event back-to-back."
+  },
   "image": {
     "label": "Temple Run",
     "src": "/lingbot-cases/templerun.jpg"
@@ -55,9 +59,46 @@
         "detail": "The explorer pours on a burst of speed, boots blurring across the flagstones as the path streaks past faster and he pulls a little further ahead of the monster, then settles back to his running pace. EXACTLY ONE explorer, a single lone runner, no duplicate and no clone."
       },
       {
+        "name": "Whip Crack",
+        "actor": "player",
+        "detail": "Without breaking stride, the explorer whips out a coiled bullwhip and cracks it back over his shoulder toward the pursuing demonic ape monster, the leather lashing through the air with a sharp snap, then coils it back and keeps running. EXACTLY ONE explorer, a single lone runner, no duplicate and no clone.",
+        "health": 5
+      },
+      {
+        "name": "Back Kick",
+        "actor": "player",
+        "detail": "Still sprinting, the explorer twists and drives a hard back kick behind him at the chasing monster, his boot lashing out to fend it off, then plants back down and runs on. EXACTLY ONE explorer, a single lone runner, no duplicate and no clone.",
+        "health": 5
+      },
+      {
+        "name": "Machete Slash",
+        "actor": "player",
+        "detail": "The explorer draws a machete and slashes it in a swift arc ahead of him, cutting through hanging vines and obstacles across the path in a flash of steel, then keeps running with the blade in hand. EXACTLY ONE explorer, a single lone runner, no duplicate and no clone.",
+        "health": 0
+      },
+      {
+        "name": "Torch Swing",
+        "actor": "player",
+        "detail": "The explorer snatches up a burning torch and swings it in a wide arc behind him, the flame roaring and trailing sparks to drive back the pursuing monster, then runs on with the torch held high. EXACTLY ONE explorer, a single lone runner, no duplicate and no clone.",
+        "health": 5
+      },
+      {
+        "name": "Shoulder Barge",
+        "actor": "player",
+        "detail": "The explorer lowers his shoulder and barges straight through a crumbling stone obstacle in his path, smashing it aside in a shower of dust and rubble without breaking his sprint. EXACTLY ONE explorer, a single lone runner, no duplicate and no clone.",
+        "health": 0
+      },
+      {
         "name": "Demon Ape Charges",
         "actor": "director",
-        "detail": "The explorer stays the focus, unchanged in pose, while the single giant demonic ape monster behind him surges closer — smashing through the ruins and gaining on him, jaws gaping wide in a snarl, its huge clawed hands swiping as it looms larger and larger in the background, chasing. EXACTLY ONE ape monster, no second monster, no duplicate and no clone."
+        "detail": "The explorer stays the focus, unchanged in pose, while the single giant demonic ape monster behind him surges closer — smashing through the ruins and gaining on him, jaws gaping wide in a snarl, its huge clawed hands swiping as it looms larger and larger in the background, chasing. EXACTLY ONE ape monster, no second monster, no duplicate and no clone.",
+        "health": -8
+      },
+      {
+        "name": "Enemy Horde Floods In",
+        "actor": "director",
+        "detail": "A snarling horde of dark demonic ape monsters pours out of the temple ruins behind the explorer and swarms the whole path, filling the frame from edge to edge with charging beasts that clamber over the flagstones and each other, a churning wave of monsters chasing him down the bridge. The explorer stays the running focus in front; the horde surges behind and around him, closing in.",
+        "health": -12
       },
       {
         "name": "Bridge Collapses",
@@ -83,9 +124,24 @@
         "name": "Rockslide",
         "actor": "director",
         "detail": "A rockslide tumbles across the temple path ahead — a cascade of mossy boulders and rubble crashing down from the ruined walls and bouncing across the flagstones, kicking up dust as they roll into the explorer's path."
+      },
+      {
+        "name": "Gold Coin Appears",
+        "actor": "director",
+        "detail": "A single large glowing golden diamond coin materializes on the path ahead, spinning and hovering just above the mossy flagstones directly in the explorer line, flashing bright and sparkling in the shafts of jungle light, waiting there to be collected as he runs toward it. EXACTLY ONE gold coin, a single coin, no second coin, no duplicate and no clone.",
+        "health": 0,
+        "count": 1,
+        "addItem": "gold coins"
       }
     ],
-    "hud": { "show": true, "maxHealth": 100, "health": 100, "inventory": ["gold coins"] },
+    "hud": {
+      "show": true,
+      "maxHealth": 100,
+      "health": 100,
+      "inventory": [
+        "gold coins"
+      ]
+    },
     "jumpPrompt": "The explorer springs upward off both feet, leaping high over a gap in the broken bridge, sailing through the air with his arms out before dropping back down and landing on the flagstones to keep running.",
     "crouchPrompt": "The explorer drops into a low crouching slide close to the ground, ducking under an obstacle as the camera sinks low near the flagstones, and holds low.",
     "standPrompt": "The explorer rises back up out of the slide to full running height as the camera lifts smoothly back to its normal over-the-shoulder vantage."
