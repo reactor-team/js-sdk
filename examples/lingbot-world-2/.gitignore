@@ -8,6 +8,7 @@ node_modules
 
 # coordinator runtime artifacts
 __pycache__/
+coordinator/vlm/__pycache__/
 *.pyc
 .venv/
 coordinator/commands.jsonl
