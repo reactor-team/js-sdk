@@ -11,7 +11,8 @@ REM Usage:  run_ai.bat [scene-slug]        (default templerun)
 REM ==========================================================================
 set "HERE=%~dp0"
 set "SLUG=%~1"
-if "%SLUG%"=="" set "SLUG=templerun"
+REM No default game: with no slug the director starts idle and follows the UI's
+REM scene selection. Pass a slug to preload one.
 if "%NVIDIA_API_KEY%"=="" ( echo ERROR: set NVIDIA_API_KEY first ^(the AI director is billed^). & exit /b 1 )
 
 netstat -ano | findstr ":8090" | findstr "LISTENING" >nul 2>&1
@@ -28,10 +29,11 @@ if not errorlevel 1 (
 
 REM The director reads %SCENE% (inherited by the spawned window); the feed loop
 REM copies public\lingbot-cases\<slug>.jpg onto frame.png every 8s.
-set "SCENE=../lib/lingbot-cases/%SLUG%.json"
-echo AI director + frame feed for "%SLUG%"  ^(BILLED per frame^)
+if not "%SLUG%"=="" set "SCENE=../lib/lingbot-cases/%SLUG%.json"
+if "%SLUG%"=="" echo AI director + frame feed: NO game yet -- follows the UI selection ^(BILLED per frame once a game is picked^).
+if not "%SLUG%"=="" echo AI director + frame feed for "%SLUG%" ^(BILLED per frame^).
 start "lingbot-ai-director" cmd /k "cd /d %HERE% && run_director_nim.bat"
-start "lingbot-frame-feed" cmd /k "cd /d %HERE% && feed_frame_loop.bat %SLUG% 8"
-echo launched. In the UI: load the "%SLUG%" scene + set Director mode = ai.
+start "lingbot-frame-feed" cmd /k "cd /d %HERE% && feed_frame_loop.bat"
+echo launched. In the UI: pick a game + set Director mode = ai.
 :skipdir
 endlocal

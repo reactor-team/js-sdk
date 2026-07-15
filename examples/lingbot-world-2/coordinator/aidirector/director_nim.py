@@ -52,6 +52,16 @@ def main():
         raise SystemExit("Set NVIDIA_API_KEY (nvapi-... key) in the environment.")
 
     client = make_client(api_key, args.base_url)
+    # Check the MODEL server (NVIDIA inference) is reachable + the key is valid, up front.
+    # This is separate from the coordinator connection — the model is the director's brain.
+    model_ok = True
+    try:
+        client.models.list()
+        print(f"[director] model check: reachable -> {args.base_url}  ({args.model})", flush=True)
+    except Exception as e:  # noqa: BLE001 — report but don't hard-fail (list may be unsupported)
+        model_ok = False
+        print(f"[director] model check: FAILED ({type(e).__name__}: {e}) -- bad NVIDIA_API_KEY / "
+              f"endpoint? decisions will error if truly unreachable.", flush=True)
     vlm = make_vlm(client, args.model, args.max_px)
     decide = lambda frame, system: vlm(frame, system, USER_TEXT, 384)  # noqa: E731
     scene = load_scene(args.scene)
@@ -109,7 +119,8 @@ def main():
           f"debug={'on' if debug else 'off'}", flush=True)
     asyncio.run(
         run_director(decide, args.url, args.frame, scene, args.interval, args.once,
-                     probe=probe, debug=debug, reload_game=reload_game)
+                     probe=probe, debug=debug, reload_game=reload_game,
+                     hello_extra={"model": args.model, "modelOk": model_ok})
     )
 
 

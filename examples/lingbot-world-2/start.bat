@@ -71,8 +71,8 @@ REM present. Wait a moment first if we just launched the coordinator so the
 REM director's websocket connect lands after the port is bound.
 if defined DIRECTOR if defined NVIDIA_API_KEY (
   if defined COORDSTARTED ( echo waiting for coordinator to bind... & timeout /t 4 /nobreak >nul )
-  echo AI director: starting ^(BILLED^) -- scene templerun...
-  call "%HERE%coordinator\run_ai.bat" templerun
+  echo AI director: starting ^(BILLED once a game is picked^) -- no game yet, follows the UI...
+  call "%HERE%coordinator\run_ai.bat"
 )
 if defined DIRECTOR if not defined NVIDIA_API_KEY echo AI director: off -- set NVIDIA_API_KEY to auto-start it ^(billed^).
 

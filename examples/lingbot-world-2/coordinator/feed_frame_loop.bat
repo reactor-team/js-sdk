@@ -12,15 +12,19 @@ REM   feed_frame_loop.bat jet-ski-cruise 6
 REM ==========================================================================
 set "HERE=%~dp0"
 set "SLUG=%~1"
-if "%SLUG%"=="" set "SLUG=templerun"
 set "SECS=%~2"
 if "%SECS%"=="" set "SECS=8"
-echo feeding "%SLUG%" every %SECS%s ^(follows active_game.txt if the UI switches games; Ctrl+C to stop^)
+echo frame feed: waiting for the active game ^(follows active_game.txt; Ctrl+C to stop^)
 :loop
-REM Follow the UI's active game: the director writes the current slug here on a
-REM game switch, so the fed still image matches whatever scene is loaded.
+REM Follow the UI's active game: the director writes the current image path here on
+REM a game load, so the fed still matches whatever scene is loaded. No game yet ->
+REM feed nothing (the director idles until a scene is picked).
 set "CUR=%SLUG%"
 if exist "%HERE%active_game.txt" set /p CUR=<"%HERE%active_game.txt"
-call "%HERE%feed_frame.bat" "!CUR!"
+if not "!CUR!"=="" (
+  call "%HERE%feed_frame.bat" "!CUR!"
+) else (
+  echo   ^(no active game yet -- pick one in the UI^)
+)
 timeout /t %SECS% /nobreak >nul
 goto loop

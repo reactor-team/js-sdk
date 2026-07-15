@@ -20,6 +20,8 @@ type ActivityEntry = {
   key?: string;
   clause?: string;
   change?: { health?: number; setHealth?: number; addItem?: string; removeItem?: string };
+  name?: string; // the action that caused a vital (e.g. "Machete Slash")
+  slug?: string; // for op:"game" — the game switched to
 };
 
 const MODES = ["human", "ai", "both"] as const;
@@ -41,10 +43,14 @@ function activityLabel(a: ActivityEntry): string {
     if (c.health !== undefined) bits.push(`health ${c.health >= 0 ? "+" : ""}${c.health}`);
     if (c.addItem) bits.push(`+${c.addItem}`);
     if (c.removeItem) bits.push(`-${c.removeItem}`);
-    return bits.join(", ") || "vital";
+    const effect = bits.join(", ") || "vital";
+    return a.name ? `${a.name}  (${effect})` : effect; // show WHICH action caused it
   }
   if (a.op === "count") return "spawn/kill";
   if (a.op === "clear") return "clear all";
+  if (a.op === "game") return `game → ${a.slug ?? ""}`;
+  if (a.op === "hello") return "director connected";
+  if (a.op === "bye") return "director disconnected";
   return a.op;
 }
 
@@ -111,17 +117,20 @@ export function DirectorPanel({
   const [count, setCount] = useState(0); // shared entity/spawn count
   // Live activity feed — who did what (esp. the AI director's fires), newest first.
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const [msgCount, setMsgCount] = useState(0); // every WS message (proves traffic is flowing)
+  const activityBoxRef = useRef<HTMLDivElement>(null); // to keep the newest row in view
 
   useEffect(() => {
     if (!visible || !wsUrl) return;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
-    ws.onopen = () => setConnected(true);
-    ws.onclose = () => setConnected(false);
-    ws.onerror = () => setConnected(false);
+    ws.onopen = () => { console.log(`[panel] connected to coordinator ${wsUrl}`); setConnected(true); };
+    ws.onclose = () => { console.log("[panel] coordinator socket closed"); setConnected(false); };
+    ws.onerror = () => { console.log("[panel] coordinator socket error"); setConnected(false); };
     ws.onmessage = (e) => {
       try {
         const m = JSON.parse(String(e.data));
+        setMsgCount((c) => c + 1); // any message = traffic is flowing
         if (m.type === "facts") setFacts(m.prompt || "");
         else if (m.type === "mode") setMode(m.mode);
         else if (m.type === "scene_events") setSceneEvents(m.events || []);
@@ -133,7 +142,9 @@ export function DirectorPanel({
           setRawState(m); // keep the full snapshot for the raw view
         } else if (m.type === "activity") {
           const entry = m as ActivityEntry & { type: string };
-          setActivity((prev) => [entry, ...prev].slice(0, 12)); // newest first, cap 12
+          // Debug: confirm activity broadcasts reach the browser (F12 -> Console).
+          console.log(`[panel] activity: ${entry.role} ${entry.op} ${entry.key ?? entry.name ?? ""}`, entry);
+          setActivity((prev) => [...prev, entry].slice(-40)); // keep INCOMING order (newest at bottom), cap 40
         }
       } catch {
         /* ignore */
@@ -145,6 +156,12 @@ export function DirectorPanel({
       setConnected(false);
     };
   }, [visible, wsUrl]);
+
+  // Keep the newest activity row in view (feed is in arrival order, newest last).
+  useEffect(() => {
+    const el = activityBoxRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [activity]);
 
   // Per-game update, coordinator-independent: the controller broadcasts the
   // active scene's director events (localStorage + a window event) whenever a
@@ -357,12 +374,18 @@ export function DirectorPanel({
         </>
       )}
 
-      {/* Live activity feed — who fired what (esp. the AI director), newest first */}
-      {activity.length > 0 && (
-        <div className="flex basis-full flex-col gap-0.5 rounded border border-white/10 bg-black/40 p-1.5 max-h-28 overflow-y-auto">
+      {/* Live activity feed — who fired what (esp. the AI director), newest first.
+          Always shown, with a live status line, so an empty feed is diagnosable. */}
+      {(
+        <div ref={activityBoxRef} className="flex basis-full flex-col gap-0.5 rounded border border-white/10 bg-black/40 p-1.5 max-h-28 overflow-y-auto">
           <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">
-            activity
+            activity · {connected ? "live" : "offline"} · {msgCount} msgs · {activity.length} shown
           </span>
+          {activity.length === 0 && (
+            <span className="font-mono text-[10px] text-white/30">
+              waiting… player actions + ai fires appear here
+            </span>
+          )}
           {activity.map((a) => (
             <div key={a.id} className="flex items-start gap-1.5 font-mono text-[10px]">
               <span

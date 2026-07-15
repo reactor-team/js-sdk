@@ -907,9 +907,13 @@ export function LingbotWorldController({ className }: { className?: string }) {
 
   // Apply a vital change from either role. Routes to the coordinator (which
   // reduces + broadcasts back) when connected; else mutates local HUD state.
-  const applyVital = useCallback((change: VitalChange) => {
+  const applyVital = useCallback((change: VitalChange, label?: string) => {
     if (coordConnectedRef.current) {
-      coordWsRef.current?.send(JSON.stringify({ op: "vital", role: "player", change }));
+      // `label` (the action name) rides along so the activity feed can show WHICH
+      // action caused the change (e.g. "Machete Slash  +4 health"), not just "+4".
+      coordWsRef.current?.send(
+        JSON.stringify({ op: "vital", role: "player", change, ...(label ? { name: label } : {}) }),
+      );
       return; // authoritative vitals return via {type:"vitals"}
     }
     const max = hudMaxHealthRef.current;
@@ -1703,7 +1707,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
           (ev.health !== undefined || ev.addItem || ev.removeItem)
             ? { health: ev.health, addItem: ev.addItem, removeItem: ev.removeItem }
             : vitalForEvent(ev?.name);
-        if (change) applyVital(change);
+        if (change) applyVital(change, ev?.name); // name -> shows in the activity feed
       }
       setHeldSlots(heldSlotsRef.current);
       recomputePromptAndSend();

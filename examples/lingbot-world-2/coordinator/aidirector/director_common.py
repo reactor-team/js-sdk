@@ -160,7 +160,7 @@ def build_system(scene, state):
 
 
 async def run_director(decide, url, frame_path, scene, interval, once, probe=None, debug=False,
-                       reload_game=None):
+                       reload_game=None, hello_extra=None):
     # Latest state pushed by the coordinator (facts + vitals) for prompt context.
     # `fired` = short memory of the arc (event names introduced); `step` = pacing.
     # `observations` = the probe read of the current frame (the AI director's eyes).
@@ -191,6 +191,8 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
     connected = {"ok": True}  # flipped False when the socket closes (see listen())
     async with ws:
         print(f"[director] connected to {url}", flush=True)
+        # register as the AI director (+ report model reachability so the coordinator shows it)
+        await ws.send(json.dumps({"op": "hello", "role": "ai", **(hello_extra or {})}))
         # A "game" = the active scene + objective. Log the start of this one, and
         # remember its objective so a later change (UI switched games) is detected.
         state["objective_summary"] = scene.get("objective") or ""
@@ -369,7 +371,8 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                                         change["health"] = ev["health"]
                                     if ev.get("addItem"):
                                         change["addItem"] = ev["addItem"]
-                                    vital_op = {"op": "vital", "role": "ai", "change": change}
+                                    vital_op = {"op": "vital", "role": "ai", "change": change,
+                                                "name": ev["name"]}  # show the event on the vital row
                                     dbg(f"-> vital: {json.dumps(vital_op)}")
                                     await ws.send(json.dumps(vital_op))
                                 # Remember the arc (cap so the prompt stays small).

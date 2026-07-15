@@ -74,6 +74,8 @@ function broadcastActivity(m: Op): void {
       key: m.fact?.key ?? m.key,
       clause: m.fact?.clause,
       change: m.change,
+      name: m.name, // action that caused a vital (player/AI), for a readable feed row
+      slug: m.slug, // for op:"game" — which game was switched to
     }),
   );
 }
@@ -172,9 +174,10 @@ interface SceneEvent {
 let sceneEvents: SceneEvent[] = [];
 let objective: unknown = null; // the active scene's objective (summary + director)
 let activeGame = ""; // active scene slug (UI selection) — the AI director follows this
+const directorSockets = new Set<WebSocket>(); // sockets that registered as the AI director
 
 interface Op {
-  op: "assert" | "retract" | "clear" | "tick" | "vital" | "mode" | "log" | "scene_events" | "objective" | "count" | "game";
+  op: "assert" | "retract" | "clear" | "tick" | "vital" | "mode" | "log" | "scene_events" | "objective" | "count" | "game" | "hello";
   fact?: Fact;
   key?: string;
   change?: VitalChange;
@@ -187,6 +190,9 @@ interface Op {
   delta?: number; // for op:"count" — signed spawn/kill delta
   set?: number; // for op:"count" — absolute set (overrides delta)
   slug?: string; // for op:"game" — active scene slug
+  name?: string; // for op:"vital" — the action that caused it (shown in the activity feed)
+  model?: string; // for op:"hello" — the AI director's VLM model id
+  modelOk?: boolean; // for op:"hello" — whether the model server was reachable at startup
 }
 
 function broadcastSceneEvents(): void {
@@ -210,9 +216,15 @@ function broadcastGame(): void {
 
 wss.on("connection", (ws) => {
   console.log(`[coordinator] client connected  (${wss.clients.size} total)`);
-  ws.on("close", () =>
-    console.log(`[coordinator] client disconnected  (${wss.clients.size} total)`),
-  );
+  ws.on("close", () => {
+    const wasDirector = directorSockets.delete(ws);
+    console.log(
+      `[coordinator] ${wasDirector ? "AI DIRECTOR" : "client"} disconnected  (${wss.clients.size} total)`,
+    );
+    if (wasDirector) {
+      sendAll(JSON.stringify({ type: "activity", id: ++activitySeq, role: "ai", op: "bye" }));
+    }
+  });
   // Hand the newcomer the current state so a late-joining Director (or a
   // Player that reloaded) sees the live world immediately.
   ws.send(JSON.stringify({ type: "facts", prompt: history.project() }));
@@ -257,6 +269,7 @@ wss.on("connection", (ws) => {
     if (m.role === "ai" || m.role === "human") {
       const detail =
         (m.fact?.key ? ` ${m.fact.key}` : m.key ? ` ${m.key}` : "") +
+        (m.name ? ` [${m.name}]` : "") +
         (m.change ? ` ${JSON.stringify(m.change)}` : "") +
         (m.fact?.clause ? `  "${m.fact.clause.slice(0, 60)}"` : "");
       console.log(`[coordinator] ${m.role} ${m.op}${detail}`);
@@ -287,6 +300,18 @@ wss.on("connection", (ws) => {
       broadcastActivity(m);
     }
     switch (m.op) {
+      case "hello":
+        if (m.role === "ai") {
+          directorSockets.add(ws);
+          const modelInfo = m.model
+            ? `  model=${m.model} [${m.modelOk === false ? "UNREACHABLE" : "reachable"}]`
+            : "";
+          console.log(
+            `[coordinator] AI DIRECTOR registered${modelInfo}  (${directorSockets.size} director(s) connected)`,
+          );
+          sendAll(JSON.stringify({ type: "activity", id: ++activitySeq, role: "ai", op: "hello" }));
+        }
+        break;
       case "log":
         break; // record-only; nothing to apply
       case "scene_events":
@@ -297,6 +322,7 @@ wss.on("connection", (ws) => {
         if (m.slug && m.slug !== activeGame) {
           activeGame = m.slug;
           console.log(`[coordinator] active game -> ${activeGame}`);
+          broadcastActivity(m); // show the switch in the activity feed
           broadcastGame(); // the AI director reloads this scene
         }
         break;
