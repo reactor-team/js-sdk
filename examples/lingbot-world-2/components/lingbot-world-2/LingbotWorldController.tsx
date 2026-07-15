@@ -23,7 +23,8 @@ import {
   type NamedEvent,
   type GateState,
 } from "@/lib/lingbot-world-prompts";
-import { History, type Fact } from "@/lib/history";
+import { type Fact } from "@/lib/history";
+import { PlayerController } from "@/lib/player-controller";
 
 // Sentinel id used in the overrides map for the user's custom
 // layered scene. Custom has no pristine constant to fall back to; an
@@ -598,11 +599,10 @@ export function LingbotWorldController({ className }: { className?: string }) {
   //     step #2; same-machine callers can use director directly).
   //   - advance() ages timed facts once per chunk_complete; an expired fact
   //     changes the string, which triggers a fresh set_prompt.
-  // debug off by default; set NEXT_PUBLIC_HISTORY_DEBUG=1 to print every local
-  // state change to the browser console (coordinator mode logs server-side).
-  const historyRef = useRef<History>(
-    new History({ debug: process.env.NEXT_PUBLIC_HISTORY_DEBUG === "1" }),
-  );
+  // The one History lives in the coordinator (§6.1); no local instance here.
+  // PlayerController = the client's input+rules+narration layer (rebuilt per scene in
+  // recomputePromptAndSend). It owns no state — emits player ops to the coordinator.
+  const pcRef = useRef<PlayerController | null>(null);
 
   // Optional remote coordinator (#2): when NEXT_PUBLIC_COORDINATOR_WS is set, the
   // authoritative History lives on a shared WebSocket server so a Director on a
@@ -722,19 +722,28 @@ export function LingbotWorldController({ className }: { className?: string }) {
     if (!sceneRef.current) return;
     const isMoving =
       moveLStackRef.current.length > 0 || moveLatStackRef.current.length > 0;
-    const scenePrompt = composePrompt(
-      sceneRef.current,
-      isMoving,
-      heldSlotsRef.current,
-      vp,
-    ).trim();
+    // PlayerController is the prompt producer: rebuild it when the scene changes, sync
+    // input, then narrate (scene layer + its read-through). Its emit sink writes player
+    // ops to the coordinator (Contract 3) for rule-driven effects (tool/sticky). With no
+    // per-scene rules yet, narrate() == the old composePrompt (behavior-preserving).
+    let pc = pcRef.current;
+    if (!pc || pc.scene !== sceneRef.current) {
+      pc = new PlayerController({
+        scene: sceneRef.current,
+        emit: (op) =>
+          coordWsRef.current?.send(JSON.stringify({ ...op, role: "player" })),
+      });
+      pcRef.current = pc;
+    }
+    pc.setMoving(isMoving);
+    pc.setHeld(heldSlotsRef.current);
+    const scenePrompt = pc.narrate(vp).trim();
     // Append persistent world facts (Director interventions, timed effects).
     // Empty until something is asserted, so single-player is unchanged. When a
     // coordinator is connected, the facts come from the shared server instead
     // of local History (which the Director on another machine can't reach).
-    const facts = coordConnectedRef.current
-      ? coordPromptRef.current
-      : historyRef.current.project();
+    // One History — it lives in the coordinator; the client reads its projection.
+    const facts = coordPromptRef.current;
     const next = [scenePrompt, facts].filter(Boolean).join(" ").trim();
     if (!next) return;
     if (next === lastSentPromptRef.current) return;
@@ -751,28 +760,18 @@ export function LingbotWorldController({ className }: { className?: string }) {
     recomputePromptAndSendRef.current = recomputePromptAndSend;
   }, [recomputePromptAndSend]);
 
-  // Director control surface: mutate the shared History, then re-narrate. When
-  // a coordinator is connected the op goes to the server (authority) and the
-  // new facts arrive back via the socket; otherwise it mutates local History.
+  // Director control surface: write to the one History (in the coordinator). The op
+  // goes to the server (authority); the new facts arrive back via the socket `facts`
+  // broadcast, which re-narrates. Requires a coordinator connection (no local store).
   const director = useMemo(
     () => ({
       // Add/refresh a persistent world fact (weather, spawn, timed effect).
       assert(fact: Fact) {
-        if (coordConnectedRef.current) {
-          coordWsRef.current?.send(JSON.stringify({ op: "assert", fact }));
-        } else {
-          historyRef.current.assert(fact);
-          recomputePromptAndSendRef.current();
-        }
+        coordWsRef.current?.send(JSON.stringify({ op: "assert", fact }));
       },
       // Remove a fact by key (clear the snowstorm).
       retract(key: string) {
-        if (coordConnectedRef.current) {
-          coordWsRef.current?.send(JSON.stringify({ op: "retract", key }));
-        } else {
-          historyRef.current.retract(key);
-          recomputePromptAndSendRef.current();
-        }
+        coordWsRef.current?.send(JSON.stringify({ op: "retract", key }));
       },
     }),
     [],
@@ -864,6 +863,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
   const [hudHealth, setHudHealth] = useState(100);
   const [hudInventory, setHudInventory] = useState<string[]>([]);
   const [hudObjective, setHudObjective] = useState<string>(""); // objective.summary
+  const [hudHealthLabel, setHudHealthLabel] = useState<string>("Health"); // per-scene bar label
   // Keep the gate refs (read by imperative event handlers) synced to HUD state.
   useEffect(() => { hudHealthRef.current = hudHealth; }, [hudHealth]);
   useEffect(() => { hudInventoryRef.current = hudInventory; }, [hudInventory]);
@@ -878,6 +878,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
     show?: boolean;
     maxHealth?: number;
     health?: number;
+    healthLabel?: string;
     inventory?: string[];
   }) => {
     const max = Math.min(100, cfg?.maxHealth ?? 100); // hard ceiling: 100
@@ -888,6 +889,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
     setHudMaxHealth(max);
     setHudShow(cfg ? cfg.show !== false : false); // hidden unless the scene opts in
     setHudHealth(Math.max(0, Math.min(max, cfg?.health ?? max)));
+    setHudHealthLabel(cfg?.healthLabel ?? "Health"); // per-scene bar rename (e.g. "Fuel")
     setHudInventory([...(cfg?.inventory ?? [])]);
   }, []);
 
@@ -1022,13 +1024,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
         setActiveAction(msg.active_action || "still");
         // Age persistent facts one chunk. A `steps` fact that runs out (a
         // Director spawn on a timer) drops, changing the composed string and
-        // triggering a fresh set_prompt. With a coordinator, aging is the
-        // server's job — forward the chunk tick so it tracks the real rate.
-        if (coordConnectedRef.current) {
-          coordWsRef.current?.send(JSON.stringify({ op: "tick" }));
-        } else if (historyRef.current.advance()) {
-          recomputePromptAndSendRef.current();
-        }
+        // triggering a fresh set_prompt. Aging is the coordinator's job (the one
+        // History) — forward the chunk tick so it tracks the real rate.
+        coordWsRef.current?.send(JSON.stringify({ op: "tick" }));
         // The crouch dips each last a single chunk. When the release dip ends,
         // drop the "stands up" line too.
         crouchPressDipRef.current = false;
@@ -1064,13 +1062,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
         setIsGenerating(false);
         setIsPaused(false);
         clearMovementInputs(); // never leave a held control stuck after a reset
-        // Drop Director facts — don't leak into the next world. Route to the
-        // coordinator when connected so every client's History resets together.
-        if (coordConnectedRef.current) {
-          coordWsRef.current?.send(JSON.stringify({ op: "clear" }));
-        } else {
-          historyRef.current.clear();
-        }
+        // Drop Director facts — don't leak into the next world. Routed to the
+        // coordinator (the one History) so the reset is authoritative.
+        coordWsRef.current?.send(JSON.stringify({ op: "clear" }));
         applyVital({ reset: true }); // vitals back to full for the next world
         if (isApplyingExampleRef.current) break;
         setHasPrompt(false);
@@ -2982,6 +2976,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
       maxHealth={hudMaxHealth}
       inventory={hudInventory}
       objective={hudObjective}
+      healthLabel={hudHealthLabel}
       visible={true}
     />
   );

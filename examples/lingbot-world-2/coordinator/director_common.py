@@ -15,6 +15,8 @@ import re
 import websockets
 from PIL import Image
 
+from scene_probes import derive_probes, resolve
+
 # The Director's charter. The AI Director has the SAME action set as the human
 # Director: it may ONLY trigger the scene's authored director events (by name) —
 # it does not invent free-form prose. The authored clause + vitals are applied
@@ -44,9 +46,35 @@ Respond with ONLY a JSON object, no prose:
 {{"events": ["<exact event name from the list>"]}}
 
 Current world facts: {facts}
+Verified observations (from probes — what is ACTUALLY on screen now; trust these over your own read): {observed}
 Current health: {health}"""
 
 USER_TEXT = "Here is the latest frame. Choose which authored events to fire, as JSON only."
+
+# User text for a probe (checklist) call — the derived questions are appended after it.
+PROBE_USER = ("Answer each of these yes/no questions about the image. Respond with ONLY a "
+              "JSON object mapping each id to true or false.")
+
+
+def make_probe(vlm, scene_json):
+    """Build a probe(frame) -> (ops, observations) from the FULL scene JSON.
+
+    Reuses the backend's vlm(frame, system, user_text) call. Derives the typed
+    checklist once (scene_probes.derive_probes), asks it in ONE call per frame, and
+    resolves answers into coordinator ops (invariant re-anchors) + a flat observation
+    map. This is the AI director's eyes — grounding/verification, not a driving path.
+    """
+    derived = derive_probes(scene_json)
+    probes = derived["probes"]
+    questions = "\n".join(f'- {p["id"]}: {p["q"]}' for p in probes)
+    user = PROBE_USER + "\n\n" + questions
+
+    def probe(frame):
+        raw = vlm(frame, derived["system"], user, 512)
+        answers = parse_json(raw) or {}
+        return resolve(answers, probes)  # (ops, observations)
+
+    return probe
 
 
 def load_scene(path):
@@ -82,6 +110,8 @@ def build_system(scene, state):
         )
         or "(this scene has no director events)"
     )
+    obs = state.get("observations") or {}
+    observed = ", ".join(f"{k}={'yes' if v else 'no'}" for k, v in obs.items()) or "(no probe read yet)"
     return SYSTEM_TEMPLATE.format(
         base=scene["base"],
         events_list=events_list,
@@ -89,6 +119,7 @@ def build_system(scene, state):
         memory=", ".join(fired) or "(none yet)",
         step=state.get("step", 0),
         facts=state.get("facts") or "(none)",
+        observed=observed,
         health=state.get("health", "?"),
     )
 
@@ -104,10 +135,11 @@ def parse_json(text):
         return None
 
 
-async def run_director(decide, url, frame_path, scene, interval, once):
+async def run_director(decide, url, frame_path, scene, interval, once, probe=None):
     # Latest state pushed by the coordinator (facts + vitals) for prompt context.
     # `fired` = short memory of the arc (event names introduced); `step` = pacing.
-    state = {"facts": "", "health": 100, "fired": [], "step": 0}
+    # `observations` = the probe read of the current frame (the AI director's eyes).
+    state = {"facts": "", "health": 100, "fired": [], "step": 0, "observations": {}}
     last_key_clause = {}  # dedup: only re-assert when a key's clause changes
     last_mtime = 0.0
 
@@ -139,6 +171,17 @@ async def run_director(decide, url, frame_path, scene, interval, once):
                         except OSError:
                             await asyncio.sleep(interval)
                             continue
+                        # Probes first (the AI director's eyes): read the frame into a
+                        # verified observation map, and emit any invariant re-anchor ops
+                        # (subject off-frame, duplicate, submerged) before deciding.
+                        if probe is not None:
+                            try:
+                                p_ops, p_obs = probe(frame)
+                                state["observations"] = p_obs
+                                for op in p_ops:
+                                    await ws.send(json.dumps(op))
+                            except Exception as e:  # noqa: BLE001 — probes are best-effort
+                                print(f"[director] probe error: {type(e).__name__}: {e}", flush=True)
                         try:
                             raw = decide(frame, build_system(scene, state))
                         except Exception as e:  # noqa: BLE001 — surface to the feed

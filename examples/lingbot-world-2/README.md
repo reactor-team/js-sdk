@@ -85,6 +85,7 @@ The authoring **rules** (player/director split, "exactly one landmark at a fixed
 | ----------------------------- | -------- | ------------------------------------------------------------------------------- |
 | `REACTOR_API_KEY`             | yes      | Server-side key exchanged for session JWTs by `app/api/reactor/token/route.ts`. |
 | `NEXT_PUBLIC_COORDINATOR_URL` | no       | Reactor API base URL. Defaults to `https://api.reactor.inc`.                    |
+| `NEXT_PUBLIC_FLASHDREAM_URL`  | no       | Opt-in local flashdream WebRTC backend for the `/flashdream` page (e.g. `http://localhost:8089`). Unset = disabled; the default Reactor path is unaffected. |
 
 If `REACTOR_API_KEY` is missing, the app renders a friendly setup landing instead of erroring — see [`app/SetupRequired.tsx`](app/SetupRequired.tsx).
 

@@ -100,8 +100,44 @@ export interface NamedEvent {
   // Optional signed delta on the shared entity/spawn count when this event
   // fires. +N for a spawn (enemies appear), −N for a kill/despawn. Director
   // events use this so pressing a spawn key bumps the count; the coordinator
-  // clamps it at 0. First slice of a real GameState entity model.
+  // clamps it at 0. First slice of a real coordinator-fact model.
   count?: number;
+  // Optional declarative gate: the event is only AVAILABLE (pressable / a valid
+  // AI or human director trigger) when these conditions hold against shared
+  // state. Data-only so it lives in the scene JSON. Keep gates rare and
+  // narrative (door appears → reach door); never gate moment-to-moment actions.
+  requires?: EventGate;
+}
+
+// Declarative availability gate for an event. All present fields must hold.
+export interface EventGate {
+  fired?: string[]; //     names of events that must have fired already
+  notFired?: string[]; //  names of events that must NOT have fired yet
+  minChunks?: number; //   only after N generation chunks elapsed
+  maxHealth?: number; //   only when health <= this (e.g. 0 for a death trigger)
+  minHealth?: number; //   only when health >= this
+  hasItem?: string; //     only when this item is in the inventory
+}
+
+// Shared-state snapshot the gate is evaluated against.
+export interface GateState {
+  fired: ReadonlySet<string>;
+  chunks: number;
+  health: number;
+  inventory: readonly string[];
+}
+
+// Is `event` currently available given shared state? No gate → always available.
+export function isEventAvailable(event: NamedEvent, s: GateState): boolean {
+  const g = event.requires;
+  if (!g) return true;
+  if (g.fired && !g.fired.every((n) => s.fired.has(n))) return false;
+  if (g.notFired && g.notFired.some((n) => s.fired.has(n))) return false;
+  if (g.minChunks !== undefined && s.chunks < g.minChunks) return false;
+  if (g.maxHealth !== undefined && s.health > g.maxHealth) return false;
+  if (g.minHealth !== undefined && s.health < g.minHealth) return false;
+  if (g.hasItem !== undefined && !s.inventory.includes(g.hasItem)) return false;
+  return true;
 }
 
 // Per-scene HUD configuration. Optional — omitted → HUD hidden. Sets the
@@ -111,6 +147,7 @@ export interface HudConfig {
   show?: boolean; // draw the overlay for this scene (default true when hud present)
   maxHealth?: number; // full-bar value (default 100)
   health?: number; // starting health (default maxHealth)
+  healthLabel?: string; // rename the bar for this scene (e.g. "Fuel"). Default "Health".
   inventory?: string[]; // starting inventory chips (default none)
 }
 

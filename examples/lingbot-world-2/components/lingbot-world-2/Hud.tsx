@@ -3,18 +3,19 @@
 // On-screen player HUD — health bar + inventory — overlaid on the viewport.
 // Purely presentational: it renders whatever health/inventory it's handed. The
 // values live in the controller (and can be driven by the Director/coordinator
-// or the GameState binding); this just draws them.
+// or the PlayerController binding); this just draws them.
 
 interface HudProps {
   health: number;
   maxHealth: number;
   inventory: string[];
   objective?: string; // objective.summary — the player's goal
+  healthLabel?: string; // bar label; per-scene rename (e.g. "Fuel"). Default "Health".
   // Hidden until a scene is running, so it doesn't float over the idle page.
   visible: boolean;
 }
 
-export function Hud({ health, maxHealth, inventory, objective, visible }: HudProps) {
+export function Hud({ health, maxHealth, inventory, objective, healthLabel, visible }: HudProps) {
   if (!visible) return null;
   const pct = Math.max(0, Math.min(1, health / maxHealth));
   // green → amber → red as health drops.
@@ -23,10 +24,10 @@ export function Hud({ health, maxHealth, inventory, objective, visible }: HudPro
 
   return (
     <div className="absolute top-3 left-3 z-30 pointer-events-none select-none flex flex-col gap-2 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
-      {/* Health */}
+      {/* Health (label is per-scene renameable, e.g. "Fuel") */}
       <div className="flex items-center gap-2">
         <span className="font-mono text-[9px] uppercase tracking-widest text-white/80 w-12">
-          Health
+          {healthLabel ?? "Health"}
         </span>
         <div className="w-40 h-3 rounded-sm bg-black/60 border border-white/25 overflow-hidden">
           <div

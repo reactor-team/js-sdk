@@ -50,7 +50,7 @@ const wss = new WebSocketServer({ port: PORT });
 const MAX_HEALTH = 100;
 const vitals = { health: MAX_HEALTH, maxHealth: MAX_HEALTH, inventory: [] as string[] };
 
-// Shared entity/spawn count — the first slice of a real GameState. Director
+// Shared entity/spawn count — the first slice of the coordinator state. Director
 // events that spawn (enemies appear) carry a `count` delta and bump this;
 // death events carry a negative delta. Clamped at 0, reset on scene switch.
 let entityCount = 0;
