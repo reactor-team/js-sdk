@@ -40,8 +40,11 @@ def main():
     ap.add_argument("--max-px", type=int, default=768, help="max frame dimension sent")
     ap.add_argument("--no-probe", action="store_true",
                     help="disable the probe pass (the AI director's eyes); decide from the frame alone")
+    ap.add_argument("--quiet", action="store_true",
+                    help="turn OFF the detailed per-step debug log (on by default)")
     args = ap.parse_args()
     args.model = resolve_model(args.model)  # expand a shortcut (cosmos) to the full slug
+    debug = not args.quiet  # detailed shell logging is ON by default
 
     api_key = os.environ.get("NVIDIA_API_KEY")
     if not api_key:
@@ -57,11 +60,13 @@ def main():
     probe = None
     if not args.no_probe and args.scene and os.path.isfile(args.scene):
         scene_json = json.load(open(args.scene, encoding="utf-8"))
-        probe = make_probe(vlm, scene_json)
+        probe = make_probe(vlm, scene_json, debug=debug)
 
-    print(f"[director] NVIDIA inference: {args.model}  probes={'on' if probe else 'off'}", flush=True)
+    print(f"[director] NVIDIA inference: {args.model}  probes={'on' if probe else 'off'}  "
+          f"debug={'on' if debug else 'off'}", flush=True)
     asyncio.run(
-        run_director(decide, args.url, args.frame, scene, args.interval, args.once, probe=probe)
+        run_director(decide, args.url, args.frame, scene, args.interval, args.once,
+                     probe=probe, debug=debug)
     )
 
 

@@ -32,7 +32,7 @@ import { PlayerController } from "@/lib/player-controller";
 const CUSTOM_SCENE_ID = "__custom__";
 import { LayeredSceneEditor } from "@/components/lingbot-world-2/LayeredSceneEditor";
 import { LivePromptInspector } from "@/components/lingbot-world-2/LivePromptInspector";
-import { Hud } from "@/components/lingbot-world-2/Hud";
+import { Hud, type GameResult } from "@/components/lingbot-world-2/Hud";
 import { PadButton } from "@/components/lingbot-world-2/ControlPrimitives";
 import { EventChips } from "@/components/lingbot-world-2/EventChips";
 import { MovePad } from "@/components/lingbot-world-2/MovePad";
@@ -837,6 +837,8 @@ export function LingbotWorldController({ className }: { className?: string }) {
           recomputePromptAndSendRef.current();
         } else if (m.type === "vitals") {
           setVitalsFromServerRef.current(m.health ?? 0, m.inventory ?? []);
+        } else if (m.type === "won") {
+          setGameResult("won"); // objective survived — the coordinator fired the reward
         }
       } catch {
         /* ignore malformed frames */
@@ -864,6 +866,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
   const [hudInventory, setHudInventory] = useState<string[]>([]);
   const [hudObjective, setHudObjective] = useState<string>(""); // objective.summary
   const [hudHealthLabel, setHudHealthLabel] = useState<string>("Health"); // per-scene bar label
+  const [gameResult, setGameResult] = useState<GameResult>(null); // win/lose banner below the HUD
   // Keep the gate refs (read by imperative event handlers) synced to HUD state.
   useEffect(() => { hudHealthRef.current = hudHealth; }, [hudHealth]);
   useEffect(() => { hudInventoryRef.current = hudInventory; }, [hudInventory]);
@@ -891,19 +894,21 @@ export function LingbotWorldController({ className }: { className?: string }) {
     setHudHealth(Math.max(0, Math.min(max, cfg?.health ?? max)));
     setHudHealthLabel(cfg?.healthLabel ?? "Health"); // per-scene bar rename (e.g. "Fuel")
     setHudInventory([...(cfg?.inventory ?? [])]);
+    setGameResult(null); // clear any win/lose banner for the fresh scene
   }, []);
 
   // Apply a vital change from either role. Routes to the coordinator (which
   // reduces + broadcasts back) when connected; else mutates local HUD state.
   const applyVital = useCallback((change: VitalChange) => {
     if (coordConnectedRef.current) {
-      coordWsRef.current?.send(JSON.stringify({ op: "vital", change }));
+      coordWsRef.current?.send(JSON.stringify({ op: "vital", role: "player", change }));
       return; // authoritative vitals return via {type:"vitals"}
     }
     const max = hudMaxHealthRef.current;
     if (change.reset) {
       setHudHealth(max);
       setHudInventory([]);
+      setGameResult(null); // reset clears the win/lose banner
       return;
     }
     if (change.setHealth !== undefined) {
@@ -954,6 +959,14 @@ export function LingbotWorldController({ className }: { className?: string }) {
       recomputePromptAndSendRef.current();
     }
   }, [hudHealth]);
+
+  // Win/lose banner (text popup below the HUD). "lost" when a health-tracking scene
+  // hits 0; cleared when health recovers. "won" is set from the coordinator's `won`
+  // broadcast (see the coordinator onmessage handler) and cleared on scene apply/reset.
+  useEffect(() => {
+    if (hudShow && hudHealth <= 0) setGameResult("lost");
+    else if (hudHealth > 0) setGameResult((r) => (r === "lost" ? null : r));
+  }, [hudHealth, hudShow]);
 
   // Console hook — same entry point the Player events and Director use.
   useEffect(() => {
@@ -2978,11 +2991,21 @@ export function LingbotWorldController({ className }: { className?: string }) {
       objective={hudObjective}
       healthLabel={hudHealthLabel}
       visible={true}
+      result={gameResult}
     />
   );
 
   const controls = (
     <div className="flex flex-col gap-3">
+      {/* Player objective — the goal (objective.summary), shown in the player section */}
+      {hudObjective && (
+        <div className="flex items-baseline gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
+          <span className="font-mono text-[9px] uppercase tracking-widest text-emerald-300/80 shrink-0">
+            Objective
+          </span>
+          <span className="font-mono text-[11px] text-white/85">{hudObjective}</span>
+        </div>
+      )}
       {/* Status telemetry */}
       {(tspSize !== null || (isGenerating && chunkNum > 0) || isReady) && (
         <div className="flex items-center gap-3 flex-wrap">

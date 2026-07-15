@@ -12,7 +12,41 @@ import { cn } from "@/lib/utils";
 
 type Life = { kind: "sustained" } | { kind: "steps"; n: number } | { kind: "instant" };
 
+// One entry of the live activity feed broadcast by the coordinator.
+type ActivityEntry = {
+  id: number;
+  role: string; // "ai" | "human" | "player" | "?"
+  op: string; // assert | retract | vital | count | clear
+  key?: string;
+  clause?: string;
+  change?: { health?: number; setHealth?: number; addItem?: string; removeItem?: string };
+};
+
 const MODES = ["human", "ai", "both"] as const;
+
+// Human-readable label for an activity entry (e.g. "Shark Appears", "health -8").
+function activityLabel(a: ActivityEntry): string {
+  if (a.op === "assert" && a.key?.startsWith("scene:")) {
+    return a.key
+      .slice(6)
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase()); // scene:shark_appears -> Shark Appears
+  }
+  if (a.op === "assert") return a.key ?? a.clause ?? "assert";
+  if (a.op === "retract") return `drop ${a.key ?? ""}`.trim();
+  if (a.op === "vital") {
+    const c = a.change ?? {};
+    const bits: string[] = [];
+    if (c.setHealth !== undefined) bits.push(`health =${c.setHealth}`);
+    if (c.health !== undefined) bits.push(`health ${c.health >= 0 ? "+" : ""}${c.health}`);
+    if (c.addItem) bits.push(`+${c.addItem}`);
+    if (c.removeItem) bits.push(`-${c.removeItem}`);
+    return bits.join(", ") || "vital";
+  }
+  if (a.op === "count") return "spawn/kill";
+  if (a.op === "clear") return "clear all";
+  return a.op;
+}
 
 // Alphabetic hotkeys for director scene events — MUST stay in sync with
 // DIRECTOR_HOTKEYS in LingbotWorldController.tsx (the source of truth). The i-th
@@ -70,10 +104,13 @@ export function DirectorPanel({
   const [coordFacts, setCoordFacts] = useState<
     { key: string; clause: string; weight: number; remaining: string }[]
   >([]);
+  const [rawState, setRawState] = useState<Record<string, unknown> | null>(null); // full state snapshot
   const [sceneEvents, setSceneEvents] = useState<
     { name: string; clause: string; health?: number; addItem?: string; count?: number; available?: boolean }[]
   >([]);
   const [count, setCount] = useState(0); // shared entity/spawn count
+  // Live activity feed — who did what (esp. the AI director's fires), newest first.
+  const [activity, setActivity] = useState<ActivityEntry[]>([]);
 
   useEffect(() => {
     if (!visible || !wsUrl) return;
@@ -93,6 +130,10 @@ export function DirectorPanel({
         else if (m.type === "state") {
           setCoordFacts(m.facts || []);
           if (typeof m.count === "number") setCount(m.count);
+          setRawState(m); // keep the full snapshot for the raw view
+        } else if (m.type === "activity") {
+          const entry = m as ActivityEntry & { type: string };
+          setActivity((prev) => [entry, ...prev].slice(0, 12)); // newest first, cap 12
         }
       } catch {
         /* ignore */
@@ -277,6 +318,17 @@ export function DirectorPanel({
               </div>
             ))
           )}
+          {/* Raw state snapshot — the full coordinator state object as JSON */}
+          {rawState && (
+            <>
+              <span className="mt-1 font-mono text-[9px] uppercase tracking-wider text-white/40">
+                raw state
+              </span>
+              <pre className="whitespace-pre-wrap break-all font-mono text-[9px] leading-tight text-white/55">
+                {JSON.stringify(rawState, null, 2)}
+              </pre>
+            </>
+          )}
         </div>
       )}
 
@@ -303,6 +355,37 @@ export function DirectorPanel({
             ))}
           </div>
         </>
+      )}
+
+      {/* Live activity feed — who fired what (esp. the AI director), newest first */}
+      {activity.length > 0 && (
+        <div className="flex basis-full flex-col gap-0.5 rounded border border-white/10 bg-black/40 p-1.5 max-h-28 overflow-y-auto">
+          <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">
+            activity
+          </span>
+          {activity.map((a) => (
+            <div key={a.id} className="flex items-start gap-1.5 font-mono text-[10px]">
+              <span
+                className={cn(
+                  "shrink-0 rounded px-1 uppercase",
+                  a.role === "ai"
+                    ? "bg-emerald-400/20 text-emerald-200/90"
+                    : a.role === "human"
+                      ? "bg-sky-400/20 text-sky-200/90"
+                      : "bg-white/10 text-white/60",
+                )}
+              >
+                {a.role}
+              </span>
+              <span className="shrink-0 text-white/80">{activityLabel(a)}</span>
+              {a.clause && (
+                <span className="text-white/40 truncate" title={a.clause}>
+                  {a.clause}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Custom fact */}

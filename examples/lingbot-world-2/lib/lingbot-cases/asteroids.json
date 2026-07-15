@@ -118,6 +118,12 @@
         "actor": "director",
         "detail": "A friendly repair beacon — a compact drone-buoy pulsing with steady green light and ringed by a soft healing glow — drifts into view among the asteroids ahead and hovers, sweeping a gentle restorative beam of green energy over the ship's hull. EXACTLY ONE repair beacon in frame — one single buoy, no second beacon, no duplicate and no clone of it. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
         "health": 10
+      },
+      {
+        "name": "Planet Looms Closer",
+        "actor": "director",
+        "detail": "A vast planet swells larger and larger dead ahead through the starfield, looming steadily closer as the ship races toward it — its curved surface, swirling cloud bands and glowing atmosphere growing to fill more and more of the view, drawing nearer and nearer and dominating the starfield ahead. EXACTLY ONE planet, a single planet, no second planet, no duplicate and no clone.",
+        "health": 0
       }
     ],
     "jumpPrompt": "The ship pitches up and climbs, its thrusters flaring as the nose lifts and it ascends above the asteroid field toward the open starfield, then settles into level flight higher up.",

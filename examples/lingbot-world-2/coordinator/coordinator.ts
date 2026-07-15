@@ -60,6 +60,24 @@ let entityCount = 0;
 let chunks = 0;
 let won = false;
 
+// Live activity feed: each accepted state-changing director/player op is
+// broadcast so the UI can show WHO did WHAT (e.g. the AI director's fires),
+// not just the resulting projected prompt. `seq` gives each entry a stable id.
+let activitySeq = 0;
+function broadcastActivity(m: Op): void {
+  sendAll(
+    JSON.stringify({
+      type: "activity",
+      id: ++activitySeq,
+      role: m.role ?? "?",
+      op: m.op,
+      key: m.fact?.key ?? m.key,
+      clause: m.fact?.clause,
+      change: m.change,
+    }),
+  );
+}
+
 function checkWin(): void {
   const obj = objective as { durationChunks?: number; reward?: string } | null;
   if (won || !obj?.reward || !obj.durationChunks) return;
@@ -70,6 +88,7 @@ function checkWin(): void {
   const key = "scene:" + ev.name.toLowerCase().replace(/\s+/g, "_");
   history.assert({ key, clause: ev.clause, weight: 2, life: { kind: "sustained" } });
   console.log(`[coordinator] WIN — fired reward "${ev.name}" (survived ${chunks} chunks)`);
+  sendAll(JSON.stringify({ type: "won", reward: ev.name })); // client shows the win banner
   broadcast();
 }
 
@@ -184,6 +203,10 @@ function broadcastMode(): void {
 }
 
 wss.on("connection", (ws) => {
+  console.log(`[coordinator] client connected  (${wss.clients.size} total)`);
+  ws.on("close", () =>
+    console.log(`[coordinator] client disconnected  (${wss.clients.size} total)`),
+  );
   // Hand the newcomer the current state so a late-joining Director (or a
   // Player that reloaded) sees the live world immediately.
   ws.send(JSON.stringify({ type: "facts", prompt: history.project() }));
@@ -215,7 +238,21 @@ wss.on("connection", (ws) => {
       !opAllowed(m.role)
     ) {
       logCommand({ role: m.role, op: m.op, gated: true }); // record the drop too
+      if (m.role === "ai" || m.role === "human")
+        console.log(
+          `[coordinator] DROP ${m.role} ${m.op} ${m.fact?.key ?? m.key ?? ""} ` +
+            `(mode=${directorMode} blocks ${m.role})`,
+        );
       return;
+    }
+    // Console-log every director (ai/human) op so you can see WHEN the AI is
+    // calling in and what it fires — the player's own ops stay file-only (noisy).
+    if (m.role === "ai" || m.role === "human") {
+      const detail =
+        (m.fact?.key ? ` ${m.fact.key}` : m.key ? ` ${m.key}` : "") +
+        (m.change ? ` ${JSON.stringify(m.change)}` : "") +
+        (m.fact?.clause ? `  "${m.fact.clause.slice(0, 60)}"` : "");
+      console.log(`[coordinator] ${m.role} ${m.op}${detail}`);
     }
     // Log every accepted command (player + directors) to the file.
     logCommand({
@@ -228,7 +265,20 @@ wss.on("connection", (ws) => {
       cmd: m.cmd,
       detail: m.detail,
     });
-    // Feed the UI activity log with meaningful actions (skip noisy setup/ticks).
+    // Feed the UI activity log with meaningful actions (skip noisy setup/ticks
+    // and no-op vitals like health:0 that carry no real change).
+    const c = m.change ?? {};
+    const meaningfulVital =
+      c.setHealth !== undefined ||
+      (typeof c.health === "number" && c.health !== 0) ||
+      !!c.addItem || !!c.removeItem || !!c.reset;
+    if (
+      m.op === "assert" || m.op === "retract" ||
+      m.op === "count" || m.op === "clear" ||
+      (m.op === "vital" && meaningfulVital)
+    ) {
+      broadcastActivity(m);
+    }
     switch (m.op) {
       case "log":
         break; // record-only; nothing to apply
