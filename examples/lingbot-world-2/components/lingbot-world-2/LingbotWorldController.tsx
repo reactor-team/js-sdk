@@ -1193,6 +1193,13 @@ export function LingbotWorldController({ className }: { className?: string }) {
         }
         return null;
       });
+      // Model session disconnected -> clear the SELECTED GAME on the shared
+      // coordinator so the AI director goes idle (no game) instead of directing a
+      // phantom scene. The coordinator also unloads on socket close, but a session
+      // Disconnect can happen with the tab (and coordinator socket) still open.
+      if (coordConnectedRef.current) {
+        coordWsRef.current?.send(JSON.stringify({ op: "game", slug: "" }));
+      }
       // Note: do NOT clear overrides on disconnect; they're a presets
       // store that should persist across sessions.
     }

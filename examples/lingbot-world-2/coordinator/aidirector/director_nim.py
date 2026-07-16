@@ -16,7 +16,7 @@ import os
 import time
 
 from director_common import USER_TEXT, load_scene, make_probe, run_director, resolve_model
-from client import NVIDIA_URL, DEFAULT_MODEL, make_client, vlm_call
+from client import NVIDIA_URL, DEFAULT_MODEL, make_client, vlm_call, text_call
 
 # Timestamp this module's log lines too (HH:MM:SS, no date), matching the runtime
 # loop in director_common. Shadows the builtin print for this module only.
@@ -50,9 +50,9 @@ def main():
     ap.add_argument("--max-px", type=int, default=768, help="max frame dimension sent")
     ap.add_argument("--no-probe", action="store_true",
                     help="disable the probe pass (the AI director's eyes); decide from the frame alone")
-    ap.add_argument("--fire-cooldown", type=int, default=3,
-                    help="min chunks between fires (paces the director; default 3, 0 = off). Stops it "
-                         "firing every frame")
+    ap.add_argument("--fire-cooldown", type=int, default=6,
+                    help="min chunks between fires (paces the director; default 6, 0 = off). Longer "
+                         "spacing = calmer arc; stops it firing every frame")
     ap.add_argument("--warmup", type=float, default=5.0,
                     help="seconds to do NOTHING at the start of a game so the scene establishes "
                          "(default 5, 0 = off)")
@@ -77,8 +77,6 @@ def main():
                     help="ADD submerged/duplicate/off-frame invariant probes (auto consistency fixes).")
     ap.add_argument("--probe-state", action="store_true",
                     help="ADD alt base-version state probes (e.g. overboard).")
-    ap.add_argument("--probe-gated", action="store_true",
-                    help="ALSO probe gated events (default skips events with a `requires` gate).")
     args = ap.parse_args()
     args.model = resolve_model(args.model)  # expand a shortcut (cosmos) to the full slug
     debug = not args.quiet  # detailed shell logging is ON by default
@@ -111,7 +109,10 @@ def main():
               "to inference-api.nvidia.com? NOT starting the AI director.", flush=True)
         return  # no model -> don't start (mirrors: disconnect unloads + stops)
     vlm = make_vlm(client, args.model, args.max_px)
-    decide = lambda frame, system: vlm(frame, system, USER_TEXT, 384)  # noqa: E731
+    # decide reasons from STATE/History only (carried in `system`) — NO frame. The
+    # probe is the sole vision call; decide is a text call. `frame` arg kept for the
+    # call-site signature but ignored.
+    decide = lambda frame, system: text_call(client, args.model, system, USER_TEXT, 384)[0]  # noqa: E731
     scene = load_scene(args.scene)
 
     # Probe pass = the AI director's eyes. Needs the FULL scene JSON (derive_probes),
@@ -119,8 +120,7 @@ def main():
     # Checklist sizing shared by the launch scene and every reload_game() switch.
     probe_opts = dict(include_player_actions=args.probe_player_actions,
                       include_invariants=args.probe_invariants,
-                      include_state=args.probe_state,
-                      only_ungated=not args.probe_gated)
+                      include_state=args.probe_state)
     probe = None
     if not args.no_probe and args.scene and os.path.isfile(args.scene):
         scene_json = json.load(open(args.scene, encoding="utf-8"))

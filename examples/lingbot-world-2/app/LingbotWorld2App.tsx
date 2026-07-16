@@ -146,8 +146,11 @@ function MainContent() {
 
           {/* Video + controls — stacked in the right column */}
           <div className="order-1 flex min-w-0 flex-col gap-4 lg:order-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+            {/* Human Director — sits ABOVE the video. `shrink-0` on the video box
+                below keeps the video at full size when this panel expands; the
+                column just scrolls / the video moves down instead of compressing. */}
             <DirectorPanel visible={directorOpen} onClose={() => setDirectorOpen(false)} />
-            <div className="relative bg-black rounded-xl overflow-hidden border border-white/[0.08] aspect-video">
+            <div className="relative shrink-0 bg-black rounded-xl overflow-hidden border border-white/[0.08] aspect-video">
               <LingbotWorld2MainVideoView
                 videoObjectFit="contain"
                 style={{
@@ -164,8 +167,6 @@ function MainContent() {
               {hud}
               {/* Persistent runtime switch for the active director */}
               <DirectorModeSwitch />
-              {/* Human Director — toggleable panel, world controls (weather /
-                  spawns / vitals / mode), a peer of the Player's controls. */}
               {!directorOpen && (
                 <Button
                   size="xs"

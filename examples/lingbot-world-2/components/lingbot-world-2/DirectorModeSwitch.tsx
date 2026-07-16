@@ -15,7 +15,7 @@ export function DirectorModeSwitch() {
   const wsUrl = process.env.NEXT_PUBLIC_COORDINATOR_WS;
   const wsRef = useRef<WebSocket | null>(null);
   const [connected, setConnected] = useState(false);
-  const [mode, setMode] = useState<string>("ai"); // matches the coordinator default until it broadcasts
+  const [mode, setMode] = useState<string>("human"); // matches the coordinator default until it broadcasts
 
   useEffect(() => {
     if (!wsUrl) return;

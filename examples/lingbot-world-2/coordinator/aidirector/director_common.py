@@ -50,10 +50,16 @@ You may ONLY trigger events from this list — the SAME set the human director h
 Do NOT invent new events or write your own prose:
 {events_list}
 
+You decide from the STATE below (world facts, verified observations, objective, health, and
+what you have already fired) — reason about the game state, not a picture.
+
 RULES:
-- Trigger an event only when it is PLAUSIBLE and fitting given what is visible in the frame and the objective.
+- Trigger an event only when it is PLAUSIBLE and fitting given the current world state and the objective.
 - If the Current world facts or Verified observations show an event is ALREADY in progress, do NOT
   fire it again or stack a competing one — return an empty list and let the current event play out.
+- If the world facts or observations show the character is CURRENTLY in a battle or mid-action
+  (fighting, being attacked, falling, or actively engaged), do NOT introduce a new event — return an
+  empty list and let the current action resolve first.
 - Fire AT MOST ONE event: return either an empty list [] or a SINGLE event. NEVER more than one.
   Most of the time an empty list is correct — only fire when the moment genuinely calls for it.
 
@@ -64,7 +70,7 @@ Current world facts: {facts}
 Verified observations (from probes — what is ACTUALLY on screen now; trust these over your own read): {observed}
 Current health: {health}"""
 
-USER_TEXT = "Here is the latest frame. Choose which authored events to fire, as JSON only."
+USER_TEXT = "Based on the current world state and objective, choose which authored event (if any) to fire, as JSON only."
 
 # User text for a probe (checklist) call — the derived questions are appended after it.
 PROBE_USER = ("Answer each of these yes/no questions about the image. Respond with ONLY a "
@@ -79,22 +85,28 @@ def make_probe(vlm, scene_json, debug=False, **probe_opts):
     resolves answers into coordinator ops (invariant re-anchors) + a flat observation
     map. This is the AI director's eyes — grounding/verification, not a driving path.
     `probe_opts` pass straight to derive_probes (include_player_actions,
-    include_invariants, include_state, only_ungated) to size the checklist.
+    include_invariants, include_state) to size the checklist. Each event probe is
+    tagged with its `requires` gate; probe(frame, state) asks ONLY the probes whose
+    gate is currently valid (ungated always; gated once its predecessor has fired).
     """
     derived = derive_probes(scene_json, **probe_opts)
-    probes = derived["probes"]
-    questions = "\n".join(f'- {p["id"]}: {p["q"]}' for p in probes)
-    user = PROBE_USER + "\n\n" + questions
+    all_probes = derived["probes"]
     if debug:
-        print(f"[director:dbg] probe checklist derived: {len(probes)} questions", flush=True)
-        for p in probes:
-            print(f"[director:dbg]   ? {p['id']}: {p['q']}", flush=True)
+        print(f"[director:dbg] probe checklist derived: {len(all_probes)} questions", flush=True)
+        for p in all_probes:
+            gate = " [gated]" if p.get("requires") else ""
+            print(f"[director:dbg]   ? {p['id']}: {p['q']}{gate}", flush=True)
 
-    def probe(frame):
+    def probe(frame, state=None):
+        # Ask only gate-valid probes this frame (ungated + unlocked gated events).
+        active = [p for p in all_probes if _gate_ok(p.get("requires"), state or {})]
+        questions = "\n".join(f'- {p["id"]}: {p["q"]}' for p in active)
+        user = PROBE_USER + "\n\n" + questions
         raw = vlm(frame, derived["system"], user, 512)
         answers = parse_json(raw) or {}
-        ops, obs = resolve(answers, probes)
+        ops, obs = resolve(answers, active)
         if debug:
+            print(f"[director:dbg] probe: asked {len(active)}/{len(all_probes)} (gate-valid)", flush=True)
             print(f"[director:dbg] probe raw reply: {raw[:600]}", flush=True)
             trues = [k for k, v in answers.items() if v]
             print(f"[director:dbg] probe answers (true): {trues or '(none)'}", flush=True)
@@ -149,16 +161,18 @@ def _event_summary(clause):
 
 def _gate_ok(requires, state):
     """Python mirror of isEventAvailable (lib/lingbot-world-prompts.ts): a director
-    event is only a valid AI trigger when its declarative `requires` gate holds
-    against shared state. This keeps the AI director honest about authored
-    dependency chains (e.g. Police Car only AFTER Gunman on the Fire Escape).
-    Names are normalized so display/slug forms match. `hasItem` is not gated here
-    because the AI-director state does not track inventory; `minChunks` uses the
-    director `step` counter as the elapsed-time proxy."""
+    event is only a valid AI trigger when its declarative `requires` gate holds.
+    Gating reads the ONE shared History (`shared_fired`, derived from the
+    coordinator's projected facts), NOT the director's local arc memory — there is
+    exactly one History, so a predecessor fired by ANYONE (human, AI, or the win
+    clock) unlocks the gate (e.g. Police Car only AFTER Gunman on the Fire Escape).
+    Names are normalized so display/slug forms match. `hasItem` is not gated here;
+    `minChunks` uses the director `step` counter as the elapsed-time proxy."""
     g = requires
     if not g:
         return True
-    fired = {_norm_name(f) for f in (state.get("fired") or [])}
+    # The single source of truth for what has fired is the coordinator's History.
+    fired = {_norm_name(f) for f in (state.get("shared_fired") or [])}
     if g.get("fired") and not all(_norm_name(n) in fired for n in g["fired"]):
         return False
     if g.get("notFired") and any(_norm_name(n) in fired for n in g["notFired"]):
@@ -239,7 +253,8 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
     # Latest state pushed by the coordinator (facts + vitals) for prompt context.
     # `fired` = short memory of the arc (event names introduced); `step` = pacing.
     # `observations` = the probe read of the current frame (the AI director's eyes).
-    state = {"facts": "", "health": 100, "fired": [], "step": 0, "observations": {}}
+    state = {"facts": "", "health": 100, "fired": [], "step": 0, "observations": {},
+             "shared_fired": set()}  # the ONE History's fired-set (gate source)
     # Probe lives in a holder so a game switch (see the "game" message) can swap it.
     pstate = {"probe": probe}
     # Model-server health: the director starts only when the model is reachable
@@ -291,6 +306,17 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                     if m.get("type") == "facts":
                         state["facts"] = m.get("prompt", "")
                         dbg(f"<- facts: {(m.get('prompt') or '')[:160]}")
+                    elif m.get("type") == "state":
+                        # The ONE shared History. Every fired event is a `scene:<slug>`
+                        # fact here, regardless of who fired it (human, AI, win clock), so
+                        # this is the authoritative fired-set the gate reads (_gate_ok).
+                        fired = set()
+                        for f in (m.get("facts") or []):
+                            k = f.get("key", "") if isinstance(f, dict) else ""
+                            if k.startswith("scene:"):
+                                fired.add(k[len("scene:"):].replace("_", " "))
+                        state["shared_fired"] = fired
+                        dbg(f"<- state: shared_fired={sorted(fired)}")
                     elif m.get("type") == "vitals":
                         state["health"] = m.get("health", state["health"])
                         dbg(f"<- vitals: health={state['health']}")
@@ -495,7 +521,7 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                             dbg(f"decide system prompt ({len(system_text)} chars):")
                             print(system_text, flush=True)
                         probe_co = (
-                            _timed_call(pstate["probe"], frame)
+                            _timed_call(pstate["probe"], frame, state)
                             if pstate["probe"] is not None else _noop_call()
                         )
                         (p_res, p_err, t_probe), (raw, d_err, t_decide) = await asyncio.gather(
@@ -542,10 +568,10 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                         # Heartbeat state: show the director looked even when it fires
                         # nothing, so the activity feed doesn't look dead (see below).
                         did_fire = False
-                        look_reason = "looked — no event"
+                        look_reason = "new frame — no event"
                         if raw and result is None:
                             dbg("decide reply did NOT parse as JSON")
-                            look_reason = "looked — unparseable reply"
+                            look_reason = "new frame — unparseable reply"
                             await ws.send(
                                 json.dumps({"op": "log", "role": "ai", "cmd": "error",
                                             "detail": "VLM returned unparseable JSON"})
@@ -563,10 +589,10 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                             if wanted and fire_cooldown and (state["step"] - last_fire_step) < fire_cooldown:
                                 wait = fire_cooldown - (state["step"] - last_fire_step)
                                 dbg(f"  cooldown: would fire {wanted[0]!r} but {wait} chunk(s) left — holding")
-                                look_reason = f"looked — holding {wanted[0]} ({wait} chunk cooldown)"
+                                look_reason = f"new frame — holding {wanted[0]} ({wait} chunk cooldown)"
                                 wanted = []
                             elif not wanted:
-                                look_reason = "looked — chose no event"
+                                look_reason = "new frame — chose no event"
                             for name in wanted:
                                 ev = by_name.get(_norm_name(name))
                                 if not ev or not ev["clause"]:

@@ -43,12 +43,12 @@ def _slug(name):
 
 
 def derive_probes(scene, include_player_actions=True, include_invariants=False,
-                  include_state=False, only_ungated=True):
-    """Build the yes/no checklist from the scene. Defaults produce the LEAN set:
-    ungated director-event + ungated player-action presence probes, nothing else.
-    Toggle categories to trade probe cost for grounding:
-      - `only_ungated` (default ON) — skip any event that has a `requires` gate; no
-        point probing for a beat that can't fire/hasn't unlocked yet.
+                  include_state=False):
+    """Build the yes/no checklist from the scene. Each director-event and player-action
+    probe is TAGGED with its `requires` gate; the probe pass (make_probe) then asks only
+    the ones whose gate is currently VALID (ungated events always; gated events once
+    their predecessor has fired) — so the checklist tracks the live arc instead of
+    statically dropping every gated beat. Category toggles:
       - `include_player_actions` (default ON) — "is the character doing X?" probes.
       - `include_invariants` (default OFF) — submerged / duplicate / off-frame checks
         that fire a corrective re-anchor on YES (the automatic consistency fixes).
@@ -81,33 +81,32 @@ def derive_probes(scene, include_player_actions=True, include_invariants=False,
                                "onTrue": {"op": "assert", "key": "fix:" + r["id"], "clause": r["clause"]},
                                "observe": r["id"]})
 
-    # director events -> presence observation. Skip gated events (only_ungated): a
-    # locked beat isn't on screen yet, so probing for it is wasted.
+    # director events -> presence observation, TAGGED with the event's gate. The probe
+    # pass asks it only when the gate is currently valid (ungated -> always; gated ->
+    # once its predecessor has fired), so locked beats aren't probed until they unlock.
     for e in sc.get("events", []) or []:
         if e.get("actor") != "director":
-            continue
-        if only_ungated and e.get("requires"):
             continue
         det = e.get("detail")
         gloss = _first_sentence(det if isinstance(det, str) else (det or {}).get("static", ""), 90)
         probes.append({"id": _slug(e.get("name", "")),
                        "q": f"Is this visible in the frame now: {gloss}",
-                       "observe": _slug(e.get("name", ""))})
+                       "observe": _slug(e.get("name", "")),
+                       "requires": e.get("requires")})
 
     # player actions (actor "player" or unset default) -> "is the character doing this
-    # now?" observation. Same ungated filter — a locked action can't be happening yet.
+    # now?" observation. Same gate tag — a locked action can't be happening yet.
     if include_player_actions:
         for e in sc.get("events", []) or []:
             if e.get("actor", "player") != "player":
-                continue
-            if only_ungated and e.get("requires"):
                 continue
             det = e.get("detail")
             gloss = _first_sentence(det if isinstance(det, str) else (det or {}).get("static", ""), 90)
             pid = "doing_" + _slug(e.get("name", ""))  # "doing_" avoids colliding with "Player X" director-event slugs
             probes.append({"id": pid,
                            "q": f"Is the main character performing this action right now: {gloss}",
-                           "observe": pid})
+                           "observe": pid,
+                           "requires": e.get("requires")})
 
     system = ("You are a visual state checker. Answer each question true or false about the "
               "image. Respond with ONLY a JSON object mapping each id to true or false.")

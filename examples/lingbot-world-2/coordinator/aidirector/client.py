@@ -71,6 +71,21 @@ def vlm_call(client, model, frame, system, user, max_tokens=512, max_px=768, tem
     return text, resp
 
 
+def text_call(client, model, system, user, max_tokens=384, temperature=0.0):
+    """Text-only completion (NO image). The director's decide() reasons purely from
+    the shared state/History carried in the system prompt — the probe is the sole
+    vision call ('eyes'); decide is the 'brain' over state. Returns (reply_text, resp)."""
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+    resp = client.chat.completions.create(
+        model=model, messages=messages, temperature=temperature, max_tokens=max_tokens
+    )
+    text = (resp.choices[0].message.content or "").strip() if resp.choices else ""
+    return text, resp
+
+
 def parse_json(text):
     """First {...} block, with any <think>…</think> reasoning trace stripped first."""
     text = re.sub(r"<think>.*?</think>", "", text or "", flags=re.DOTALL)
