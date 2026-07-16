@@ -15,7 +15,7 @@ import type {
   TransportEvent,
 } from "./TransportClient";
 import type { MessageScope, ConnectionStats } from "../types";
-import { AbortError } from "../types";
+import { AbortError, SessionLostError } from "../types";
 import { type JwtResolver, normalizeJwtSource } from "./auth";
 import {
   type TrackCapability,
@@ -284,6 +284,11 @@ export class WebRTCTransportClient implements TransportClient {
 
     if (response.status !== 201) {
       const errorText = await response.text();
+      if (response.status === 400) {
+        throw new SessionLostError(
+          `Failed to register connection: ${response.status} ${errorText}`
+        );
+      }
       throw new Error(
         `Failed to register connection: ${response.status} ${errorText}`
       );
@@ -346,7 +351,7 @@ export class WebRTCTransportClient implements TransportClient {
         );
       }
       if (response.status === 400) {
-        throw new Error(
+        throw new SessionLostError(
           `[WebRTCTransport] Connection ${connectionId} rejected (400): ${errorText}`
         );
       }

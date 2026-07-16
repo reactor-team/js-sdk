@@ -8,6 +8,7 @@ import {
   type ConnectionStats,
   type ConnectionTimings,
   isAbortError,
+  isSessionLostError,
 } from "../types";
 import { type JwtResolver, type JwtSource, normalizeJwtSource } from "./auth";
 import { CoordinatorClient } from "./CoordinatorClient";
@@ -65,6 +66,7 @@ export class Reactor {
    * down its own transport but leaves the session alive.
    */
   private createdSession = false;
+  private retryingSessionLoss = false;
   private connectStartTime?: number;
   private connectionTimings?: ConnectionTimings;
 
@@ -553,6 +555,24 @@ export class Reactor {
       };
     } catch (error) {
       if (isAbortError(error)) return;
+
+      if (
+        !options?.sessionId &&
+        !this.retryingSessionLoss &&
+        isSessionLostError(error)
+      ) {
+        this.retryingSessionLoss = true;
+        this.coordinatorClient?.abort();
+        this.transportClient?.abort();
+        this.transportClient?.disconnect();
+        this.setStatus("disconnected");
+        try {
+          await this.connect(jwtToken, options);
+          return;
+        } finally {
+          this.retryingSessionLoss = false;
+        }
+      }
 
       console.error("[Reactor] Connection failed:", error);
       this.createError(

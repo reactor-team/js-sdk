@@ -12,6 +12,7 @@
  */
 
 import { CoordinatorClient } from "./CoordinatorClient";
+import { SessionLostError } from "../types";
 import {
   type CreateSessionResponse,
   type SessionResponse,
@@ -66,6 +67,11 @@ export class LocalCoordinatorClient extends CoordinatorClient {
 
     if (!response.ok) {
       const errorText = await response.text();
+      if (response.status === 400) {
+        throw new SessionLostError(
+          `Failed to start session: ${response.status} ${errorText}`
+        );
+      }
       throw new Error(
         `Failed to start session: ${response.status} ${errorText}`
       );
