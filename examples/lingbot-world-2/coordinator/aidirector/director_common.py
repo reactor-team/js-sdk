@@ -71,15 +71,17 @@ PROBE_USER = ("Answer each of these yes/no questions about the image. Respond wi
               "JSON object mapping each id to true or false.")
 
 
-def make_probe(vlm, scene_json, debug=False):
+def make_probe(vlm, scene_json, debug=False, **probe_opts):
     """Build a probe(frame) -> (ops, observations) from the FULL scene JSON.
 
     Reuses the backend's vlm(frame, system, user_text) call. Derives the typed
     checklist once (scene_probes.derive_probes), asks it in ONE call per frame, and
     resolves answers into coordinator ops (invariant re-anchors) + a flat observation
     map. This is the AI director's eyes — grounding/verification, not a driving path.
+    `probe_opts` pass straight to derive_probes (include_player_actions,
+    include_invariants, include_state, only_ungated) to size the checklist.
     """
-    derived = derive_probes(scene_json)
+    derived = derive_probes(scene_json, **probe_opts)
     probes = derived["probes"]
     questions = "\n".join(f'- {p["id"]}: {p["q"]}' for p in probes)
     user = PROBE_USER + "\n\n" + questions
@@ -346,7 +348,10 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                         scene["dir_events"] = [
                             {"name": e.get("name", ""), "clause": e.get("clause", ""),
                              "health": e.get("health"), "addItem": e.get("addItem"),
-                             "available": e.get("available")}
+                             # requires = evaluated against the director's OWN fired-state
+                             # (authoritative for its arc); available = the player-computed
+                             # flag as a fallback. _event_open prefers requires.
+                             "requires": e.get("requires"), "available": e.get("available")}
                             for e in evs if e.get("name")
                         ]
                         dbg(f"<- scene_events: {len(scene['dir_events'])} events -> {[e['name'] for e in scene['dir_events']]}")

@@ -42,7 +42,17 @@ def _slug(name):
     return re.sub(r"[^a-z0-9]+", "_", (name or "").lower()).strip("_")
 
 
-def derive_probes(scene):
+def derive_probes(scene, include_player_actions=True, include_invariants=False,
+                  include_state=False, only_ungated=True):
+    """Build the yes/no checklist from the scene. Defaults produce the LEAN set:
+    ungated director-event + ungated player-action presence probes, nothing else.
+    Toggle categories to trade probe cost for grounding:
+      - `only_ungated` (default ON) — skip any event that has a `requires` gate; no
+        point probing for a beat that can't fire/hasn't unlocked yet.
+      - `include_player_actions` (default ON) — "is the character doing X?" probes.
+      - `include_invariants` (default OFF) — submerged / duplicate / off-frame checks
+        that fire a corrective re-anchor on YES (the automatic consistency fixes).
+      - `include_state` (default OFF) — alt base-version state probes (e.g. overboard)."""
     sc = scene.get("scene", scene)  # accept a full example or a bare scene
     base = sc.get("base", {}) or {}
     probes = []
@@ -55,23 +65,28 @@ def derive_probes(scene):
     low = " ".join(parts).lower()
 
     # alt base versions -> "is the scene in this state?"
-    for v in base:
-        if v in ("default", "empty"):
-            continue
-        probes.append({"id": f"state_{v}",
-                       "q": f"Is the scene in the '{v}' state — {_first_sentence(base[v], 70)}",
-                       "observe": f"state:{v}"})
+    if include_state:
+        for v in base:
+            if v in ("default", "empty"):
+                continue
+            probes.append({"id": f"state_{v}",
+                           "q": f"Is the scene in the '{v}' state — {_first_sentence(base[v], 70)}",
+                           "observe": f"state:{v}"})
 
     # invariants -> violation check (re-anchor on yes)
-    for r in _INVARIANT_RULES:
-        if any(m in low for m in r["markers"]):
-            probes.append({"id": r["id"], "q": r["q"],
-                           "onTrue": {"op": "assert", "key": "fix:" + r["id"], "clause": r["clause"]},
-                           "observe": r["id"]})
+    if include_invariants:
+        for r in _INVARIANT_RULES:
+            if any(m in low for m in r["markers"]):
+                probes.append({"id": r["id"], "q": r["q"],
+                               "onTrue": {"op": "assert", "key": "fix:" + r["id"], "clause": r["clause"]},
+                               "observe": r["id"]})
 
-    # director events -> presence observation
+    # director events -> presence observation. Skip gated events (only_ungated): a
+    # locked beat isn't on screen yet, so probing for it is wasted.
     for e in sc.get("events", []) or []:
         if e.get("actor") != "director":
+            continue
+        if only_ungated and e.get("requires"):
             continue
         det = e.get("detail")
         gloss = _first_sentence(det if isinstance(det, str) else (det or {}).get("static", ""), 90)
@@ -80,17 +95,19 @@ def derive_probes(scene):
                        "observe": _slug(e.get("name", ""))})
 
     # player actions (actor "player" or unset default) -> "is the character doing this
-    # now?" observation. Lets the AI director SEE what the player just did (fire pistol,
-    # slide, punch) and verify the action actually rendered. Observe-only (no ops).
-    for e in sc.get("events", []) or []:
-        if e.get("actor", "player") != "player":
-            continue
-        det = e.get("detail")
-        gloss = _first_sentence(det if isinstance(det, str) else (det or {}).get("static", ""), 90)
-        pid = "doing_" + _slug(e.get("name", ""))  # "doing_" avoids colliding with "Player X" director-event slugs
-        probes.append({"id": pid,
-                       "q": f"Is the main character performing this action right now: {gloss}",
-                       "observe": pid})
+    # now?" observation. Same ungated filter — a locked action can't be happening yet.
+    if include_player_actions:
+        for e in sc.get("events", []) or []:
+            if e.get("actor", "player") != "player":
+                continue
+            if only_ungated and e.get("requires"):
+                continue
+            det = e.get("detail")
+            gloss = _first_sentence(det if isinstance(det, str) else (det or {}).get("static", ""), 90)
+            pid = "doing_" + _slug(e.get("name", ""))  # "doing_" avoids colliding with "Player X" director-event slugs
+            probes.append({"id": pid,
+                           "q": f"Is the main character performing this action right now: {gloss}",
+                           "observe": pid})
 
     system = ("You are a visual state checker. Answer each question true or false about the "
               "image. Respond with ONLY a JSON object mapping each id to true or false.")

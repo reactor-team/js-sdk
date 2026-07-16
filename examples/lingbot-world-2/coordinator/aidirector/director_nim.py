@@ -69,6 +69,16 @@ def main():
                          "fresh frames always wins. Billed per look.")
     ap.add_argument("--no-self-feed", dest="self_feed", action="store_false",
                     help="disable self-feed (rely solely on an external frame tap / feeder).")
+    # Probe checklist sizing. Default is the LEAN set: ungated director-event + ungated
+    # player-action presence probes only (no invariants, no alt-state). Flags add back.
+    ap.add_argument("--no-player-actions", dest="probe_player_actions", action="store_false",
+                    help="drop the 'is the character doing X now?' player-action probes.")
+    ap.add_argument("--probe-invariants", action="store_true",
+                    help="ADD submerged/duplicate/off-frame invariant probes (auto consistency fixes).")
+    ap.add_argument("--probe-state", action="store_true",
+                    help="ADD alt base-version state probes (e.g. overboard).")
+    ap.add_argument("--probe-gated", action="store_true",
+                    help="ALSO probe gated events (default skips events with a `requires` gate).")
     args = ap.parse_args()
     args.model = resolve_model(args.model)  # expand a shortcut (cosmos) to the full slug
     debug = not args.quiet  # detailed shell logging is ON by default
@@ -106,10 +116,15 @@ def main():
 
     # Probe pass = the AI director's eyes. Needs the FULL scene JSON (derive_probes),
     # not the trimmed load_scene() view. Skipped with --no-probe or if no scene given.
+    # Checklist sizing shared by the launch scene and every reload_game() switch.
+    probe_opts = dict(include_player_actions=args.probe_player_actions,
+                      include_invariants=args.probe_invariants,
+                      include_state=args.probe_state,
+                      only_ungated=not args.probe_gated)
     probe = None
     if not args.no_probe and args.scene and os.path.isfile(args.scene):
         scene_json = json.load(open(args.scene, encoding="utf-8"))
-        probe = make_probe(vlm, scene_json, debug=debug)
+        probe = make_probe(vlm, scene_json, debug=debug, **probe_opts)
 
     # reload_game(slug) lets the director FOLLOW the UI: on a game switch it loads
     # that scene file and rebuilds identity + events + the probe checklist.
@@ -143,7 +158,7 @@ def main():
         with open(path, encoding="utf-8") as f:
             sj = json.load(f)
         new_scene = load_scene(path)
-        new_probe = make_probe(vlm, sj, debug=debug) if not args.no_probe else None
+        new_probe = make_probe(vlm, sj, debug=debug, **probe_opts) if not args.no_probe else None
         # Resolve the scene's still image (for the cloud-mode frame feed). image.src
         # is a web path like /lingbot-cases/foo.jpg; fall back to the file stem.
         src = (sj.get("image") or {}).get("src") or ""

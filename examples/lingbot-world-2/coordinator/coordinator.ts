@@ -174,6 +174,9 @@ interface SceneEvent {
   clause: string;
   health?: number;
   addItem?: string;
+  count?: number;
+  available?: boolean; // player-computed gate flag (forwarded to the AI director)
+  requires?: unknown; // raw declarative gate, evaluated by the AI director itself
 }
 let sceneEvents: SceneEvent[] = [];
 let objective: unknown = null; // the active scene's objective (summary + director)
