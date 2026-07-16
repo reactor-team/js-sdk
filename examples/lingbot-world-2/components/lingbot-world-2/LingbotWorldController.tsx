@@ -1707,7 +1707,14 @@ export function LingbotWorldController({ className }: { className?: string }) {
           (ev.health !== undefined || ev.addItem || ev.removeItem)
             ? { health: ev.health, addItem: ev.addItem, removeItem: ev.removeItem }
             : vitalForEvent(ev?.name);
-        if (change) applyVital(change, ev?.name); // name -> shows in the activity feed
+        if (change) {
+          applyVital(change, ev?.name); // vital carries the name -> "player · <action> (+X)"
+        } else if (ev?.name && coordConnectedRef.current) {
+          // No vital: still log the action so EVERY player action shows in the feed, in order.
+          coordWsRef.current?.send(
+            JSON.stringify({ op: "log", role: "player", cmd: "action", detail: ev.name, name: ev.name }),
+          );
+        }
       }
       setHeldSlots(heldSlotsRef.current);
       recomputePromptAndSend();

@@ -12,6 +12,7 @@ import { SnapClip } from "@/components/SnapClip";
 import { LingbotWorldController } from "@/components/lingbot-world-2/LingbotWorldController";
 import { DirectorPanel } from "@/components/lingbot-world-2/DirectorPanel";
 import { DirectorModeSwitch } from "@/components/lingbot-world-2/DirectorModeSwitch";
+import { ActivityTicker } from "@/components/lingbot-world-2/ActivityTicker";
 
 // Reactor coordinator the SDK connects to. Override with
 // NEXT_PUBLIC_COORDINATOR_URL in .env.local if you need a different one.
@@ -138,6 +139,7 @@ function MainContent() {
             <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 sm:p-4">
               {sidebar}
             </div>
+            <ActivityTicker />
             <SnapClip />
           </div>
 

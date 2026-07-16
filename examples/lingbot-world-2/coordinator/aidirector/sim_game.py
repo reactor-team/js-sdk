@@ -15,10 +15,16 @@ import websockets
 
 
 async def run(url, slug):
+    # "none"/"unload"/"-" -> empty slug, which UNLOADS the game (director goes idle).
+    if slug.lower() in ("none", "unload", "-"):
+        slug = ""
     async with websockets.connect(url) as ws:
         await ws.send(json.dumps({"op": "clear", "role": "player"}))
         await ws.send(json.dumps({"op": "game", "role": "player", "slug": slug}))
-        print(f"[sim] sent game switch -> {slug}  (director should log '=== GAME START ==='", flush=True)
+        if slug:
+            print(f"[sim] sent game switch -> {slug}  (director should log '=== GAME START ===')", flush=True)
+        else:
+            print("[sim] sent UNLOAD  (director should log '=== GAME UNLOADED ===')", flush=True)
         await asyncio.sleep(0.3)
 
 

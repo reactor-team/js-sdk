@@ -174,6 +174,7 @@ interface SceneEvent {
 let sceneEvents: SceneEvent[] = [];
 let objective: unknown = null; // the active scene's objective (summary + director)
 let activeGame = ""; // active scene slug (UI selection) — the AI director follows this
+let gameOwner: WebSocket | null = null; // the Player socket that loaded the active game
 const directorSockets = new Set<WebSocket>(); // sockets that registered as the AI director
 
 interface Op {
@@ -214,6 +215,30 @@ function broadcastGame(): void {
   sendAll(JSON.stringify({ type: "game", slug: activeGame }));
 }
 
+// Unload the active game -> blank/no-game state. Clears every scene-scoped store so
+// the next game (or an idle coordinator) starts clean. Called on the "game" op with an
+// empty slug and when the Player that owned the game disconnects.
+function unloadGame(reason: string): void {
+  if (!activeGame && sceneEvents.length === 0 && objective == null) return; // already blank
+  activeGame = "";
+  gameOwner = null;
+  sceneEvents = [];
+  objective = null;
+  history.clear();
+  entityCount = 0;
+  chunks = 0;
+  won = false;
+  vitals.health = vitals.maxHealth;
+  vitals.inventory = [];
+  console.log(`[coordinator] game unloaded (${reason})`);
+  broadcastGame();
+  broadcastSceneEvents();
+  broadcastObjective();
+  broadcastVitals();
+  broadcastCount();
+  broadcast();
+}
+
 wss.on("connection", (ws) => {
   console.log(`[coordinator] client connected  (${wss.clients.size} total)`);
   ws.on("close", () => {
@@ -224,6 +249,11 @@ wss.on("connection", (ws) => {
     if (wasDirector) {
       sendAll(JSON.stringify({ type: "activity", id: ++activitySeq, role: "ai", op: "bye" }));
     }
+    // The Player (game owner) leaving unloads the game -> blank state, so a stale scene
+    // doesn't keep driving the AI director with no one rendering it.
+    if (ws === gameOwner) {
+      unloadGame("player disconnected");
+    }
   });
   // Hand the newcomer the current state so a late-joining Director (or a
   // Player that reloaded) sees the live world immediately.
@@ -233,6 +263,11 @@ wss.on("connection", (ws) => {
   ws.send(JSON.stringify({ type: "scene_events", events: sceneEvents }));
   ws.send(JSON.stringify({ type: "objective", objective }));
   if (activeGame) ws.send(JSON.stringify({ type: "game", slug: activeGame }));
+  // Tell a late-joining panel that an AI director is already connected, so its
+  // activity feed shows "ai · director connected" even if it opened after register.
+  if (directorSockets.size > 0) {
+    ws.send(JSON.stringify({ type: "activity", id: ++activitySeq, role: "ai", op: "hello" }));
+  }
   ws.send(
     JSON.stringify({
       type: "state",
@@ -295,7 +330,8 @@ wss.on("connection", (ws) => {
     if (
       m.op === "assert" || m.op === "retract" ||
       m.op === "count" || m.op === "clear" ||
-      (m.op === "vital" && meaningfulVital)
+      (m.op === "vital" && meaningfulVital) ||
+      (m.op === "log" && m.cmd === "action") // a player action with no vital
     ) {
       broadcastActivity(m);
     }
@@ -318,14 +354,22 @@ wss.on("connection", (ws) => {
         sceneEvents = m.events ?? [];
         broadcastSceneEvents();
         break;
-      case "game":
-        if (m.slug && m.slug !== activeGame) {
-          activeGame = m.slug;
-          console.log(`[coordinator] active game -> ${activeGame}`);
-          broadcastActivity(m); // show the switch in the activity feed
-          broadcastGame(); // the AI director reloads this scene
+      case "game": {
+        // An empty slug UNLOADS the game (back to no game); a new slug switches.
+        const newGame = m.slug ?? "";
+        if (newGame !== activeGame) {
+          if (newGame === "") {
+            unloadGame("game op (empty slug)");
+          } else {
+            activeGame = newGame;
+            gameOwner = ws; // the client that loaded the game owns it (the Player)
+            console.log(`[coordinator] active game -> ${activeGame}`);
+            broadcastActivity({ ...m, slug: newGame }); // show it in the activity feed
+            broadcastGame(); // the AI director reloads accordingly
+          }
         }
         break;
+      }
       case "objective": {
         // A changed objective = a game switch. Wipe stale world state so the new
         // game starts clean (old director facts / inventory / spawn count gone).

@@ -41,6 +41,9 @@ def main():
     ap.add_argument("--max-px", type=int, default=768, help="max frame dimension sent")
     ap.add_argument("--no-probe", action="store_true",
                     help="disable the probe pass (the AI director's eyes); decide from the frame alone")
+    ap.add_argument("--fire-cooldown", type=int, default=3,
+                    help="min chunks between fires (paces the director; default 3, 0 = off). Stops it "
+                         "firing every frame")
     ap.add_argument("--quiet", action="store_true",
                     help="turn OFF the detailed per-step debug log (on by default)")
     args = ap.parse_args()
@@ -52,16 +55,23 @@ def main():
         raise SystemExit("Set NVIDIA_API_KEY (nvapi-... key) in the environment.")
 
     client = make_client(api_key, args.base_url)
-    # Check the MODEL server (NVIDIA inference) is reachable + the key is valid, up front.
-    # This is separate from the coordinator connection — the model is the director's brain.
-    model_ok = True
-    try:
-        client.models.list()
+
+    # model_check() pings the MODEL server (NVIDIA inference) — separate from the
+    # coordinator; the model is the director's brain. Reused at startup AND at runtime
+    # so the director never decides (never bills) while the model is unreachable.
+    def model_check():
+        try:
+            client.models.list()
+            return True
+        except Exception:  # noqa: BLE001
+            return False
+
+    if model_check():
         print(f"[director] model check: reachable -> {args.base_url}  ({args.model})", flush=True)
-    except Exception as e:  # noqa: BLE001 — report but don't hard-fail (list may be unsupported)
-        model_ok = False
-        print(f"[director] model check: FAILED ({type(e).__name__}: {e}) -- bad NVIDIA_API_KEY / "
-              f"endpoint? decisions will error if truly unreachable.", flush=True)
+    else:
+        print("[director] model check: FAILED -- model server unreachable "
+              "(bad NVIDIA_API_KEY / endpoint?). NOT starting the AI director.", flush=True)
+        return  # no model -> don't start (mirrors: disconnect unloads + stops)
     vlm = make_vlm(client, args.model, args.max_px)
     decide = lambda frame, system: vlm(frame, system, USER_TEXT, 384)  # noqa: E731
     scene = load_scene(args.scene)
@@ -120,7 +130,8 @@ def main():
     asyncio.run(
         run_director(decide, args.url, args.frame, scene, args.interval, args.once,
                      probe=probe, debug=debug, reload_game=reload_game,
-                     hello_extra={"model": args.model, "modelOk": model_ok})
+                     hello_extra={"model": args.model, "modelOk": True},
+                     model_check=model_check, fire_cooldown=args.fire_cooldown)
     )
 
 

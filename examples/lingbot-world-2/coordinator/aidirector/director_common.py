@@ -42,10 +42,11 @@ RULES:
 - Trigger an event only when it is PLAUSIBLE and fitting given what is visible in the frame and the objective.
 - If the Current world facts or Verified observations show an event is ALREADY in progress, do NOT
   fire it again or stack a competing one — return an empty list and let the current event play out.
-- Choose 0-2 events. An empty list is correct when nothing should change yet.
+- Fire AT MOST ONE event: return either an empty list [] or a SINGLE event. NEVER more than one.
+  Most of the time an empty list is correct — only fire when the moment genuinely calls for it.
 
-Respond with ONLY a JSON object, no prose:
-{{"events": ["<exact event name from the list>"]}}
+Respond with ONLY a JSON object, no prose (0 or 1 event):
+{{"events": ["<single exact event name from the list>"]}}
 
 Current world facts: {facts}
 Verified observations (from probes — what is ACTUALLY on screen now; trust these over your own read): {observed}
@@ -160,13 +161,17 @@ def build_system(scene, state):
 
 
 async def run_director(decide, url, frame_path, scene, interval, once, probe=None, debug=False,
-                       reload_game=None, hello_extra=None):
+                       reload_game=None, hello_extra=None, model_check=None, fire_cooldown=0):
     # Latest state pushed by the coordinator (facts + vitals) for prompt context.
     # `fired` = short memory of the arc (event names introduced); `step` = pacing.
     # `observations` = the probe read of the current frame (the AI director's eyes).
     state = {"facts": "", "health": 100, "fired": [], "step": 0, "observations": {}}
     # Probe lives in a holder so a game switch (see the "game" message) can swap it.
     pstate = {"probe": probe}
+    # Model-server health: the director starts only when the model is reachable
+    # (director_nim exits otherwise); if a decide later fails AND model_check() confirms
+    # the server is down, we unload the game and STOP (see the decide error handler).
+    last_fire_step = -(10 ** 9)  # for --fire-cooldown: don't fire again within N chunks
     last_key_clause = {}  # dedup: only re-assert when a key's clause changes
     last_mtime = 0.0
     last_idle_msg = None  # throttle: only re-print an idle reason when it changes
@@ -218,7 +223,24 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                         # events + probe checklist) so we truly follow the UI, not just
                         # swap the event list. reload_game() returns (scene, probe)|None.
                         slug = m.get("slug") or ""
-                        if slug and slug != state.get("game_slug") and reload_game is not None:
+                        if not slug and state.get("game_slug"):
+                            # UNLOAD: back to no game — revert to the empty startup scene,
+                            # drop probes, reset the arc, clear the feed pointer.
+                            scene.clear()
+                            scene.update(load_scene(""))
+                            pstate["probe"] = None
+                            state["game_slug"] = ""
+                            state["objective_summary"] = ""
+                            state["fired"] = []
+                            state["step"] = 0
+                            last_key_clause.clear()
+                            try:
+                                if os.path.exists("active_game.txt"):
+                                    os.remove("active_game.txt")
+                            except OSError:
+                                pass
+                            print("[director] === GAME UNLOADED === (idle, waiting for a game)", flush=True)
+                        elif slug and slug != state.get("game_slug") and reload_game is not None:
                             loaded = reload_game(slug)
                             if loaded:
                                 new_scene, new_probe, img_path = loaded
@@ -304,6 +326,21 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                             continue
                         dbg(f"=== step {state['step']}: new frame {frame.width}x{frame.height} "
                             f"health={state['health']} fired={state['fired'] or '(none)'} ===")
+                        # MODEL GATE: never spend a VLM call (probe or decide) while the
+                        # model server is unreachable. If it was down, re-probe (free) first.
+                        # No game loaded -> no authored events to fire and no probe checklist,
+                        # so don't decide (the model would just invent events that all get
+                        # dropped). Wait for a game to be picked in the UI. No billing.
+                        if not (scene.get("dir_events") or []):
+                            reason = "idle: no game loaded — pick a game in the UI (not deciding, no billing)"
+                            if reason != last_idle_msg:
+                                print(f"[director] {reason}", flush=True)
+                                last_idle_msg = reason
+                            await asyncio.sleep(interval)
+                            continue
+                        # NOTE: the fire-cooldown is applied at the FIRE step below, NOT here —
+                        # the director still probes + decides (evaluates the image) every frame;
+                        # cooldown only suppresses actually firing, so its eyes stay open.
                         # Probes first (the AI director's eyes): read the frame into a
                         # verified observation map, and emit any invariant re-anchor ops
                         # (subject off-frame, duplicate, submerged) before deciding.
@@ -325,6 +362,17 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                         except Exception as e:  # noqa: BLE001 — surface to the feed
                             msg = f"{type(e).__name__}: {e}"
                             print(f"[director] VLM error: {msg}", flush=True)
+                            # Distinguish a transient error from a real model disconnect.
+                            if model_check is not None and not model_check():
+                                # Model server is DOWN -> unload the game and STOP the director.
+                                print("[director] model server disconnected — unloading game and "
+                                      "stopping the AI director.", flush=True)
+                                try:
+                                    await ws.send(json.dumps({"op": "game", "role": "ai", "slug": ""}))
+                                except Exception:  # noqa: BLE001
+                                    pass
+                                break
+                            # transient — surface it and keep going
                             await ws.send(
                                 json.dumps({"op": "log", "role": "ai", "cmd": "error", "detail": msg})
                             )
@@ -345,8 +393,14 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                             by_name = {
                                 _norm_name(e["name"]): e for e in (scene.get("dir_events") or [])
                             }
-                            wanted = result.get("events", []) or []
+                            wanted = (result.get("events", []) or [])[:1]  # hard cap: at most ONE event
                             dbg(f"decide wants to fire: {wanted or '(nothing)'}")
+                            # Fire-cooldown: the image WAS evaluated (probe+decide ran above);
+                            # we just pace the actual firing so it doesn't fire every frame.
+                            if wanted and fire_cooldown and (state["step"] - last_fire_step) < fire_cooldown:
+                                wait = fire_cooldown - (state["step"] - last_fire_step)
+                                dbg(f"  cooldown: would fire {wanted[0]!r} but {wait} chunk(s) left — holding")
+                                wanted = []
                             for name in wanted:
                                 ev = by_name.get(_norm_name(name))
                                 if not ev or not ev["clause"]:
@@ -378,6 +432,7 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                                 # Remember the arc (cap so the prompt stays small).
                                 state["fired"].append(ev["name"])
                                 state["fired"] = state["fired"][-8:]
+                                last_fire_step = state["step"]  # start the cooldown
                                 print(f"[director] fire {ev['name']}", flush=True)
                         if once:
                             break

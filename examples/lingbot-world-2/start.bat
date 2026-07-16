@@ -9,12 +9,12 @@ REM   cloud       VIDEO via api.reactor.inc  (default; needs REACTOR_API_KEY)
 REM   local       VIDEO via http://localhost:8080  (run run_reactor_server.bat first)
 REM   nodirector  disable the director wiring (no coordinator auto-start)
 REM
-REM ONE COMMAND, EVERYTHING ON BY DEFAULT. `start.bat` launches, in their own
-REM windows: the coordinator (free local relay), and -- if NVIDIA_API_KEY is set
-REM -- the AI director + a frame-feed loop (BILLED, ~1 API call / 8s, scene
-REM templerun), then the dev server. So the Director panel, live state, and the
-REM AI activity feed populate out of the box. No key set -> AI director is skipped
-REM (coordinator + UI still come up). Use `nodirector` to skip all of it.
+REM ONE COMMAND. `start.bat` launches, in their own windows: the coordinator (free
+REM local relay), and -- if NVIDIA_API_KEY is set -- the AI director + a frame-feed
+REM loop (BILLED once a game is picked), then the dev server. NO game is loaded on
+REM startup: the director starts idle and follows whatever game you pick in the UI.
+REM No key set -> AI director is skipped (coordinator + UI still come up). Use
+REM `nodirector` to skip all of it.
 REM
 REM Examples:
 REM   start.bat                     cloud video + coordinator + AI director (if key)

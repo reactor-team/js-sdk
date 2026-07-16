@@ -110,13 +110,13 @@
       {
         "name": "Gunman on the Fire Escape",
         "actor": "director",
-        "detail": "EXACTLY ONE gunman appears high up on the metal fire escape above the alley ahead — a single lone figure in a gray jacket with a mask covering his face, NO tactical gear, NO SWAT vest and no police markings, clearly not an officer. He raises a pistol and fires down toward the street, muzzle flashing in the rain, then ducks back. In response, the officer below reacts — he flinches and snaps his head up toward the gunman on the fire escape, his own hands empty and his service pistol holstered, ducking low and recoiling as the gunfire cracks down from above. He STAYS UP on the fire escape overhead the entire time and does NOT climb or come down to street level — he remains elevated above the alley, never reaching the ground. There is only ONE gunman, in a gray jacket and mask. The uniformed police officer himself stays the focus of the frame, unchanged in pose, position and appearance throughout — only the world around him changes.",
+        "detail": "EXACTLY ONE gunman appears on the FIRST-FLOOR landing of the metal fire escape above the alley ahead — one storey up on the lowest fire-escape platform, NEVER higher up the fire escape and NEVER down at street level — a single lone figure in a gray jacket with a mask covering his face, NO tactical gear, NO SWAT vest and no police markings, clearly not an officer. He raises a pistol and fires down toward the street, muzzle flashing in the rain, then ducks back. In response, the officer below reacts — he flinches and snaps his head up toward the gunman on the fire escape, his own hands empty and his service pistol holstered, ducking low and recoiling as the gunfire cracks down from above. He STAYS on that first-floor fire-escape landing the entire time and does NOT climb higher or come down to street level — he remains one storey up above the alley, never reaching the ground and never higher up. There is only ONE gunman, in a gray jacket and mask. The uniformed police officer himself stays the focus of the frame, unchanged in pose, position and appearance throughout — only the world around him changes.",
         "count": 1
       },
       {
         "name": "Gunman Falls",
         "actor": "director",
-        "detail": "THE single gunman in the gray jacket and mask up on the fire escape — the only one, a lone masked figure in a gray jacket with no tactical gear — is hit, jerks, and slumps down dead right there ON the fire escape, crumpling against the metal railing and going limp draped over the landing high above the alley. He STAYS UP on the fire escape exactly where he was — he does NOT fall, topple, tumble, jump or drop down to the ground or the street below, staying elevated up on the fire escape the whole time — and remains up there motionless and lifeless for the rest of the scene. EXACTLY ONE gunman, no second gunman, no duplicate and no clone. The uniformed police officer himself stays the focus of the frame, unchanged in pose, position and appearance throughout — only the world around him changes.",
+        "detail": "THE single gunman in the gray jacket and mask on the first-floor fire-escape landing — the only one, a lone masked figure in a gray jacket with no tactical gear — is hit, jerks, and slumps down dead right there ON the fire escape, crumpling against the metal railing and going limp draped over the first-floor landing one storey above the alley. He STAYS on that first-floor landing exactly where he was — he does NOT fall, topple, tumble, jump or drop down to the ground or the street below, staying on the first-floor fire-escape landing the whole time — and remains up there motionless and lifeless for the rest of the scene. EXACTLY ONE gunman, no second gunman, no duplicate and no clone. The uniformed police officer himself stays the focus of the frame, unchanged in pose, position and appearance throughout — only the world around him changes.",
         "count": -1,
         "requires": {
           "fired": [
@@ -220,7 +220,7 @@
   },
   "objective": {
     "summary": "Reach the end of the alley without dying.",
-    "director": "Make the walk down the alley tense: throw gunmen, a drone and obstacles into the players path as they advance, then ease off as they near the far end.",
+    "director": "Work AGAINST the player and BLOCK their path down the alley: throw gunmen, a drone, obstacles and hazards into their way to cut them off and pin them down so they cannot reach the far end. Stand in the way — the player is trying to reach the end of the alley, and your job is to stop them getting there.",
     "success": [
       "the officer reaches the far end of the alley still standing"
     ],

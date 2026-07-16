@@ -7,7 +7,7 @@ REM without juggling terminals. Normally invoked by start.bat, but usable alone.
 REM
 REM BILLED: the director makes one NVIDIA API call per fed frame (~1 / 8s).
 REM
-REM Usage:  run_ai.bat [scene-slug]        (default templerun)
+REM Usage:  run_ai.bat [scene-slug]   (no slug = start with NO game, follow the UI)
 REM ==========================================================================
 set "HERE=%~dp0"
 set "SLUG=%~1"
@@ -27,8 +27,11 @@ if not errorlevel 1 (
   goto :skipdir
 )
 
-REM The director reads %SCENE% (inherited by the spawned window); the feed loop
-REM copies public\lingbot-cases\<slug>.jpg onto frame.png every 8s.
+REM The director reads %SCENE% (inherited by the spawned window). Explicitly CLEAR
+REM it when no slug is passed, so a leftover SCENE env var can't preload a game --
+REM with no slug the director must start empty and follow the UI. The feed loop
+REM copies the active game's image onto frame.png (via active_game.txt).
+if "%SLUG%"=="" ( set "SCENE=" )
 if not "%SLUG%"=="" set "SCENE=../lib/lingbot-cases/%SLUG%.json"
 if "%SLUG%"=="" echo AI director + frame feed: NO game yet -- follows the UI selection ^(BILLED per frame once a game is picked^).
 if not "%SLUG%"=="" echo AI director + frame feed for "%SLUG%" ^(BILLED per frame^).

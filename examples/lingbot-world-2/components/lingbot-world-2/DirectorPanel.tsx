@@ -51,6 +51,7 @@ function activityLabel(a: ActivityEntry): string {
   if (a.op === "game") return `game → ${a.slug ?? ""}`;
   if (a.op === "hello") return "director connected";
   if (a.op === "bye") return "director disconnected";
+  if (a.op === "log") return a.name ?? "action"; // a player action with no vital
   return a.op;
 }
 
@@ -305,13 +306,13 @@ export function DirectorPanel({
           <span className="font-mono text-[9px] uppercase tracking-wider text-white/40 mt-0.5">objective</span>
           <div className="flex flex-col min-w-0 leading-tight">
             {objective.summary && (
-              <span className="font-mono text-[10px] text-white/85 truncate" title={objective.summary}>
-                {objective.summary}
+              <span className="font-mono text-[10px] text-sky-200/85 truncate" title={objective.summary}>
+                <span className="text-white/40">player:</span> {objective.summary}
               </span>
             )}
             {objective.director && (
               <span className="font-mono text-[10px] text-emerald-200/70 truncate" title={objective.director}>
-                director: {objective.director}
+                <span className="text-white/40">director:</span> {objective.director}
               </span>
             )}
           </div>
