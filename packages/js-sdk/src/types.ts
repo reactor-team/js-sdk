@@ -53,12 +53,14 @@ export function isAbortError(error: unknown): boolean {
   );
 }
 
-/** Matches session/transport rejections from a session that ended mid-connect. */
+export class SessionLostError extends Error {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
 export function isSessionLostError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  return /No session running|rejected \(400\)|Cannot start session in state|Failed to register connection: 4\d\d/i.test(
-    error.message
-  );
+  return error instanceof SessionLostError;
 }
 
 export interface ReactorState {
