@@ -456,12 +456,6 @@ export class Reactor {
     } catch (error) {
       if (isAbortError(error)) return;
 
-      // A session we created (never one the caller supplied) can die between
-      // the session request and transport bring-up: the coordinator's
-      // create is idempotent, so it can hand back a session that is already
-      // tearing down, and the transport then registers into a closed
-      // session. That window is one teardown wide — a single fresh attempt
-      // resolves it.
       if (!options?.sessionId && isSessionLostError(error)) {
         console.warn(
           "[Reactor] Session ended during connect; retrying with a fresh session"
@@ -482,7 +476,6 @@ export class Reactor {
     }
   }
 
-  /** Wraps connection failure: surface the error, clean up, rethrow. */
   private async failConnect(error: unknown): Promise<never> {
     console.error("[Reactor] Connection failed:", error);
     this.createError("CONNECTION_FAILED", `Connection failed: ${error}`, "api", true);
@@ -497,11 +490,6 @@ export class Reactor {
     throw error;
   }
 
-  /**
-   * One full session bring-up: resolve the session, then bring up the
-   * transport against it. Extracted from `connect()` so a session that dies
-   * mid-flight can be retried from the top with fresh clients.
-   */
   private async establishSession(
     jwtToken?: JwtSource,
     options?: ConnectOptions
