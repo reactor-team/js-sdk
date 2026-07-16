@@ -22,6 +22,8 @@ type ActivityEntry = {
   change?: { health?: number; setHealth?: number; addItem?: string; removeItem?: string };
   name?: string; // the action that caused a vital (e.g. "Machete Slash")
   slug?: string; // for op:"game" — the game switched to
+  cmd?: string; // for op:"log" — "look" (heartbeat) | "error" | "action"
+  detail?: unknown; // for op:"log" — error text / payload
 };
 
 const MODES = ["human", "ai", "both"] as const;
@@ -48,10 +50,14 @@ function activityLabel(a: ActivityEntry): string {
   }
   if (a.op === "count") return "spawn/kill";
   if (a.op === "clear") return "clear all";
-  if (a.op === "game") return `game → ${a.slug ?? ""}`;
+  if (a.op === "game") return `game → ${a.name ?? a.slug ?? ""}`;
   if (a.op === "hello") return "director connected";
   if (a.op === "bye") return "director disconnected";
-  if (a.op === "log") return a.name ?? "action"; // a player action with no vital
+  if (a.op === "log") {
+    // AI-director heartbeat / error / player action. cmd distinguishes them.
+    if (a.cmd === "error") return `⚠ ${typeof a.detail === "string" ? a.detail : "error"}`;
+    return a.name ?? "action"; // "look" heartbeat carries its label in name
+  }
   return a.op;
 }
 

@@ -696,8 +696,11 @@ export function LingbotWorldController({ className }: { className?: string }) {
     // (re-derive its probes/identity/events) and follow the UI selection.
     activeGameRef.current = activeExampleId ?? "";
     if (activeExampleId && coordConnectedRef.current) {
+      const gameName = STRUCTURED_EXAMPLES[activeExampleId]?.name ?? activeExampleId;
       coordWsRef.current?.send(JSON.stringify({ op: "clear" }));
-      coordWsRef.current?.send(JSON.stringify({ op: "game", role: "player", slug: activeExampleId }));
+      coordWsRef.current?.send(
+        JSON.stringify({ op: "game", role: "player", slug: activeExampleId, name: gameName }),
+      );
     }
   }, [activeExampleId]);
 
@@ -823,7 +826,8 @@ export function LingbotWorldController({ className }: { className?: string }) {
         ws.send(JSON.stringify({ op: "objective", objective: objectiveRef.current }));
       }
       if (activeGameRef.current) {
-        ws.send(JSON.stringify({ op: "game", role: "player", slug: activeGameRef.current }));
+        const gameName = STRUCTURED_EXAMPLES[activeGameRef.current]?.name ?? activeGameRef.current;
+        ws.send(JSON.stringify({ op: "game", role: "player", slug: activeGameRef.current, name: gameName }));
       }
     };
     ws.onclose = () => {

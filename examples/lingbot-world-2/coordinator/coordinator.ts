@@ -76,6 +76,8 @@ function broadcastActivity(m: Op): void {
       change: m.change,
       name: m.name, // action that caused a vital (player/AI), for a readable feed row
       slug: m.slug, // for op:"game" — which game was switched to
+      cmd: m.cmd, // for op:"log" — "look" (heartbeat) | "error" | "action"
+      detail: m.detail, // for op:"log" — the error text / payload to show
     }),
   );
 }
@@ -331,7 +333,9 @@ wss.on("connection", (ws) => {
       m.op === "assert" || m.op === "retract" ||
       m.op === "count" || m.op === "clear" ||
       (m.op === "vital" && meaningfulVital) ||
-      (m.op === "log" && m.cmd === "action") // a player action with no vital
+      (m.op === "log" && m.cmd === "action") || // a player action with no vital
+      (m.op === "log" && m.cmd === "look") || // AI-director heartbeat (looked, fired nothing)
+      (m.op === "log" && m.cmd === "error") // something went wrong — surface it in the feed
     ) {
       broadcastActivity(m);
     }

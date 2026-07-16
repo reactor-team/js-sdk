@@ -13,9 +13,18 @@ import asyncio
 import glob
 import json
 import os
+import time
 
 from director_common import USER_TEXT, load_scene, make_probe, run_director, resolve_model
 from client import NVIDIA_URL, DEFAULT_MODEL, make_client, vlm_call
+
+# Timestamp this module's log lines too (HH:MM:SS, no date), matching the runtime
+# loop in director_common. Shadows the builtin print for this module only.
+_builtin_print = print
+
+
+def print(*args, **kwargs):  # noqa: A001 — intentional module-level shadow
+    _builtin_print(time.strftime("%H:%M:%S"), *args, **kwargs)
 
 
 def make_vlm(client, model, max_px):
@@ -49,6 +58,10 @@ def main():
                          "(default 5, 0 = off)")
     ap.add_argument("--quiet", action="store_true",
                     help="turn OFF the detailed per-step debug log (on by default)")
+    ap.add_argument("--reuse-frame", action="store_true",
+                    help="DEBUG: keep re-deciding on the same (old) frame each interval "
+                         "instead of waiting for a new one — use when nothing refreshes the "
+                         "frame tap (e.g. cloud video). Billed per look.")
     args = ap.parse_args()
     args.model = resolve_model(args.model)  # expand a shortcut (cosmos) to the full slug
     debug = not args.quiet  # detailed shell logging is ON by default
@@ -140,7 +153,7 @@ def main():
                      probe=probe, debug=debug, reload_game=reload_game,
                      hello_extra={"model": args.model, "modelOk": True},
                      model_check=model_check, fire_cooldown=args.fire_cooldown,
-                     warmup=args.warmup)
+                     warmup=args.warmup, reuse_frame=args.reuse_frame)
     )
 
 

@@ -15,6 +15,16 @@ import time
 import websockets
 from PIL import Image
 
+# Prefix every director log line with the wall-clock time (HH:MM:SS, no date) so
+# events in the console can be correlated. Shadows the builtin print for this
+# module only — dbg() and every print(f"[director] ...") pick it up automatically.
+_builtin_print = print
+
+
+def print(*args, **kwargs):  # noqa: A001 — intentional module-level shadow
+    _builtin_print(time.strftime("%H:%M:%S"), *args, **kwargs)
+
+
 from scene_probes import derive_probes, resolve
 from client import MODELS, resolve_model, parse_json  # noqa: F401  re-exported (shared plumbing)
 
@@ -163,7 +173,7 @@ def build_system(scene, state):
 
 async def run_director(decide, url, frame_path, scene, interval, once, probe=None, debug=False,
                        reload_game=None, hello_extra=None, model_check=None, fire_cooldown=0,
-                       warmup=0.0):
+                       warmup=0.0, reuse_frame=False):
     # Latest state pushed by the coordinator (facts + vitals) for prompt context.
     # `fired` = short memory of the arc (event names introduced); `step` = pacing.
     # `observations` = the probe read of the current frame (the AI director's eyes).
@@ -177,6 +187,9 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
     last_key_clause = {}  # dedup: only re-assert when a key's clause changes
     last_mtime = 0.0
     last_idle_msg = None  # throttle: only re-print an idle reason when it changes
+    last_stale_warn = 0.0  # throttle the "frame is stale — feeder not running?" warning
+    STALE_WARN_SECS = 30.0  # frame older than this => warn that nothing is feeding it
+    STALE_WARN_EVERY = 30.0  # re-warn at most this often while it stays stale
 
     def dbg(*a):
         if debug:
@@ -311,14 +324,39 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                     if reason != last_idle_msg:
                         dbg(reason)
                         last_idle_msg = reason
+                        await ws.send(json.dumps({"op": "log", "role": "ai", "cmd": "look",
+                                                  "name": "idle — no frame (run feed_frame / local backend)"}))
                 else:
                     mtime = os.path.getmtime(frame_path)
-                    if mtime == last_mtime:
+                    # Normally we only look when the frame CHANGED. --reuse-frame is a
+                    # DEBUG option: keep re-deciding on the same (old) frame each interval,
+                    # in order, so the decision path runs even when nothing refreshes the
+                    # tap (e.g. cloud video, which never writes frame.png). Billed per look.
+                    if mtime == last_mtime and not reuse_frame:
                         reason = f"idle: frame unchanged (mtime={mtime:.0f}); waiting for a new frame"
                         if reason != last_idle_msg:
                             dbg(reason)
                             last_idle_msg = reason
+                            await ws.send(json.dumps({"op": "log", "role": "ai", "cmd": "look",
+                                                      "name": "idle — waiting for a new frame"}))
+                        # WARN when the frame is genuinely STALE: if nothing has refreshed
+                        # frame.png for a while, the feeder almost certainly isn't running
+                        # (feed_frame_loop.bat closed, or a hand-started director skipped it).
+                        # Escalate the neutral "waiting" into an actionable warning, throttled.
+                        age = time.time() - mtime
+                        now_m = time.monotonic()
+                        if age > STALE_WARN_SECS and (now_m - last_stale_warn) > STALE_WARN_EVERY:
+                            last_stale_warn = now_m
+                            warn = (f"frame is {age:.0f}s stale — nothing is feeding it. "
+                                    f"On cloud video run feed_frame_loop.bat (or use --reuse-frame). "
+                                    f"Frame: {os.path.abspath(frame_path)}")
+                            print(f"[director] WARNING: {warn}", flush=True)
+                            await ws.send(json.dumps({"op": "log", "role": "ai", "cmd": "error",
+                                                      "detail": f"frame {age:.0f}s stale — feeder not running "
+                                                                f"(start feed_frame_loop.bat)"}))
                     else:
+                        if mtime == last_mtime:
+                            dbg(f"reuse-frame: re-deciding on unchanged frame (mtime={mtime:.0f})")
                         last_idle_msg = None
                         last_mtime = mtime
                         state["step"] += 1  # one look = one chunk of pacing
@@ -340,6 +378,8 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                             if reason != last_idle_msg:
                                 print(f"[director] {reason}", flush=True)
                                 last_idle_msg = reason
+                                await ws.send(json.dumps({"op": "log", "role": "ai", "cmd": "look",
+                                                          "name": "idle — no game loaded"}))
                             await asyncio.sleep(interval)
                             continue
                         # WARMUP: do nothing for the first `warmup` seconds of a game so the
@@ -359,7 +399,13 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                         # Probes first (the AI director's eyes): read the frame into a
                         # verified observation map, and emit any invariant re-anchor ops
                         # (subject off-frame, duplicate, submerged) before deciding.
+                        # Timing: measure the full decision cycle (probe + decide) so you
+                        # can see how long one director look actually costs end to end.
+                        t_start = time.monotonic()
+                        t_probe = 0.0
+                        t_decide = 0.0
                         if pstate["probe"] is not None:
+                            _tp = time.monotonic()
                             try:
                                 p_ops, p_obs = pstate["probe"](frame)
                                 state["observations"] = p_obs
@@ -368,12 +414,15 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                                     await ws.send(json.dumps(op))
                             except Exception as e:  # noqa: BLE001 — probes are best-effort
                                 print(f"[director] probe error: {type(e).__name__}: {e}", flush=True)
+                            t_probe = time.monotonic() - _tp
                         system_text = build_system(scene, state)
                         if debug:
                             dbg(f"decide system prompt ({len(system_text)} chars):")
                             print(system_text, flush=True)
                         try:
+                            _td = time.monotonic()
                             raw = decide(frame, system_text)
+                            t_decide = time.monotonic() - _td
                         except Exception as e:  # noqa: BLE001 — surface to the feed
                             msg = f"{type(e).__name__}: {e}"
                             print(f"[director] VLM error: {msg}", flush=True)
@@ -383,6 +432,9 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                                 print("[director] model server disconnected — unloading game and "
                                       "stopping the AI director.", flush=True)
                                 try:
+                                    await ws.send(json.dumps(
+                                        {"op": "log", "role": "ai", "cmd": "error",
+                                         "detail": f"model server unreachable — director stopped ({msg})"}))
                                     await ws.send(json.dumps({"op": "game", "role": "ai", "slug": ""}))
                                 except Exception:  # noqa: BLE001
                                     pass
@@ -396,8 +448,13 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                         dbg(f"decide raw reply: {raw!r}")
                         result = parse_json(raw)
                         dbg(f"decide parsed: {result}")
+                        # Heartbeat state: show the director looked even when it fires
+                        # nothing, so the activity feed doesn't look dead (see below).
+                        did_fire = False
+                        look_reason = "looked — no event"
                         if raw and result is None:
                             dbg("decide reply did NOT parse as JSON")
+                            look_reason = "looked — unparseable reply"
                             await ws.send(
                                 json.dumps({"op": "log", "role": "ai", "cmd": "error",
                                             "detail": "VLM returned unparseable JSON"})
@@ -415,7 +472,10 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                             if wanted and fire_cooldown and (state["step"] - last_fire_step) < fire_cooldown:
                                 wait = fire_cooldown - (state["step"] - last_fire_step)
                                 dbg(f"  cooldown: would fire {wanted[0]!r} but {wait} chunk(s) left — holding")
+                                look_reason = f"looked — holding {wanted[0]} ({wait} chunk cooldown)"
                                 wanted = []
+                            elif not wanted:
+                                look_reason = "looked — chose no event"
                             for name in wanted:
                                 ev = by_name.get(_norm_name(name))
                                 if not ev or not ev["clause"]:
@@ -448,7 +508,29 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                                 state["fired"].append(ev["name"])
                                 state["fired"] = state["fired"][-8:]
                                 last_fire_step = state["step"]  # start the cooldown
+                                did_fire = True
                                 print(f"[director] fire {ev['name']}", flush=True)
+                        # Full decision time: probe + decide + all the firing/plumbing above.
+                        t_total = time.monotonic() - t_start
+                        timing = (f"{t_total:.2f}s (probe {t_probe:.2f}s + decide {t_decide:.2f}s)")
+                        print(f"[director] decision time: {timing}", flush=True)
+                        # Heartbeat: even when the director fires nothing this look, emit a
+                        # record-only log op so the activity feed shows it is alive and
+                        # watching (otherwise an empty decision is invisible and it looks
+                        # like the director dropped off). op:"log" changes no game state and
+                        # is not mode-gated, so it shows even while mode=human. Carries the
+                        # decision time so you can see the cost per look in the UI too.
+                        if did_fire:
+                            await ws.send(json.dumps({
+                                "op": "log", "role": "ai", "cmd": "look",
+                                "name": f"decided in {timing}",
+                            }))
+                        else:
+                            print(f"[director] {look_reason}", flush=True)
+                            await ws.send(json.dumps({
+                                "op": "log", "role": "ai", "cmd": "look",
+                                "name": f"{look_reason} · {timing}", "detail": (raw or "")[:200],
+                            }))
                         if once:
                             break
                 await asyncio.sleep(interval)

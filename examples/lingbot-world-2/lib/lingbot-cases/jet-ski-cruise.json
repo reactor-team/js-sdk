@@ -1,7 +1,7 @@
 {
   "id": "case2_1012",
   "name": "Jet Ski Cruise",
-  "description": "Third-person jet ski freestyle — tricks: rides with torch, jump the wake, spin 360, barrel roll, backflip, nose pop, slalom weave, superman, cut engine, wave; jump off / jump back on; director: meteor shower, sunset, sharks, storms, etc.",
+  "description": "Third-person jet ski freestyle — tricks: rides with torch, jump the wake, spin 360, backflip, nose pop, slalom weave, superman, cut engine, wave; jump off / jump back on; director: meteor shower, sunset, sharks, storms, etc.",
   "objective": {
     "summary": "Stay on the jet ski and preserve your fuel — keep riding on the surface near the safe shallow water and don't run dry.",
     "director": "Work against the rider: try to throw them off the jet ski and lure them out into deeper, more dangerous open water away from the safe shallow beach. Favor events that unseat, endanger, or draw the rider seaward — Rogue Wave, Waterspout Forms, Storm Rolls In, Shark Lunges, and ultimately Thrown from the Jet Ski — and push the scene toward the deep open sea on the horizon, wasting the rider's fuel and stranding them. Escalate the danger over time and build on what has already happened; do not just repeat the same event back-to-back."
@@ -51,12 +51,6 @@
         "name": "Spin 360",
         "actor": "player",
         "detail": "The rider whips the jet ski into a tight spinning 360, the hull skating around and sweeping a full ring of spray across the water, then settles back facing forward. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
-        "health": 0
-      },
-      {
-        "name": "Barrel Roll",
-        "actor": "player",
-        "detail": "The rider launches the jet ski off a wave and rolls it fully over in mid-air, a complete barrel roll above the turquoise water, before coming back down and landing upright, riding on. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": 0
       },
       {
@@ -148,7 +142,7 @@
       {
         "name": "Whale Breaches",
         "actor": "director",
-        "detail": "The rider on the jet ski remains the main subject, unchanged, while off to one side a massive whale breaches out of the deep — a huge dark body rising clear of the sea and crashing back down in an enormous explosion of white spray and rolling waves, before it slips back beneath the surface. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
+        "detail": "The rider on the jet ski remains the main subject, unchanged, while off to one side EXACTLY ONE massive whale breaches out of the deep — a single huge dark body rising clear of the sea and crashing back down in an enormous explosion of white spray and rolling waves, before it slips back beneath the surface. There is only ONE whale, a single lone whale, no second whale, no pod, no duplicate and no clone of it. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": 0,
         "count": 1
       },
