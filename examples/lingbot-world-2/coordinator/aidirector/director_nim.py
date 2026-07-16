@@ -62,6 +62,13 @@ def main():
                     help="DEBUG: keep re-deciding on the same (old) frame each interval "
                          "instead of waiting for a new one — use when nothing refreshes the "
                          "frame tap (e.g. cloud video). Billed per look.")
+    ap.add_argument("--self-feed", dest="self_feed", action="store_true", default=True,
+                    help="(DEFAULT ON) source the frame from the active scene's OWN still image "
+                         "(no external feeder, no active_game.txt) — the cloud-mode replacement "
+                         "for feed_frame_loop.bat. FALLBACK only: a live LINGBOT_FRAME_TAP with "
+                         "fresh frames always wins. Billed per look.")
+    ap.add_argument("--no-self-feed", dest="self_feed", action="store_false",
+                    help="disable self-feed (rely solely on an external frame tap / feeder).")
     args = ap.parse_args()
     args.model = resolve_model(args.model)  # expand a shortcut (cosmos) to the full slug
     debug = not args.quiet  # detailed shell logging is ON by default
@@ -153,7 +160,8 @@ def main():
                      probe=probe, debug=debug, reload_game=reload_game,
                      hello_extra={"model": args.model, "modelOk": True},
                      model_check=model_check, fire_cooldown=args.fire_cooldown,
-                     warmup=args.warmup, reuse_frame=args.reuse_frame)
+                     warmup=args.warmup, reuse_frame=args.reuse_frame,
+                     self_feed=args.self_feed)
     )
 
 

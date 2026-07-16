@@ -10,6 +10,7 @@ emits assert/vital ops (role="ai") to the coordinator. Backend: director_nim.py
 import asyncio
 import json
 import os
+import shutil
 import time
 
 import websockets
@@ -173,7 +174,7 @@ def build_system(scene, state):
 
 async def run_director(decide, url, frame_path, scene, interval, once, probe=None, debug=False,
                        reload_game=None, hello_extra=None, model_check=None, fire_cooldown=0,
-                       warmup=0.0, reuse_frame=False):
+                       warmup=0.0, reuse_frame=False, self_feed=True):
     # Latest state pushed by the coordinator (facts + vitals) for prompt context.
     # `fired` = short memory of the arc (event names introduced); `step` = pacing.
     # `observations` = the probe read of the current frame (the AI director's eyes).
@@ -249,12 +250,8 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                             state["objective_summary"] = ""
                             state["fired"] = []
                             state["step"] = 0
+                            state["game_image"] = ""  # nothing to self-feed while idle
                             last_key_clause.clear()
-                            try:
-                                if os.path.exists("active_game.txt"):
-                                    os.remove("active_game.txt")
-                            except OSError:
-                                pass
                             print("[director] === GAME UNLOADED === (idle, waiting for a game)", flush=True)
                         elif slug and slug != state.get("game_slug") and reload_game is not None:
                             loaded = reload_game(slug)
@@ -268,13 +265,10 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                                 state["fired"] = []
                                 state["step"] = 0
                                 state["game_start_time"] = time.monotonic()  # restart --warmup
+                                # Keep the scene's still IN STATE so --self-feed can source the
+                                # frame directly (no active_game.txt, no external feeder needed).
+                                state["game_image"] = img_path
                                 last_key_clause.clear()
-                                try:
-                                    # the frame-feed loop reads this to feed the matching still
-                                    with open("active_game.txt", "w", encoding="utf-8") as f:
-                                        f.write(img_path)
-                                except OSError:
-                                    pass
                                 print(f"[director] === GAME START === {slug}: "
                                       f"{scene.get('objective') or '(no objective)'} "
                                       f"({len(scene.get('dir_events') or [])} events, "
@@ -315,6 +309,24 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                     print("[director] coordinator disconnected — stopping (no billed "
                           "decisions without a server).", flush=True)
                     break
+                # SELF-FEED (default ON): when a game is loaded, the director sources the
+                # frame from the scene's OWN still (kept in state on game load) — NO external
+                # feeder, NO active_game.txt. It's a FALLBACK, not a clobber: it only writes
+                # when the frame is MISSING or STALE, so a live tap (LINGBOT_FRAME_TAP / real
+                # local video) writing fresh frames is never overwritten. On the cloud path
+                # nothing writes the tap, so this keeps the director fed on its own.
+                if self_feed and state.get("game_image") and (scene.get("dir_events") or []):
+                    stale_after = max(2.0 * interval, 4.0)  # a live tap refreshes faster than this
+                    need_feed = True
+                    if os.path.exists(frame_path):
+                        need_feed = (time.time() - os.path.getmtime(frame_path)) > stale_after
+                    if need_feed:
+                        try:
+                            shutil.copyfile(state["game_image"], frame_path)
+                            os.utime(frame_path, None)  # mtime = NOW so it reads as a new frame
+                            dbg(f"self-feed: {state['game_image']} -> {frame_path}")
+                        except OSError as e:  # noqa: BLE001 — best-effort, fall through to idle
+                            print(f"[director] self-feed error: {type(e).__name__}: {e}", flush=True)
                 # Frame source: the file, only when it changed since last look.
                 if not os.path.exists(frame_path):
                     # This is the usual "no action" cause: cloud video never writes

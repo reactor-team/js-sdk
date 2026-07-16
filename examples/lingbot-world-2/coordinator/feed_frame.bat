@@ -19,6 +19,12 @@ set "HERE=%~dp0"
 set "IMG=%~1"
 if "%IMG%"=="" set "IMG=templerun"
 
+REM Destination is CONFIGURABLE via LINGBOT_FRAME_TAP (the same env var engine.py
+REM writes and run_director_nim.bat watches). Unset -> default coordinator\frame.png.
+REM Keep all three (feeder / engine / director) pointed at the same path.
+set "DEST=%LINGBOT_FRAME_TAP%"
+if not defined DEST set "DEST=%HERE%frame.png"
+
 REM An existing file is used as-is; otherwise treat the arg as a scene slug.
 if exist "%IMG%" (
   set "SRC=%IMG%"
@@ -27,14 +33,14 @@ if exist "%IMG%" (
 )
 if not exist "%SRC%" ( echo ERROR: image not found: %SRC% & exit /b 1 )
 
-copy /y "%SRC%" "%HERE%frame.png" >nul
-if errorlevel 1 ( echo ERROR: copy failed. & exit /b 1 )
+copy /y "%SRC%" "%DEST%" >nul
+if errorlevel 1 ( echo ERROR: copy failed writing %DEST% & exit /b 1 )
 REM Windows `copy` keeps the SOURCE's timestamp, so re-feeding the same image
-REM leaves frame.png's mtime unchanged and the director (which triggers on mtime
+REM leaves the frame's mtime unchanged and the director (which triggers on mtime
 REM change) won't re-decide. Bump the modified time to NOW so every run fires.
-copy /b "%HERE%frame.png"+,, "%HERE%frame.png" >nul 2>&1
+copy /b "%DEST%"+,, "%DEST%" >nul 2>&1
 echo fed frame: %SRC%
-echo        -^> %HERE%frame.png
+echo        -^> %DEST%
 echo watch the director shell for "new frame" then a "fire", and the coordinator
 echo for "[coordinator] ai assert ...".  Re-run this to make it decide again.
 endlocal

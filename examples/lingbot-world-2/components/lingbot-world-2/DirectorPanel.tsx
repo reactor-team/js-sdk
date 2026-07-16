@@ -24,6 +24,7 @@ type ActivityEntry = {
   slug?: string; // for op:"game" — the game switched to
   cmd?: string; // for op:"log" — "look" (heartbeat) | "error" | "action"
   detail?: unknown; // for op:"log" — error text / payload
+  ts?: string; // HH:MM:SS stamped on arrival in the browser (for the feed)
 };
 
 const MODES = ["human", "ai", "both"] as const;
@@ -149,6 +150,8 @@ export function DirectorPanel({
           setRawState(m); // keep the full snapshot for the raw view
         } else if (m.type === "activity") {
           const entry = m as ActivityEntry & { type: string };
+          // Stamp arrival time (browser local, HH:MM:SS) so each feed row is timed.
+          entry.ts = new Date().toLocaleTimeString(undefined, { hour12: false });
           // Debug: confirm activity broadcasts reach the browser (F12 -> Console).
           console.log(`[panel] activity: ${entry.role} ${entry.op} ${entry.key ?? entry.name ?? ""}`, entry);
           setActivity((prev) => [...prev, entry].slice(-40)); // keep INCOMING order (newest at bottom), cap 40
@@ -395,6 +398,7 @@ export function DirectorPanel({
           )}
           {activity.map((a) => (
             <div key={a.id} className="flex items-start gap-1.5 font-mono text-[10px]">
+              {a.ts && <span className="shrink-0 tabular-nums text-white/30">{a.ts}</span>}
               <span
                 className={cn(
                   "shrink-0 rounded px-1 uppercase",

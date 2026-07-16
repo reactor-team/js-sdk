@@ -20,6 +20,9 @@ set "PY=%HERE%.venv\Scripts\python.exe"
 if not exist "%PY%" set "PY=python"
 REM No default scene: the director starts with NO game and follows the UI's
 REM selection (the coordinator's "game" broadcast). Set SCENE to preload one.
+REM Frame path is CONFIGURABLE: LINGBOT_FRAME_TAP (shared with engine.py + the
+REM feeder) wins; then %FRAME%; else the default coordinator\frame.png.
+if not defined FRAME if defined LINGBOT_FRAME_TAP set "FRAME=%LINGBOT_FRAME_TAP%"
 if "%FRAME%"=="" set "FRAME=frame.png"
 "%PY%" aidirector/director_nim.py --url ws://localhost:8090 --scene "%SCENE%" --frame "%FRAME%" %*
 endlocal
