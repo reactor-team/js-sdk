@@ -53,6 +53,18 @@ export function isAbortError(error: unknown): boolean {
   );
 }
 
+/**
+ * Matches the coordinator rejecting session or transport calls because the
+ * underlying session ended between session resolution and transport
+ * bring-up: the register/SDP 400s and the runtime's closing-state refusals.
+ */
+export function isSessionLostError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return /No session running|rejected \(400\)|Cannot start session in state|Failed to register connection: 4\d\d/i.test(
+    error.message
+  );
+}
+
 export interface ReactorState {
   status: ReactorStatus;
   lastError?: ReactorError;

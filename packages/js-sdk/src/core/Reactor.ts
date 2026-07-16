@@ -8,6 +8,7 @@ import {
   type ConnectionStats,
   type ConnectionTimings,
   isAbortError,
+  isSessionLostError,
 } from "../types";
 import { type JwtResolver, type JwtSource, normalizeJwtSource } from "./auth";
 import { CoordinatorClient } from "./CoordinatorClient";
@@ -451,126 +452,160 @@ export class Reactor {
     }
 
     try {
-      this.coordinatorClient = this.local
-        ? new LocalCoordinatorClient(this.coordinatorUrl, this.model)
-        : new CoordinatorClient({
-            baseUrl: this.coordinatorUrl,
-            jwtToken: jwtToken!,
-            model: this.model,
-          });
-
-      // 1. Resolve the session — either attach to a caller-supplied session
-      //    (created elsewhere, e.g. by a backend) or create a fresh one. In
-      //    the attach path there's no POST /sessions, so `sessionCreationMs`
-      //    stays 0.
-      let sessionCreationMs = 0;
-      let sessionId: string;
-      if (options?.sessionId) {
-        await this.coordinatorClient.adoptSession(options.sessionId);
-        sessionId = options.sessionId;
-        // Adopted, not created — we don't own this session's lifecycle.
-        this.createdSession = false;
-        console.debug("[Reactor] Attaching to existing session:", sessionId);
-      } else {
-        const tSession = performance.now();
-        const initialResponse = await this.coordinatorClient.createSession();
-        sessionCreationMs = performance.now() - tSession;
-        sessionId = initialResponse.session_id;
-        // We created it, so we own teardown (DELETE) of this session.
-        this.createdSession = true;
-        console.debug(
-          "[Reactor] Session created:",
-          sessionId,
-          "state:",
-          initialResponse.state
-        );
-      }
-
-      this.setSessionId(sessionId);
-
-      this.setStatus("waiting");
-
-      this.transportClient = new WebRTCTransportClient({
-        baseUrl: this.coordinatorUrl,
-        sessionId,
-        jwtToken: this.local ? "local" : jwtToken!,
-        webrtcVersion: REACTOR_WEBRTC_VERSION,
-        maxPollAttempts: options?.maxAttempts,
-      });
-      this.setupTransportHandlers();
-
-      let sessionPollingMs: number;
-      let transportConnectingMs: number;
-
-      this.autoResumeTracks = options?.autoResumeTracks ?? true;
-
-      if (this.presetTracks) {
-        // 2a. Parallel path: tracks are known at build time, so we can
-        //     prepare the transport while waiting for the Runtime.
-        this.tracks = this.presetTracks;
-
-        const tParallel = performance.now();
-        const [sessionResponse] = await Promise.all([
-          this.coordinatorClient.pollSessionReady(),
-          this.transportClient.prepare(this.tracks),
-        ]);
-        sessionPollingMs = performance.now() - tParallel;
-
-        this.sessionResponse = sessionResponse;
-
-        const tConnect = performance.now();
-        await this.transportClient.connect(false, options?.connectionId);
-        transportConnectingMs = performance.now() - tConnect;
-      } else {
-        // 2b. Sequential path: tracks come from the poll response, but
-        //     we can still warm up the transport (ICE fetch) in parallel.
-        this.transportClient.warmup();
-
-        const tPoll = performance.now();
-        const sessionResponse = await this.coordinatorClient.pollSessionReady();
-        sessionPollingMs = performance.now() - tPoll;
-
-        this.sessionResponse = sessionResponse;
-        this.tracks = sessionResponse.capabilities!.tracks;
-
-        const protocol = sessionResponse.selected_transport!.protocol;
-        if (protocol !== "webrtc") {
-          throw new Error(`Unsupported transport protocol: ${protocol}`);
-        }
-
-        const tTransport = performance.now();
-        await this.transportClient.prepare(this.tracks);
-        await this.transportClient.connect(false, options?.connectionId);
-        transportConnectingMs = performance.now() - tTransport;
-      }
-
-      console.debug("[Reactor] Session ready, tracks:", this.tracks.length);
-
-      this.connectionTimings = {
-        sessionCreationMs: sessionCreationMs + sessionPollingMs,
-        transportConnectingMs,
-        totalMs: 0,
-      };
+      await this.establishSession(jwtToken, options);
     } catch (error) {
       if (isAbortError(error)) return;
 
-      console.error("[Reactor] Connection failed:", error);
-      this.createError(
-        "CONNECTION_FAILED",
-        `Connection failed: ${error}`,
-        "api",
-        true
-      );
-      try {
-        await this.disconnect(false);
-      } catch (disconnectError) {
-        console.error(
-          "[Reactor] Failed to clean up after connection failure:",
-          disconnectError
+      // A session we created (never one the caller supplied) can die between
+      // the session request and transport bring-up: the coordinator's
+      // create is idempotent, so it can hand back a session that is already
+      // tearing down, and the transport then registers into a closed
+      // session. That window is one teardown wide — a single fresh attempt
+      // resolves it.
+      if (!options?.sessionId && isSessionLostError(error)) {
+        console.warn(
+          "[Reactor] Session ended during connect; retrying with a fresh session"
         );
+        this.coordinatorClient?.abort();
+        this.transportClient?.abort();
+        this.transportClient?.disconnect();
+        try {
+          await this.establishSession(jwtToken, options);
+          return;
+        } catch (retryError) {
+          if (isAbortError(retryError)) return;
+          await this.failConnect(retryError);
+        }
       }
-      throw error;
+
+      await this.failConnect(error);
     }
+  }
+
+  /** Wraps connection failure: surface the error, clean up, rethrow. */
+  private async failConnect(error: unknown): Promise<never> {
+    console.error("[Reactor] Connection failed:", error);
+    this.createError("CONNECTION_FAILED", `Connection failed: ${error}`, "api", true);
+    try {
+      await this.disconnect(false);
+    } catch (disconnectError) {
+      console.error(
+        "[Reactor] Failed to clean up after connection failure:",
+        disconnectError
+      );
+    }
+    throw error;
+  }
+
+  /**
+   * One full session bring-up: resolve the session, then bring up the
+   * transport against it. Extracted from `connect()` so a session that dies
+   * mid-flight can be retried from the top with fresh clients.
+   */
+  private async establishSession(
+    jwtToken?: JwtSource,
+    options?: ConnectOptions
+  ): Promise<void> {
+    this.coordinatorClient = this.local
+      ? new LocalCoordinatorClient(this.coordinatorUrl, this.model)
+      : new CoordinatorClient({
+          baseUrl: this.coordinatorUrl,
+          jwtToken: jwtToken!,
+          model: this.model,
+        });
+
+    // 1. Resolve the session — either attach to a caller-supplied session
+    //    (created elsewhere, e.g. by a backend) or create a fresh one. In
+    //    the attach path there's no POST /sessions, so `sessionCreationMs`
+    //    stays 0.
+    let sessionCreationMs = 0;
+    let sessionId: string;
+    if (options?.sessionId) {
+      await this.coordinatorClient.adoptSession(options.sessionId);
+      sessionId = options.sessionId;
+      // Adopted, not created — we don't own this session's lifecycle.
+      this.createdSession = false;
+      console.debug("[Reactor] Attaching to existing session:", sessionId);
+    } else {
+      const tSession = performance.now();
+      const initialResponse = await this.coordinatorClient.createSession();
+      sessionCreationMs = performance.now() - tSession;
+      sessionId = initialResponse.session_id;
+      // We created it, so we own teardown (DELETE) of this session.
+      this.createdSession = true;
+      console.debug(
+        "[Reactor] Session created:",
+        sessionId,
+        "state:",
+        initialResponse.state
+      );
+    }
+
+    this.setSessionId(sessionId);
+
+    this.setStatus("waiting");
+
+    this.transportClient = new WebRTCTransportClient({
+      baseUrl: this.coordinatorUrl,
+      sessionId,
+      jwtToken: this.local ? "local" : jwtToken!,
+      webrtcVersion: REACTOR_WEBRTC_VERSION,
+      maxPollAttempts: options?.maxAttempts,
+    });
+    this.setupTransportHandlers();
+
+    let sessionPollingMs: number;
+    let transportConnectingMs: number;
+
+    this.autoResumeTracks = options?.autoResumeTracks ?? true;
+
+    if (this.presetTracks) {
+      // 2a. Parallel path: tracks are known at build time, so we can
+      //     prepare the transport while waiting for the Runtime.
+      this.tracks = this.presetTracks;
+
+      const tParallel = performance.now();
+      const [sessionResponse] = await Promise.all([
+        this.coordinatorClient.pollSessionReady(),
+        this.transportClient.prepare(this.tracks),
+      ]);
+      sessionPollingMs = performance.now() - tParallel;
+
+      this.sessionResponse = sessionResponse;
+
+      const tConnect = performance.now();
+      await this.transportClient.connect(false, options?.connectionId);
+      transportConnectingMs = performance.now() - tConnect;
+    } else {
+      // 2b. Sequential path: tracks come from the poll response, but
+      //     we can still warm up the transport (ICE fetch) in parallel.
+      this.transportClient.warmup();
+
+      const tPoll = performance.now();
+      const sessionResponse = await this.coordinatorClient.pollSessionReady();
+      sessionPollingMs = performance.now() - tPoll;
+
+      this.sessionResponse = sessionResponse;
+      this.tracks = sessionResponse.capabilities!.tracks;
+
+      const protocol = sessionResponse.selected_transport!.protocol;
+      if (protocol !== "webrtc") {
+        throw new Error(`Unsupported transport protocol: ${protocol}`);
+      }
+
+      const tTransport = performance.now();
+      await this.transportClient.prepare(this.tracks);
+      await this.transportClient.connect(false, options?.connectionId);
+      transportConnectingMs = performance.now() - tTransport;
+    }
+
+    console.debug("[Reactor] Session ready, tracks:", this.tracks.length);
+
+    this.connectionTimings = {
+      sessionCreationMs: sessionCreationMs + sessionPollingMs,
+      transportConnectingMs,
+      totalMs: 0,
+    };
   }
 
   /**
