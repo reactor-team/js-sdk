@@ -1,7 +1,7 @@
 {
   "id": "car_racing_08",
   "name": "Circuit Racer",
-  "description": "First-person cockpit car racing — key 1 = nitro boost, key 2 = drift, key 3 = crash, key 4 = handbrake turn, key 5 = brake hard, key 6 = DRS boost, key 7 = ride the kerb",
+  "description": "First-person cockpit car racing — key 1 = kick up sparks, key 2 = drift, key 3 = crash, key 4 = chicane flick, key 5 = lock-up smoke, key 6 = DRS boost, key 7 = ride the kerb",
   "image": {
     "label": "Circuit Racer",
     "src": "/lingbot-cases/circuit.jpg"
@@ -24,9 +24,9 @@
     },
     "events": [
       {
-        "name": "Nitro Boost",
+        "name": "Kick Up Sparks",
         "actor": "player",
-        "detail": "The driver's gloved thumb stabs a button on the steering wheel and the dash flares bright — the engine screams higher and the view lunges forward, the track ahead smearing into streaks of speed through the windscreen as the car rockets down the straight, then eases back to pace. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone."
+        "detail": "The car crests a rise and the floor grounds out on the asphalt — a bright shower of orange sparks streams out from under the nose and sprays up past the halo and windscreen, trailing away behind, before the car settles back level on its suspension. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone."
       },
       {
         "name": "Drift",
@@ -39,14 +39,14 @@
         "detail": "The view lurches violently as the car slams into the barrier ahead — the windscreen fills with flying carbon-fibre debris and spinning sky and track, the wheel wrenching in the gloved hands and the dash flashing red warnings, before it grinds to a juddering, shuddering halt. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone."
       },
       {
-        "name": "Handbrake Turn",
+        "name": "Chicane Flick",
         "actor": "player",
-        "detail": "The gloved hands yank the wheel and the cockpit whips around in a tight spin, the track, barriers and grandstands sweeping in a full arc across the windscreen with a screech of rubber, then the view settles pointing back down the circuit. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone."
+        "detail": "The gloved hands snap the wheel left then hard right and the cockpit whips through a tight chicane, the red-and-white kerbs and barriers flicking across the windscreen in a quick left-right S as the car darts through the esses, then straightens out down the track. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone."
       },
       {
-        "name": "Brake Hard",
+        "name": "Lock-Up Smoke",
         "actor": "player",
-        "detail": "The driver's gloved hands squeeze and the view pitches hard forward as the car brakes sharply into the corner, the nose dipping and the tyres chirping and locking on the asphalt, the track rushing up in the windscreen, before it settles back level. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
+        "detail": "The driver stamps the brakes hard into the corner and the front tyres lock — thick white tyre smoke boils up off the wheels and plumes across the windscreen, the nose diving and the view juddering as the car slides toward the apex, before it hooks in and settles back level. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
         "health": 5
       },
       {

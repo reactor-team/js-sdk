@@ -6,6 +6,68 @@ of these. Change a contract → all implementers must change together.
 
 ---
 
+## Architecture at a glance
+
+```
+┌──────────────────────────── BROWSER (localhost:3000) ────────────────────────────┐
+│                                                                                   │
+│   Player controls        DirectorPanel          FrameTap        <video>           │
+│   (WASD, events)         (manual fires)          (grab ~2s)      (cloud stream)    │
+│        │                      │                     │                ▲             │
+│        │ ops                  │ ops                 │ JPEG           │ WebRTC       │
+└────────┼──────────────────────┼─────────────────────┼────────────────┼─────────────┘
+         │  scene_events         │                     ▼                │
+         │  (+ requires,         │            POST /api/frame-tap       │
+         │   available)          │                     │                │
+         ▼                       ▼                     ▼                │
+┌─────────────────────────────────────────┐   ┌──────────────┐   ┌─────┴────────────┐
+│   COORDINATOR  (ws://8090)               │   │ frame.png    │   │ Reactor cloud    │
+│                                          │   │ (the tap)    │   │  OR local engine │
+│   ★ THE ONE HISTORY ★                    │   └──────┬───────┘   └──────────────────┘
+│   • facts (scene:<slug> = what fired)    │          │  frame sources, priority:
+│   • vitals · count · objective · mode    │          │   1 live local tap (engine.py)
+│   • directorMode (default: human)        │          │   2 live browser tap (FrameTap)
+│                                          │          │   3 self-feed (scene still, fallback)
+│   broadcasts:  facts · state · activity  │          │
+└───────▲───────────────────────┬─────────┘          │ watch mtime
+        │ ops (assert/vital/…)   │ type:"state"       ▼
+        │                        │ (facts[])   ┌────────────────────────────────────┐
+        │              shared_fired ◄───────────┤   AI DIRECTOR (python, NVIDIA NIM) │
+        │  assert (role ai)      │             │  every new frame:                  │
+        └────────────────────────┼─────────────┤   ┌ probe (EYES, vision) ─┐        │
+                                 │             │   │  gate-valid Qs only    │        │
+                                 │             │   └────────────────────────┘        │
+                                 │             │   ┌ decide (BRAIN, TEXT) ──┐        │
+                                 │             │   │  reasons from STATE     │        │
+                                 │             │   │  /History — NO frame    │        │
+                                 │             │   └─────────────────────────┘       │
+                                 │             │  fire (gate-open + cooldown)        │
+                                 └─────────────┤  activity: "new frame — …" + timing │
+                                               └────────────────────────────────────┘
+```
+
+**Three flows that define the system:**
+
+1. **Gating — one History, everyone's fires count.** An event fires (player / human panel /
+   AI) → `assert scene:<slug>` into THE History. The director rebuilds `shared_fired` from the
+   `type:"state"` broadcast, and `_gate_ok` reads *that* — so a predecessor fired by anyone
+   unlocks a gate (`requires: {fired:[Gunman]}` → Police Car unlocks once Gunman ∈ shared_fired).
+
+2. **Frames — real when available, still as fallback.** A live tap (local `engine.py` or the
+   browser `FrameTap`) wins; when neither has written for a few seconds the director self-feeds
+   the scene's own still so it is never blind. Cloud video only exists in the browser, so
+   `FrameTap` is the cloud path's only real-frame source.
+
+3. **Probe/decide — split by modality.** The **probe** is the sole vision call (frame →
+   observations, asking only gate-valid questions). **Decide** is text-only — it reasons from
+   the state/History in its system prompt (facts, observations, objective, health, fired
+   memory), never the pixels. They run concurrently; a fire is paced by `--fire-cooldown`.
+
+**Invariants:** exactly one History (§6); the coordinator touches no video (ops in, clauses
+out); gates read the shared History so human + AI + win-clock fires all unlock alike.
+
+---
+
 ## 1. AI Director backend interface — `decide()`  _[AI-only]_
 
 A pluggable VLM backend supplies exactly one function:

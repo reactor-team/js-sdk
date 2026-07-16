@@ -27,11 +27,13 @@ def print(*args, **kwargs):  # noqa: A001 — intentional module-level shadow
     _builtin_print(time.strftime("%H:%M:%S"), *args, **kwargs)
 
 
-def make_vlm(client, model, max_px):
+def make_vlm(client, model, max_px, think=False):
     """vlm(frame, system, user_text, max_tokens) -> reply text, over the shared vlm_call.
-    Shared by the director's decide() and the probe checklist."""
+    The vision/probe path — reasoning OFF by default (a wash on cosmos). `think=True`
+    re-enables chain-of-thought for a model where it helps detection."""
     def vlm(frame, system, user_text, max_tokens=384):
-        text, _resp = vlm_call(client, model, frame, system, user_text, max_tokens, max_px)
+        text, _resp = vlm_call(client, model, frame, system, user_text, max_tokens, max_px,
+                               think=think)
         return text
 
     return vlm
@@ -47,7 +49,13 @@ def main():
     ap.add_argument("--model", default=DEFAULT_MODEL,
                     help="model id OR a shortcut: cosmos|nemotron|gemini|minimax|qwen")
     ap.add_argument("--base-url", default=NVIDIA_URL, help="OpenAI-compatible base URL")
-    ap.add_argument("--max-px", type=int, default=768, help="max frame dimension sent")
+    ap.add_argument("--max-px", type=int, default=768,
+                    help="max frame dimension for the PROBE (default 768 for detection accuracy; "
+                         "lower e.g. 512 = fewer vision tokens = faster, but worse small-object detection)")
+    ap.add_argument("--think", action="store_true",
+                    help="re-enable the reasoner's chain-of-thought on the PROBE (default OFF — "
+                         "benchmarked as a wash on cosmos). Use for a model where CoT helps "
+                         "detection. DECIDE is always non-reasoning (state-only text).")
     ap.add_argument("--no-probe", action="store_true",
                     help="disable the probe pass (the AI director's eyes); decide from the frame alone")
     ap.add_argument("--fire-cooldown", type=int, default=6,
@@ -108,11 +116,10 @@ def main():
         print("[director]   -> check: key set in THIS window? key valid/not expired? network/firewall "
               "to inference-api.nvidia.com? NOT starting the AI director.", flush=True)
         return  # no model -> don't start (mirrors: disconnect unloads + stops)
-    vlm = make_vlm(client, args.model, args.max_px)
-    # decide reasons from STATE/History only (carried in `system`) — NO frame. The
-    # probe is the sole vision call; decide is a text call. `frame` arg kept for the
-    # call-site signature but ignored.
-    decide = lambda frame, system: text_call(client, args.model, system, USER_TEXT, 384)[0]  # noqa: E731
+    # No thinking by default (a wash on cosmos). --think re-enables CoT on the PROBE;
+    # DECIDE (state-only text, no frame) is always non-reasoning.
+    vlm = make_vlm(client, args.model, args.max_px, think=args.think)
+    decide = lambda frame, system: text_call(client, args.model, system, USER_TEXT, 384, think=False)[0]  # noqa: E731
     scene = load_scene(args.scene)
 
     # Probe pass = the AI director's eyes. Needs the FULL scene JSON (derive_probes),

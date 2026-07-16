@@ -1,7 +1,7 @@
 {
   "id": "templerun",
   "name": "Temple Run",
-  "description": "Third-person temple runner — key 1 = grab coins, key 2 = spell cast, key 3 = whip crack, key 4 = back kick, key 5 = machete slash, key 6 = torch swing; Space = jump, C = crouch",
+  "description": "Third-person temple runner — key 1 = grab coins, key 2 = spell cast, key 3 = whip crack, key 4 = back kick, key 5 = machete slash, key 6 = torch swing, key 7 = shoulder barge; Space = jump, C = crouch",
   "objective": {
     "summary": "Outrun the temple and survive the chase.",
     "director": "Hunt the runner and escalate the danger over time: start with the lone Demon Ape Charges to build pressure, then bring the Enemy Horde Floods In as he speeds up, and interleave hazards (Fire Trap, Rockslide, Statue Awakens, Bridge Collapses) so the threat keeps rising. Space out coin rewards (Coin Rush, Gold Coin Appears) between the danger. Don't repeat the same event back-to-back."

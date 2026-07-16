@@ -45,6 +45,20 @@ export async function POST(req: Request): Promise<NextResponse> {
     try {
       await fs.mkdir(archiveDir, { recursive: true });
       await fs.writeFile(path.join(archiveDir, `frame_${Date.now()}.jpg`), buf);
+      // Keep only the most recent N frames so the archive can't grow unbounded
+      // (~1,800/hr at 2s). Names are zero-era epoch-ms, so lexical sort == oldest
+      // first; drop everything before the last MAX. Override with LINGBOT_FRAME_ARCHIVE_MAX.
+      const max = Number(process.env.LINGBOT_FRAME_ARCHIVE_MAX) || 100;
+      const files = (await fs.readdir(archiveDir))
+        .filter((f) => f.startsWith("frame_") && f.endsWith(".jpg"))
+        .sort();
+      if (files.length > max) {
+        await Promise.all(
+          files
+            .slice(0, files.length - max)
+            .map((f) => fs.unlink(path.join(archiveDir, f)).catch(() => {})),
+        );
+      }
     } catch {
       /* archive is best-effort; a full disk must not break live directing */
     }

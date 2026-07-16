@@ -1,7 +1,7 @@
 {
   "id": "case1_0038",
   "name": "Battlefield Horseman",
-  "description": "Third-person mounted warrior — key 1 = snowstorm approaches, key 2 = horse lunge strike, key 3 = casts fire magic",
+  "description": "Third-person mounted warrior — key 1 = horse lunge strike, key 2 = casts fire magic; director: snowstorm approaches",
   "image": {
     "label": "Battlefield Horseman",
     "src": "/lingbot-cases/battlefield-horseman.jpg"

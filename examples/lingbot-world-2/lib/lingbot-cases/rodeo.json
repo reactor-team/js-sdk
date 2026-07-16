@@ -1,7 +1,7 @@
 {
   "id": "rodeo_bull_10",
   "name": "Rodeo Bull Ride",
-  "description": "Third-person rodeo bull ride — key 1 = buck, key 2 = spin, key 3 = thrown off, key 4 = wave hat, key 5 = barrel turn, key 6 = rabbit appears, key 7 = arena fire, director controls the bull: bucks violently / spins hard / charges the rail / throws the rider; audience (visual): crowd erupts / recoils / stills / waves",
+  "description": "Third-person rodeo bull ride — key 1 = thrown off, key 2 = wave hat, key 3 = barrel turn, key 4 = spur the bull, key 5 = tighten grip, key 6 = lean back, key 7 = free hand high; director controls the bull: buck / spin / bucks violently / spins hard / charges the rail / throws the rider; audience (visual): crowd erupts / recoils / stills / waves",
   "image": {
     "label": "Rodeo Bull Ride",
     "src": "/lingbot-cases/rodeo.jpg"

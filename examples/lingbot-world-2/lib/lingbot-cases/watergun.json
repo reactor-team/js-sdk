@@ -1,7 +1,7 @@
 {
   "id": "watergun_aquapark",
   "name": "Water Blaster",
-  "description": "First-person water-blaster FPS at a floating aqua park — keys 1-9: fire blaster, rapid fire, pump/reload, splash blast, melee bash, grab water ammo, charge shot, dive dodge, sprint; + green slime blast (fires the green quarry water); Space = jump gap, C = crouch behind cover",
+  "description": "First-person water-blaster FPS at a floating aqua park — keys 1-9: rapid fire, pump/reload, splash blast, melee bash, raise float shield, duck behind cover, spray screen, dive dodge, sprint; + green slime blast (fires the green quarry water); Space = jump gap, C = crouch behind cover",
   "image": {
     "label": "Water Blaster",
     "src": "/lingbot-cases/watergun.jpg"
@@ -24,12 +24,6 @@
       }
     },
     "events": [
-      {
-        "name": "Fire Blaster",
-        "actor": "player",
-        "detail": "The hand squeezes the trigger of the water blaster and a hard jet of water blasts out from the muzzle straight ahead, arcing across the aqua park and splattering onto the target with a burst of spray, then the stream cuts off.",
-        "removeItem": "water"
-      },
       {
         "name": "Rapid Fire",
         "actor": "player",
@@ -55,15 +49,21 @@
         "health": 0
       },
       {
-        "name": "Grab Water Ammo",
+        "name": "Raise Float Shield",
         "actor": "player",
-        "detail": "The free hand dips down and scoops the blaster's intake through the lake surface, sucking water up to refill the clear reservoir, then raises it back to the ready position.",
-        "addItem": "water"
+        "detail": "The free hand hauls up a clear inflatable board and holds it flat across the front of the view like a shield, incoming jets of water hammering into it and sheeting off to the sides in bursts of spray, then lowers it back down as the water blaster returns to the ready position at the lower right.",
+        "health": 0
       },
       {
-        "name": "Charge Shot",
+        "name": "Duck Behind Cover",
         "actor": "player",
-        "detail": "The player holds the trigger down and pumps hard to pressurise the water blaster to the max, the clear reservoir straining, then releases a single huge blast — a thick surging jet of water that rockets across the aqua park and slams the target in a heavy sheet of spray, then the blaster empties.",
+        "detail": "The player drops down behind the raised edge of a big inflatable platform, the view dipping low behind the bobbing float as water jets streak overhead and splatter across the cover, then rises back up with the water blaster raised at the lower right.",
+        "health": 0
+      },
+      {
+        "name": "Spray Screen",
+        "actor": "player",
+        "detail": "The player sweeps the water blaster upward and fires a wide fan of mist into the air just ahead, throwing up a shimmering curtain of spray that hangs between the camera and the aqua park to screen the view, then the mist drifts down and the blaster comes back to the ready position at the lower right.",
         "removeItem": "water"
       },
       {

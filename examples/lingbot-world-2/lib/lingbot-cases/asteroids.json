@@ -1,7 +1,7 @@
 {
   "id": "case_asteroids",
   "name": "Asteroid Run",
-  "description": "Third-person space flight through an asteroid field — key 1 = fire cannons, key 2 = launch missiles, key 3 = afterburner boost, key 4 = barrel roll, key 5 = deploy shield, key 6 = shatter asteroid, key 7 = turbo boost, key 8 = ufo appears",
+  "description": "Third-person space flight through an asteroid field — key 1 = fire cannons, key 2 = launch missiles, key 3 = afterburner boost, key 4 = barrel roll, key 5 = deploy shield, key 6 = shatter asteroid, key 7 = turbo boost, key 8 = land on planet; director: UFO / enemy fighter / asteroid storm / solar flare / wormhole / comet / repair beacon / planet looms closer",
   "image": {
     "label": "Asteroid Run",
     "src": "/lingbot-cases/asteroids.jpg"

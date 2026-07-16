@@ -50,9 +50,24 @@ def encode_image(frame, max_px=768):
     return base64.b64encode(buf.getvalue()).decode("utf-8")
 
 
-def vlm_call(client, model, frame, system, user, max_tokens=512, max_px=768, temperature=0.0):
-    """One image+text VLM call. Returns (reply_text, response). The raw response is kept
-    so callers can read usage tokens / reasoning_content."""
+# Disable the reasoner's chain-of-thought for speed. NVIDIA NIM reasoning models
+# (cosmos/nemotron family) accept chat_template_kwargs.thinking=False; we also send
+# reasoning_effort="low" as a fallback for endpoints that read that. Both go in
+# extra_body so unknown fields are ignored rather than erroring the request.
+_NO_THINK_BODY = {"chat_template_kwargs": {"thinking": False}, "reasoning_effort": "low"}
+
+
+def _create(client, model, messages, max_tokens, temperature, think):
+    kw = dict(model=model, messages=messages, temperature=temperature, max_tokens=max_tokens)
+    if not think:
+        kw["extra_body"] = _NO_THINK_BODY
+    return client.chat.completions.create(**kw)
+
+
+def vlm_call(client, model, frame, system, user, max_tokens=512, max_px=768, temperature=0.0, think=False):
+    """One image+text VLM call (vision). Returns (reply_text, response). Reasoning is OFF
+    by default — benchmarked as a wash on cosmos (no chain-of-thought at temp 0, identical
+    token counts either way). Pass think=True to re-enable it for a model where CoT helps."""
     b64 = encode_image(frame, max_px)
     messages = [
         {"role": "system", "content": system},
@@ -64,24 +79,21 @@ def vlm_call(client, model, frame, system, user, max_tokens=512, max_px=768, tem
             ],
         },
     ]
-    resp = client.chat.completions.create(
-        model=model, messages=messages, temperature=temperature, max_tokens=max_tokens
-    )
+    resp = _create(client, model, messages, max_tokens, temperature, think)
     text = (resp.choices[0].message.content or "").strip() if resp.choices else ""
     return text, resp
 
 
-def text_call(client, model, system, user, max_tokens=384, temperature=0.0):
+def text_call(client, model, system, user, max_tokens=384, temperature=0.0, think=False):
     """Text-only completion (NO image). The director's decide() reasons purely from
     the shared state/History carried in the system prompt — the probe is the sole
-    vision call ('eyes'); decide is the 'brain' over state. Returns (reply_text, resp)."""
+    vision call ('eyes'); decide is the 'brain' over state. `think=False` (default)
+    turns OFF the reasoner's chain-of-thought for speed. Returns (reply_text, resp)."""
     messages = [
         {"role": "system", "content": system},
         {"role": "user", "content": user},
     ]
-    resp = client.chat.completions.create(
-        model=model, messages=messages, temperature=temperature, max_tokens=max_tokens
-    )
+    resp = _create(client, model, messages, max_tokens, temperature, think)
     text = (resp.choices[0].message.content or "").strip() if resp.choices else ""
     return text, resp
 

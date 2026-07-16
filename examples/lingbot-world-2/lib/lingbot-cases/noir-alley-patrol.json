@@ -1,7 +1,7 @@
 {
   "id": "case1_0036",
   "name": "Noir Alley Patrol",
-  "description": "Third-person noir alley — key 1 = fires pistol, key 2 = flamethrower, key 3 = fires rocket launcher, key 4 = knife attack, key 5 = forward roll, key 6 = use flashlight, gunman on the fire escape, director oddballs: chicken / drone",
+  "description": "Third-person noir alley — key 1 = fires pistol, key 2 = flamethrower, key 3 = fires rocket launcher, key 4 = knife attack, key 5 = take cover, key 6 = forward roll, key 7 = use flashlight, key 8 = sidestep dodge, key 9 = enter the door, key 10 = get in the car; director: gunman on the fire escape / chicken / drone / roof on fire / police car / exit door",
   "image": {
     "label": "Noir Alley Patrol",
     "src": "/lingbot-cases/noir-alley-patrol.jpg"
@@ -66,10 +66,10 @@
         "health": 0
       },
       {
-        "name": "Kick",
+        "name": "Take Cover",
         "actor": "player",
-        "health": 0,
-        "detail": "The officer drives a hard front kick straight ahead, his boot slamming forward into the space in front of him with a splash of spray off the wet asphalt, then plants back down into a ready stance. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone. Throughout this action his hands hold NO gun and his service pistol stays holstered at his hip — he does not draw, hold, raise or point any firearm."
+        "health": 15,
+        "detail": "The officer darts to the side and ducks down behind the green dumpster, pressing his back to it and lowering his head under cover, then peeks back out ready. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone. Throughout this action his hands hold NO gun and his service pistol stays holstered at his hip — he does not draw, hold, raise or point any firearm."
       },
       {
         "name": "Forward Roll",
@@ -84,27 +84,9 @@
         "health": 10
       },
       {
-        "name": "Take Cover",
-        "actor": "player",
-        "health": 15,
-        "detail": "The officer darts to the side and ducks down behind the green dumpster, pressing his back to it and lowering his head under cover, then peeks back out ready. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone. Throughout this action his hands hold NO gun and his service pistol stays holstered at his hip — he does not draw, hold, raise or point any firearm."
-      },
-      {
-        "name": "Raise Shield",
-        "actor": "player",
-        "health": 5,
-        "detail": "The officer brings up a black riot shield in front of himself, bracing behind it in a low guard, the shield taking the rain as he holds firm, then lowers it back down. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone. Throughout this action, aside from the item already in his hands, he holds NO gun and his service pistol stays holstered at his hip — he does not draw, raise or point any firearm."
-      },
-      {
         "name": "Sidestep Dodge",
         "actor": "player",
         "detail": "The officer sharply sidesteps and weaves to one side, snapping his body out of the line of fire in a quick evasive shuffle across the wet asphalt, then re-settles into a ready stance. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone. Throughout this action his hands hold NO gun and his service pistol stays holstered at his hip — he does not draw, hold, raise or point any firearm.",
-        "health": 5
-      },
-      {
-        "name": "Block",
-        "actor": "player",
-        "detail": "The officer raises both gloved forearms crossed in front of his face and chest in a tight defensive guard, bracing against an incoming blow, then drops the guard and re-settles. EXACTLY ONE police officer in frame — a single lone officer, no second officer, no duplicate and no clone. Throughout this action his hands hold NO gun and his service pistol stays holstered at his hip — he does not draw, hold, raise or point any firearm.",
         "health": 5
       },
       {
@@ -135,6 +117,13 @@
         "name": "Drone Descends",
         "actor": "director",
         "detail": "A small quadcopter drone drops down into the alley from above, hovering at head height with its rotors spinning and a red camera light glowing, drifting and bobbing as it tracks the officer through the falling rain; it stays, hovering nearby. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The uniformed police officer himself stays the focus of the frame, unchanged in pose, position and appearance throughout — only the world around him changes.",
+        "health": -10,
+        "count": 1
+      },
+      {
+        "name": "Roof on Fire",
+        "actor": "director",
+        "detail": "High above the alley the rooftop of one of the brick buildings catches fire — orange flames erupt along the roofline and climb into the rainy night sky, thick black smoke rolling out and an angry orange glow flickering down the wet brick walls and dancing across the puddles below, embers drifting down through the rain. The blaze stays, burning on the rooftop above. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The uniformed police officer himself stays the focus of the frame, unchanged in pose, position and appearance throughout — only the world around him changes.",
         "health": -10,
         "count": 1
       },

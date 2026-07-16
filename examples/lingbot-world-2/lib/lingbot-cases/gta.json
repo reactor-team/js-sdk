@@ -2,7 +2,7 @@
   "id": "gta_boulevard_07",
   "name": "GTA Boulevard",
   "hidden": true,
-  "description": "Third-person sunny GTA street — key 1 = car accident, key 2 = draw & fire pistol, key 3 = punch combo, key 4 = sprint, key 5 = pick up cash",
+  "description": "Third-person sunny GTA street — key 1 = draw & fire pistol, key 2 = punch combo, key 3 = sprint, key 4 = pick up cash; director: car accident / police arrive / road fire",
   "image": {
     "label": "GTA Boulevard",
     "src": "/lingbot-cases/gta.png"
