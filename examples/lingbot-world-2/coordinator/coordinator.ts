@@ -134,7 +134,9 @@ function broadcastVitals(): void {
 
 // Which director's ops are accepted: "both" | "human" | "ai". Player ops
 // (role "player" / untagged gameplay) always apply — this only gates directors.
-let directorMode: "both" | "human" | "ai" = "both";
+// Default "ai": the AI director drives out of the box (its ops aren't dropped);
+// open the Director panel and switch to "both"/"human" to intervene by hand.
+let directorMode: "both" | "human" | "ai" = "ai";
 
 function opAllowed(role: string | undefined): boolean {
   if (role !== "human" && role !== "ai") return true; // player / system: always

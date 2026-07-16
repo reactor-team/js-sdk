@@ -173,6 +173,7 @@
       {
         "name": "Police Car Turns Up",
         "actor": "director",
+        "requires": { "fired": ["Gunman on the Fire Escape"] },
         "detail": "The officer stays the focus, unchanged in pose, while a single police squad car turns up and rolls into the alley, pulling to a stop nearby with its red-and-blue roof lights flashing and washing the wet brick walls and puddles in pulsing colour, its headlights cutting through the falling rain; the car stays parked there with its lights turning, and NO ONE gets out of it. EXACTLY ONE police car and EXACTLY ONE officer — a single squad car with no extra people and no second officer, no duplicate and no clone.",
         "health": 10,
         "count": 1

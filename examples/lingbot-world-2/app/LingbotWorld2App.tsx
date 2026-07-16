@@ -13,6 +13,7 @@ import { LingbotWorldController } from "@/components/lingbot-world-2/LingbotWorl
 import { DirectorPanel } from "@/components/lingbot-world-2/DirectorPanel";
 import { DirectorModeSwitch } from "@/components/lingbot-world-2/DirectorModeSwitch";
 import { ActivityTicker } from "@/components/lingbot-world-2/ActivityTicker";
+import { FrameTap } from "@/components/lingbot-world-2/FrameTap";
 
 // Reactor coordinator the SDK connects to. Override with
 // NEXT_PUBLIC_COORDINATOR_URL in .env.local if you need a different one.
@@ -156,6 +157,9 @@ function MainContent() {
                   height: "100%",
                 }}
               />
+              {/* Live frame tap — grabs the on-screen video for the AI director so
+                  it sees the REAL evolving stream, not a frozen scene still. */}
+              <FrameTap />
               {/* Player HUD — absolute overlay on the viewport */}
               {hud}
               {/* Persistent runtime switch for the active director */}

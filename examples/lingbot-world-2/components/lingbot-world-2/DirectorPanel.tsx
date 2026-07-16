@@ -110,7 +110,7 @@ export function DirectorPanel({
   const [connected, setConnected] = useState(false);
   const [gameName, setGameName] = useState("");
   const [facts, setFacts] = useState("");
-  const [mode, setMode] = useState("both");
+  const [mode, setMode] = useState("ai"); // matches the coordinator default until it broadcasts
   const [key, setKey] = useState("");
   const [clause, setClause] = useState("");
   const [objective, setObjective] = useState<{ summary?: string; director?: string } | null>(null);

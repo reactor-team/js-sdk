@@ -81,11 +81,31 @@ human player's hold-keys and are NOT in the director set.
 
 ## 5. Frame handoff  _[AI-only]_
 
-- The renderer taps the latest frame to a file (default `frame.png`) via
-  `LINGBOT_FRAME_TAP` — `local_server/engine.py` writes it atomically (tmp + replace).
-  (The cloud/Reactor path streams to the browser only; frame-tap needs the local backend.)
-- The director watches its mtime; each new frame = one look = one `step`/chunk of pacing.
-- File-based on purpose: decouples the Python director from the browser/DataChannel.
+The director watches ONE file (default `coordinator/frame.png`, override `LINGBOT_FRAME_TAP`)
+and triggers on its **mtime**: each new frame = one look = one `step`/chunk of pacing.
+File-based on purpose — it decouples the Python director from the browser/DataChannel.
+There is no longer an `active_game.txt`: the director keeps the active scene's still
+path in memory (`state["game_image"]`, from the §3 `game` broadcast).
+
+**Three sources fill that file, in priority — first one that's fresh wins:**
+
+1. **Live local tap** — `local_server/engine.py` writes real generated frames atomically
+   (tmp + rename) when the LOCAL backend renders. Frame-accurate; the ground truth.
+2. **Live browser tap** — `app/api/frame-tap/route.ts` (`POST` JPEG → same atomic write).
+   The client `FrameTap.tsx` grabs the on-screen `<video>` every ~2s and posts it. This is
+   the CLOUD path's real-frame source: cloud video only exists in the browser (WebRTC →
+   `<video>`, never on disk), so the browser is the only place a real frame can be captured.
+3. **Self-feed (fallback)** — when nothing above has written for `>max(2×interval, 4s)`, the
+   director copies its own `state["game_image"]` (the scene still) onto the tap and bumps the
+   mtime, so it is never blind. Default ON (`--no-self-feed` to disable); a static image, so
+   it can't show the consequences of the director's own events — a live tap always preempts it.
+
+Because 1/2 refresh faster than the self-feed staleness window, self-feed only kicks in when
+no live source is running (tab closed, generation stopped, no backend).
+
+**Debug archive:** set `LINGBOT_FRAME_ARCHIVE=<dir>` and the browser tap keeps EVERY captured
+frame (`frame_<epoch-ms>.jpg`, chronologically sortable) so you can replay exactly what the
+director saw. Best-effort — a write failure there never breaks live directing.
 
 ---
 

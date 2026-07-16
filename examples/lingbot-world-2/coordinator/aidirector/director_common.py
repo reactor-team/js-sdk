@@ -120,7 +120,8 @@ def load_scene(path):
         clause = det if isinstance(det, str) else (det or {}).get("static", "")
         dir_events.append(
             {"name": e.get("name", ""), "clause": clause,
-             "health": e.get("health"), "addItem": e.get("addItem")}
+             "health": e.get("health"), "addItem": e.get("addItem"),
+             "requires": e.get("requires")}
         )
     obj = data.get("objective") or {}
     director_goal = obj.get("director") or obj.get("summary") or ""
@@ -144,16 +145,58 @@ def _event_summary(clause):
     return text[:130]
 
 
+def _gate_ok(requires, state):
+    """Python mirror of isEventAvailable (lib/lingbot-world-prompts.ts): a director
+    event is only a valid AI trigger when its declarative `requires` gate holds
+    against shared state. This keeps the AI director honest about authored
+    dependency chains (e.g. Police Car only AFTER Gunman on the Fire Escape).
+    Names are normalized so display/slug forms match. `hasItem` is not gated here
+    because the AI-director state does not track inventory; `minChunks` uses the
+    director `step` counter as the elapsed-time proxy."""
+    g = requires
+    if not g:
+        return True
+    fired = {_norm_name(f) for f in (state.get("fired") or [])}
+    if g.get("fired") and not all(_norm_name(n) in fired for n in g["fired"]):
+        return False
+    if g.get("notFired") and any(_norm_name(n) in fired for n in g["notFired"]):
+        return False
+    if g.get("minChunks") is not None and state.get("step", 0) < g["minChunks"]:
+        return False
+    health = state.get("health", 100)
+    if g.get("maxHealth") is not None and health > g["maxHealth"]:
+        return False
+    if g.get("minHealth") is not None and health < g["minHealth"]:
+        return False
+    return True
+
+
+def _event_open(e, state):
+    """Is director event `e` a valid AI trigger right now? Prefer the authored
+    `requires` gate (load_scene path) evaluated against the DIRECTOR's own state —
+    authoritative for the AI's own fires. If `requires` is absent (the event came
+    via a scene_events broadcast, which only carries the client-computed flag),
+    fall back to that `available` flag. Unknown on both -> open."""
+    req = e.get("requires")
+    if req is not None:
+        return _gate_ok(req, state)
+    return e.get("available") is not False
+
+
 def build_system(scene, state):
     fired = state.get("fired") or []
     fired_lower = {f.lower() for f in fired}
     dir_events = scene.get("dir_events") or []
     # Prefer events NOT already fired this session so the arc actually ADVANCES
-    # (don't just re-offer an already-active event). If everything has fired,
-    # reopen the full list so repeats become allowed again.
-    available = [e for e in dir_events if e["name"] and e["name"].lower() not in fired_lower]
+    # (don't just re-offer an already-active event) AND whose gate is open, so the
+    # AI never triggers a dependency-locked event. If everything eligible has
+    # fired, reopen repeats — but ONLY of gate-open events, never a locked one.
+    available = [
+        e for e in dir_events
+        if e["name"] and e["name"].lower() not in fired_lower and _event_open(e, state)
+    ]
     if not available:
-        available = [e for e in dir_events if e["name"]]
+        available = [e for e in dir_events if e["name"] and _event_open(e, state)]
     events_list = (
         "\n".join(f'- "{e["name"]}": {_event_summary(e["clause"])}' for e in available)
         or "(this scene has no director events)"
@@ -170,6 +213,22 @@ def build_system(scene, state):
         observed=observed,
         health=state.get("health", "?"),
     )
+
+
+async def _timed_call(fn, *args):
+    """Run a blocking VLM call in a worker thread and time it, so probe and decide
+    can run CONCURRENTLY under asyncio.gather. Returns (result, err, seconds) and
+    never raises — the caller inspects `err`."""
+    _t = time.monotonic()
+    try:
+        return await asyncio.to_thread(fn, *args), None, time.monotonic() - _t
+    except Exception as e:  # noqa: BLE001 — surfaced via the returned err
+        return None, e, time.monotonic() - _t
+
+
+async def _noop_call():
+    """Stand-in for the probe coroutine when no probe is configured."""
+    return None, None, 0.0
 
 
 async def run_director(decide, url, frame_path, scene, interval, once, probe=None, debug=False,
@@ -280,9 +339,14 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                         # our action set from them so a UI game switch retargets us live
                         # (without this, we'd keep firing the launch scene's events).
                         evs = m.get("events") or []
+                        # Carry the client-computed `available` flag: it already
+                        # evaluated each event's `requires` gate against shared
+                        # state, so we honor the SAME locks the human panel shows
+                        # (build_system -> _event_open drops available===false).
                         scene["dir_events"] = [
                             {"name": e.get("name", ""), "clause": e.get("clause", ""),
-                             "health": e.get("health"), "addItem": e.get("addItem")}
+                             "health": e.get("health"), "addItem": e.get("addItem"),
+                             "available": e.get("available")}
                             for e in evs if e.get("name")
                         ]
                         dbg(f"<- scene_events: {len(scene['dir_events'])} events -> {[e['name'] for e in scene['dir_events']]}")
@@ -413,30 +477,40 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                         # (subject off-frame, duplicate, submerged) before deciding.
                         # Timing: measure the full decision cycle (probe + decide) so you
                         # can see how long one director look actually costs end to end.
+                        # Probe (eyes) and decide (brain) are INDEPENDENT VLM calls:
+                        # decide's prompt embeds the observations from the PREVIOUS
+                        # step (state["observations"]), so we fire BOTH concurrently
+                        # via asyncio.gather instead of serially — the cycle now costs
+                        # ~max(probe, decide) rather than their sum. Frames are seconds
+                        # apart, so a one-step-stale observation map is a fine trade.
+                        # build_system MUST run first so decide reads the prior probe.
                         t_start = time.monotonic()
-                        t_probe = 0.0
-                        t_decide = 0.0
-                        if pstate["probe"] is not None:
-                            _tp = time.monotonic()
-                            try:
-                                p_ops, p_obs = pstate["probe"](frame)
-                                state["observations"] = p_obs
-                                for op in p_ops:
-                                    dbg(f"-> probe op: {json.dumps(op)}")
-                                    await ws.send(json.dumps(op))
-                            except Exception as e:  # noqa: BLE001 — probes are best-effort
-                                print(f"[director] probe error: {type(e).__name__}: {e}", flush=True)
-                            t_probe = time.monotonic() - _tp
                         system_text = build_system(scene, state)
                         if debug:
                             dbg(f"decide system prompt ({len(system_text)} chars):")
                             print(system_text, flush=True)
-                        try:
-                            _td = time.monotonic()
-                            raw = decide(frame, system_text)
-                            t_decide = time.monotonic() - _td
-                        except Exception as e:  # noqa: BLE001 — surface to the feed
-                            msg = f"{type(e).__name__}: {e}"
+                        probe_co = (
+                            _timed_call(pstate["probe"], frame)
+                            if pstate["probe"] is not None else _noop_call()
+                        )
+                        (p_res, p_err, t_probe), (raw, d_err, t_decide) = await asyncio.gather(
+                            probe_co, _timed_call(decide, frame, system_text)
+                        )
+
+                        # Apply the probe result -> refresh observations for the NEXT
+                        # step and emit any invariant re-anchor ops (best-effort).
+                        if p_err is not None:
+                            print(f"[director] probe error: {type(p_err).__name__}: {p_err}", flush=True)
+                        elif p_res is not None:
+                            p_ops, p_obs = p_res
+                            state["observations"] = p_obs
+                            for op in p_ops:
+                                dbg(f"-> probe op: {json.dumps(op)}")
+                                await ws.send(json.dumps(op))
+
+                        # Apply the decide result (same handling as the serial path).
+                        if d_err is not None:
+                            msg = f"{type(d_err).__name__}: {d_err}"
                             print(f"[director] VLM error: {msg}", flush=True)
                             # Distinguish a transient error from a real model disconnect.
                             if model_check is not None and not model_check():
@@ -522,9 +596,10 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                                 last_fire_step = state["step"]  # start the cooldown
                                 did_fire = True
                                 print(f"[director] fire {ev['name']}", flush=True)
-                        # Full decision time: probe + decide + all the firing/plumbing above.
+                        # Full decision time. probe ∥ decide run CONCURRENTLY, so
+                        # t_total ≈ max(probe, decide) — not their sum.
                         t_total = time.monotonic() - t_start
-                        timing = (f"{t_total:.2f}s (probe {t_probe:.2f}s + decide {t_decide:.2f}s)")
+                        timing = (f"{t_total:.2f}s (probe {t_probe:.2f}s ∥ decide {t_decide:.2f}s)")
                         print(f"[director] decision time: {timing}", flush=True)
                         # Heartbeat: even when the director fires nothing this look, emit a
                         # record-only log op so the activity feed shows it is alive and
