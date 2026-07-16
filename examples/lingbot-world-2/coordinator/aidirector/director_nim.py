@@ -44,6 +44,9 @@ def main():
     ap.add_argument("--fire-cooldown", type=int, default=3,
                     help="min chunks between fires (paces the director; default 3, 0 = off). Stops it "
                          "firing every frame")
+    ap.add_argument("--warmup", type=float, default=5.0,
+                    help="seconds to do NOTHING at the start of a game so the scene establishes "
+                         "(default 5, 0 = off)")
     ap.add_argument("--quiet", action="store_true",
                     help="turn OFF the detailed per-step debug log (on by default)")
     args = ap.parse_args()
@@ -66,11 +69,16 @@ def main():
         except Exception:  # noqa: BLE001
             return False
 
-    if model_check():
+    try:
+        client.models.list()
         print(f"[director] model check: reachable -> {args.base_url}  ({args.model})", flush=True)
-    else:
-        print("[director] model check: FAILED -- model server unreachable "
-              "(bad NVIDIA_API_KEY / endpoint?). NOT starting the AI director.", flush=True)
+    except Exception as e:  # noqa: BLE001 — show WHY it failed, then don't start
+        print(f"[director] model check: FAILED -- {type(e).__name__}: {e}", flush=True)
+        key = os.environ.get("NVIDIA_API_KEY", "")
+        print(f"[director]   NVIDIA_API_KEY: {'set (' + str(len(key)) + ' chars)' if key else 'NOT SET'}  "
+              f"base_url: {args.base_url}", flush=True)
+        print("[director]   -> check: key set in THIS window? key valid/not expired? network/firewall "
+              "to inference-api.nvidia.com? NOT starting the AI director.", flush=True)
         return  # no model -> don't start (mirrors: disconnect unloads + stops)
     vlm = make_vlm(client, args.model, args.max_px)
     decide = lambda frame, system: vlm(frame, system, USER_TEXT, 384)  # noqa: E731
@@ -131,7 +139,8 @@ def main():
         run_director(decide, args.url, args.frame, scene, args.interval, args.once,
                      probe=probe, debug=debug, reload_game=reload_game,
                      hello_extra={"model": args.model, "modelOk": True},
-                     model_check=model_check, fire_cooldown=args.fire_cooldown)
+                     model_check=model_check, fire_cooldown=args.fire_cooldown,
+                     warmup=args.warmup)
     )
 
 

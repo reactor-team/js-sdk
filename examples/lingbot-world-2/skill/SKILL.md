@@ -247,7 +247,7 @@ The model only ever sees one prose string, but the app authors it in layers — 
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | `base`                | World identity: subject, environment, style. Always present.                                 |
 | `camera` / `movement` | Each has `static` and `dynamic` variants — selected by whether the user is currently moving. |
-| `events[]`            | Detail clauses. **Player** events (`actor:"player"`, default) bind to hold-keys 1–9, stack while held, drop on release. **Director** events (`actor:"director"`) are world beats fired from the Director panel / letter hotkeys and asserted as persistent History facts (see below). |
+| `events[]`            | Detail clauses. **Player** events (`actor:"player"`, default) render as chips 1–24 and stack while held, drop on release; **only the first nine are keyboard-bound** (number keys 1–9), the rest are click-only. **Director** events (`actor:"director"`) are world beats fired from the Director panel / letter hotkeys and asserted as persistent History facts (see below). Any event may carry `requires` (a gate) and `count`; see [Event gating](#event-gating--requires) and [Consistency guards](#consistency-guards--the-exactly-one-rule). |
 | vertical              | The jump / crouch / stand sentence while those controls are engaged.                         |
 
 `composePrompt(scene, isMoving, heldSlots, verticalPrompt)` flattens the active selection to prose. `recomputePromptAndSend()` calls it whenever any input changes, dedupes against the last sent string, and sends `set_prompt`. The prompt therefore always narrates what the controls are doing — that text/motion coherence is why driving feels responsive.
@@ -263,12 +263,77 @@ Rules when extending:
 
 Each event's `actor` decides how it reaches the model:
 
-- **Player** (`actor:"player"`, default) — a character action on **number keys 1–9**. `holdPress(slot)` adds it to `heldSlots`; `composePrompt` stacks its `detail` while held.
+- **Player** (`actor:"player"`, default) — a character action on a chip. `holdPress(slot)` adds it to `heldSlots`; `composePrompt` stacks its `detail` while held. Chips render for up to `MAX_EVENTS` (24) player events, but `keyToHoldSlot` only maps the **number keys 1–9** to slots 0–8 — author your most-used actions first so they get a hotkey, and remember the 10th+ event is click-only. Order matters: `EventChips.tsx` lists player events before director chips, so put player events first in the JSON `events[]` array.
 - **Director** (`actor:"director"`) — a persistent **world** beat, NOT a player key. Fired from the in-app **Director panel** ([`DirectorPanel.tsx`](../components/lingbot-world-2/DirectorPanel.tsx)) or its **alphabetic hotkey** — `DIRECTOR_HOTKEYS = "tyupfghbnvxz"`, the *i*-th director event → the *i*-th letter (letters chosen to avoid every player control). It's `assert`ed as a fact into the shared History and projected onto the player's prompt until cleared.
 
 The **coordinator** ([`coordinator/coordinator.ts`](../coordinator/coordinator.ts), `ws://localhost:8090`) is the authoritative shared History + vitals, so a separate-browser Player and Director (or the **AI Director**, [`coordinator/director_nim.py`](../coordinator/director_nim.py)) agree. The `human` / `ai` / `both` switch gates which director's ops apply; player ops always apply. Both the player and the panel connect to it, so hotkey-fired director events land in the same History.
 
-Events may also carry a signed **`health`** delta (cost/reward) plus `addItem` / `removeItem`; these update the shared vitals and the [`Hud`](../components/lingbot-world-2/Hud.tsx) bar on scenes that declare a `hud` block. Authoring rules for scenes (player/director split, one fixed landmark, destroyed-things-vanish, visual-only) live in the `/add-game` skill.
+Events may also carry a signed **`health`** delta (cost/reward) plus `addItem` / `removeItem`; these update the shared vitals and the [`Hud`](../components/lingbot-world-2/Hud.tsx) bar on scenes that declare a `hud` block. The `hud` block takes `show`, `maxHealth`, `health`, `inventory[]`, and an optional **`healthLabel`** (defaults to "Health") so a scene can rename the bar ("Hull", "Air", "Grip"). Authoring rules for scenes (player/director split, one fixed landmark, destroyed-things-vanish, visual-only) live in the `/add-game` skill.
+
+### Event gating — `requires`
+
+An event can be **conditional**: it only becomes available once the world reaches some state. This lets a scene stage a sequence — a door only appears after the alarm has sounded, a shark only lunges after it has surfaced — instead of exposing every beat from the first frame. Add a `requires` gate to any player or director event:
+
+```jsonc
+{
+  "name": "Enter the Door",
+  "actor": "player",
+  "requires": { "fired": ["Exit Door Appears"], "minChunks": 8 },
+  "detail": "…"
+}
+```
+
+`EventGate` (in [`lib/lingbot-world-prompts.ts`](../lib/lingbot-world-prompts.ts)) supports:
+
+| Field       | Meaning                                                              |
+| ----------- | ------------------------------------------------------------------- |
+| `fired`     | every named event in the list must have fired at least once         |
+| `notFired`  | none of these events may have fired yet (one-shot / mutually-exclusive beats) |
+| `minChunks` | at least N chunks generated this session (a time gate)              |
+| `maxHealth` | current health ≤ N (only offer the rescue/escape when hurt)         |
+| `minHealth` | current health ≥ N                                                   |
+| `hasItem`   | the named item is in the shared inventory                           |
+
+`isEventAvailable(event, gateState)` is the single predicate — all listed fields must pass (AND). An event with no `requires` is always available. In the controller the gate is evaluated against a live `GateState { fired, chunks, health, inventory }` built from the fired-events ref, the chunk counter, and the mirrored HUD refs (`hudHealthRef` / `hudInventoryRef`). Gated-out events still render — greyed and non-firing — in both [`EventChips.tsx`](../components/lingbot-world-2/EventChips.tsx) and [`DirectorPanel.tsx`](../components/lingbot-world-2/DirectorPanel.tsx) via the `available` flag `pushSceneEvents` attaches. `holdPress` and `fireDirectorEvent` both re-check availability before firing, so a stale chip can't sneak an event through.
+
+Two rules to preserve if you extend gating: (1) the re-push effect `useEffect(…, [firedVersion, hudHealth, pushSceneEvents])` re-evaluates every gate whenever a fire, chunk, or health change could flip availability — add any new gate input to its dependency list. (2) reset the fired-events set in `initHud` so a new session starts with every gate closed.
+
+### Objectives — win/lose and the director charter
+
+A scene may declare an `objective`:
+
+```jsonc
+"objective": {
+  "summary": "Outrun the temple and survive the chase.",
+  "durationChunks": 120,
+  "reward": "…",
+  "director": "Hunt the runner and escalate the danger over time: …"
+}
+```
+
+- **`summary`** — one line shown to the player as the goal.
+- **`durationChunks`** / **`reward`** — a survive-to-win target: reach N chunks (via the coordinator's chunk count) without dying and the objective is met. Optional.
+- **`director`** — the **charter** the AI Director ([`director_nim.py`](../coordinator/director_nim.py)) reads. It's prose, not code: it tells the VLM director how to pace the authored director events (escalate over time, space rewards between hazards, don't repeat the same beat back-to-back). The director may **only** fire events that already exist in the scene — the charter shapes *when*, never invents new beats.
+
+### Win / lose endings
+
+Endings are authored as ordinary events, not a separate system. Two patterns:
+
+- **Lose (downed / death).** Give the base/camera/movement layers a `downed` version and fire a death event that swaps to it (via `baseVersion` / `cameraVersion` / `movementVersion` on the event) so the whole prompt becomes the collapse. A **health-0 auto-trigger** effect in the controller finds the event named "Player Falls and Dies" and holds its slot when health hits 0, so death fires itself when vitals bottom out. Name that event exactly if you want the auto-trigger to catch it.
+- **Win / scene-replace.** Give the layers an `empty` version so that when the winning event fires, the layer prompts collapse to nothing and the **event's `detail` becomes the entire prompt** — a clean cut to the extraction/finish shot rather than the world beat layered over the running scene. This is the same version-swap machinery (`composePrompt` picks the named version when the event is held), just aimed at replacing the scene instead of dressing it.
+
+### Consistency guards — the "EXACTLY ONE" rule
+
+Pure video world models hold no persistent 3-D map — the sliding-window KV cache is the only memory, so when the camera turns away and back, counts drift (one monster becomes three, a coin trail respawns). The practical mitigation, used throughout the bundled scenes, is to **pin counts and positions in the prose**:
+
+> The world contains **EXACTLY ONE** explorer at the centre of the frame **at a fixed position** AND **EXACTLY ONE** demonic ape monster behind … **EXACTLY ONE** explorer and **EXACTLY ONE** ape monster, **no duplicate and no clone**.
+
+Rules that make this work:
+
+1. **State the count and the position together** — "EXACTLY ONE X at a fixed position", and close the clause with "no duplicate and no clone".
+2. **Repeat the guard in every event `detail`** that could re-render the entity, not just the base — an event prompt the model sees in isolation must re-assert the count or it drifts.
+3. **`count: 1`** on a spawn event (e.g. "Gold Coin Appears") reinforces single-instance spawns in tandem with the prose.
+4. **Collect-one-not-all**: when a player collects from a set (coins), the `detail` must say the item vanishes *only as reached* and the rest keep flowing — otherwise the model clears the whole set at once. See "Grab Coins" in [`templerun.json`](../lib/lingbot-cases/templerun.json).
 
 ### Scenes, examples, and the override store
 

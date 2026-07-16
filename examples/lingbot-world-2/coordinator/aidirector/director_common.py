@@ -10,6 +10,7 @@ emits assert/vital ops (role="ai") to the coordinator. Backend: director_nim.py
 import asyncio
 import json
 import os
+import time
 
 import websockets
 from PIL import Image
@@ -161,7 +162,8 @@ def build_system(scene, state):
 
 
 async def run_director(decide, url, frame_path, scene, interval, once, probe=None, debug=False,
-                       reload_game=None, hello_extra=None, model_check=None, fire_cooldown=0):
+                       reload_game=None, hello_extra=None, model_check=None, fire_cooldown=0,
+                       warmup=0.0):
     # Latest state pushed by the coordinator (facts + vitals) for prompt context.
     # `fired` = short memory of the arc (event names introduced); `step` = pacing.
     # `observations` = the probe read of the current frame (the AI director's eyes).
@@ -201,6 +203,7 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
         # A "game" = the active scene + objective. Log the start of this one, and
         # remember its objective so a later change (UI switched games) is detected.
         state["objective_summary"] = scene.get("objective") or ""
+        state["game_start_time"] = time.monotonic()  # for --warmup (do nothing at game start)
         print(f"[director] === GAME START === {scene.get('objective') or '(no objective)'}", flush=True)
 
         async def listen():
@@ -251,6 +254,7 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                                 state["objective_summary"] = scene.get("objective") or ""
                                 state["fired"] = []
                                 state["step"] = 0
+                                state["game_start_time"] = time.monotonic()  # restart --warmup
                                 last_key_clause.clear()
                                 try:
                                     # the frame-feed loop reads this to feed the matching still
@@ -338,6 +342,17 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                                 last_idle_msg = reason
                             await asyncio.sleep(interval)
                             continue
+                        # WARMUP: do nothing for the first `warmup` seconds of a game so the
+                        # scene establishes before the director intervenes (no billing).
+                        if warmup and state.get("game_start_time") is not None:
+                            left = warmup - (time.monotonic() - state["game_start_time"])
+                            if left > 0:
+                                reason = f"warmup: letting the scene establish — {left:.0f}s before directing"
+                                if reason != last_idle_msg:
+                                    print(f"[director] {reason}", flush=True)
+                                    last_idle_msg = reason
+                                await asyncio.sleep(interval)
+                                continue
                         # NOTE: the fire-cooldown is applied at the FIRE step below, NOT here —
                         # the director still probes + decides (evaluates the image) every frame;
                         # cooldown only suppresses actually firing, so its eyes stay open.
