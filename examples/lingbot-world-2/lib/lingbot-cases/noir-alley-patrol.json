@@ -1,7 +1,7 @@
 {
   "id": "case1_0036",
   "name": "Noir Alley Patrol",
-  "description": "Third-person noir alley — key 1 = fires pistol, key 2 = flamethrower, key 3 = fires rocket launcher, key 4 = knife attack, key 5 = take cover, key 6 = forward roll, key 7 = use flashlight, key 8 = sidestep dodge, key 9 = enter the door, key 10 = get in the car; director: gunman on the fire escape / chicken / drone / roof on fire / police car / exit door",
+  "description": "Third-person noir alley — key 1 = fires pistol, key 2 = flamethrower, key 3 = fires rocket launcher, key 4 = knife attack, key 5 = take cover, key 6 = forward roll, key 7 = use flashlight, key 8 = sidestep dodge; director: gunman on the fire escape / chicken / drone / roof on fire / police car / exit door",
   "image": {
     "label": "Noir Alley Patrol",
     "src": "/lingbot-cases/noir-alley-patrol.jpg"
@@ -166,34 +166,6 @@
         "detail": "The officer stays the focus, unchanged in pose, while a single police squad car turns up and rolls into the alley, pulling to a stop nearby with its red-and-blue roof lights flashing and washing the wet brick walls and puddles in pulsing colour, its headlights cutting through the falling rain; the car stays parked there with its lights turning, and NO ONE gets out of it. EXACTLY ONE police car and EXACTLY ONE officer — a single squad car with no extra people and no second officer, no duplicate and no clone.",
         "health": 10,
         "count": 1
-      },
-      {
-        "name": "Enter the Door",
-        "actor": "player",
-        "baseVersion": "empty",
-        "cameraVersion": "empty",
-        "movementVersion": "empty",
-        "detail": "Over-the-shoulder third-person view from behind the uniformed police officer in dark blue tactical gear as he steps through the open glowing lane-side doorway and crosses inside out of the rain into a warm, brightly lit interior — the dark rainy alley and its downpour falling away behind him as the door closes, until he comes to a stop safe inside the calm, warm-lit room. EXACTLY ONE police officer, a single lone officer, no duplicate and no clone.",
-        "requires": {
-          "fired": [
-            "Exit Door Appears"
-          ]
-        },
-        "health": 0
-      },
-      {
-        "name": "Get in the Car",
-        "actor": "player",
-        "baseVersion": "empty",
-        "cameraVersion": "empty",
-        "movementVersion": "empty",
-        "detail": "Over-the-shoulder third-person view from behind the uniformed police officer in dark blue tactical gear as he strides up to the parked police squad car with its red-and-blue lights flashing, pulls open the driver door and climbs inside out of the rain; the door swings shut and the squad car pulls away down the rain-slicked street, its lights receding into the night. EXACTLY ONE police officer and EXACTLY ONE police car, no second officer, no second car, no duplicate and no clone.",
-        "requires": {
-          "fired": [
-            "Police Car Turns Up"
-          ]
-        },
-        "health": 0
       }
     ],
     "hud": {

@@ -21,6 +21,8 @@
 
 import { appendFileSync } from "node:fs";
 import { WebSocketServer, WebSocket } from "ws";
+import { Engine } from "json-rules-engine";
+import { buildEngine } from "./rules";
 import { History, type Fact } from "../lib/history";
 
 const PORT = Number(process.env.COORDINATOR_PORT ?? 8090);
@@ -182,8 +184,108 @@ let activeGame = ""; // active scene slug (UI selection) — the AI director fol
 let gameOwner: WebSocket | null = null; // the Player socket that loaded the active game
 const directorSockets = new Set<WebSocket>(); // sockets that registered as the AI director
 
+// ── json-rules-engine compatibility ─────────────────────────────────────────
+// The coordinator state is exposed AS-IS as engine facts (see `gameFacts()`), so a
+// `json-rules-engine` rule set can drive the director with NO adapter and NO second
+// copy of truth. Most state (health, chunks, inventory, entityCount, objective) is
+// already a plain value a rule reads directly. Two fields exist to keep that shape
+// first-class and always-current:
+//   • firedEvents  — fired scene events by DISPLAY NAME, DERIVED from the ONE History's
+//     `scene:<slug>` facts each call (NO cached copy, no sync to keep); rules use
+//     `{ fact: "firedEvents", operator: "contains", … }`.
+//   • observations — the probe's latest yes/no reads, posted by the AI director via
+//     op:"observe" (the only fact the coordinator doesn't otherwise hold).
+// Field names below == the `fact` names rules reference, so authored `requires` gates
+// (fired/notFired/minChunks/maxHealth/minHealth/hasItem) map 1:1 to rule conditions.
+let observations: Record<string, boolean> = {}; // rules fact: latest probe reads
+
+/** Fired display name for a History key (`scene:gunman_falls` -> "gunman falls"), or null. */
+function firedNameFromKey(key: string): string | null {
+  return key.startsWith("scene:") ? key.slice("scene:".length).replace(/_/g, " ") : null;
+}
+
+/** Fired scene-event display names, DERIVED from the one History (no cached copy). */
+function firedEventNames(): string[] {
+  return history
+    .snapshot()
+    .map((f) => firedNameFromKey(f.key))
+    .filter((n): n is string => n !== null);
+}
+
+/** The live coordinator state as a flat `json-rules-engine` facts object. Reads the
+ *  current state each call (no copy); field names match the rules' `fact` names. */
+function gameFacts(): Record<string, unknown> {
+  return {
+    firedEvents: firedEventNames(),
+    health: vitals.health,
+    maxHealth: vitals.maxHealth,
+    inventory: vitals.inventory,
+    entityCount,
+    chunks,
+    objective,
+    observations,
+  };
+}
+
+// ── Optional rules-engine director (json-rules-engine) ───────────────────────
+// The coordinator itself acts as the AI director, firing events from deterministic
+// rules over gameFacts() instead of the VLM. Rules are DERIVED from each scene
+// event's authored `requires` gate (fired / notFired / minChunks / maxHealth /
+// minHealth / hasItem) + a "don't re-fire" guard, so NO scene-JSON change is needed.
+// Paced by COORDINATOR_RULE_COOLDOWN. ON by default (COORDINATOR_RULES=0 to disable);
+// still only fires when director mode is ai/both — dormant in the default human mode.
+const RULES_ENABLED = process.env.COORDINATOR_RULES !== "0";
+const RULE_COOLDOWN = Number(process.env.COORDINATOR_RULE_COOLDOWN ?? 6); // min chunks between fires
+const RULE_WARMUP = 4; // ungated events wait this many chunks so the scene settles first
+let rulesEngine: Engine | null = null;
+let lastRuleFireChunk = -1e9;
+// True while an AI director that does its OWN (VLM) deciding is connected. The rules
+// engine then stays dormant so the two never double-fire; a director run with
+// --rules-decide announces decides:false in its hello, which keeps rules active.
+let vlmDeciderPresent = false;
+
+/** (Re)build the engine for the active scene's events, or clear it. Rule construction
+ *  lives in `./rules` (pure + unit-tested); this just owns the enabled/empty gating. */
+function rebuildRulesEngine(): void {
+  lastRuleFireChunk = -1e9;
+  if (!RULES_ENABLED || sceneEvents.length === 0) {
+    rulesEngine = null;
+    return;
+  }
+  rulesEngine = buildEngine(sceneEvents, RULE_WARMUP);
+  console.log(`[rules] engine built: ${sceneEvents.length} rule(s)`);
+}
+
+/** Evaluate the rules against the live state and assert the first fired event (paced). */
+async function runRules(): Promise<void> {
+  if (!rulesEngine || directorMode === "human") return; // rules ARE the AI director here
+  if (vlmDeciderPresent) return; // a VLM director is deciding — don't double-fire
+  if (chunks - lastRuleFireChunk < RULE_COOLDOWN) return; // pace fires
+  let events: { params?: Record<string, unknown> }[];
+  try {
+    ({ events } = await rulesEngine.run(gameFacts()));
+  } catch (err) {
+    console.log(`[rules] run error: ${(err as Error).message}`);
+    return;
+  }
+  for (const ev of events) {
+    const name = ev.params?.name as string | undefined;
+    const se = name ? sceneEvents.find((s) => s.name === name) : undefined;
+    if (!name || !se) continue;
+    const key = "scene:" + name.toLowerCase().replace(/\s+/g, "_");
+    history.assert({ key, clause: se.clause, weight: 2, life: { kind: "sustained" } });
+    lastRuleFireChunk = chunks; // firedEvents derives from History, so the assert above is enough
+
+    if (se.health != null || se.addItem) applyVital({ health: se.health ?? undefined, addItem: se.addItem });
+    console.log(`[rules] fire ${name} (chunk ${chunks})`);
+    broadcast();
+    broadcastActivity({ op: "assert", role: "ai", fact: { key, clause: se.clause } } as Op);
+    break; // at most one fire per tick
+  }
+}
+
 interface Op {
-  op: "assert" | "retract" | "clear" | "tick" | "vital" | "mode" | "log" | "scene_events" | "objective" | "count" | "game" | "hello";
+  op: "assert" | "retract" | "clear" | "tick" | "vital" | "mode" | "log" | "scene_events" | "objective" | "count" | "game" | "hello" | "observe";
   fact?: Fact;
   key?: string;
   change?: VitalChange;
@@ -199,6 +301,8 @@ interface Op {
   name?: string; // for op:"vital" — the action that caused it (shown in the activity feed)
   model?: string; // for op:"hello" — the AI director's VLM model id
   modelOk?: boolean; // for op:"hello" — whether the model server was reachable at startup
+  decides?: boolean; // for op:"hello" — does this director run its OWN VLM decide? (false = rules-decide)
+  obs?: Record<string, boolean>; // for op:"observe" — the probe's latest yes/no reads (rules fact)
 }
 
 function broadcastSceneEvents(): void {
@@ -229,7 +333,10 @@ function unloadGame(reason: string): void {
   gameOwner = null;
   sceneEvents = [];
   objective = null;
-  history.clear();
+  history.clear(); // firedEvents fact is derived from History, so it clears with it
+  observations = {};
+  rulesEngine = null; // no game -> no rules
+  lastRuleFireChunk = -1e9;
   entityCount = 0;
   chunks = 0;
   won = false;
@@ -248,6 +355,7 @@ wss.on("connection", (ws) => {
   console.log(`[coordinator] client connected  (${wss.clients.size} total)`);
   ws.on("close", () => {
     const wasDirector = directorSockets.delete(ws);
+    if (wasDirector) vlmDeciderPresent = false; // director gone → rules resume deciding
     console.log(
       `[coordinator] ${wasDirector ? "AI DIRECTOR" : "client"} disconnected  (${wss.clients.size} total)`,
     );
@@ -346,11 +454,16 @@ wss.on("connection", (ws) => {
       case "hello":
         if (m.role === "ai") {
           directorSockets.add(ws);
+          // decides !== false → the director runs its own VLM decide, so rules stay dormant.
+          // --rules-decide directors send decides:false; older directors omit it (treated as
+          // deciding, for backward compat — rules won't fight a legacy VLM director).
+          vlmDeciderPresent = m.decides !== false;
           const modelInfo = m.model
             ? `  model=${m.model} [${m.modelOk === false ? "UNREACHABLE" : "reachable"}]`
             : "";
           console.log(
-            `[coordinator] AI DIRECTOR registered${modelInfo}  (${directorSockets.size} director(s) connected)`,
+            `[coordinator] AI DIRECTOR registered${modelInfo} decides=${vlmDeciderPresent}  ` +
+              `(${directorSockets.size} director(s); rules ${vlmDeciderPresent ? "dormant" : "active"})`,
           );
           sendAll(JSON.stringify({ type: "activity", id: ++activitySeq, role: "ai", op: "hello" }));
         }
@@ -359,6 +472,7 @@ wss.on("connection", (ws) => {
         break; // record-only; nothing to apply
       case "scene_events":
         sceneEvents = m.events ?? [];
+        rebuildRulesEngine(); // rebuild derived rules for the new event set (opt-in)
         broadcastSceneEvents();
         break;
       case "game": {
@@ -408,7 +522,7 @@ wss.on("connection", (ws) => {
         break;
       case "assert":
         if (m.fact) {
-          history.assert(m.fact);
+          history.assert(m.fact); // firedEvents fact is derived from History (gameFacts)
           broadcast();
         }
         break;
@@ -419,11 +533,19 @@ wss.on("connection", (ws) => {
         }
         break;
       case "clear":
-        history.clear();
+        history.clear(); // firedEvents fact clears with it (derived from History)
+        observations = {};
         entityCount = 0; // scene switch / reset wipes the spawn count too
         chunks = 0;
         won = false; // reset the objective win on scene switch / reset
+        lastRuleFireChunk = -1e9; // let rules fire from scratch after a reset
         broadcast();
+        break;
+      case "observe":
+        // The AI director posts the probe's latest yes/no reads so json-rules-engine
+        // rules (and any observation-gated logic) can see what's on screen. Facts-only:
+        // no History mutation, not mode-gated (perception, not a director action).
+        observations = m.obs ?? {};
         break;
       case "count":
         // Director spawn/kill bumps the shared count. `set` is absolute; else
@@ -437,6 +559,7 @@ wss.on("connection", (ws) => {
       case "tick":
         chunks += 1;
         checkWin(); // survive durationChunks alive → fire the objective reward
+        void runRules(); // opt-in rules-engine director evaluates on each chunk (no-op if off)
         // Only re-broadcast when something actually expired this chunk.
         if (history.advance()) broadcast();
         break;

@@ -249,7 +249,7 @@ async def _noop_call():
 
 async def run_director(decide, url, frame_path, scene, interval, once, probe=None, debug=False,
                        reload_game=None, hello_extra=None, model_check=None, fire_cooldown=0,
-                       warmup=0.0, reuse_frame=False, self_feed=True):
+                       warmup=0.0, reuse_frame=False, self_feed=True, vlm_decide=True):
     # Latest state pushed by the coordinator (facts + vitals) for prompt context.
     # `fired` = short memory of the arc (event names introduced); `step` = pacing.
     # `observations` = the probe read of the current frame (the AI director's eyes).
@@ -267,6 +267,8 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
     last_stale_warn = 0.0  # throttle the "frame is stale — feeder not running?" warning
     STALE_WARN_SECS = 30.0  # frame older than this => warn that nothing is feeding it
     STALE_WARN_EVERY = 30.0  # re-warn at most this often while it stays stale
+    consec_vlm_errors = 0  # STOP the director after this many decides fail in a row
+    MAX_VLM_ERRORS = 3  # (a model disconnect that model_check misses shouldn't loop forever)
 
     def dbg(*a):
         if debug:
@@ -524,6 +526,30 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                             _timed_call(pstate["probe"], frame, state)
                             if pstate["probe"] is not None else _noop_call()
                         )
+                        if not vlm_decide:
+                            # RULES-DECIDE: the coordinator's json-rules-engine is the decide step;
+                            # the Python director is PERCEPTION-ONLY. Run the probe, post its
+                            # observations to the coordinator (op:"observe") so rules can read them,
+                            # and fire nothing here — the coordinator asserts the events.
+                            (p_res, p_err, t_probe) = await probe_co
+                            obs = {}
+                            if p_err is not None:
+                                print(f"[director] probe error: {type(p_err).__name__}: {p_err}", flush=True)
+                            elif p_res is not None:
+                                p_ops, obs = p_res
+                                state["observations"] = obs
+                                for op in p_ops:
+                                    dbg(f"-> probe op: {json.dumps(op)}")
+                                    await ws.send(json.dumps(op))
+                            await ws.send(json.dumps({"op": "observe", "role": "ai", "obs": obs}))
+                            t_total = time.monotonic() - t_start
+                            name = f"new frame — probe only, rules decide ({t_total:.2f}s)"
+                            print(f"[director] {name}", flush=True)
+                            await ws.send(json.dumps({"op": "log", "role": "ai", "cmd": "look", "name": name}))
+                            if once:
+                                break
+                            await asyncio.sleep(interval)
+                            continue
                         (p_res, p_err, t_probe), (raw, d_err, t_decide) = await asyncio.gather(
                             probe_co, _timed_call(decide, frame, system_text)
                         )
@@ -542,16 +568,21 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                         # Apply the decide result (same handling as the serial path).
                         if d_err is not None:
                             msg = f"{type(d_err).__name__}: {d_err}"
-                            print(f"[director] VLM error: {msg}", flush=True)
-                            # Distinguish a transient error from a real model disconnect.
-                            if model_check is not None and not model_check():
-                                # Model server is DOWN -> unload the game and STOP the director.
-                                print("[director] model server disconnected — unloading game and "
-                                      "stopping the AI director.", flush=True)
+                            consec_vlm_errors += 1
+                            print(f"[director] VLM error ({consec_vlm_errors}/{MAX_VLM_ERRORS}): {msg}", flush=True)
+                            # STOP when the model is disconnected. Two triggers: model_check
+                            # confirms the server is down, OR too many errors in a row (a
+                            # backstop for when model_check is absent/unreliable — a real
+                            # disconnect must not loop forever billing failed calls).
+                            server_down = model_check is not None and not model_check()
+                            if server_down or consec_vlm_errors >= MAX_VLM_ERRORS:
+                                why = ("model server unreachable" if server_down
+                                       else f"{consec_vlm_errors} consecutive VLM errors")
+                                print(f"[director] {why} — unloading game and stopping the AI director.", flush=True)
                                 try:
                                     await ws.send(json.dumps(
                                         {"op": "log", "role": "ai", "cmd": "error",
-                                         "detail": f"model server unreachable — director stopped ({msg})"}))
+                                         "detail": f"director stopped: {why} ({msg})"}))
                                     await ws.send(json.dumps({"op": "game", "role": "ai", "slug": ""}))
                                 except Exception:  # noqa: BLE001
                                     pass
@@ -562,6 +593,8 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                             )
                             await asyncio.sleep(interval)
                             continue
+                        # decide succeeded -> the model is answering; reset the error counter.
+                        consec_vlm_errors = 0
                         dbg(f"decide raw reply: {raw!r}")
                         result = parse_json(raw)
                         dbg(f"decide parsed: {result}")

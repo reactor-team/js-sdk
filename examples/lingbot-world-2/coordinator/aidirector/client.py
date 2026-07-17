@@ -64,10 +64,10 @@ def _create(client, model, messages, max_tokens, temperature, think):
     return client.chat.completions.create(**kw)
 
 
-def vlm_call(client, model, frame, system, user, max_tokens=512, max_px=768, temperature=0.0, think=False):
-    """One image+text VLM call (vision). Returns (reply_text, response). Reasoning is OFF
-    by default — benchmarked as a wash on cosmos (no chain-of-thought at temp 0, identical
-    token counts either way). Pass think=True to re-enable it for a model where CoT helps."""
+def vlm_call(client, model, frame, system, user, max_tokens=512, max_px=768, temperature=0.0, think=True):
+    """One image+text VLM call (vision). Returns (reply_text, response). Reasoning is ON by
+    default — benchmarked FASTER on cosmos (the thinking:false path is less optimized and was
+    consistently slower, esp. at 768). Pass think=False only if a model's no-think path wins."""
     b64 = encode_image(frame, max_px)
     messages = [
         {"role": "system", "content": system},
@@ -84,7 +84,7 @@ def vlm_call(client, model, frame, system, user, max_tokens=512, max_px=768, tem
     return text, resp
 
 
-def text_call(client, model, system, user, max_tokens=384, temperature=0.0, think=False):
+def text_call(client, model, system, user, max_tokens=384, temperature=0.0, think=True):
     """Text-only completion (NO image). The director's decide() reasons purely from
     the shared state/History carried in the system prompt — the probe is the sole
     vision call ('eyes'); decide is the 'brain' over state. `think=False` (default)

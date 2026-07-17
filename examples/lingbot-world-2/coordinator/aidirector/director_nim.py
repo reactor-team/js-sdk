@@ -27,10 +27,10 @@ def print(*args, **kwargs):  # noqa: A001 — intentional module-level shadow
     _builtin_print(time.strftime("%H:%M:%S"), *args, **kwargs)
 
 
-def make_vlm(client, model, max_px, think=False):
+def make_vlm(client, model, max_px, think=True):
     """vlm(frame, system, user_text, max_tokens) -> reply text, over the shared vlm_call.
-    The vision/probe path — reasoning OFF by default (a wash on cosmos). `think=True`
-    re-enables chain-of-thought for a model where it helps detection."""
+    The vision/probe path — reasoning ON by default (benchmarked faster on cosmos).
+    `think=False` uses the no-think path (slower on cosmos)."""
     def vlm(frame, system, user_text, max_tokens=384):
         text, _resp = vlm_call(client, model, frame, system, user_text, max_tokens, max_px,
                                think=think)
@@ -52,10 +52,10 @@ def main():
     ap.add_argument("--max-px", type=int, default=768,
                     help="max frame dimension for the PROBE (default 768 for detection accuracy; "
                          "lower e.g. 512 = fewer vision tokens = faster, but worse small-object detection)")
-    ap.add_argument("--think", action="store_true",
-                    help="re-enable the reasoner's chain-of-thought on the PROBE (default OFF — "
-                         "benchmarked as a wash on cosmos). Use for a model where CoT helps "
-                         "detection. DECIDE is always non-reasoning (state-only text).")
+    ap.add_argument("--no-think", action="store_true",
+                    help="disable the reasoner's chain-of-thought (default ON — benchmarked FASTER "
+                         "on cosmos; the thinking:false path is slower there). Try it only if a "
+                         "different model's no-think path is faster.")
     ap.add_argument("--no-probe", action="store_true",
                     help="disable the probe pass (the AI director's eyes); decide from the frame alone")
     ap.add_argument("--fire-cooldown", type=int, default=6,
@@ -77,6 +77,10 @@ def main():
                          "fresh frames always wins. Billed per look.")
     ap.add_argument("--no-self-feed", dest="self_feed", action="store_false",
                     help="disable self-feed (rely solely on an external frame tap / feeder).")
+    ap.add_argument("--rules-decide", action="store_true",
+                    help="PERCEPTION-ONLY: skip the VLM decide; the coordinator's json-rules-engine "
+                         "does the deciding. The director just probes and posts observations "
+                         "(op:observe) — deterministic, no billed decide call.")
     # Probe checklist sizing. Default is the LEAN set: ungated director-event + ungated
     # player-action presence probes only (no invariants, no alt-state). Flags add back.
     ap.add_argument("--no-player-actions", dest="probe_player_actions", action="store_false",
@@ -116,10 +120,11 @@ def main():
         print("[director]   -> check: key set in THIS window? key valid/not expired? network/firewall "
               "to inference-api.nvidia.com? NOT starting the AI director.", flush=True)
         return  # no model -> don't start (mirrors: disconnect unloads + stops)
-    # No thinking by default (a wash on cosmos). --think re-enables CoT on the PROBE;
-    # DECIDE (state-only text, no frame) is always non-reasoning.
-    vlm = make_vlm(client, args.model, args.max_px, think=args.think)
-    decide = lambda frame, system: text_call(client, args.model, system, USER_TEXT, 384, think=False)[0]  # noqa: E731
+    # Thinking ON by default (benchmarked faster on cosmos); --no-think disables it for
+    # both probe and decide.
+    _think = not args.no_think
+    vlm = make_vlm(client, args.model, args.max_px, think=_think)
+    decide = lambda frame, system: text_call(client, args.model, system, USER_TEXT, 384, think=_think)[0]  # noqa: E731
     scene = load_scene(args.scene)
 
     # Probe pass = the AI director's eyes. Needs the FULL scene JSON (derive_probes),
@@ -180,10 +185,11 @@ def main():
     asyncio.run(
         run_director(decide, args.url, args.frame, scene, args.interval, args.once,
                      probe=probe, debug=debug, reload_game=reload_game,
-                     hello_extra={"model": args.model, "modelOk": True},
+                     hello_extra={"model": args.model, "modelOk": True,
+                                  "decides": not args.rules_decide},
                      model_check=model_check, fire_cooldown=args.fire_cooldown,
                      warmup=args.warmup, reuse_frame=args.reuse_frame,
-                     self_feed=args.self_feed)
+                     self_feed=args.self_feed, vlm_decide=not args.rules_decide)
     )
 
 

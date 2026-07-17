@@ -108,6 +108,7 @@ decide(frame: PIL.Image, system_prompt: str) -> str   # raw model reply
 | `objective` | `objective` | set active objective (restarts win clock) |
 | `count` | `delta` \| `set` | signed spawn/kill or absolute entity count (clamp ≥0) |
 | `log` | `cmd`, `detail` | record-only (audit); no state change |
+| `observe` | `obs: {predicate: bool}` | AI director posts the probe's latest reads → the `observations` fact (for rules / gating); no History change |
 
 **server → client (broadcasts):**
 
@@ -195,7 +196,22 @@ vitals       : { health, maxHealth, inventory: string[] }
 entityCount  : number                 -> spawn/kill tally, clamped >= 0
 objective    : { summary, director?, durationChunks?, reward? } + win clock (chunks, won)
 directorMode : "both" | "human" | "ai"
+firedEvents  : Set<string>            -> fired scene-event display names (mirrors History
+                                         `scene:<slug>` facts; kept in sync on assert/retract/clear)
+observations : { [predicate]: bool }  -> the probe's latest reads, posted via op:"observe"
 ```
+
+**json-rules-engine compatible.** The state above is exposed AS-IS as engine facts by
+`gameFacts()` — a flat object whose field names ARE the rule `fact` names (`firedEvents`,
+`health`, `chunks`, `inventory`, `entityCount`, `objective`, `observations`). So a
+`json-rules-engine` (v7, in `coordinator/package.json`) rule set can drive the director with
+**no adapter and no second copy of truth** — it reads the one live state each `engine.run()`.
+Authored `requires` gates map 1:1 to rule conditions (`fired`→`contains`,
+`notFired`→`doesNotContain`, `minChunks`→`greaterThanInclusive` on `chunks`,
+`maxHealth`→`lessThanInclusive` on `health`, `hasItem`→`contains` on `inventory`). The two
+fields that exist purely to keep this shape first-class are `firedEvents` (derived live from
+History, not a separate store) and `observations` (the only fact the coordinator doesn't
+otherwise hold — the AI director posts it with op:"observe").
 
 ### 6.2 PlayerController — the client controller (`../lib/player-controller.ts`)  _[client-side; no store]_
 **Not a state store.** It **holds no authoritative persistent state** — only the
