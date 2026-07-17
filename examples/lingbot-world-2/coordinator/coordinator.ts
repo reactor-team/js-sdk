@@ -109,6 +109,21 @@ function broadcast(): void {
   broadcastState();
 }
 
+// scene events WITHOUT the (long) prose `clause`. The `state` message is broadcast on
+// every tick/vital change, so repeating every event's full prompt text there is pure
+// waste — clients that need the clause get it from the one-time `scene_events` message,
+// and the coordinator keeps the full sceneEvents server-side for the rules assert path.
+function leanSceneEvents(): Omit<SceneEvent, "clause">[] {
+  return sceneEvents.map((e) => ({
+    name: e.name,
+    requires: e.requires,
+    available: e.available,
+    health: e.health,
+    addItem: e.addItem,
+    count: e.count,
+  }));
+}
+
 // Full structured coordinator state, for the optional state visualization.
 function broadcastState(): void {
   sendAll(
@@ -119,7 +134,7 @@ function broadcastState(): void {
       count: entityCount,
       objective,
       facts: history.snapshot(),
-      sceneEvents,
+      sceneEvents: leanSceneEvents(),
     }),
   );
 }

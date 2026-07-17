@@ -58,12 +58,18 @@ export function deriveRules(events: RuleEvent[], warmup = 4): object[] {
   });
 }
 
-/** Build an Engine over `events` with the array `contains`/`doesNotContain` operators. */
-export function buildEngine(events: RuleEvent[], warmup = 4): Engine {
+/**
+ * Build an Engine with the array `contains`/`doesNotContain` operators. If the scene
+ * ships explicit `rules[]` they are used AS-IS (author's full ruleset — priorities,
+ * observation `path` conditions, etc.); otherwise rules are derived from each event's
+ * `requires` gate. Explicit rules reference events by name in `event.params.name`.
+ */
+export function buildEngine(events: RuleEvent[], warmup = 4, explicitRules?: object[]): Engine {
   const engine = new Engine([], { allowUndefinedFacts: true });
   engine.addOperator("contains", (a: unknown, b: unknown) => Array.isArray(a) && a.includes(b));
   engine.addOperator("doesNotContain", (a: unknown, b: unknown) => Array.isArray(a) && !a.includes(b));
-  for (const r of deriveRules(events, warmup)) engine.addRule(r as Parameters<typeof engine.addRule>[0]);
+  const rules = explicitRules && explicitRules.length ? explicitRules : deriveRules(events, warmup);
+  for (const r of rules) engine.addRule(r as Parameters<typeof engine.addRule>[0]);
   return engine;
 }
 
