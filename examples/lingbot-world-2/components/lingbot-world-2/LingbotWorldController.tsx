@@ -32,7 +32,8 @@ import { PlayerController } from "@/lib/player-controller";
 const CUSTOM_SCENE_ID = "__custom__";
 import { LayeredSceneEditor } from "@/components/lingbot-world-2/LayeredSceneEditor";
 import { LivePromptInspector } from "@/components/lingbot-world-2/LivePromptInspector";
-import { Hud, type GameResult } from "@/components/lingbot-world-2/Hud";
+import { type GameResult } from "@/components/lingbot-world-2/Hud";
+import { PlayerHud } from "@/components/lingbot-world-2/PlayerHud";
 import { PadButton } from "@/components/lingbot-world-2/ControlPrimitives";
 import { EventChips } from "@/components/lingbot-world-2/EventChips";
 import { MovePad } from "@/components/lingbot-world-2/MovePad";
@@ -3011,21 +3012,17 @@ export function LingbotWorldController({ className }: { className?: string }) {
     if (!isGenerating) initHud(scene?.hud);
   }, [scene, isGenerating, initHud]);
 
-  // Player HUD — health bar + inventory. Returned separately so the app can
-  // mount it INSIDE the video's relative container (absolute overlay on the
-  // viewport), not in the controls panel below it.
-  // DEV: visible is gated on `hudShow` only (was `isReady && hudShow`) so the HUD
-  // shows as soon as a scene opts in, even before the model connects — initHud
-  // already runs offline on preset select. Restore `isReady && hudShow` to hide
-  // it again on the idle/pre-connect page.
+  // Player HUD slot — returned separately so the app can mount it INSIDE the
+  // video's relative container (overlay on the viewport), not the controls panel.
+  // Visibility is hard-on in PlayerHud (see PlayerHud.tsx for the rationale / how
+  // to gate it on isReady && hudShow again).
   const hud = (
-    <Hud
+    <PlayerHud
       health={hudHealth}
       maxHealth={hudMaxHealth}
       inventory={hudInventory}
       objective={hudObjective}
       healthLabel={hudHealthLabel}
-      visible={true}
       result={gameResult}
     />
   );

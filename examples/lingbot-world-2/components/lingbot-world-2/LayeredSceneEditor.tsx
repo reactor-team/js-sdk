@@ -709,6 +709,98 @@ function VersionPicker({
   );
 }
 
+// Set/clear a numeric `requires` scalar on an event from a raw input string,
+// pruning the gate object back to `undefined` when it goes empty so the JSON
+// stays clean (no dangling `"requires": {}`).
+function setReq(
+  event: NamedEvent,
+  key: "minChunks" | "minHealth" | "maxHealth",
+  raw: string,
+): NamedEvent {
+  const trimmed = raw.trim();
+  const v = trimmed === "" ? undefined : Number(trimmed);
+  const req = { ...event.requires };
+  if (v !== undefined && Number.isFinite(v)) req[key] = v;
+  else delete req[key];
+  return { ...event, requires: Object.keys(req).length ? req : undefined };
+}
+
+// Set/clear a `requires` event-name LIST (fired / firedAny / notFired), pruning
+// the key when empty and the whole gate when it goes empty — same clean-JSON
+// discipline as setReq.
+function setReqList(
+  event: NamedEvent,
+  key: "fired" | "firedAny" | "notFired",
+  next: string[],
+): NamedEvent {
+  const req = { ...event.requires };
+  if (next.length) req[key] = next;
+  else delete req[key];
+  return { ...event, requires: Object.keys(req).length ? req : undefined };
+}
+
+// A dependency picker: current selections as removable chips + an "add…" dropdown
+// listing the sibling events not yet chosen. Picking from the dropdown means the
+// name always matches an existing event exactly — no typo can silently disable a gate.
+function DepPicker({
+  label,
+  options,
+  value,
+  onChange,
+  title,
+}: {
+  label: string;
+  options: string[];
+  value: string[];
+  onChange: (next: string[]) => void;
+  title?: string;
+}) {
+  const remaining = options.filter((o) => !value.includes(o));
+  return (
+    <div className="flex flex-col gap-1 min-w-0" title={title}>
+      <FieldLabel>{label}</FieldLabel>
+      <div className="flex flex-wrap items-center gap-1">
+        {value.map((name) => (
+          <span
+            key={name}
+            className="flex items-center gap-1 rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-white/85"
+          >
+            {name}
+            <button
+              type="button"
+              onClick={() => onChange(value.filter((n) => n !== name))}
+              className="text-white/50 hover:text-white"
+              title="remove"
+            >
+              ✕
+            </button>
+          </span>
+        ))}
+        {remaining.length > 0 ? (
+          <select
+            value=""
+            onChange={(e) => {
+              if (e.target.value) onChange([...value, e.target.value]);
+            }}
+            className="h-6 rounded border border-white/15 bg-neutral-900 px-1 font-mono text-[10px] text-white/70"
+          >
+            <option value="">+ add…</option>
+            {remaining.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+        ) : (
+          value.length === 0 && (
+            <span className="font-mono text-[10px] text-white/30">none</span>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
 function EventCard({
   index,
   event,
@@ -734,6 +826,10 @@ function EventCard({
   const cameraKeys = Object.keys(scene.camera);
   const movementKeys = Object.keys(scene.movement);
   const isBranched = typeof event.detail !== "string";
+  // Sibling events this one can depend on — every other named event in the scene.
+  const siblingNames = scene.events
+    .map((e) => e.name?.trim())
+    .filter((n): n is string => !!n && n !== event.name);
 
   const updateString = (text: string) => onChange({ ...event, detail: text });
   const updateField = (field: "static" | "dynamic", text: string) => {
@@ -867,45 +963,6 @@ function EventCard({
       </div>
 
       <div className="flex flex-wrap items-end gap-4 shrink-0">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <FieldLabel>base version</FieldLabel>
-            {showSub(!!diff?.baseVersionChanged) && (
-              <DiffMark variant="edited" />
-            )}
-          </div>
-          <VersionPicker
-            value={event.baseVersion ?? DEFAULT_LAYER_VERSION}
-            options={baseKeys}
-            onChange={(v) => onChange({ ...event, baseVersion: v })}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <FieldLabel>camera version</FieldLabel>
-            {showSub(!!diff?.cameraVersionChanged) && (
-              <DiffMark variant="edited" />
-            )}
-          </div>
-          <VersionPicker
-            value={event.cameraVersion ?? DEFAULT_LAYER_VERSION}
-            options={cameraKeys}
-            onChange={(v) => onChange({ ...event, cameraVersion: v })}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <FieldLabel>movement version</FieldLabel>
-            {showSub(!!diff?.movementVersionChanged) && (
-              <DiffMark variant="edited" />
-            )}
-          </div>
-          <VersionPicker
-            value={event.movementVersion ?? DEFAULT_LAYER_VERSION}
-            options={movementKeys}
-            onChange={(v) => onChange({ ...event, movementVersion: v })}
-          />
-        </div>
         {/* Cost / reward: the signed health delta applied to the shared HUD when
             this event fires. Positive = heal/reward, negative = damage/cost. Only
             visibly moves a bar on scenes with a `hud` block. */}
@@ -976,6 +1033,109 @@ function EventCard({
             <DiffMark variant="edited" label="shape" />
           )}
         </label>
+      </div>
+
+      {/* Gating & outcome — when this event is allowed to fire, and whether it
+          ends the run. `requires` scalars gate on the shared game state; `chance`
+          randomizes timing (rules-engine director); `win` makes it terminal. The
+          event-list gates (fired / firedAny / notFired) + item grants stay
+          JSON-only for now — they need a sibling-event picker. */}
+      <div className="flex flex-wrap items-end gap-4 shrink-0">
+        <div className="flex flex-col gap-1">
+          <FieldLabel>min chunks</FieldLabel>
+          <Input
+            type="number"
+            inputMode="numeric"
+            value={event.requires?.minChunks ?? ""}
+            placeholder="—"
+            onChange={(e) => onChange(setReq(event, "minChunks", e.target.value))}
+            title="Earliest chunk this can fire — a time gate (~0.75s/chunk; 24 ≈ 18s, 160 ≈ 2 min). Blank = no time gate."
+            className="h-8 w-20 font-mono text-[12px] tabular-nums"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <FieldLabel>min health</FieldLabel>
+          <Input
+            type="number"
+            inputMode="numeric"
+            value={event.requires?.minHealth ?? ""}
+            placeholder="—"
+            onChange={(e) => onChange(setReq(event, "minHealth", e.target.value))}
+            title="Only fires while health ≥ N (e.g. gate a win on still being alive). Blank = no floor."
+            className="h-8 w-20 font-mono text-[12px] tabular-nums"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <FieldLabel>max health</FieldLabel>
+          <Input
+            type="number"
+            inputMode="numeric"
+            value={event.requires?.maxHealth ?? ""}
+            placeholder="—"
+            onChange={(e) => onChange(setReq(event, "maxHealth", e.target.value))}
+            title="Only fires while health ≤ N (e.g. 0 for a death terminal). Blank = no ceiling."
+            className="h-8 w-20 font-mono text-[12px] tabular-nums"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <FieldLabel>chance</FieldLabel>
+          <Input
+            type="number"
+            inputMode="decimal"
+            step="0.05"
+            min="0"
+            max="1"
+            value={event.chance ?? ""}
+            placeholder="—"
+            onChange={(e) => {
+              const raw = e.target.value.trim();
+              const v = raw === "" ? undefined : Number(raw);
+              onChange({
+                ...event,
+                chance: v !== undefined && Number.isFinite(v) ? v : undefined,
+              });
+            }}
+            title="Per-tick fire probability once the gate is open (0.2 = 20%/tick → randomized arrival, not the instant it opens). Blank = fire as soon as gated. Rules-engine director only."
+            className="h-8 w-20 font-mono text-[12px] tabular-nums"
+          />
+        </div>
+        <label className="flex items-center gap-2 font-mono text-[11px] text-white/70 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={!!event.win}
+            onChange={(e) => onChange({ ...event, win: e.target.checked || undefined })}
+            className="accent-emerald-300"
+          />
+          win (ends run)
+        </label>
+      </div>
+
+      {/* Event dependencies — pick sibling events by name. fired = AND (all must
+          have fired first), any = OR (at least one), blocked by = mutex/one-shot
+          (can't fire if any listed event has). Names come from a dropdown, so a
+          gate can never reference a misspelled/absent event. */}
+      <div className="flex flex-wrap items-start gap-4 shrink-0">
+        <DepPicker
+          label="requires · fired (all)"
+          options={siblingNames}
+          value={event.requires?.fired ?? []}
+          onChange={(next) => onChange(setReqList(event, "fired", next))}
+          title="AND — every selected event must already have fired before this one can."
+        />
+        <DepPicker
+          label="requires · any (or)"
+          options={siblingNames}
+          value={event.requires?.firedAny ?? []}
+          onChange={(next) => onChange(setReqList(event, "firedAny", next))}
+          title="OR — at least one selected event must have fired for this to unlock."
+        />
+        <DepPicker
+          label="blocked by · not fired"
+          options={siblingNames}
+          value={event.requires?.notFired ?? []}
+          onChange={(next) => onChange(setReqList(event, "notFired", next))}
+          title="This can't fire if any selected event has fired. Ring them together (each blocks the others) for a mutually-exclusive group."
+        />
       </div>
 
       {isBranched ? (
