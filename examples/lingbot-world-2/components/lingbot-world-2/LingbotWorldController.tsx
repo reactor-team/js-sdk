@@ -3080,6 +3080,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
         heldSlots={heldSlots}
         onPress={holdPress}
         onRelease={holdRelease}
+        isAvailable={isAvailableNow}
       />
 
       {/* Move (WASD) + Joystick + Look + Mouse-signal HUD */}

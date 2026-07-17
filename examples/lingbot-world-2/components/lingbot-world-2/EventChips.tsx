@@ -6,7 +6,7 @@
 // to the controller's holdPress/holdRelease.
 
 import { HoldChip } from "@/components/lingbot-world-2/ControlPrimitives";
-import type { StructuredScene } from "@/lib/lingbot-world-prompts";
+import type { NamedEvent, StructuredScene } from "@/lib/lingbot-world-prompts";
 
 // Render up to this many hold-key chips. Keyboard number keys only reach slots
 // 0-8 (keys 1-9, see keyToHoldSlot); chips beyond that are click-only.
@@ -17,11 +17,16 @@ export function EventChips({
   heldSlots,
   onPress,
   onRelease,
+  isAvailable,
 }: {
   scene: StructuredScene | null;
   heldSlots: number[];
   onPress: (slot: number) => void;
   onRelease: (slot: number) => void;
+  // Gate predicate: a locked player chip (prerequisites not met) renders greyed
+  // and inert, mirroring how the DirectorPanel greys locked director events.
+  // Omitted (or returns true) → chip stays live, as before.
+  isAvailable?: (event: NamedEvent) => boolean;
 }) {
   if (!scene || scene.events.length === 0) return null;
   return (
@@ -37,6 +42,9 @@ export function EventChips({
             typeof event.detail === "string"
               ? !event.detail.trim()
               : !event.detail.static.trim() && !event.detail.dynamic.trim();
+          // Gated-locked player chips grey out and go inert; ungated stay live
+          // (even before video connects — availability is about prereqs, not connection).
+          const locked = isAvailable ? !isAvailable(event as NamedEvent) : false;
           return (
             <HoldChip
               key={slot}
@@ -44,7 +52,7 @@ export function EventChips({
               name={event.name}
               empty={detailEmpty && !event.name.trim()}
               pressed={heldSlots.includes(slot)}
-              disabled={false /* player controls stay live even before video connects */}
+              disabled={locked}
               onPress={() => onPress(slot)}
               onRelease={() => onRelease(slot)}
             />
