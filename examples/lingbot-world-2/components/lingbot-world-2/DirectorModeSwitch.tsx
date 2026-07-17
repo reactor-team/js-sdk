@@ -49,13 +49,13 @@ export function DirectorModeSwitch() {
   return (
     <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 rounded-lg border border-white/15 bg-black/70 backdrop-blur-sm px-2 py-1">
       <span className={cn("w-1.5 h-1.5 rounded-full", connected ? "bg-emerald-400" : "bg-red-500")} />
-      <span className="font-mono text-[9px] uppercase tracking-wider text-white/40 mr-1">director</span>
+      <span className="mono-label mr-1">director</span>
       {MODES.map((mo) => (
         <button
           key={mo}
           onClick={() => set(mo)}
           className={cn(
-            "h-6 rounded border px-2 font-mono text-[10px] transition-colors",
+            "h-6 rounded border px-2 mono-xs transition-colors",
             mode === mo
               ? "border-emerald-400/60 bg-emerald-400/20 text-emerald-200"
               : "border-white/15 bg-white/5 text-white/60 hover:bg-white/10",

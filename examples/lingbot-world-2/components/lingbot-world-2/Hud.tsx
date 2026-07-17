@@ -42,7 +42,7 @@ export function Hud({ health, maxHealth, inventory, healthLabel, visible, result
                 style={{ width: `${pct * 100}%` }}
               />
             </div>
-            <span className="font-mono text-[10px] text-white/90 tabular-nums">
+            <span className="mono-xs text-white/90 tabular-nums">
               {Math.round(health)}/{maxHealth}
             </span>
           </div>
@@ -56,7 +56,7 @@ export function Hud({ health, maxHealth, inventory, healthLabel, visible, result
               {inventory.map((item) => (
                 <span
                   key={item}
-                  className="font-mono text-[10px] rounded bg-black/70 text-white/90 px-1.5 py-0.5 border border-white/25"
+                  className="mono-xs rounded bg-black/70 text-white/90 px-1.5 py-0.5 border border-white/25"
                 >
                   {item}
                 </span>

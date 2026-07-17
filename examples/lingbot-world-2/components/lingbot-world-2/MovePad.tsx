@@ -40,7 +40,7 @@ export function MovePad({
 }) {
   return (
     <div className="flex flex-col items-center gap-1.5">
-      <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">
+      <span className="mono-label">
         Move (WASD)
       </span>
       {/* WASD pad (with Q/E roll above, left & right) + Space/C stacked to the right.

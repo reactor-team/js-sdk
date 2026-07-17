@@ -94,7 +94,7 @@ export function HoldBtn({
       title={title}
       {...handlers}
       className={cn(
-        "h-7 w-11 rounded border font-mono text-[10px] select-none transition-all",
+        "h-7 w-11 rounded border mono-xs select-none transition-all",
         "disabled:opacity-30 disabled:cursor-not-allowed",
         lit
           ? "bg-amber-300/20 border-amber-300/60 text-amber-200 scale-95"
@@ -147,7 +147,7 @@ export function HoldChip({
       title={empty ? `Slot ${slot + 1} is empty` : displayName}
       aria-disabled={disabled || empty}
       className={cn(
-        "group flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] transition-colors text-left max-w-full select-none",
+        "group flex items-center gap-1.5 rounded-full border px-2.5 py-1 mono-xs transition-colors text-left max-w-full select-none",
         (disabled || empty) && "opacity-40 cursor-not-allowed",
         !disabled && !empty && "cursor-pointer",
         pressed

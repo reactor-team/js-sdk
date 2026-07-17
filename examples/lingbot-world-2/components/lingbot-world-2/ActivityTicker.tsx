@@ -38,7 +38,7 @@ export function ActivityTicker() {
       <div className="mb-1 font-mono text-[9px] uppercase tracking-widest text-white/40">
         activity · {ok ? `${lines.length} lines` : "run watch_activity.bat"}
       </div>
-      <div className="flex flex-col gap-0.5 max-h-40 overflow-y-auto font-mono text-[10px] leading-tight text-white/70">
+      <div className="flex flex-col gap-0.5 max-h-40 overflow-y-auto mono-xs leading-tight text-white/70">
         {lines.length === 0 ? (
           <span className="text-white/30">— start watch_activity.bat to stream activity here —</span>
         ) : (

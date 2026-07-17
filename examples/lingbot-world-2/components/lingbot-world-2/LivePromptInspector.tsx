@@ -18,7 +18,7 @@ import {
 } from "@/components/lingbot-world-2/prompt-segments";
 
 const SectionLabel = ({ children }: { children: React.ReactNode }) => (
-  <span className="font-mono text-[10px] uppercase tracking-wider text-white/55">
+  <span className="mono-xs uppercase tracking-wider text-white/55">
     {children}
   </span>
 );
@@ -34,7 +34,7 @@ const VersionPill = ({
 }) => (
   <span
     className={cn(
-      "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px]",
+      "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 mono-xs",
       highlight
         ? "border-amber-300/60 bg-amber-300/15 text-amber-200"
         : "border-white/15 bg-white/5 text-white/75",
@@ -123,7 +123,7 @@ function EventRow({
             className={cn("w-2 h-2 rounded-full shrink-0", eventPalette.dot)}
           />
         )}
-        <span className="inline-flex h-5 w-5 items-center justify-center rounded border border-white/20 bg-white/10 font-mono text-[10px] font-bold text-white/85">
+        <span className="inline-flex h-5 w-5 items-center justify-center rounded border border-white/20 bg-white/10 mono-xs font-bold text-white/85">
           {index + 1}
         </span>
         <span className="font-mono text-[12px] text-white">
@@ -229,13 +229,13 @@ export function LivePromptInspector({
             <h2 className="font-mono text-xs uppercase tracking-widest text-white">
               Current prompt
             </h2>
-            <span className="font-mono text-[10px] text-white/45 leading-snug">
+            <span className="mono-xs text-white/45 leading-snug">
               Live view — updates as movement / held events change.
             </span>
           </div>
           <span
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-mono text-[10px] shrink-0",
+              "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 mono-xs shrink-0",
               isMoving
                 ? "border-amber-300/60 bg-amber-300/15 text-amber-200"
                 : "border-white/15 bg-white/5 text-white/55",
@@ -254,7 +254,7 @@ export function LivePromptInspector({
             size="xs"
             variant="ghost"
             onClick={onClose}
-            className="shrink-0 h-7 px-2 font-mono text-[10px]"
+            className="shrink-0 h-7 px-2 mono-xs"
           >
             ✕
           </Button>
@@ -270,7 +270,7 @@ export function LivePromptInspector({
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-3 flex-wrap">
                 <SectionLabel>composed prompt sent to backend</SectionLabel>
-                <span className="font-mono text-[10px] text-white/35">
+                <span className="mono-xs text-white/35">
                   {composed.length} chars
                 </span>
                 <div className="ml-auto">
@@ -283,7 +283,7 @@ export function LivePromptInspector({
               {/* Color legend — maps each hue to its layer so the user
                   doesn't have to scroll down to figure out what each
                   color means. */}
-              <div className="flex items-center gap-2 flex-wrap font-mono text-[10px] text-white/55">
+              <div className="flex items-center gap-2 flex-wrap mono-xs text-white/55">
                 {(
                   [
                     "base",
@@ -362,7 +362,7 @@ export function LivePromptInspector({
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-3 flex-wrap">
                 <SectionLabel>events</SectionLabel>
-                <span className="font-mono text-[10px] text-white/35">
+                <span className="mono-xs text-white/35">
                   {heldSlots.length} held · {sel.compatible.length} contributing
                   · {sel.suppressed.length} suppressed
                 </span>

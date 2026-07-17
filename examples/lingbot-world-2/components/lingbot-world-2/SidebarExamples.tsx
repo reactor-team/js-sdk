@@ -91,7 +91,7 @@ export function SidebarExamples({
                     )}
                   </div>
                   {ex.description && (
-                    <span className="font-mono text-[10px] text-white/50 leading-snug">
+                    <span className="mono-xs text-white/50 leading-snug">
                       {ex.description}
                     </span>
                   )}

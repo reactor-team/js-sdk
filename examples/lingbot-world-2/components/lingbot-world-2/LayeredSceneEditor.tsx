@@ -266,7 +266,7 @@ const Hint = ({ children }: { children: React.ReactNode }) => (
 );
 
 const FieldLabel = ({ children }: { children: React.ReactNode }) => (
-  <span className="font-mono text-[10px] uppercase tracking-wider text-white/55">
+  <span className="mono-xs uppercase tracking-wider text-white/55">
     {children}
   </span>
 );
@@ -385,7 +385,7 @@ function VersionKeyInput({
         )}
       />
       {error && (
-        <span className="font-mono text-[10px] text-red-400/80">{error}</span>
+        <span className="mono-xs text-red-400/80">{error}</span>
       )}
     </div>
   );
@@ -443,7 +443,7 @@ function VersionCard({
           />
         )}
         {isDefault && (
-          <span className="font-mono text-[10px] text-white/35">
+          <span className="mono-xs text-white/35">
             required — used when no event overrides this layer
           </span>
         )}
@@ -763,7 +763,7 @@ function DepPicker({
         {value.map((name) => (
           <span
             key={name}
-            className="flex items-center gap-1 rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-white/85"
+            className="flex items-center gap-1 rounded bg-white/10 px-1.5 py-0.5 mono-xs text-white/85"
           >
             {name}
             <button
@@ -782,7 +782,7 @@ function DepPicker({
             onChange={(e) => {
               if (e.target.value) onChange([...value, e.target.value]);
             }}
-            className="h-6 rounded border border-white/15 bg-neutral-900 px-1 font-mono text-[10px] text-white/70"
+            className="h-6 rounded border border-white/15 bg-neutral-900 px-1 mono-xs text-white/70"
           >
             <option value="">+ add…</option>
             {remaining.map((o) => (
@@ -793,7 +793,7 @@ function DepPicker({
           </select>
         ) : (
           value.length === 0 && (
-            <span className="font-mono text-[10px] text-white/30">none</span>
+            <span className="mono-xs text-white/30">none</span>
           )
         )}
       </div>
@@ -912,7 +912,7 @@ function EventCard({
         )}
         {/* PLAYER vs DIRECTOR: is this a hold-key the CHARACTER performs (player)
             or a persistent WORLD event the Human Director fires (director)? */}
-        <div className="flex items-center overflow-hidden rounded border border-white/15 font-mono text-[10px]">
+        <div className="flex items-center overflow-hidden rounded border border-white/15 mono-xs">
           {(["player", "director"] as const).map((a) => {
             const on = (event.actor ?? "player") === a;
             return (
@@ -1320,10 +1320,10 @@ function PreviewPanel({ scene }: { scene: StructuredScene }) {
 
       <div className="rounded-md border border-white/10 bg-black/40 p-4 w-full flex flex-col gap-2">
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="font-mono text-[10px] uppercase tracking-wider text-white/40">
+          <div className="mono-xs uppercase tracking-wider text-white/40">
             composed prompt ({composed.length} chars)
           </div>
-          <div className="ml-auto flex items-center gap-2 flex-wrap font-mono text-[10px] text-white/55">
+          <div className="ml-auto flex items-center gap-2 flex-wrap mono-xs text-white/55">
             {(["base", "camera", "movement", "event"] as SegmentKind[]).map(
               (k) => {
                 const c = SEGMENT_PALETTE[k];
@@ -1523,12 +1523,12 @@ export function LayeredSceneEditor({
               {title ?? "Edit layered scene"}
             </h2>
             {subtitle && (
-              <span className="font-mono text-[10px] text-white/45 truncate">
+              <span className="mono-xs text-white/45 truncate">
                 {subtitle}
               </span>
             )}
           </div>
-          <span className="font-mono text-[10px] text-white/35 shrink-0">
+          <span className="mono-xs text-white/35 shrink-0">
             Auto-saved to browser
           </span>
           <div className="ml-auto flex items-center gap-2 shrink-0">

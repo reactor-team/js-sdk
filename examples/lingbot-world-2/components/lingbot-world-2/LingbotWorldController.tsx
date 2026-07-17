@@ -25,281 +25,66 @@ import {
 } from "@/lib/lingbot-world-prompts";
 import { PlayerController } from "@/lib/player-controller";
 
-// Sentinel id used in the overrides map for the user's custom
-// layered scene. Custom has no pristine constant to fall back to; an
-// "edited" state simply means a non-empty override exists.
-const CUSTOM_SCENE_ID = "__custom__";
 import { LayeredSceneEditor } from "@/components/lingbot-world-2/LayeredSceneEditor";
 import { LivePromptInspector } from "@/components/lingbot-world-2/LivePromptInspector";
-import { type GameResult } from "@/components/lingbot-world-2/Hud";
 import { PlayerHud } from "@/components/lingbot-world-2/PlayerHud";
 import { useDirectorBridge } from "@/components/lingbot-world-2/controller/useDirectorBridge";
+import {
+  ChargeGridEditor,
+  CrouchDipEditor,
+} from "@/components/lingbot-world-2/controller/ChargeCrouchEditors";
+import {
+  CHUNK_LATENTS,
+  NUM_CHARGE_LEVELS,
+  LEVEL_DWELL_MS,
+  useChargeCrouchPatterns,
+} from "@/components/lingbot-world-2/controller/charge-crouch";
 import { PadButton } from "@/components/lingbot-world-2/ControlPrimitives";
 import { EventChips } from "@/components/lingbot-world-2/EventChips";
 import { MovePad } from "@/components/lingbot-world-2/MovePad";
 import { SidebarExamples } from "@/components/lingbot-world-2/SidebarExamples";
-
-// A change to the shared player vitals, emitted by either role (Player event
-// or Director op). Applied server-side (coordinator) or locally.
-type VitalChange = {
-  health?: number; // delta: +heal / -damage
-  setHealth?: number; // absolute
-  addItem?: string;
-  removeItem?: string;
-  reset?: boolean; // full health, empty inventory (on session reset)
-};
-
-// Default event-name → vital change, so pressing an event key visibly moves the
-// HUD. A simple keyword table for now — replace with explicit per-scene vital
-// effects when you want precise control. Returns null for events with no effect.
-function vitalForEvent(name?: string): VitalChange | null {
-  if (!name) return null;
-  const n = name.toLowerCase();
-  if (/(crash|thrown|blast|fire|takedown|roundhouse|grapple)/.test(n))
-    return { health: -20 };
-  if (/(heal|medkit|rest|recover|bandage)/.test(n)) return { health: 25 };
-  if (/(pick ?up|cash|grab|collect|loot)/.test(n)) return { addItem: name };
-  return null;
-}
-
-type MoveL = "idle" | "forward" | "back";
-type MoveLat = "idle" | "strafe_left" | "strafe_right";
-type LookH = "idle" | "left" | "right";
-type LookV = "idle" | "up" | "down";
-
-// Per-example user overrides. Each example id maps to the user's edited
-// StructuredScene. Clicking an example loads its override (if any) rather
-// than the pristine constant, so edits survive across re-clicks and
-// reloads. "Reset to example" inside the editor deletes the override.
-const OVERRIDES_STORAGE_KEY = "lingbot-world-2:overrides:v1";
-const MAX_EVENTS = 9;
-
-// Validate a parsed object is a StructuredScene shape — used when
-// hydrating from localStorage.
-function isStructuredScene(v: unknown): v is StructuredScene {
-  if (!v || typeof v !== "object") return false;
-  const s = v as Record<string, unknown>;
-  return (
-    !!s.base &&
-    typeof s.base === "object" &&
-    !!s.camera &&
-    typeof s.camera === "object" &&
-    !!s.movement &&
-    typeof s.movement === "object" &&
-    Array.isArray(s.events)
-  );
-}
-
-const KEY_TO_MOVE_L: Record<string, Exclude<MoveL, "idle">> = {
-  w: "forward",
-  W: "forward",
-  s: "back",
-  S: "back",
-};
-const KEY_TO_MOVE_LAT: Record<string, Exclude<MoveLat, "idle">> = {
-  a: "strafe_left",
-  A: "strafe_left",
-  d: "strafe_right",
-  D: "strafe_right",
-};
-
-const KEY_TO_LOOK_H: Record<string, Exclude<LookH, "idle">> = {
-  ArrowLeft: "left",
-  ArrowRight: "right",
-};
-
-const KEY_TO_LOOK_V: Record<string, Exclude<LookV, "idle">> = {
-  ArrowUp: "up",
-  ArrowDown: "down",
-};
-
-// ---- Native camera-pose layer (set_camera_pose) ----
-//
-// The backend's camera_pose input takes a flat list of per-frame motion
-// DELTAS: [rx, ry, rz, tx, ty, tz] per frame (Euler-radian rotation +
-// translation, camera-local). Rotation OVERRIDES the arrow keys, translation
-// ADDS to WASD. We send one delta per chunk (6 floats; the backend repeats it
-// across its chunk_size) — no absolute pose, no matrices, no client state to
-// maintain. The backend sanitizes any payload, so this is hard to misuse.
-const MOUSE_SENS_DEFAULT = 0.0003; // per-frame radians of look per pixel (user-adjustable)
-const MOUSE_SENS_MIN = 0.00005;
-const MOUSE_SENS_MAX = 0.0012;
-const MOUSE_MAX_ROT = 0.2; // hard ceiling on per-chunk |yaw|/|pitch| (the HUD
-// outer ring) — a fast fling can't over-rotate
-const ROLL_SPEED = 0.08; // per-frame radians of roll (Q/E) — matched to the
-// keyboard arrow rate (~4.6°/frame) so it's visible
-// Arrow-key look is routed through the SAME camera_pose yaw/pitch as mouse-look
-// (rather than the backend's separate discrete look_horizontal/look_vertical
-// state), so it's just a steady, fixed-rate version of mouse movement — it
-// stacks with the mouse and drives everything mouse-driven yaw does, incl. orbit.
-const ARROW_LOOK_SPEED = ROLL_SPEED; // per-frame radians of yaw/pitch while an arrow is held
-const JUMP_SPEED = 1.0; // per-frame up-translation while held (magnitude
-// is washed out by per-chunk normalization)
-const JOY_SPEED = 1.0; // per-frame translation magnitude at full joystick deflect
-// Camera-local "up" sign for Jump. Empirically verified against the backend:
-// characters dove DOWN with +1, so up is -1 in this model's local-Y convention.
-const JUMP_UP_SIGN = -1;
-
-// ---- Orbit mode (Phase 1: horizontal) ----
-// Orbit couples the YAW (mouse OR arrow-key look — both land in the same `ry`,
-// see ARROW_LOOK_SPEED) with a proportional camera-local strafe (+ a slight
-// forward dolly) so the point R ahead stays centered while the camera circles it,
-// instead of rotating about its own optical center. For a per-frame yaw θ:
-//   tx += -R·sin θ   (strafe to slide along the arc)
-//   tz += R·(1-cos θ) (the tiny forward sagitta)
-// R is the coupling RATIO (strafe per unit yaw) = the orbit radius in the model's
-// local units; R = 0 reproduces today's rotate-in-place. Because the backend
-// max-norms each chunk (only the WITHIN-chunk tx:ry ratio survives, absolute scale
-// is washed out), R is a RELATIVE "arc width", not metres — and the whole scheme
-// only works if rotation + translation are normalized TOGETHER (verify live: if the
-// subject spirals out instead of staying centered, they're normed separately).
-// Signs assume +X = right, +Z = forward, positive ry = yaw right (see mouse onMove).
-const ORBIT_RADIUS_DEFAULT = 6;
-const ORBIT_RADIUS_STEP = 0.5; // per-click nudge from the up/down stepper buttons
-
-// Jump has three selectable modes (the "Jump" switch by the pad):
-//   "hold"   — hold to translate straight UP for as long as held (no descent).
-//   "prompt" — jump toggles ONLY the scene's jumpPrompt; no camera_pose at all.
-//   "charge" — hold to charge a meter (steps through discrete levels, no motion yet);
-//              release to fire that level's per-latent arc. camera_pose is
-//              controlled at LATENT granularity (the backend takes one delta per
-//              latent, 3 latents per chunk), so each level's arc is a hand-editable
-//              per-latent up/down/still plan (set in the grid popup). The backend
-//              max-norms each chunk together (one max over its 3 latents), which
-//              keeps the WITHIN-chunk shape (relative magnitude survives) but
-//              discards cross-chunk absolute scale — so the arc is expressed per
-//              latent, and its size is its latent count.
-type JumpMode = "hold" | "prompt" | "charge";
-
-// Crouch modes (the "Crouch" switch), mirroring Jump:
-//   "hold"   — C held → sustained straight-DOWN translation for as long as held
-//              (mirror of jump "hold"; the way to walk vertically downward).
-//   "prompt" — C held → inject the scene's crouchPrompt, no camera_pose.
-//   "camera" — C press → a one-shot downward camera dip (see below).
-// Both the jump and crouch sentences are per-scene, editable in the scene editor
-// (the "vertical" tab) — never hardcoded here.
-type CrouchMode = "hold" | "prompt" | "camera";
-
-// DiT self-attention window override (the backend `set_attn_window` event):
-//   "auto"  — motion-based still-window trigger (default): small window when the
-//             camera is still, full window when moving.
-//   "small" — force the still (small) window always.
-//   "large" — force the moving (large/full) window always.
-type AttnWindow = "auto" | "small" | "large";
-
-// KV-cache / RoPE reset mode (backend `set_kv_cache_reset`):
-//   "off"    — no reset at all.
-//   "auto"   — periodic window reset (~every 88 latent frames) + manual trigger.
-//   "manual" — no periodic reset; only the manual `trigger_kv_cache_reset` fires.
-type KvResetMode = "off" | "auto" | "manual";
-
-// One-shot crouch dip (camera mode): applied to the FIRST chunk after C press,
-// additive to WASD/forward (the backend sums the action + camera_pose), then the
-// pose reverts so the camera holds its new, slightly-lower height. CROUCH_DIP tunes
-// the dip depth vs forward when moving.
-const CROUCH_DIP = 0.5;
-// Sustained per-frame DOWN translation while C is held in crouch "hold" mode
-// (mirror of JUMP_SPEED for jump "hold"). Magnitude is normalized per-chunk on the
-// backend, so this mainly sets the down:forward ratio when walking down while W.
-const CROUCH_SPEED = 1.0;
-const CROUCH_PATTERN_STORAGE = "lingbot-world-2:crouch-patterns:v1";
-// Crouch is a press+release action. Two hand-editable one-chunk patterns (grid
-// popup, CHUNK_LATENTS cells each, +1 up / 0 still / -1 down): "press" fires on
-// C-down (a downward dip), "release" fires on C-up (the reverse, standing
-// back up). Defaults: down-then-still on press, up-then-still on release, so a
-// press+release nets back to the original height.
-type CrouchPhase = "press" | "release";
-type CrouchPatterns = { press: number[]; release: number[] };
-function defaultCrouchPatterns(): CrouchPatterns {
-  const still = Array<number>(CHUNK_LATENTS - 1).fill(0);
-  return { press: [-1, ...still], release: [1, ...still] };
-}
-function isCrouchLatents(v: unknown): v is number[] {
-  return (
-    Array.isArray(v) &&
-    v.length === CHUNK_LATENTS &&
-    v.every((x) => x === 1 || x === 0 || x === -1)
-  );
-}
-function isValidCrouchPatterns(v: unknown): v is CrouchPatterns {
-  const o = v as CrouchPatterns | null;
-  return (
-    !!o &&
-    typeof o === "object" &&
-    isCrouchLatents(o.press) &&
-    isCrouchLatents(o.release)
-  );
-}
-
-// Latents per chunk on the backend (lingbot-v2 config.yml chunk_size = 3). The
-// client sends CHUNK_LATENTS deltas per chunk (18 floats); the backend uses them
-// one-to-one (k == target_len), so each latent is steered independently.
-const CHUNK_LATENTS = 3;
-// Charge is DISCRETE to match the backend: NUM_CHARGE_LEVELS stages, level k →
-// k chunks (k * CHUNK_LATENTS latents). The meter STEPS through levels (dwelling
-// LEVEL_DWELL_MS on each, bouncing up/down) instead of filling continuously, so
-// what you see is exactly what you fire. Release at level k → a k-chunk arc.
-const NUM_CHARGE_LEVELS = 3; // 1, 2, or 3 chunks
-const LEVEL_DWELL_MS = 400; // time held on each level before stepping
-const CHARGE_PATTERNS_STORAGE = "lingbot-world-2:charge-patterns:v1";
-
-// Each charge level's arc is a hand-editable per-latent plan (edited in the
-// per-level grid popup): an array of length level*CHUNK_LATENTS where each latent
-// is +1 up / -1 down / 0 still (a hold/pause). Defaults are SYMMETRIC (equal up
-// and down) so the character returns to its launch height:
-//   L1 (1 chunk):  up · down            -> [1, 0, -1]
-//   L2 (2 chunks): up up null | down down null -> [1,1,0, -1,-1,0]
-//   L3 (3 chunks): up×4 · down×4        -> [1,1,1,1, 0, -1,-1,-1,-1]
-function defaultChargePattern(level: number): number[] {
-  if (level === 2) return [1, 1, 0, -1, -1, 0]; // symmetric per-chunk (up up null; down down null)
-  const L = level * CHUNK_LATENTS;
-  const still = 1; // one pause latent at the peak
-  const up = Math.floor((L - still) / 2); // odd L → symmetric up == down
-  const down = L - still - up;
-  return [
-    ...Array<number>(up).fill(1),
-    ...Array<number>(still).fill(0),
-    ...Array<number>(down).fill(-1),
-  ];
-}
-function defaultChargePatterns(): number[][] {
-  return Array.from({ length: NUM_CHARGE_LEVELS }, (_, i) =>
-    defaultChargePattern(i + 1),
-  );
-}
-// Guard against a stale/garbage localStorage payload.
-function isValidChargePatterns(v: unknown): v is number[][] {
-  return (
-    Array.isArray(v) &&
-    v.length === NUM_CHARGE_LEVELS &&
-    v.every(
-      (p, i) =>
-        Array.isArray(p) &&
-        p.length === (i + 1) * CHUNK_LATENTS &&
-        p.every((x) => x === 1 || x === 0 || x === -1),
-    )
-  );
-}
-
-function keyToHoldSlot(key: string): number | undefined {
-  if (key.length !== 1) return undefined;
-  const code = key.charCodeAt(0);
-  if (code >= 49 && code <= 57) return code - 49;
-  return undefined;
-}
-
-// Alphabetic hotkeys for DIRECTOR events, so a solo player can act (numbers 1-9
-// + WASD) AND direct (letters) at the same time. Assigned in scene director-order
-// (1st director event -> "t", 2nd -> "y", ...). Letters deliberately avoid every
-// player control: WASD move, Q/E roll, O orbit, C crouch, J/Space jump, M mouse,
-// R rotation, and the arrow-look keys. DirectorPanel labels its SCENE buttons
-// from this same string so the on-screen keys always match.
-export const DIRECTOR_HOTKEYS = "tyupfghbnvxz";
-function keyToDirectorIndex(key: string): number | undefined {
-  if (key.length !== 1) return undefined;
-  const i = DIRECTOR_HOTKEYS.indexOf(key.toLowerCase());
-  return i >= 0 ? i : undefined;
-}
+import {
+  useHudGating,
+  type VitalChange,
+} from "@/components/lingbot-world-2/controller/useHudGating";
+import { ControllerSidebar } from "@/components/lingbot-world-2/controller/ControllerSidebar";
+import { ControllerControls } from "@/components/lingbot-world-2/controller/ControllerControls";
+import {
+  KEY_TO_MOVE_L,
+  KEY_TO_MOVE_LAT,
+  KEY_TO_LOOK_H,
+  KEY_TO_LOOK_V,
+  MOUSE_SENS_DEFAULT,
+  MOUSE_SENS_MIN,
+  MOUSE_SENS_MAX,
+  MOUSE_MAX_ROT,
+  ROLL_SPEED,
+  ARROW_LOOK_SPEED,
+  JUMP_SPEED,
+  JOY_SPEED,
+  JUMP_UP_SIGN,
+  ORBIT_RADIUS_DEFAULT,
+  ORBIT_RADIUS_STEP,
+  CROUCH_DIP,
+  CROUCH_SPEED,
+  DIRECTOR_HOTKEYS,
+  keyToHoldSlot,
+  keyToDirectorIndex,
+  type MoveL,
+  type MoveLat,
+  type LookH,
+  type LookV,
+  type JumpMode,
+  type CrouchMode,
+  type AttnWindow,
+  type KvResetMode,
+} from "@/components/lingbot-world-2/controller/input";
+import {
+  CUSTOM_SCENE_ID,
+  OVERRIDES_STORAGE_KEY,
+  vitalForEvent,
+  isStructuredScene,
+} from "@/components/lingbot-world-2/controller/scene-utils";
 
 export function LingbotWorldController({ className }: { className?: string }) {
   // Typed LingBot World 2 surface. The setter methods (lw2.setPrompt, …) are
@@ -352,16 +137,22 @@ export function LingbotWorldController({ className }: { className?: string }) {
   const [charging, setCharging] = useState(false); // charge mode: meter stepping while held
   const [chargeLevel, setChargeLevel] = useState(0); // discrete level 0..NUM (0 = empty)
   const [verticalPrompt, setVerticalPrompt] = useState(""); // live jump/crouch sentence (for the inspector)
-  // Hand-editable per-latent arc for each charge level (grid popup). Persisted.
-  const [chargePatterns, setChargePatterns] = useState<number[][]>(
-    defaultChargePatterns,
-  );
-  const [editingLevel, setEditingLevel] = useState<number | null>(null); // which level's grid is open
-  // Hand-editable one-chunk crouch dip patterns (press + release; grid popup). Persisted.
-  const [crouchPatterns, setCrouchPatterns] = useState<CrouchPatterns>(
-    defaultCrouchPatterns,
-  );
-  const [editingCrouch, setEditingCrouch] = useState(false); // crouch grid popup open?
+  // Charge (jump) + crouch per-latent grid-editor patterns — state, persistence,
+  // and cell/reset handlers. Refs are read by the jump-arc + crouch-dip logic below.
+  const {
+    chargePatterns,
+    chargePatternsRef,
+    editingLevel,
+    setEditingLevel,
+    cycleChargeCell,
+    resetChargeLevel,
+    crouchPatterns,
+    crouchPatternsRef,
+    editingCrouch,
+    setEditingCrouch,
+    cycleCrouchCell,
+    resetCrouchPatterns,
+  } = useChargeCrouchPatterns();
   const [mouseSens, setMouseSens] = useState(MOUSE_SENS_DEFAULT); // look sensitivity
   const [joy, setJoy] = useState({ x: 0, y: 0 }); // joystick knob (normalized −1..1)
   // Orbit: mouse-look circles a point R ahead instead of rotating in place. R is
@@ -398,10 +189,6 @@ export function LingbotWorldController({ className }: { className?: string }) {
   // Camera mode: one-shot dips queued for the next chunk (press = down, release = up).
   const crouchPressDipRef = useRef(false);
   const crouchReleaseDipRef = useRef(false);
-  const crouchPatternsRef = useRef<CrouchPatterns>(crouchPatterns);
-  useEffect(() => {
-    crouchPatternsRef.current = crouchPatterns;
-  }, [crouchPatterns]);
   const jumpHeldRef = useRef(false); // is the jump key/button physically held?
   // Charge-arc state (a per-latent vertical-intent plan, consumed CHUNK_LATENTS
   // at a time). arc[i] ∈ {+1 up, 0 still, -1 down}; empty = no arc in flight.
@@ -409,27 +196,6 @@ export function LingbotWorldController({ className }: { className?: string }) {
   const jumpArcPosRef = useRef(0); // index of the current chunk's first latent
   const chargeLevelRef = useRef(0); // live discrete level 1..NUM while charging
   const chargeLevelDirRef = useRef(1); // meter step direction (+1/-1)
-  const chargePatternsRef = useRef<number[][]>(chargePatterns);
-  useEffect(() => {
-    chargePatternsRef.current = chargePatterns;
-  }, [chargePatterns]);
-  // Restore saved per-level patterns (validated) so edits survive reloads.
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(CHARGE_PATTERNS_STORAGE);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (isValidChargePatterns(parsed)) setChargePatterns(parsed);
-      }
-      const savedCrouch = localStorage.getItem(CROUCH_PATTERN_STORAGE);
-      if (savedCrouch) {
-        const parsed = JSON.parse(savedCrouch);
-        if (isValidCrouchPatterns(parsed)) setCrouchPatterns(parsed);
-      }
-    } catch {
-      /* localStorage unavailable / bad JSON */
-    }
-  }, []);
   const mouseSensRef = useRef(MOUSE_SENS_DEFAULT);
   useEffect(() => {
     mouseSensRef.current = mouseSens;
@@ -565,30 +331,6 @@ export function LingbotWorldController({ className }: { className?: string }) {
   // Declarative event gating: names of events that have fired this session, plus
   // a version counter so the UI (player keys + Director panel) re-derives event
   // availability when the fired-set changes. Reset on scene select / restart.
-  const firedEventsRef = useRef<Set<string>>(new Set());
-  const [firedVersion, setFiredVersion] = useState(0);
-  // Ref mirrors of the HUD vitals so the imperative event handlers read fresh
-  // values without stale closures (synced from state by effects below).
-  const hudHealthRef = useRef(100);
-  const hudInventoryRef = useRef<string[]>([]);
-  const gateStateNow = useCallback(
-    (): GateState => ({
-      fired: firedEventsRef.current,
-      chunks: 0, // local play has no chunk clock; connected mode gates on `fired`
-      health: hudHealthRef.current,
-      inventory: hudInventoryRef.current,
-    }),
-    [],
-  );
-  const isAvailableNow = useCallback(
-    (ev?: NamedEvent | null) => (ev ? isEventAvailable(ev, gateStateNow()) : true),
-    [gateStateNow],
-  );
-  const recordFired = useCallback((name?: string) => {
-    if (!name || firedEventsRef.current.has(name)) return;
-    firedEventsRef.current.add(name);
-    setFiredVersion((v) => v + 1);
-  }, []);
 
   // Persistent world facts contributed on top of the scene prose — Director
   // interventions (weather/time/spawns) and any timed effects. composePrompt()
@@ -614,12 +356,25 @@ export function LingbotWorldController({ className }: { className?: string }) {
   const coordWsRef = useRef<WebSocket | null>(null);
   const coordConnectedRef = useRef(false);
   const coordPromptRef = useRef<string>(""); // latest project() from the server
-  // Push server-authoritative vitals into HUD state. Assigned by the HUD effect
-  // (which owns the setters); called from the coordinator socket below. Ref so
-  // it's in scope here regardless of declaration order.
-  const setVitalsFromServerRef = useRef<(health: number, inventory: string[]) => void>(
-    () => {},
-  );
+
+  // Player HUD vitals + event gating (state, refs, initHud/applyVital, win/lose
+  // banner, __hud console hook). Cross-cutting effects that wire HUD state into
+  // other subsystems (re-push director events, health-0 downed hold) stay below.
+  const {
+    firedVersion,
+    gateStateNow,
+    isAvailableNow,
+    recordFired,
+    hudHealth,
+    hudMaxHealth,
+    hudInventory,
+    hudHealthLabel,
+    gameResult,
+    setGameResult,
+    initHud,
+    applyVital,
+    setVitalsFromServer,
+  } = useHudGating({ coordConnectedRef, coordWsRef });
 
   // Record a player command to the coordinator's command log (role "player").
   // No-op unless a coordinator is connected — the log lives server-side.
@@ -757,7 +512,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
           coordPromptRef.current = m.prompt ?? "";
           recomputePromptAndSendRef.current();
         } else if (m.type === "vitals") {
-          setVitalsFromServerRef.current(m.health ?? 0, m.inventory ?? []);
+          setVitalsFromServer(m.health ?? 0, m.inventory ?? []);
         } else if (m.type === "won") {
           setGameResult("won"); // objective survived — the coordinator fired the reward
         }
@@ -772,95 +527,11 @@ export function LingbotWorldController({ className }: { className?: string }) {
     };
   }, [coordWsUrl]);
 
-  // ── on-screen HUD: shared player vitals + inventory ───────────────────────
-  // Health/inventory are SHARED state changed by EITHER role via events: the
-  // Player (event keys with a vital effect) and the Director (vital ops). When
-  // a coordinator is connected they're authoritative on the server so both
-  // machines agree; otherwise they're local. <Hud/> just draws them.
-  // maxHealth / show / starting values come from the active scene's `hud`
-  // section (see StructuredScene.hud). Defaults keep old behaviour. maxHealth in
-  // a ref so the stable applyVital clamps against the current scene's value.
-  const [hudMaxHealth, setHudMaxHealth] = useState(100);
-  const hudMaxHealthRef = useRef(100);
-  const [hudShow, setHudShow] = useState(false);
-  const [hudHealth, setHudHealth] = useState(100);
-  const [hudInventory, setHudInventory] = useState<string[]>([]);
-  const [hudHealthLabel, setHudHealthLabel] = useState<string>("Health"); // per-scene bar label
-  const [gameResult, setGameResult] = useState<GameResult>(null); // win/lose banner below the HUD
-  // Keep the gate refs (read by imperative event handlers) synced to HUD state.
-  useEffect(() => { hudHealthRef.current = hudHealth; }, [hudHealth]);
-  useEffect(() => { hudInventoryRef.current = hudInventory; }, [hudInventory]);
   // Re-push director events (with fresh `available` flags) whenever the fired-set
   // or health changes, so gated events unlock live in the Director panel.
   useEffect(() => {
     if (sceneRef.current) pushSceneEvents(sceneRef.current);
   }, [firedVersion, hudHealth, pushSceneEvents]);
-
-  // Initialise the HUD from a scene's `hud` config (on scene apply / reset).
-  const initHud = useCallback((cfg?: {
-    show?: boolean;
-    maxHealth?: number;
-    health?: number;
-    healthLabel?: string;
-    inventory?: string[];
-  }) => {
-    const max = Math.min(100, cfg?.maxHealth ?? 100); // hard ceiling: 100
-    // Reset event gating for the new scene so fired-state doesn't leak across scenes.
-    firedEventsRef.current = new Set();
-    setFiredVersion((v) => v + 1);
-    hudMaxHealthRef.current = max;
-    setHudMaxHealth(max);
-    setHudShow(cfg ? cfg.show !== false : false); // hidden unless the scene opts in
-    setHudHealth(Math.max(0, Math.min(max, cfg?.health ?? max)));
-    setHudHealthLabel(cfg?.healthLabel ?? "Health"); // per-scene bar rename (e.g. "Fuel")
-    setHudInventory([...(cfg?.inventory ?? [])]);
-    setGameResult(null); // clear any win/lose banner for the fresh scene
-  }, []);
-
-  // Apply a vital change from either role. Routes to the coordinator (which
-  // reduces + broadcasts back) when connected; else mutates local HUD state.
-  const applyVital = useCallback((change: VitalChange, label?: string) => {
-    if (coordConnectedRef.current) {
-      // `label` (the action name) rides along so the activity feed can show WHICH
-      // action caused the change (e.g. "Machete Slash  +4 health"), not just "+4".
-      coordWsRef.current?.send(
-        JSON.stringify({ op: "vital", role: "player", change, ...(label ? { name: label } : {}) }),
-      );
-      return; // authoritative vitals return via {type:"vitals"}
-    }
-    const max = hudMaxHealthRef.current;
-    if (change.reset) {
-      setHudHealth(max);
-      setHudInventory([]);
-      setGameResult(null); // reset clears the win/lose banner
-      return;
-    }
-    if (change.setHealth !== undefined) {
-      const v = change.setHealth;
-      setHudHealth(Math.max(0, Math.min(max, v)));
-    }
-    if (change.health !== undefined) {
-      const d = change.health;
-      setHudHealth((h) => Math.max(0, Math.min(max, h + d)));
-    }
-    if (change.addItem) {
-      const it = change.addItem;
-      setHudInventory((inv) => (inv.includes(it) ? inv : [...inv, it]));
-    }
-    if (change.removeItem) {
-      const it = change.removeItem;
-      setHudInventory((inv) => inv.filter((x) => x !== it));
-    }
-  }, []);
-  const applyVitalRef = useRef(applyVital);
-  useEffect(() => {
-    applyVitalRef.current = applyVital;
-    // Let the coordinator socket push server vitals into HUD state.
-    setVitalsFromServerRef.current = (health, inventory) => {
-      setHudHealth(health);
-      setHudInventory(inventory);
-    };
-  }, [applyVital]);
 
   // Auto game-over: when health hits 0, "hold" the scene's "Falls and Dies" event
   // so composePrompt swaps to the downed base/camera/movement (the officer
@@ -883,30 +554,6 @@ export function LingbotWorldController({ className }: { className?: string }) {
       recomputePromptAndSendRef.current();
     }
   }, [hudHealth]);
-
-  // Win/lose banner (text popup below the HUD). "lost" when a health-tracking scene
-  // hits 0; cleared when health recovers. "won" is set from the coordinator's `won`
-  // broadcast (see the coordinator onmessage handler) and cleared on scene apply/reset.
-  useEffect(() => {
-    if (hudShow && hudHealth <= 0) setGameResult("lost");
-    else if (hudHealth > 0) setGameResult((r) => (r === "lost" ? null : r));
-  }, [hudHealth, hudShow]);
-
-  // Console hook — same entry point the Player events and Director use.
-  useEffect(() => {
-    const hud = {
-      damage: (n: number) => applyVitalRef.current({ health: -n }),
-      heal: (n: number) => applyVitalRef.current({ health: n }),
-      setHealth: (n: number) => applyVitalRef.current({ setHealth: n }),
-      addItem: (item: string) => applyVitalRef.current({ addItem: item }),
-      removeItem: (item: string) => applyVitalRef.current({ removeItem: item }),
-      reset: () => applyVitalRef.current({ reset: true }),
-    };
-    (window as unknown as { __hud?: typeof hud }).__hud = hud;
-    return () => {
-      delete (window as unknown as { __hud?: typeof hud }).__hud;
-    };
-  }, []);
 
   // ---- Messages from backend ----
 
@@ -1391,56 +1038,6 @@ export function LingbotWorldController({ className }: { className?: string }) {
     },
     [setVert],
   );
-
-  // --- Charge-level grid editing (persisted) ---
-  const persistChargePatterns = (next: number[][]) => {
-    try {
-      localStorage.setItem(CHARGE_PATTERNS_STORAGE, JSON.stringify(next));
-    } catch {
-      /* ignore */
-    }
-  };
-  // Cycle one latent cell: up (+1) → down (-1) → still (0) → up.
-  const cycleChargeCell = useCallback((level: number, idx: number) => {
-    setChargePatterns((prev) => {
-      const next = prev.map((p) => [...p]);
-      const cur = next[level - 1][idx];
-      next[level - 1][idx] = cur === 1 ? -1 : cur === -1 ? 0 : 1;
-      persistChargePatterns(next);
-      return next;
-    });
-  }, []);
-  const resetChargeLevel = useCallback((level: number) => {
-    setChargePatterns((prev) => {
-      const next = prev.map((p) => [...p]);
-      next[level - 1] = defaultChargePattern(level);
-      persistChargePatterns(next);
-      return next;
-    });
-  }, []);
-  // Crouch press/release pattern editing (persisted).
-  const persistCrouchPatterns = (next: CrouchPatterns) => {
-    try {
-      localStorage.setItem(CROUCH_PATTERN_STORAGE, JSON.stringify(next));
-    } catch {
-      /* ignore */
-    }
-  };
-  const cycleCrouchCell = useCallback((phase: CrouchPhase, idx: number) => {
-    setCrouchPatterns((prev) => {
-      const arr = [...prev[phase]];
-      const cur = arr[idx];
-      arr[idx] = cur === 1 ? -1 : cur === -1 ? 0 : 1; // up → down → still → up
-      const next = { ...prev, [phase]: arr };
-      persistCrouchPatterns(next);
-      return next;
-    });
-  }, []);
-  const resetCrouchPatterns = useCallback(() => {
-    const next = defaultCrouchPatterns();
-    setCrouchPatterns(next);
-    persistCrouchPatterns(next);
-  }, []);
 
   // Charge meter: while charging, step through the discrete levels (1..NUM),
   // dwelling LEVEL_DWELL_MS on each and bouncing at the ends.
@@ -2399,499 +1996,58 @@ export function LingbotWorldController({ className }: { className?: string }) {
     ) : null;
 
   const sidebar = sidebarContent ?? (
-    <div className="flex flex-col gap-4">
-      {/* Quick Start example list — extracted to SidebarExamples */}
-      <SidebarExamples
-        examples={EXAMPLES}
-        activeExampleId={activeExampleId}
-        loadingExampleId={loadingExampleId}
-        disabled={isUploading || !!loadingExampleId}
-        hasOverride={hasOverride}
-        onApply={applyExample}
-        onClearOverride={clearOverrideFor}
-        onEdit={openEditorFor}
-      />
-
-      <div className="border-t border-white/[0.06]" />
-
-      {/* Custom layered scene — bring-your-own image + author your own
-          layered prompt through the full editor. Use this when none of
-          the built-in examples fit. */}
-      {(() => {
-        const customScene = overrides[CUSTOM_SCENE_ID];
-        const customHasContent =
-          !!customScene && !scenesEqual(customScene, emptyScene());
-        const customComposed = customScene
-          ? composePrompt(customScene, false, []).trim()
-          : "";
-        const customLoading = loadingExampleId === CUSTOM_SCENE_ID;
-        const customIsActive = activeExampleId === CUSTOM_SCENE_ID;
-        const canApplyCustom =
-          isReady &&
-          !isUploading &&
-          !customLoading &&
-          customComposed.length > 0 &&
-          (!!pendingImage || !!sentImagePreview);
-        const applyBlockerReason = (() => {
-          if (!isReady) return "Not connected.";
-          if (isUploading || customLoading) return "Uploading…";
-          if (!customComposed)
-            return "Edit the custom prompt first (default base prose must not be empty).";
-          if (!pendingImage && !sentImagePreview)
-            return "Pick a starting image first.";
-          return undefined;
-        })();
-        return (
-          <div className="flex flex-col gap-3">
-            <span className="text-xs font-mono uppercase tracking-widest text-primary">
-              Custom scene
-            </span>
-            <p className="text-[10px] text-white/40 leading-snug">
-              Bring your own image, author a full layered prompt (base / camera
-              / movement / events), then apply.
-            </p>
-
-            {/* Image picker */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) selectFile(f);
-                }}
-              />
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={isUploading}
-                onClick={() => fileInputRef.current?.click()}
-                className="font-mono text-[10px]"
-              >
-                Choose image
-              </Button>
-              {pendingImage && (
-                <div className="flex items-center gap-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={pendingImage.previewUrl}
-                    alt={pendingImage.label}
-                    className="h-8 w-14 object-cover rounded border border-amber-300/40"
-                  />
-                  <span className="font-mono text-[10px] text-amber-300/70 truncate max-w-[100px]">
-                    {pendingImage.label}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={clearPendingImage}
-                    className="font-mono text-[10px] text-white/40 hover:text-white/80"
-                  >
-                    x
-                  </button>
-                </div>
-              )}
-              {!pendingImage && sentImagePreview && customIsActive && (
-                <div className="flex items-center gap-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={sentImagePreview}
-                    alt="current"
-                    className="h-8 w-14 object-cover rounded border border-white/15"
-                  />
-                  <span className="font-mono text-[10px] text-white/40">
-                    sent{imageInfo ? ` · ${imageInfo.w}x${imageInfo.h}` : ""}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Layered prompt editor entry */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => openEditorFor(CUSTOM_SCENE_ID)}
-                className="font-mono text-[10px]"
-              >
-                ✎{" "}
-                {customHasContent
-                  ? "Edit custom prompt"
-                  : "+ New custom prompt"}
-              </Button>
-              {customHasContent && (
-                <>
-                  <span className="font-mono text-[10px] text-white/50">
-                    {customScene!.events.length} event
-                    {customScene!.events.length === 1 ? "" : "s"}
-                    {" · "}
-                    {customComposed.length} chars
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => clearOverrideFor(CUSTOM_SCENE_ID)}
-                    title="Clear your custom scene"
-                    className="font-mono text-sm text-white/55 hover:text-red-300 transition-colors"
-                  >
-                    ↺
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Apply */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button
-                size="sm"
-                onClick={applyCustomScene}
-                disabled={!canApplyCustom}
-                title={applyBlockerReason}
-                className="font-mono text-[10px]"
-              >
-                {customLoading
-                  ? "Applying…"
-                  : customIsActive
-                    ? "Re-apply custom scene"
-                    : "Apply custom scene"}
-              </Button>
-              {customIsActive && (
-                <span className="font-mono text-[10px] text-amber-300/70">
-                  · running
-                </span>
-              )}
-            </div>
-          </div>
-        );
-      })()}
-
-      <div className="border-t border-white/[0.06]" />
-
-      {/* Generation state pills — visible regardless of which scene path
-          (example or custom) is active. */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5">
-            <span
-              className={cn(
-                "w-1.5 h-1.5 rounded-full",
-                hasPrompt ? "bg-green-400" : "bg-white/20",
-              )}
-            />
-            <span className="font-mono text-[10px] text-white/50">Prompt</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span
-              className={cn(
-                "w-1.5 h-1.5 rounded-full",
-                hasImage ? "bg-green-400" : "bg-white/20",
-              )}
-            />
-            <span className="font-mono text-[10px] text-white/50">Image</span>
-          </div>
-          <div className="flex-1" />
-          <Button
-            size="sm"
-            disabled={!canStart}
-            onClick={() => sendLifecycle("start")}
-            title={startBlockerReason ?? undefined}
-          >
-            Start
-          </Button>
-        </div>
-      </div>
-
-      {errorToast && (
-        <div className="rounded border border-red-500/30 bg-red-500/10 px-3 py-2 font-mono text-xs text-red-300">
-          {errorToast}
-        </div>
-      )}
-
-      {/* Advanced */}
-      <div className="border-t border-white/[0.06] pt-3 flex flex-col gap-2">
-        <div className="flex items-center gap-3 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setAdvancedOpen((v) => !v)}
-            className="font-mono text-[10px] uppercase tracking-wider text-white/40 hover:text-white/70 transition-colors"
-          >
-            {advancedOpen ? "▾" : "▸"} Advanced
-          </button>
-        </div>
-
-        {advancedOpen && (
-          <div className="rounded border border-white/10 bg-white/[0.02] p-3 flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <label className="font-mono text-[10px] uppercase tracking-wider text-white/50 w-28 shrink-0">
-                Show prompt
-              </label>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={inspectorOpen}
-                onClick={() => setInspectorOpen((v) => !v)}
-                title="Show the composed prompt and per-layer breakdown for the active example"
-                className={cn(
-                  "relative h-5 w-9 shrink-0 rounded-full transition-colors",
-                  inspectorOpen ? "bg-amber-300" : "bg-white/15",
-                )}
-              >
-                <span
-                  className={cn(
-                    "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all",
-                    inspectorOpen ? "left-[18px]" : "left-0.5",
-                  )}
-                />
-              </button>
-              <span className="font-mono text-[10px] text-white/40">
-                {inspectorOpen ? "on — sidebar shows current prompt" : "off"}
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <label className="font-mono text-[10px] uppercase tracking-wider text-white/50 w-28 shrink-0">
-                Rotation speed
-              </label>
-              <input
-                type="range"
-                min={0}
-                max={30}
-                step={0.5}
-                value={rotationSpeed}
-                onChange={(e) => pushRotationSpeed(Number(e.target.value))}
-                className="flex-1 accent-amber-300"
-              />
-              <span className="font-mono text-xs text-white/70 w-20 text-right tabular-nums">
-                {rotationSpeed.toFixed(1)}
-                <span className="text-white/40"> °/step</span>
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <label className="font-mono text-[10px] uppercase tracking-wider text-white/50 w-28 shrink-0">
-                Mouse sens
-              </label>
-              <input
-                type="range"
-                min={MOUSE_SENS_MIN}
-                max={MOUSE_SENS_MAX}
-                step={0.00005}
-                value={mouseSens}
-                onChange={(e) => setMouseSens(Number(e.target.value))}
-                className="flex-1 accent-amber-300"
-              />
-              <span className="font-mono text-xs text-white/70 w-20 text-right tabular-nums">
-                {((mouseSens * 180) / Math.PI).toFixed(3)}
-                <span className="text-white/40"> °/px</span>
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <label className="font-mono text-[10px] uppercase tracking-wider text-white/50 w-28 shrink-0">
-                Seed
-              </label>
-              <Input
-                type="number"
-                value={seed}
-                onChange={(e) => pushSeed(Number(e.target.value))}
-                className="w-24 font-mono text-xs"
-              />
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => pushSeed(Math.floor(Math.random() * 1_000_000))}
-              >
-                Random
-              </Button>
-            </div>
-            <div className="flex items-center gap-3">
-              <label className="font-mono text-[10px] uppercase tracking-wider text-white/50 w-28 shrink-0">
-                Camera pose
-              </label>
-              <span
-                className={cn(
-                  "font-mono text-[10px]",
-                  cameraPoseActive ? "text-amber-300" : "text-white/30",
-                )}
-              >
-                {cameraPoseActive
-                  ? "active (pose layer driving rotation)"
-                  : "inactive — keyboard only"}
-              </span>
-            </div>
-            {/* DiT self-attention window override (backend set_attn_window). */}
-            <div className="flex items-center gap-3">
-              <label className="font-mono text-[10px] uppercase tracking-wider text-white/50 w-28 shrink-0">
-                Attn window
-              </label>
-              <div className="flex gap-1">
-                {(
-                  [
-                    [
-                      "auto",
-                      "Auto — motion-based: small window when still, full window when moving (default)",
-                    ],
-                    [
-                      "small",
-                      "Small — force the still (small) attention window always",
-                    ],
-                    [
-                      "large",
-                      "Large — force the moving (full) attention window always",
-                    ],
-                  ] as const
-                ).map(([w, title]) => (
-                  <button
-                    key={w}
-                    type="button"
-                    disabled={!isReady}
-                    onClick={() => pushAttnWindow(w)}
-                    title={title}
-                    className={cn(
-                      "h-7 rounded border px-3 font-mono text-[11px] capitalize transition-colors disabled:opacity-30",
-                      attnWindow === w
-                        ? "border-amber-300/60 bg-amber-300/20 text-amber-200"
-                        : "border-white/15 bg-white/5 text-white/60 hover:bg-white/10",
-                    )}
-                  >
-                    {w}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {/* KV-cache/RoPE reset mode (off/auto/manual) + one-shot manual
-                trigger (backend set_kv_cache_reset / trigger_kv_cache_reset). */}
-            <div className="flex items-start gap-3">
-              <label className="font-mono text-[10px] uppercase tracking-wider text-white/50 w-28 shrink-0 pt-1.5">
-                KV reset
-              </label>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex gap-1">
-                  {(
-                    [
-                      [
-                        "off",
-                        "Off — no KV-cache reset; RoPE positions grow unbounded on long runs",
-                      ],
-                      [
-                        "auto",
-                        "Auto — periodic window reset (~every 27 chunks) + manual trigger (default)",
-                      ],
-                      [
-                        "manual",
-                        "Manual — no periodic reset; only the Reset-now button fires one",
-                      ],
-                    ] as const
-                  ).map(([m, title]) => (
-                    <button
-                      key={m}
-                      type="button"
-                      disabled={!isReady}
-                      onClick={() => pushKvCacheResetMode(m)}
-                      title={title}
-                      className={cn(
-                        "h-7 rounded border px-3 font-mono text-[11px] capitalize transition-colors disabled:opacity-30",
-                        kvCacheResetMode === m
-                          ? "border-amber-300/60 bg-amber-300/20 text-amber-200"
-                          : "border-white/15 bg-white/5 text-white/60 hover:bg-white/10",
-                      )}
-                    >
-                      {m}
-                    </button>
-                  ))}
-                </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={!isReady || kvCacheResetMode === "off"}
-                  onClick={triggerKvCacheReset}
-                  title="Force a one-shot KV-cache reset on the next chunk (e.g. at a scene cut). Available in auto and manual modes."
-                >
-                  Reset now
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Layered-scene editor — full-screen modal overlaying the page.
-          Lives here in the sidebar tree because it's position: fixed;
-          visually it covers the whole viewport. Reads / writes the
-          per-example override store so edits persist across re-clicks. */}
-      {editingExampleId &&
-        editingScene &&
-        (() => {
-          const isCustom = editingExampleId === CUSTOM_SCENE_ID;
-          // Only offer "Reset to example" when the current scene actually
-          // differs from the pristine constant; otherwise there's nothing
-          // to reset.
-          const pristine = isCustom
-            ? undefined
-            : STRUCTURED_EXAMPLES[editingExampleId]?.scene;
-          const canReset =
-            pristine != null && !scenesEqual(editingScene, pristine);
-          const title = isCustom
-            ? "Edit · Custom scene"
-            : `Edit · ${STRUCTURED_EXAMPLES[editingExampleId]?.name ?? editingExampleId}`;
-          const subtitle = isCustom
-            ? "Author a fully custom layered prompt. Apply it from the Custom card on the right."
-            : editingExampleId === activeExampleId
-              ? "Editing the currently-running scene — changes apply live."
-              : "Pre-editing this scene. Click the example card to apply your edits.";
-          return (
-            <LayeredSceneEditor
-              title={title}
-              subtitle={subtitle}
-              scene={editingScene}
-              pristine={pristine}
-              onChange={handleSceneChange}
-              onReset={canReset ? resetEditingExample : undefined}
-              resetLabel="Reset to example"
-              onClose={closeEditor}
-            />
-          );
-        })()}
-    </div>
+    <ControllerSidebar
+      activeExampleId={activeExampleId}
+      loadingExampleId={loadingExampleId}
+      isUploading={isUploading}
+      hasOverride={hasOverride}
+      applyExample={applyExample}
+      clearOverrideFor={clearOverrideFor}
+      openEditorFor={openEditorFor}
+      overrides={overrides}
+      isReady={isReady}
+      pendingImage={pendingImage}
+      sentImagePreview={sentImagePreview}
+      imageInfo={imageInfo}
+      fileInputRef={fileInputRef}
+      selectFile={selectFile}
+      clearPendingImage={clearPendingImage}
+      applyCustomScene={applyCustomScene}
+      hasPrompt={hasPrompt}
+      hasImage={hasImage}
+      canStart={canStart}
+      startBlockerReason={startBlockerReason}
+      sendLifecycle={sendLifecycle}
+      errorToast={errorToast}
+      advancedOpen={advancedOpen}
+      setAdvancedOpen={setAdvancedOpen}
+      inspectorOpen={inspectorOpen}
+      setInspectorOpen={setInspectorOpen}
+      rotationSpeed={rotationSpeed}
+      pushRotationSpeed={pushRotationSpeed}
+      mouseSens={mouseSens}
+      setMouseSens={setMouseSens}
+      seed={seed}
+      pushSeed={pushSeed}
+      cameraPoseActive={cameraPoseActive}
+      attnWindow={attnWindow}
+      pushAttnWindow={pushAttnWindow}
+      kvCacheResetMode={kvCacheResetMode}
+      pushKvCacheResetMode={pushKvCacheResetMode}
+      triggerKvCacheReset={triggerKvCacheReset}
+      editingExampleId={editingExampleId}
+      editingScene={editingScene}
+      handleSceneChange={handleSceneChange}
+      resetEditingExample={resetEditingExample}
+      closeEditor={closeEditor}
+      customSceneId={CUSTOM_SCENE_ID}
+      mouseSensMin={MOUSE_SENS_MIN}
+      mouseSensMax={MOUSE_SENS_MAX}
+    />
   );
 
+
   // ---- Render: bottom controls (hold chips, movement, look) ----
-
-  // Mouse-signal HUD geometry: arrow from circle center in the direction of
-  // recent mouse motion, length ∝ strength (clamped to the circle radius).
-  const HUD = 72,
-    HUD_C = HUD / 2,
-    HUD_R = 28;
-  const _vx = mouseViz.x * 0.5,
-    _vy = mouseViz.y * 0.5;
-  const _mag = Math.hypot(_vx, _vy);
-  const _s = _mag > HUD_R ? HUD_R / _mag : 1;
-  // Arrow-key look direction (svg coords: up = -y). Mirrored into the Mouse HUD
-  // when mouse-look is off, so arrows ↔ Mouse read as one "look" control —
-  // exactly like WASD ↔ joystick below.
-  const _arrowX = (lookH === "right" ? 1 : 0) - (lookH === "left" ? 1 : 0);
-  const _arrowY = (lookV === "down" ? 1 : 0) - (lookV === "up" ? 1 : 0);
-  const _arrowActive = _arrowX !== 0 || _arrowY !== 0;
-  let hudEx = HUD_C,
-    hudEy = HUD_C,
-    hudActive = false;
-  if (mouseLook) {
-    hudEx = HUD_C + _vx * _s;
-    hudEy = HUD_C + _vy * _s;
-    hudActive = _mag > 0.5;
-  } else if (_arrowActive) {
-    const _am = (HUD_R * 0.9) / Math.hypot(_arrowX, _arrowY);
-    hudEx = HUD_C + _arrowX * _am;
-    hudEy = HUD_C + _arrowY * _am;
-    hudActive = true;
-  }
-
-  // Joystick knob: show the drag vector if dragging, else mirror the WASD
-  // state (so the joystick and WASD read as the same "movement" control).
-  const _wasdX =
-    (moveLat === "strafe_right" ? 1 : 0) - (moveLat === "strafe_left" ? 1 : 0);
-  const _wasdY = (moveL === "back" ? 1 : 0) - (moveL === "forward" ? 1 : 0);
-  const joyDragging = joy.x !== 0 || joy.y !== 0;
-  const joyDispX = joyDragging ? joy.x : _wasdX;
-  const joyDispY = joyDragging ? joy.y : _wasdY;
-  const joyLit = joyDragging || _wasdX !== 0 || _wasdY !== 0;
 
   // DEV: keep the HUD synced to the active scene's `hud` while idle, so it shows
   // (with the scene's health/inventory) even before connecting and after a reload
@@ -2919,591 +2075,68 @@ export function LingbotWorldController({ className }: { className?: string }) {
   );
 
   const controls = (
-    <div className="flex flex-col gap-3">
-      {/* Player objective — the goal (objective.summary), shown in the player section */}
-      {hudObjective && (
-        <div className="flex items-baseline gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
-          <span className="font-mono text-[9px] uppercase tracking-widest text-emerald-300/80 shrink-0">
-            Objective
-          </span>
-          <span className="font-mono text-[11px] text-white/85">{hudObjective}</span>
-        </div>
-      )}
-      {/* Status telemetry */}
-      {(tspSize !== null || (isGenerating && chunkNum > 0) || isReady) && (
-        <div className="flex items-center gap-3 flex-wrap">
-          {tspSize !== null && (
-            <span className="font-mono text-[10px] text-white/40">
-              workers: {tspSize}
-            </span>
-          )}
-          {isGenerating && chunkNum > 0 && (
-            <span className="font-mono text-[10px] text-white/40">
-              chunk {chunkIndex + 1}/{chunkNum}
-            </span>
-          )}
-          {isReady && (
-            <span className="font-mono text-[10px] text-amber-300/70">
-              action: {activeAction}
-            </span>
-          )}
-          <div className="flex-1" />
-          {(isGenerating || isPaused) && (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => sendLifecycle(isPaused ? "resume" : "pause")}
-              disabled={!canPauseResume}
-              className="font-mono text-[10px]"
-            >
-              {isPaused ? "Resume" : "Pause"}
-            </Button>
-          )}
-        </div>
-      )}
-
-      {/* Hold-key event chips, derived from the active scene's player events */}
-      <EventChips
-        scene={scene}
-        heldSlots={heldSlots}
-        onPress={holdPress}
-        onRelease={holdRelease}
-        isAvailable={isAvailableNow}
-      />
-
-      {/* Move (WASD) + Joystick + Look + Mouse-signal HUD */}
-      <div className="grid grid-cols-4 gap-3">
-        {/* Move (WASD) — Q/E roll + WASD + Space/C, extracted to MovePad */}
-        <MovePad
-          rollDir={rollDir}
-          moveL={moveL}
-          moveLat={moveLat}
-          jumpLit={jumpLit}
-          vertDir={vertDir}
-          setRoll={setRoll}
-          onMoveLPress={onMoveLPress}
-          onMoveLRelease={onMoveLRelease}
-          onMoveLatPress={onMoveLatPress}
-          onMoveLatRelease={onMoveLatRelease}
-          onJumpDown={onJumpDown}
-          onJumpUp={onJumpUp}
-          setVert={setVert}
-        />
-
-        {/* Charge-level grid editor popup: click cells to cycle each latent's
-            up (↑) / down (↓) / still (·) state. Persists automatically. */}
-        {editingLevel !== null && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-            onClick={() => setEditingLevel(null)}
-          >
-            <div
-              className="w-full max-w-md rounded-xl border border-white/15 bg-neutral-950 p-5 shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between">
-                <h3 className="font-mono text-sm text-white">
-                  Jump level {editingLevel} · {editingLevel} chunk
-                  {editingLevel > 1 ? "s" : ""} ({editingLevel * CHUNK_LATENTS}{" "}
-                  latents)
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setEditingLevel(null)}
-                  className="h-7 w-7 rounded font-mono text-xs text-white/60 hover:bg-white/10"
-                >
-                  ✕
-                </button>
-              </div>
-              <p className="mt-1 mb-4 font-mono text-[11px] leading-relaxed text-white/50">
-                One cell per latent (3 per chunk), played left→right,
-                top→bottom. Click a cell to cycle{" "}
-                <span className="text-amber-200">↑ up</span> →{" "}
-                <span className="text-sky-200">↓ down</span> →{" "}
-                <span className="text-white/40">· still</span>. Stills are the
-                pause / hang; put as many as you want. Saved automatically.
-              </p>
-              <div className="flex flex-col gap-2">
-                {Array.from({ length: editingLevel }, (_, c) => (
-                  <div key={c} className="flex items-center gap-3">
-                    <span className="w-14 font-mono text-[9px] uppercase tracking-wider text-white/30">
-                      chunk {c + 1}
-                    </span>
-                    <div className="flex gap-2">
-                      {Array.from({ length: CHUNK_LATENTS }, (_, j) => {
-                        const idx = c * CHUNK_LATENTS + j;
-                        const v = chargePatterns[editingLevel - 1][idx];
-                        return (
-                          <button
-                            key={j}
-                            type="button"
-                            onClick={() => cycleChargeCell(editingLevel, idx)}
-                            title={v === 1 ? "up" : v === -1 ? "down" : "still"}
-                            className={cn(
-                              "flex h-12 w-12 items-center justify-center rounded-md border font-mono text-xl transition-colors",
-                              v === 1
-                                ? "bg-amber-300/20 border-amber-300/60 text-amber-200"
-                                : v === -1
-                                  ? "bg-sky-400/20 border-sky-400/60 text-sky-200"
-                                  : "bg-white/5 border-white/15 text-white/40",
-                            )}
-                          >
-                            {v === 1 ? "↑" : v === -1 ? "↓" : "·"}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-5 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => resetChargeLevel(editingLevel)}
-                  className="rounded border border-white/15 px-3 py-1.5 font-mono text-[11px] text-white/60 hover:bg-white/10"
-                >
-                  Reset to default
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditingLevel(null)}
-                  className="rounded border border-amber-300/40 bg-amber-300/15 px-3 py-1.5 font-mono text-[11px] text-amber-200 hover:bg-amber-300/25"
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Crouch dip editor popup: the single dip chunk's per-latent pattern. */}
-        {editingCrouch && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-            onClick={() => setEditingCrouch(false)}
-          >
-            <div
-              className="w-full max-w-md rounded-xl border border-white/15 bg-neutral-950 p-5 shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between">
-                <h3 className="font-mono text-sm text-white">
-                  Crouch — press &amp; release chunks
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setEditingCrouch(false)}
-                  className="h-7 w-7 rounded font-mono text-xs text-white/60 hover:bg-white/10"
-                >
-                  ✕
-                </button>
-              </div>
-              <p className="mt-1 mb-4 font-mono text-[11px] leading-relaxed text-white/50">
-                Two one-chunk dips: <strong>press</strong> fires on C-down,{" "}
-                <strong>release</strong> fires on C-up (standing back up). One
-                cell per latent — click to cycle{" "}
-                <span className="text-amber-200">↑ up</span> →{" "}
-                <span className="text-sky-200">↓ down</span> →{" "}
-                <span className="text-white/40">· still</span>. Added on top of
-                forward. Saved automatically.
-              </p>
-              <div className="flex flex-col gap-3">
-                {(["press", "release"] as const).map((phase) => (
-                  <div key={phase} className="flex items-center gap-3">
-                    <span className="w-16 font-mono text-[9px] uppercase tracking-wider text-white/30">
-                      {phase} {phase === "press" ? "(↓)" : "(↑)"}
-                    </span>
-                    <div className="flex gap-2">
-                      {Array.from({ length: CHUNK_LATENTS }, (_, j) => {
-                        const v = crouchPatterns[phase][j];
-                        return (
-                          <button
-                            key={j}
-                            type="button"
-                            onClick={() => cycleCrouchCell(phase, j)}
-                            title={v === 1 ? "up" : v === -1 ? "down" : "still"}
-                            className={cn(
-                              "flex h-12 w-12 items-center justify-center rounded-md border font-mono text-xl transition-colors",
-                              v === 1
-                                ? "bg-amber-300/20 border-amber-300/60 text-amber-200"
-                                : v === -1
-                                  ? "bg-sky-400/20 border-sky-400/60 text-sky-200"
-                                  : "bg-white/5 border-white/15 text-white/40",
-                            )}
-                          >
-                            {v === 1 ? "↑" : v === -1 ? "↓" : "·"}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-5 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={resetCrouchPatterns}
-                  className="rounded border border-white/15 px-3 py-1.5 font-mono text-[11px] text-white/60 hover:bg-white/10"
-                >
-                  Reset to default
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditingCrouch(false)}
-                  className="rounded border border-amber-300/40 bg-amber-300/15 px-3 py-1.5 font-mono text-[11px] text-amber-200 hover:bg-amber-300/25"
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Drag joystick: continuous translation; mirrors WASD when not dragging */}
-        <div className="flex flex-col items-center gap-1.5">
-          <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">
-            Joystick
-          </span>
-          <div
-            ref={joyAreaRef}
-            onPointerDown={(e) => {
-              if (!isReady) return;
-              e.currentTarget.setPointerCapture(e.pointerId);
-              onJoyPointer(e, "down");
-            }}
-            onPointerMove={(e) => {
-              if (e.buttons !== 0) onJoyPointer(e, "move");
-            }}
-            onPointerUp={(e) => onJoyPointer(e, "up")}
-            onPointerCancel={(e) => onJoyPointer(e, "up")}
-            title="Drag for continuous movement (up = forward, down = back, left/right = strafe). Adds to WASD; mirrors WASD when idle."
-            className={cn(
-              "relative rounded-full border touch-none select-none",
-              isReady
-                ? "cursor-grab active:cursor-grabbing border-white/15 bg-white/[0.03]"
-                : "opacity-30 border-white/10",
-            )}
-            style={{ width: HUD, height: HUD }}
-          >
-            <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-white/8" />
-            <div className="absolute top-1/2 left-0 w-full h-px -translate-y-1/2 bg-white/8" />
-            <div
-              className={cn(
-                "absolute h-4 w-4 rounded-full -translate-x-1/2 -translate-y-1/2 transition-all",
-                joyLit ? "bg-amber-300" : "bg-white/40",
-              )}
-              style={{
-                left: `calc(50% + ${joyDispX * HUD_R}px)`,
-                top: `calc(50% + ${joyDispY * HUD_R}px)`,
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-col items-center gap-1.5">
-          <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">
-            Look (Arrows)
-          </span>
-          <div className="flex flex-col items-center gap-0.5">
-            <PadButton
-              label="↑"
-              pressed={lookV === "up"}
-              disabled={false}
-              onPress={() => pushLookV("up")}
-              onRelease={() => pushLookV("idle")}
-            />
-            <div className="flex gap-0.5">
-              <PadButton
-                label="←"
-                pressed={lookH === "left"}
-                disabled={false}
-                onPress={() => pushLookH("left")}
-                onRelease={() => pushLookH("idle")}
-              />
-              <PadButton
-                label="↓"
-                pressed={lookV === "down"}
-                disabled={false}
-                onPress={() => pushLookV("down")}
-                onRelease={() => pushLookV("idle")}
-              />
-              <PadButton
-                label="→"
-                pressed={lookH === "right"}
-                disabled={false}
-                onPress={() => pushLookH("right")}
-                onRelease={() => pushLookH("idle")}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Mouse-look: click the circle to engage (pointer lock); Esc/M to release.
-            Arrow shows live mouse signal direction + strength. */}
-        <div className="flex flex-col items-center gap-1.5">
-          <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">
-            Mouse {mouseLook ? "(Esc/M)" : "(click)"}
-          </span>
-          <button
-            type="button"
-            disabled={false}
-            onClick={toggleMouseLook}
-            title={
-              mouseLook
-                ? "Mouse-look ON — move the mouse to rotate (yaw+pitch). Esc, M, or an arrow key to release."
-                : "Click to engage mouse-look (pointer lock). Move the mouse to rotate; Esc/M to release."
-            }
-            className={cn(
-              "rounded-full transition-transform disabled:opacity-30",
-              "cursor-pointer hover:scale-105",
-              mouseLook && "ring-2 ring-amber-300/60",
-            )}
-          >
-            <svg width={HUD} height={HUD} className="shrink-0 block">
-              <circle
-                cx={HUD_C}
-                cy={HUD_C}
-                r={HUD_R}
-                fill={
-                  mouseLook ? "rgba(252,211,77,0.06)" : "rgba(255,255,255,0.02)"
-                }
-                stroke={
-                  mouseLook ? "rgba(252,211,77,0.45)" : "rgba(255,255,255,0.15)"
-                }
-                strokeWidth="1"
-              />
-              <line
-                x1={HUD_C}
-                y1={HUD_C - HUD_R}
-                x2={HUD_C}
-                y2={HUD_C + HUD_R}
-                stroke="rgba(255,255,255,0.08)"
-                strokeWidth="1"
-              />
-              <line
-                x1={HUD_C - HUD_R}
-                y1={HUD_C}
-                x2={HUD_C + HUD_R}
-                y2={HUD_C}
-                stroke="rgba(255,255,255,0.08)"
-                strokeWidth="1"
-              />
-              {hudActive && (
-                <>
-                  <line
-                    x1={HUD_C}
-                    y1={HUD_C}
-                    x2={hudEx}
-                    y2={hudEy}
-                    stroke="rgb(252,211,77)"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                  <circle cx={hudEx} cy={hudEy} r="3" fill="rgb(252,211,77)" />
-                </>
-              )}
-              <circle
-                cx={HUD_C}
-                cy={HUD_C}
-                r="2"
-                fill={
-                  mouseLook ? "rgba(252,211,77,0.8)" : "rgba(255,255,255,0.3)"
-                }
-              />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {/* Vertical controls — jump + crouch mode switches and the charge-level
-          editor. Full-width row so the buttons are comfortably clickable. */}
-      <div className="flex flex-wrap items-start gap-x-8 gap-y-3 border-t border-white/[0.06] pt-3">
-        <div className="flex flex-col gap-1.5">
-          <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">
-            Jump (Space)
-          </span>
-          <div className="flex gap-1">
-            {(
-              [
-                ["hold", "Hold — translate up while held (no descent)"],
-                ["prompt", "Prompt — only append the scene's jump prompt"],
-                [
-                  "charge",
-                  "Charge — hold to charge a level, release to fire that level's arc",
-                ],
-              ] as const
-            ).map(([m, title]) => (
-              <button
-                key={m}
-                type="button"
-                disabled={false}
-                onClick={() => changeJumpMode(m)}
-                title={title}
-                className={cn(
-                  "h-7 rounded border px-3 font-mono text-[11px] capitalize transition-colors disabled:opacity-30",
-                  jumpMode === m
-                    ? "border-amber-300/60 bg-amber-300/20 text-amber-200"
-                    : "border-white/15 bg-white/5 text-white/60 hover:bg-white/10",
-                )}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {jumpMode === "charge" && (
-          <div className="flex flex-col gap-1.5">
-            <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">
-              Charge levels — click to edit
-            </span>
-            <div className="flex gap-1.5">
-              {Array.from({ length: NUM_CHARGE_LEVELS }, (_, i) => {
-                const level = i + 1;
-                return (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setEditingLevel(level)}
-                    title={`Level ${level} — ${level} chunk${level > 1 ? "s" : ""}; click to edit its per-latent up/down/still pattern`}
-                    className={cn(
-                      "flex h-9 w-14 flex-col items-center justify-center rounded border font-mono transition-colors",
-                      i < chargeLevel
-                        ? "border-amber-300/60 bg-amber-300/25 text-amber-100"
-                        : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10",
-                    )}
-                  >
-                    <span className="text-[13px] leading-none">{level}</span>
-                    <span className="text-[8px] leading-none text-white/45">
-                      ✎ edit
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        <div className="flex flex-col gap-1.5">
-          <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">
-            Crouch (C)
-          </span>
-          <div className="flex items-center gap-1">
-            {(
-              [
-                [
-                  "hold",
-                  "Hold — translate straight down for as long as held (no return)",
-                ],
-                [
-                  "prompt",
-                  "Prompt — inject the scene's crouch line, no camera motion",
-                ],
-                [
-                  "camera",
-                  "Camera — a one-shot downward dip (+ the crouch line) while held",
-                ],
-              ] as const
-            ).map(([m, title]) => (
-              <button
-                key={m}
-                type="button"
-                disabled={false}
-                onClick={() => changeCrouchMode(m)}
-                title={title}
-                className={cn(
-                  "h-7 rounded border px-3 font-mono text-[11px] capitalize transition-colors disabled:opacity-30",
-                  crouchMode === m
-                    ? "border-amber-300/60 bg-amber-300/20 text-amber-200"
-                    : "border-white/15 bg-white/5 text-white/60 hover:bg-white/10",
-                )}
-              >
-                {m}
-              </button>
-            ))}
-            {crouchMode === "camera" && (
-              <button
-                type="button"
-                onClick={() => setEditingCrouch(true)}
-                title="Edit the crouch dip — which of this chunk's latents are down / still"
-                className="ml-1 flex h-7 items-center rounded border border-white/15 bg-white/5 px-2 font-mono text-[10px] text-white/70 hover:bg-white/10"
-              >
-                ✎ dip
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">
-            Orbit radius (O)
-          </span>
-          <div className="flex items-center gap-1.5">
-            <Input
-              type="number"
-              inputMode="decimal"
-              step={ORBIT_RADIUS_STEP}
-              min={0}
-              value={orbitRadius}
-              disabled={false}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                setOrbitRadius(Number.isFinite(v) ? Math.max(0, v) : 0);
-              }}
-              className={cn(
-                "h-7 w-24 font-mono text-xs tabular-nums",
-                "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-                orbitRadius > 0 ? "text-amber-200" : "text-white/60",
-              )}
-              title="Orbit radius — 0 = rotate in place (normal). Type any value; bigger = wider/farther. Press O to mute / un-mute."
-            />
-            <div className="flex flex-col">
-              <button
-                type="button"
-                disabled={false}
-                onClick={() =>
-                  setOrbitRadius((r) => Math.max(0, r + ORBIT_RADIUS_STEP))
-                }
-                className="flex h-3.5 w-5 items-center justify-center rounded-t border border-b-0 border-white/15 bg-white/5 text-[8px] leading-none text-white/60 hover:bg-white/10 disabled:opacity-30"
-                title="Increase orbit radius"
-              >
-                &#9650;
-              </button>
-              <button
-                type="button"
-                disabled={false}
-                onClick={() =>
-                  setOrbitRadius((r) => Math.max(0, r - ORBIT_RADIUS_STEP))
-                }
-                className="flex h-3.5 w-5 items-center justify-center rounded-b border border-white/15 bg-white/5 text-[8px] leading-none text-white/60 hover:bg-white/10 disabled:opacity-30"
-                title="Decrease orbit radius"
-              >
-                &#9660;
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <p className="font-mono text-[9px] text-white/35 leading-snug">
-        WASD / joystick = move · arrows = look · Q/E = roll · Space = jump / C =
-        crouch · click the Mouse circle for free-look (Esc/M to release).
-        <span className="text-white/50">Orbit radius</span> = while looking
-        (mouse or arrows), circle a point R ahead instead of turning in place; R
-        = 0 is normal rotation, press <span className="text-white/50">O</span>{" "}
-        to mute / un-mute. Jump mode:{" "}
-        <span className="text-white/50">Hold</span> = up while held ·
-        <span className="text-white/50"> Prompt</span> = prompt only ·
-        <span className="text-white/50"> Charge</span> = hold to charge a level,
-        release for that level&apos;s up→down arc (click a level to edit its
-        per-latent pattern). Crouch (all modes inject the scene&apos;s crouch
-        line):
-        <span className="text-white/50"> Hold</span> = straight down while held
-        ·<span className="text-white/50"> Prompt</span> = line only ·
-        <span className="text-white/50"> Camera</span> = a one-shot editable dip
-        (✎) plus the line.
-      </p>
-    </div>
+    <ControllerControls
+      hudObjective={hudObjective}
+      tspSize={tspSize}
+      isGenerating={isGenerating}
+      chunkNum={chunkNum}
+      chunkIndex={chunkIndex}
+      isReady={isReady}
+      activeAction={activeAction}
+      isPaused={isPaused}
+      canPauseResume={canPauseResume}
+      sendLifecycle={sendLifecycle}
+      eventChips={{
+        scene,
+        heldSlots,
+        onPress: holdPress,
+        onRelease: holdRelease,
+        isAvailable: isAvailableNow,
+      }}
+      movePad={{
+        rollDir,
+        moveL,
+        moveLat,
+        jumpLit,
+        vertDir,
+        setRoll,
+        onMoveLPress,
+        onMoveLRelease,
+        onMoveLatPress,
+        onMoveLatRelease,
+        onJumpDown,
+        onJumpUp,
+        setVert,
+      }}
+      editingLevel={editingLevel}
+      chargePatterns={chargePatterns}
+      cycleChargeCell={cycleChargeCell}
+      resetChargeLevel={resetChargeLevel}
+      setEditingLevel={setEditingLevel}
+      editingCrouch={editingCrouch}
+      crouchPatterns={crouchPatterns}
+      cycleCrouchCell={cycleCrouchCell}
+      resetCrouchPatterns={resetCrouchPatterns}
+      setEditingCrouch={setEditingCrouch}
+      joyAreaRef={joyAreaRef}
+      onJoyPointer={onJoyPointer}
+      joy={joy}
+      lookH={lookH}
+      lookV={lookV}
+      pushLookH={pushLookH}
+      pushLookV={pushLookV}
+      mouseLook={mouseLook}
+      toggleMouseLook={toggleMouseLook}
+      mouseViz={mouseViz}
+      jumpMode={jumpMode}
+      changeJumpMode={changeJumpMode}
+      chargeLevel={chargeLevel}
+      crouchMode={crouchMode}
+      changeCrouchMode={changeCrouchMode}
+      orbitRadius={orbitRadius}
+      setOrbitRadius={setOrbitRadius}
+      orbitRadiusStep={ORBIT_RADIUS_STEP}
+    />
   );
 
   return { sidebar, controls, hud };

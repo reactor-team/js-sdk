@@ -312,15 +312,15 @@ export function DirectorPanel({
       {/* Objective — player goal (summary) + the Director agent's standing intent */}
       {objective && (objective.summary || objective.director) && (
         <div className="flex basis-full items-start gap-2 min-w-0">
-          <span className="font-mono text-[9px] uppercase tracking-wider text-white/40 mt-0.5">objective</span>
+          <span className="mono-label mt-0.5">objective</span>
           <div className="flex flex-col min-w-0 leading-tight">
             {objective.summary && (
-              <span className="font-mono text-[10px] text-sky-200/85 truncate" title={objective.summary}>
+              <span className="mono-xs text-sky-200/85 truncate" title={objective.summary}>
                 <span className="text-white/40">player:</span> {objective.summary}
               </span>
             )}
             {objective.director && (
-              <span className="font-mono text-[10px] text-emerald-200/70 truncate" title={objective.director}>
+              <span className="mono-xs text-emerald-200/70 truncate" title={objective.director}>
                 <span className="text-white/40">director:</span> {objective.director}
               </span>
             )}
@@ -331,14 +331,14 @@ export function DirectorPanel({
       {/* Optional coordinator-state view — live History facts + remaining lifetime */}
       {showState && (
         <div className="flex basis-full flex-col gap-0.5 rounded border border-white/10 bg-black/40 p-1.5 max-h-32 overflow-y-auto">
-          <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">
+          <span className="mono-label">
             state · history · {coordFacts.length} fact{coordFacts.length === 1 ? "" : "s"}
           </span>
           {coordFacts.length === 0 ? (
-            <span className="font-mono text-[10px] text-white/30">— empty —</span>
+            <span className="mono-xs text-white/30">— empty —</span>
           ) : (
             coordFacts.map((f) => (
-              <div key={f.key} className="flex items-start gap-1.5 font-mono text-[10px]">
+              <div key={f.key} className="flex items-start gap-1.5 mono-xs">
                 <span className="shrink-0 rounded bg-white/10 px-1 text-emerald-200/80">{f.remaining}</span>
                 <span className="shrink-0 text-sky-200/70">{f.key}</span>
                 <span className="text-white/60 truncate" title={f.clause}>{f.clause}</span>
@@ -348,7 +348,7 @@ export function DirectorPanel({
           {/* Raw state snapshot — the full coordinator state object as JSON */}
           {rawState && (
             <>
-              <span className="mt-1 font-mono text-[9px] uppercase tracking-wider text-white/40">
+              <span className="mt-1 mono-label">
                 raw state
               </span>
               <pre className="whitespace-pre-wrap break-all font-mono text-[9px] leading-tight text-white/55">
@@ -363,7 +363,7 @@ export function DirectorPanel({
       {sceneEvents.length > 0 && (
         <>
           <div className="flex basis-full flex-wrap items-center gap-1 min-w-0">
-            <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">scene</span>
+            <span className="mono-label">scene</span>
             {sceneEvents.map((ev, i) => (
               <button
                 key={ev.name}
@@ -402,16 +402,16 @@ export function DirectorPanel({
           Always shown, with a live status line, so an empty feed is diagnosable. */}
       {(
         <div ref={activityBoxRef} className="flex basis-full flex-col gap-0.5 rounded border border-white/10 bg-black/40 p-1.5 max-h-28 overflow-y-auto">
-          <span className="font-mono text-[9px] uppercase tracking-wider text-white/40">
+          <span className="mono-label">
             activity · {connected ? "live" : "offline"} · {msgCount} msgs · {activity.length} shown
           </span>
           {activity.length === 0 && (
-            <span className="font-mono text-[10px] text-white/30">
+            <span className="mono-xs text-white/30">
               waiting… player actions + ai fires appear here
             </span>
           )}
           {activity.map((a) => (
-            <div key={a.id} className="flex items-start gap-1.5 font-mono text-[10px]">
+            <div key={a.id} className="flex items-start gap-1.5 mono-xs">
               {a.ts && <span className="shrink-0 tabular-nums text-white/30">{a.ts}</span>}
               <span
                 className={cn(
@@ -469,7 +469,7 @@ export function DirectorPanel({
       {/* Live projected-prompt readout + close, pushed right */}
       <div className="ml-auto flex items-center gap-2 min-w-0">
         <span
-          className="font-mono text-[10px] text-emerald-200/70 truncate max-w-[16rem]"
+          className="mono-xs text-emerald-200/70 truncate max-w-[16rem]"
           title={facts || "—"}
         >
           {facts || "—"}
@@ -481,11 +481,11 @@ export function DirectorPanel({
 
       {!connected && (
         <div className="w-full flex items-center gap-2">
-          <span className="font-mono text-[10px] text-white/40 whitespace-nowrap">
+          <span className="mono-xs text-white/40 whitespace-nowrap">
             coordinator ws
           </span>
           <input
-            className="flex-1 min-w-0 rounded border border-white/15 bg-white/5 px-2 py-0.5 font-mono text-[10px] text-white/80 outline-none focus:border-emerald-400/50"
+            className="flex-1 min-w-0 rounded border border-white/15 bg-white/5 px-2 py-0.5 mono-xs text-white/80 outline-none focus:border-emerald-400/50"
             placeholder="ws://localhost:8080/director"
             value={wsUrl}
             spellCheck={false}
