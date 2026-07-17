@@ -107,11 +107,20 @@ export interface NamedEvent {
   // state. Data-only so it lives in the scene JSON. Keep gates rare and
   // narrative (door appears → reach door); never gate moment-to-moment actions.
   requires?: EventGate;
+  // A terminal WIN event: when it fires the game is WON (coordinator flips `won`
+  // and fires the win banner). Pair with `empty` versions for a scene-replace
+  // ending. Death (health→0) is the lose-terminal; this is the win side.
+  win?: boolean;
+  // Per-tick fire probability (0..1) once `requires` holds — randomizes WHEN the
+  // event fires after its gate opens (rules-engine only). e.g. minChunks:24 +
+  // chance:0.2 → the pickup arrives at a varied time past chunk 24, not exactly on it.
+  chance?: number;
 }
 
 // Declarative availability gate for an event. All present fields must hold.
 export interface EventGate {
-  fired?: string[]; //     names of events that must have fired already
+  fired?: string[]; //     ALL of these must have fired already (AND)
+  firedAny?: string[]; //  ANY one of these must have fired (OR)
   notFired?: string[]; //  names of events that must NOT have fired yet
   minChunks?: number; //   only after N generation chunks elapsed
   maxHealth?: number; //   only when health <= this (e.g. 0 for a death trigger)
@@ -132,6 +141,7 @@ export function isEventAvailable(event: NamedEvent, s: GateState): boolean {
   const g = event.requires;
   if (!g) return true;
   if (g.fired && !g.fired.every((n) => s.fired.has(n))) return false;
+  if (g.firedAny && !g.firedAny.some((n) => s.fired.has(n))) return false;
   if (g.notFired && g.notFired.some((n) => s.fired.has(n))) return false;
   if (g.minChunks !== undefined && s.chunks < g.minChunks) return false;
   if (g.maxHealth !== undefined && s.health > g.maxHealth) return false;

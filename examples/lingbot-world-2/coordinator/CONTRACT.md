@@ -136,11 +136,32 @@ Mode gate: `assert|retract|vital|count` from `human`/`ai` are dropped unless
 
 From a `lib/lingbot-cases/*.json` scene, the director reads:
 - `scene.base.default` → world identity (never contradicted).
-- `scene.events[*]` where `actor == "director"` → `{name, clause = detail(.static), health, addItem}`.
+- `scene.events[*]` where `actor == "director"` → `{name, clause = detail(.static), health,
+  addItem, count, requires, chance, win, baseVersion/cameraVersion/movementVersion}`.
 - `objective.director || objective.summary` → the standing goal.
 
 The AI and human directors fire from this SAME list. Player-actor events are the
 human player's hold-keys and are NOT in the director set.
+
+**Per-event fields that shape when/how an event fires:**
+
+| field | meaning |
+|---|---|
+| `requires.minChunks` | earliest chunk it can fire (see chunk↔time below) |
+| `requires.fired` | AND — every listed event must already be in shared History |
+| `requires.firedAny` | OR — at least one listed event must have fired |
+| `requires.notFired` | none of the listed events may have fired (mutex ring: N events each `notFired` the other N−1 → exactly one of the group ever fires) |
+| `requires.minHealth` / `maxHealth` | health floor / ceiling gate |
+| `requires.hasItem` | item must be in inventory |
+| `chance` | per-tick fire probability once the gate is open (`0.2` = 20%/tick → randomized arrival, not the instant the gate opens) |
+| `count` | fire-once when `1` (and signed spawn/kill Δ on the entity count) |
+| `win` | terminal — firing sets `won=true` and sends `{type:"won"}` |
+| `baseVersion`/…`= "empty"` | scene-replace ending; `"downed"`/`"overboard"` = consequence state |
+
+**Chunk ↔ time.** One chunk ≈ **3 latents ≈ 12 frames ≈ ~0.75 s** of video (`CHUNK_LATENTS=3`,
+backend `chunk_size=3`). So authoring gates in real time: **≈1.3 chunks/sec** →
+`minChunks: 24` ≈ 18 s, `minChunks: 160` ≈ 2 min, `minChunks: 240` ≈ 3 min. Endings are
+floored at `minChunks: 160` so no run resolves before ~2 min.
 
 ## 5. Frame handoff  _[AI-only]_
 
@@ -196,22 +217,35 @@ vitals       : { health, maxHealth, inventory: string[] }
 entityCount  : number                 -> spawn/kill tally, clamped >= 0
 objective    : { summary, director?, durationChunks?, reward? } + win clock (chunks, won)
 directorMode : "both" | "human" | "ai"
-firedEvents  : Set<string>            -> fired scene-event display names (mirrors History
-                                         `scene:<slug>` facts; kept in sync on assert/retract/clear)
+firedEvents  : string[]               -> fired scene-event display names, DERIVED live from the
+                                         History snapshot (`scene:<slug>` facts); no separate cache
 observations : { [predicate]: bool }  -> the probe's latest reads, posted via op:"observe"
+random       : number                 -> fresh Math.random() per gameFacts() call; backs `chance`
 ```
 
 **json-rules-engine compatible.** The state above is exposed AS-IS as engine facts by
 `gameFacts()` — a flat object whose field names ARE the rule `fact` names (`firedEvents`,
-`health`, `chunks`, `inventory`, `entityCount`, `objective`, `observations`). So a
+`health`, `chunks`, `inventory`, `entityCount`, `objective`, `observations`, `random`). So a
 `json-rules-engine` (v7, in `coordinator/package.json`) rule set can drive the director with
 **no adapter and no second copy of truth** — it reads the one live state each `engine.run()`.
-Authored `requires` gates map 1:1 to rule conditions (`fired`→`contains`,
-`notFired`→`doesNotContain`, `minChunks`→`greaterThanInclusive` on `chunks`,
-`maxHealth`→`lessThanInclusive` on `health`, `hasItem`→`contains` on `inventory`). The two
-fields that exist purely to keep this shape first-class are `firedEvents` (derived live from
-History, not a separate store) and `observations` (the only fact the coordinator doesn't
-otherwise hold — the AI director posts it with op:"observe").
+Authored `requires` gates map 1:1 to rule conditions (`deriveRules` in `coordinator/rules.ts`):
+
+| `requires` / field | rule condition |
+|---|---|
+| `fired: [A,B]` | `firedEvents contains A` AND `contains B` |
+| `firedAny: [A,B]` | `{ any: [firedEvents contains A, contains B] }` |
+| `notFired: [A]` | `firedEvents doesNotContain A` (+ implicit `doesNotContain self` → no refire) |
+| `minChunks: n` | `chunks greaterThanInclusive n` |
+| `minHealth: n` / `maxHealth: n` | `health greaterThanInclusive n` / `lessThanInclusive n` |
+| `hasItem: x` | `inventory contains x` |
+| `chance: p` | `random lessThanInclusive p` (re-rolled each tick → randomized arrival) |
+| ungated | `chunks greaterThanInclusive RULE_WARMUP` (default 4) |
+
+`win: true` events are terminal — `markWinIfTerminal()` sets `won=true` and emits `{type:"won"}`.
+When several events are eligible on one tick, `runRules()` picks the highest `priority` tier then
+**random within that tier**. The fields that exist purely to keep this shape first-class are
+`firedEvents` (derived live from History, not a separate store), `observations` (the AI director
+posts it with op:"observe"), and `random` (fresh per call, backs `chance`).
 
 ### 6.2 PlayerController — the client controller (`../lib/player-controller.ts`)  _[client-side; no store]_
 **Not a state store.** It **holds no authoritative persistent state** — only the

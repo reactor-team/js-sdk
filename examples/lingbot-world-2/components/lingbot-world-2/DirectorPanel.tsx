@@ -367,9 +367,23 @@ export function DirectorPanel({
             {sceneEvents.map((ev, i) => (
               <button
                 key={ev.name}
-                disabled={humanDisabled || ev.available === false}
-                className={cn(btn(), "whitespace-nowrap", ev.available === false && "opacity-40")}
-                title={ev.available === false ? `${ev.name} — locked (prerequisite not met yet)` : ev.clause}
+                // Only LOCKED events are disabled-greyed. In AI mode the human can't
+                // fire, but VALID events still show at full opacity (so you can see
+                // what the AI could fire) — made non-clickable via pointer-events-none.
+                disabled={ev.available === false}
+                className={cn(
+                  btn(),
+                  "whitespace-nowrap",
+                  ev.available === false && "opacity-40",
+                  humanDisabled && "pointer-events-none cursor-default",
+                )}
+                title={
+                  ev.available === false
+                    ? `${ev.name} — locked (prerequisite not met yet)`
+                    : humanDisabled
+                      ? `${ev.name} — valid; AI director fires it (not clickable)`
+                      : ev.clause
+                }
                 onClick={() => fireEvent(ev)}
               >
                 {DIRECTOR_HOTKEYS[i] && (

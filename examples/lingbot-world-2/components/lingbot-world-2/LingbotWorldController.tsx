@@ -649,6 +649,8 @@ export function LingbotWorldController({ className }: { className?: string }) {
         // Ship the raw gate too, so the AI director enforces it against ITS OWN
         // fired-state (authoritative for its arc), not just the player-computed flag.
         requires: e.requires,
+        win: e.win, // terminal win event → coordinator flips `won` when it fires
+        chance: e.chance, // per-tick fire probability (randomized timing, rules engine)
       }));
     sceneDirEventsRef.current = list;
     // Bridge the current scene's director events to the in-app Human Director

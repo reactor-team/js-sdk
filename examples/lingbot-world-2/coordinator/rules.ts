@@ -7,7 +7,8 @@
 import { Engine } from "json-rules-engine";
 
 export type Requires = {
-  fired?: string[];
+  fired?: string[]; // ALL of these must have fired (AND)
+  firedAny?: string[]; // ANY one of these must have fired (OR)
   notFired?: string[];
   minChunks?: number;
   maxHealth?: number;
@@ -19,6 +20,8 @@ export type Requires = {
 export interface RuleEvent {
   name: string;
   requires?: Requires | unknown;
+  priority?: number;
+  chance?: number; // 0..1 per-tick fire probability once the gate holds (randomized timing)
 }
 
 /** Facts the rules read — the flat shape produced by the coordinator's gameFacts(). */
@@ -45,6 +48,14 @@ export function deriveRules(events: RuleEvent[], warmup = 4): object[] {
     if (req) {
       for (const n of req.fired ?? [])
         conds.push({ fact: "firedEvents", operator: "contains", value: String(n).toLowerCase() });
+      if (req.firedAny?.length)
+        conds.push({
+          any: req.firedAny.map((n) => ({
+            fact: "firedEvents",
+            operator: "contains",
+            value: String(n).toLowerCase(),
+          })),
+        });
       for (const n of req.notFired ?? [])
         conds.push({ fact: "firedEvents", operator: "doesNotContain", value: String(n).toLowerCase() });
       if (req.minChunks != null) conds.push({ fact: "chunks", operator: "greaterThanInclusive", value: req.minChunks });
@@ -54,7 +65,18 @@ export function deriveRules(events: RuleEvent[], warmup = 4): object[] {
     } else {
       conds.push({ fact: "chunks", operator: "greaterThanInclusive", value: warmup });
     }
-    return { conditions: { all: conds }, event: { type: "fire", params: { name: e.name } } };
+    // Per-tick probability: once the gate above holds, fire only when a fresh `random`
+    // (0..1) draw is under `chance` — so the event lands at a VARIED time, not the instant
+    // its gate opens. e.g. minChunks:24 + chance:0.2 → arrives somewhere after chunk 24.
+    if (e.chance != null)
+      conds.push({ fact: "random", operator: "lessThanInclusive", value: e.chance });
+    // priority in params so the coordinator can group ties (equal-priority events) and
+    // pick among them at random — equal chance for a mutex / flavor pool. Derived rules
+    // are all priority 1 (flat), so among several eligible it's a fair random draw.
+    return {
+      conditions: { all: conds },
+      event: { type: "fire", params: { name: e.name, priority: e.priority ?? 1 } },
+    };
   });
 }
 

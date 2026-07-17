@@ -287,12 +287,26 @@ An event can be **conditional**: it only becomes available once the world reache
 
 | Field       | Meaning                                                              |
 | ----------- | ------------------------------------------------------------------- |
-| `fired`     | every named event in the list must have fired at least once         |
+| `fired`     | every named event in the list must have fired at least once (AND)   |
+| `firedAny`  | at least one named event must have fired (OR)                       |
 | `notFired`  | none of these events may have fired yet (one-shot / mutually-exclusive beats) |
 | `minChunks` | at least N chunks generated this session (a time gate)              |
 | `maxHealth` | current health ≤ N (only offer the rescue/escape when hurt)         |
 | `minHealth` | current health ≥ N                                                   |
 | `hasItem`   | the named item is in the shared inventory                           |
+
+Two event-level fields (siblings of `requires`, not inside it) shape *when* an open gate fires:
+
+| Field    | Meaning                                                                        |
+| -------- | ------------------------------------------------------------------------------ |
+| `chance` | per-tick fire probability once the gate is open (`0.2` = 20%/tick → the beat arrives at a randomized time after its gate opens, not the instant it does). Rules-engine director only. |
+| `win`    | terminal — firing sets `won=true` and ends the run (paired with `baseVersion:"empty"` for a scene-replace ending). |
+
+**Mutex ring:** to make exactly one of a group fire, give each member `notFired` listing the
+other N−1 (e.g. jet-ski's Calm / Shark / Dolphins / Whale). Pair with `count: 1` so none repeats.
+
+**Chunk ↔ time:** one chunk ≈ 12 frames ≈ **~0.75 s** (~1.3 chunks/sec), so `minChunks: 24` ≈ 18 s,
+`minChunks: 160` ≈ 2 min. Scene endings are floored at `minChunks: 160` so no run resolves before ~2 min.
 
 `isEventAvailable(event, gateState)` is the single predicate — all listed fields must pass (AND). An event with no `requires` is always available. In the controller the gate is evaluated against a live `GateState { fired, chunks, health, inventory }` built from the fired-events ref, the chunk counter, and the mirrored HUD refs (`hudHealthRef` / `hudInventoryRef`). Gated-out events still render — greyed and non-firing — in both [`EventChips.tsx`](../components/lingbot-world-2/EventChips.tsx) and [`DirectorPanel.tsx`](../components/lingbot-world-2/DirectorPanel.tsx) via the `available` flag `pushSceneEvents` attaches. `holdPress` and `fireDirectorEvent` both re-check availability before firing, so a stale chip can't sneak an event through.
 

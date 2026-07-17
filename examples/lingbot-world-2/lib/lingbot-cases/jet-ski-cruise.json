@@ -99,9 +99,19 @@
         "health": 0
       },
       {
+        "name": "Calm Open Water",
+        "actor": "director",
+        "requires": { "notFired": ["Shark Appears", "Dolphins Leap Alongside", "Whale Breaches"] },
+        "detail": "The open sea stretches out ahead calm and clear, the turquoise water glassy and undisturbed — no fins, no creatures, no wildlife of any kind breaking the surface, just the rider and the bright empty water as the jet ski cruises on across the peaceful swell. EXACTLY ONE rider on EXACTLY ONE jet ski — a single lone rider, no second jet ski, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
+        "health": 0,
+        "count": 1
+      },
+      {
         "name": "Shark Appears",
         "actor": "director",
-        "detail": "A single tall, upright, rigid, sharply pointed SHARK's dorsal fin — a dark grey stiff triangular shark fin standing straight up out of the water, unmistakably a shark and NOT a dolphin, never a curved or hooked dolphin fin, never rolling or arcing like a dolphin — rises and knifes in a straight steady line through the turquoise water ahead, slicing across the surface and crossing the jet ski's path — ONLY the top fin shows above the water, the shark's body staying hidden below the surface; the fin circles on the surface nearby for a short while, then turns away and dives back down beneath the water, slipping into the deep and vanishing from sight — the shark is gone and does not come back. EXACTLY ONE shark in the water — a single lone shark, no second shark, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water."
+        "requires": { "notFired": ["Dolphins Leap Alongside", "Whale Breaches", "Calm Open Water"] },
+        "detail": "A single tall, upright, rigid, sharply pointed SHARK's dorsal fin — a dark grey stiff triangular shark fin standing straight up out of the water, unmistakably a shark and NOT a dolphin, never a curved or hooked dolphin fin, never rolling or arcing like a dolphin — rises and knifes in a straight steady line through the turquoise water ahead, slicing across the surface and crossing the jet ski's path — ONLY the top fin shows above the water, the shark's body staying hidden below the surface; the fin circles on the surface nearby for a short while, then turns away and dives back down beneath the water, slipping into the deep and vanishing from sight — the shark is gone and does not come back. EXACTLY ONE shark in the water — a single lone shark, no second shark, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
+        "count": 1
       },
       {
         "name": "Shark Lunges",
@@ -111,11 +121,13 @@
           "fired": [
             "Shark Appears"
           ]
-        }
+        },
+        "health": -15
       },
       {
         "name": "Dolphins Leap Alongside",
         "actor": "director",
+        "requires": { "notFired": ["Shark Appears", "Whale Breaches", "Calm Open Water"] },
         "detail": "A pod of sleek dolphins surfaces and leaps in formation alongside the jet ski, arcing out of the turquoise water and diving back in one after another, spray glittering in the sunlight as they keep pace beside the rider, then peel away back into the sea. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": 5,
         "count": 1
@@ -136,19 +148,22 @@
       {
         "name": "Whale Breaches",
         "actor": "director",
+        "requires": { "notFired": ["Shark Appears", "Dolphins Leap Alongside", "Calm Open Water"] },
         "detail": "The rider on the jet ski remains the main subject, unchanged, while off to one side EXACTLY ONE massive whale breaches out of the deep — a single huge dark body rising clear of the sea and crashing back down in an enormous explosion of white spray and rolling waves, before it slips back beneath the surface. There is only ONE whale, a single lone whale, no second whale, no pod, no duplicate and no clone of it. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": 0,
         "count": 1
       },
       {
-        "name": "Bioluminescent Night",
+        "name": "Island Appears",
         "actor": "director",
-        "detail": "The scene sweeps into night: the sky deepens to star-scattered black and the water turns dark, and everywhere the jet ski cuts the surface it blazes with electric-blue bioluminescence, glowing trails and swirls lighting up in its wake and around the hull. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
-        "health": 0
+        "chance": 0.12,
+        "detail": "A rocky island rises into view on the horizon ahead — a single dark craggy outcrop of stone and green scrub sitting out on the open water, growing steadily larger as the jet ski cruises toward it across the turquoise sea. EXACTLY ONE island on the horizon — a single lone island, no second island, no duplicate and no clone. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
+        "count": 1
       },
       {
         "name": "Volcanic Island Erupts",
         "actor": "director",
+        "requires": { "fired": ["Island Appears"] },
         "detail": "The distant rocky outcrop on the horizon erupts into a volcano — glowing orange lava streaming down its slopes and a towering plume of black ash and smoke rising into the sky, embers raining into the sea around its base and lighting the water with a deep red glow across the swell. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": -10,
         "count": 1
@@ -162,11 +177,33 @@
       {
         "name": "Thrown from the Jet Ski",
         "actor": "director",
+        "requires": { "firedAny": ["Shark Lunges", "Rogue Wave"] },
         "baseVersion": "overboard",
         "cameraVersion": "overboard",
         "movementVersion": "overboard",
         "detail": "The jet ski hits a wave and bucks hard and the rider is thrown clean off, flung sideways off the craft and crashing straight down INTO the turquoise water in a burst of white spray, plunging under and surfacing in his red life vest. From then on he is IN THE WATER — floating, swimming and treading water in the sea in his life vest, the now-riderless jet ski drifting to a stop nearby; he is fully in the water and NOT on the jet ski, NOT flung up into the air, and does not climb back aboard on his own. EXACTLY ONE man in the water, a single lone rider, no second man, no duplicate and no clone.",
-        "health": -100
+        "health": -30
+      },
+      {
+        "name": "Rides into the Sunset",
+        "actor": "director",
+        "win": true,
+        "baseVersion": "empty",
+        "cameraVersion": "empty",
+        "movementVersion": "empty",
+        "requires": { "minChunks": 160, "minHealth": 1, "notFired": ["Thrown from the Jet Ski"] },
+        "detail": "The sun sinks low toward the horizon and the sky blazes into deep orange, gold and pink as the rider cruises on across the calm, glittering water, the jet ski gliding smoothly over the gentle golden swell straight into the sunset, its wake shining in the warm light as the day's ride winds down and the sea spreads out ahead all molten copper and rose. EXACTLY ONE rider on EXACTLY ONE jet ski — a single lone rider, no second jet ski, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
+        "health": 0
+      },
+      {
+        "name": "Runs Out of Fuel",
+        "actor": "director",
+        "baseVersion": "empty",
+        "cameraVersion": "empty",
+        "movementVersion": "empty",
+        "requires": { "minChunks": 160, "maxHealth": 0 },
+        "detail": "The jet ski's engine sputters, coughs and dies as the last of the fuel runs dry, and the craft coasts to a slow stop far out on the open water — drifting silently on the swell with no power, the rider stranded alone on the still, empty sea as the wake fades away to nothing around the dead hull. EXACTLY ONE rider on EXACTLY ONE jet ski — a single lone rider, no second jet ski, no duplicate and no clone.",
+        "health": 0
       }
     ],
     "jumpPrompt": "The man and his jet ski leap up off the water, the hull lifting clear of the sea surface and rising into the air for a moment before dropping back down with a splash.",

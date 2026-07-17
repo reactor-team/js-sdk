@@ -192,8 +192,25 @@ interface SceneEvent {
   count?: number;
   available?: boolean; // player-computed gate flag (forwarded to the AI director)
   requires?: unknown; // raw declarative gate, evaluated by the AI director itself
+  win?: boolean; // a terminal WIN event: asserting it flips `won` + fires the win banner
+  chance?: number; // per-tick fire probability once the gate holds (rules engine timing jitter)
 }
 let sceneEvents: SceneEvent[] = [];
+
+/** If the just-fired scene event (`scene:<slug>` key) is a `win` terminal, flip `won`
+ *  and fire the win banner — the win-event equivalent of checkWin's survive path. */
+function markWinIfTerminal(key: string): void {
+  if (won) return;
+  const name = firedNameFromKey(key);
+  if (!name) return;
+  const se = sceneEvents.find((s) => s.name.toLowerCase() === name);
+  if (se?.win) {
+    won = true;
+    console.log(`[coordinator] WIN — ${se.name} (win event)`);
+    sendAll(JSON.stringify({ type: "won", reward: se.name }));
+    broadcast();
+  }
+}
 let objective: unknown = null; // the active scene's objective (summary + director)
 let activeGame = ""; // active scene slug (UI selection) — the AI director follows this
 let gameOwner: WebSocket | null = null; // the Player socket that loaded the active game
@@ -239,6 +256,7 @@ function gameFacts(): Record<string, unknown> {
     chunks,
     objective,
     observations,
+    random: Math.random(), // fresh each run → lets a rule fire with probability (see `chance`)
   };
 }
 
@@ -271,7 +289,10 @@ function rebuildRulesEngine(): void {
   console.log(`[rules] engine built: ${sceneEvents.length} rule(s)`);
 }
 
-/** Evaluate the rules against the live state and assert the first fired event (paced). */
+/** Evaluate the rules against the live state and assert ONE fired event (paced). Among the
+ *  fired events it takes the highest-priority tier, then picks at RANDOM within that tier —
+ *  so a mutex / flavor pool (all equal priority) gives every option an equal chance, while
+ *  a higher-priority story beat still preempts. */
 async function runRules(): Promise<void> {
   if (!rulesEngine || directorMode === "human") return; // rules ARE the AI director here
   if (vlmDeciderPresent) return; // a VLM director is deciding — don't double-fire
@@ -283,20 +304,28 @@ async function runRules(): Promise<void> {
     console.log(`[rules] run error: ${(err as Error).message}`);
     return;
   }
-  for (const ev of events) {
-    const name = ev.params?.name as string | undefined;
-    const se = name ? sceneEvents.find((s) => s.name === name) : undefined;
-    if (!name || !se) continue;
-    const key = "scene:" + name.toLowerCase().replace(/\s+/g, "_");
-    history.assert({ key, clause: se.clause, weight: 2, life: { kind: "sustained" } });
-    lastRuleFireChunk = chunks; // firedEvents derives from History, so the assert above is enough
+  // Resolve to (sceneEvent, priority); drop any event without a matching scene event.
+  const eligible = events
+    .map((ev) => {
+      const name = ev.params?.name as string | undefined;
+      const se = name ? sceneEvents.find((s) => s.name === name) : undefined;
+      return se ? { name, se, p: Number(ev.params?.priority ?? 1) } : null;
+    })
+    .filter((x): x is { name: string; se: SceneEvent; p: number } => x !== null);
+  if (eligible.length === 0) return;
 
-    if (se.health != null || se.addItem) applyVital({ health: se.health ?? undefined, addItem: se.addItem });
-    console.log(`[rules] fire ${name} (chunk ${chunks})`);
-    broadcast();
-    broadcastActivity({ op: "assert", role: "ai", fact: { key, clause: se.clause } } as Op);
-    break; // at most one fire per tick
-  }
+  const maxP = Math.max(...eligible.map((x) => x.p));
+  const tier = eligible.filter((x) => x.p === maxP);
+  const { name, se } = tier[Math.floor(Math.random() * tier.length)]; // equal chance within the tier
+
+  const key = "scene:" + name.toLowerCase().replace(/\s+/g, "_");
+  history.assert({ key, clause: se.clause, weight: 2, life: { kind: "sustained" } });
+  lastRuleFireChunk = chunks; // firedEvents derives from History, so the assert above is enough
+  if (se.health != null || se.addItem) applyVital({ health: se.health ?? undefined, addItem: se.addItem });
+  console.log(`[rules] fire ${name} (chunk ${chunks}; ${tier.length} tied @p${maxP})`);
+  broadcast();
+  broadcastActivity({ op: "assert", role: "ai", fact: { key, clause: se.clause } } as Op);
+  markWinIfTerminal(key); // a win-flagged event ends the game
 }
 
 interface Op {
@@ -539,6 +568,7 @@ wss.on("connection", (ws) => {
         if (m.fact) {
           history.assert(m.fact); // firedEvents fact is derived from History (gameFacts)
           broadcast();
+          markWinIfTerminal(m.fact.key); // a win-flagged event ends the game
         }
         break;
       case "retract":

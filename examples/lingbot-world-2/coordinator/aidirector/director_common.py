@@ -175,6 +175,8 @@ def _gate_ok(requires, state):
     fired = {_norm_name(f) for f in (state.get("shared_fired") or [])}
     if g.get("fired") and not all(_norm_name(n) in fired for n in g["fired"]):
         return False
+    if g.get("firedAny") and not any(_norm_name(n) in fired for n in g["firedAny"]):
+        return False
     if g.get("notFired") and any(_norm_name(n) in fired for n in g["notFired"]):
         return False
     if g.get("minChunks") is not None and state.get("step", 0) < g["minChunks"]:
