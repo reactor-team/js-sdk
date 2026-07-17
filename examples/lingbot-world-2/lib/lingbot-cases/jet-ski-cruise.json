@@ -37,11 +37,6 @@
     },
     "events": [
       {
-        "name": "Rides with Torch",
-        "actor": "player",
-        "detail": "The rider raises a burning torch high overhead in one hand, its orange flame streaming and flickering in the wind and trailing a ribbon of smoke, while his other hand grips the handlebars and the jet ski drives forward across the water, spray fanning off the hull. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water."
-      },
-      {
         "name": "Jump the Wake",
         "actor": "player",
         "detail": "The rider guns the throttle up the face of a swell and launches the jet ski clean off the crest into the air, spray fanning out beneath him, then splashes back down onto the turquoise water and levels back out. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
@@ -51,18 +46,6 @@
         "name": "Spin 360",
         "actor": "player",
         "detail": "The rider whips the jet ski into a tight spinning 360, the hull skating around and sweeping a full ring of spray across the water, then settles back facing forward. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
-        "health": 0
-      },
-      {
-        "name": "Cut the Engine",
-        "actor": "player",
-        "detail": "The rider throttles down and coasts to a gentle stop, the jet ski bobbing on the swell with the engine idling and the water settling around it, then throttles back up and rides on. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
-        "health": 5
-      },
-      {
-        "name": "Backflip",
-        "actor": "player",
-        "detail": "The rider hauls back hard off the crest of a wave and the jet ski whips into a full backflip in mid-air, rotating tail-over-nose all the way around above the turquoise water, then comes back down and lands upright, riding on. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": 0
       },
       {
@@ -84,6 +67,18 @@
         "health": 0
       },
       {
+        "name": "One-Hand Wave",
+        "actor": "player",
+        "detail": "The rider lifts one hand clean off the handlebars and waves it high overhead, the other hand still gripping the bars as the jet ski drives steadily forward across the turquoise water, then brings the hand back down and re-grips the handlebars. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
+        "health": 0
+      },
+      {
+        "name": "Donut Spray",
+        "actor": "player",
+        "detail": "The rider leans the jet ski into a tight continuous circle, carving one full donut after another and throwing a sweeping ring of spray across the turquoise water, then straightens back out and rides forward. EXACTLY ONE jet ski and ONE rider in frame — a single lone rider, no second jet ski, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
+        "health": 0
+      },
+      {
         "name": "Jump Off",
         "actor": "player",
         "baseVersion": "overboard",
@@ -95,6 +90,7 @@
       {
         "name": "Jump Back On",
         "actor": "player",
+        "requires": { "fired": ["Jump Off"] },
         "detail": "The rider swims the last stroke to the drifting jet ski, grabs the handlebars and hauls himself up out of the water back onto the seat, settling into his riding position and gunning the throttle to surge forward across the water again. EXACTLY ONE jet ski and ONE rider, a single lone rider, no second jet ski, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": 0
       },

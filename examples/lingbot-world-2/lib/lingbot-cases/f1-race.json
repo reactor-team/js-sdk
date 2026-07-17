@@ -64,28 +64,34 @@
       {
         "name": "Rain Sweeps In",
         "actor": "director",
-        "detail": "Dark storm clouds roll over and rain sweeps across the windscreen — droplets streaking and beading over the glass and halo, the track ahead darkening and glistening wet, spray kicking up off the nose; the rain stays, slicking the view ahead. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone."
+        "requires": { "notFired": ["Sun Glare", "Clear Dry Track"] },
+        "detail": "Dark storm clouds roll over and rain sweeps across the windscreen — droplets streaking and beading over the glass and halo, the track ahead darkening and glistening wet, spray kicking up off the nose; the rain stays, slicking the view ahead. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
+        "count": 1
       },
       {
         "name": "Rabbit on the Track",
         "actor": "director",
+        "chance": 0.08,
         "detail": "A rabbit darts out onto the track ahead in the windscreen and stops in the racing line directly in the car's path, ears twitching, staying put on the tarmac as the view rushes toward it. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone."
       },
       {
         "name": "Road Fire",
         "actor": "director",
+        "chance": 0.05,
         "detail": "EXACTLY ONE single wall of fire erupts across the track ahead in the windscreen — one lone wall of orange flames and black smoke rising off the tarmac and spanning the full width of the road directly in the car's path, no second fire and no other flames anywhere else; the view bears down on it and blasts through, and NO further fire appears after it, only the one, heat shimmering over the halo.",
         "count": 1
       },
       {
         "actor": "director",
         "name": "Puddle on the Track",
+        "requires": { "fired": ["Rain Sweeps In"] },
         "detail": "A wide sheet of standing water lies across the track ahead in the windscreen; the view rushes toward it and blasts through, a wall of spray exploding up over the halo and glass, the cockpit hydroplaning for a moment before the track grips again. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
         "health": -5
       },
       {
         "actor": "director",
         "name": "Oil Slick Ahead",
+        "requires": { "fired": ["Rain Sweeps In"] },
         "detail": "A dark oil slick spreads across the track ahead in the windscreen; the view hits it and slews sideways, the barriers swinging across the glass as the rear slides, before it snaps back straight down the track. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
         "health": -8
       },
@@ -98,8 +104,38 @@
       {
         "actor": "director",
         "name": "Sun Glare",
+        "requires": { "notFired": ["Rain Sweeps In", "Clear Dry Track"] },
         "detail": "The low sun drops to the end of the straight and blazes straight into the windscreen — a blinding wash of golden glare flooding the cockpit and washing out the track ahead, lens flare streaking across the halo and glass, before the view crests into shade. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
-        "health": -5
+        "health": -5,
+        "count": 1
+      },
+      {
+        "name": "Clear Dry Track",
+        "actor": "director",
+        "requires": { "notFired": ["Rain Sweeps In", "Sun Glare"] },
+        "detail": "The clouds break and the circuit runs clear and dry ahead in the windscreen — bright even daylight over dry grey tarmac, the racing line sharp and grippy, no rain on the glass and no water on the surface, just clean fast conditions as the view races on down the track. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
+        "count": 1
+      },
+      {
+        "name": "Checkered Flag",
+        "actor": "director",
+        "baseVersion": "empty",
+        "cameraVersion": "empty",
+        "movementVersion": "empty",
+        "requires": { "minChunks": 160, "minHealth": 1 },
+        "win": true,
+        "detail": "The car sweeps across the start-finish line to take the chequered flag — a trackside marshal waving the black-and-white chequered flag high over the gantry as the car flashes past the line and eases off into a victory slowdown down the pit straight, the packed grandstands rising to their feet. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
+        "health": 0
+      },
+      {
+        "name": "Crashed Out",
+        "actor": "director",
+        "baseVersion": "empty",
+        "cameraVersion": "empty",
+        "movementVersion": "empty",
+        "requires": { "maxHealth": 0 },
+        "detail": "The car snaps out of control and spears off the track into the barriers — the nose crumpling and carbon debris flying as it slams into the tyre wall and grinds to a dead stop, steam rising from the wreck and the race over for the driver as marshals wave yellow flags across the track. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
+        "health": 0
       }
     ],
     "hud": {

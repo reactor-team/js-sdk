@@ -11,14 +11,14 @@ interface HudProps {
   health: number;
   maxHealth: number;
   inventory: string[];
-  objective?: string; // objective.summary — the player's goal
+  objective?: string; // objective.summary — kept for compatibility; no longer shown on the HUD
   healthLabel?: string; // bar label; per-scene rename (e.g. "Fuel"). Default "Health".
   // Hidden until a scene is running, so it doesn't float over the idle page.
   visible: boolean;
   result?: GameResult; // win/lose outcome — shows a text banner below the bars
 }
 
-export function Hud({ health, maxHealth, inventory, objective, healthLabel, visible, result }: HudProps) {
+export function Hud({ health, maxHealth, inventory, healthLabel, visible, result }: HudProps) {
   // Show the container when the HUD is up OR there's a win/lose outcome to announce.
   if (!visible && !result) return null;
   const pct = Math.max(0, Math.min(1, health / maxHealth));
@@ -46,18 +46,6 @@ export function Hud({ health, maxHealth, inventory, objective, healthLabel, visi
               {Math.round(health)}/{maxHealth}
             </span>
           </div>
-
-          {/* Objective — the player's goal (they're the Pilot) */}
-          {objective && (
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[9px] uppercase tracking-widest text-white/80 w-12">
-                Goal
-              </span>
-              <span className="font-mono text-[10px] text-white/90 max-w-[18rem] truncate" title={objective}>
-                {objective}
-              </span>
-            </div>
-          )}
 
           {/* Inventory */}
           {inventory.length > 0 && (
