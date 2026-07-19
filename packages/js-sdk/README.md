@@ -17,7 +17,7 @@ pnpm create reactor-app my-app
 cd my-app && pnpm install && pnpm dev
 ```
 
-Or wire it up by hand. Exchange your API key for a short-lived JWT on the server, then mount `<ReactorProvider>` in the client:
+Or wire it up by hand. Exchange your API key on the server for a short-lived JWT **scoped to your model**, then mount `<ReactorProvider>` in the client. The `authorization_details` block is what downscopes the token: it can create a bounded number of sessions for that one model and act only on the sessions it created — a leaked token exposes nothing else on the account:
 
 ```ts
 // app/api/token/route.ts
@@ -26,7 +26,19 @@ import { NextResponse } from "next/server";
 export async function POST() {
   const r = await fetch("https://api.reactor.inc/tokens", {
     method: "POST",
-    headers: { "Reactor-API-Key": process.env.REACTOR_API_KEY! },
+    headers: {
+      "Reactor-API-Key": process.env.REACTOR_API_KEY!,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      authorization_details: [
+        {
+          type: "session",
+          resources: { models: { match: ["your-org/your-model-name"] } },
+          constraints: { max_sessions: 10 },
+        },
+      ],
+    }),
   });
   const { jwt } = await r.json();
   return NextResponse.json({ jwt });

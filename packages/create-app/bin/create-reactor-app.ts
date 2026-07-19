@@ -358,7 +358,20 @@ async function main(): Promise<void> {
 
   console.log(chalk.yellow("\nInstalling dependencies...\n"));
 
-  execSync("pnpm install", { cwd: dest, stdio: "inherit" });
+  try {
+    execSync("pnpm install", { cwd: dest, stdio: "inherit" });
+  } catch {
+    console.error(chalk.red(`\n❌ "pnpm install" failed in ${dest}.`));
+    console.log(
+      chalk.white(
+        `\nThe project was scaffolded, but dependencies did not install.`
+      )
+    );
+    console.log(chalk.white(`Review the error above, then retry manually:\n`));
+    console.log(chalk.white(`  cd ${projectName}`));
+    console.log(chalk.white(`  pnpm install\n`));
+    process.exit(1);
+  }
 
   console.log(
     chalk.green(

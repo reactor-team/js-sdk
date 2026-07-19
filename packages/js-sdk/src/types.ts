@@ -53,6 +53,16 @@ export function isAbortError(error: unknown): boolean {
   );
 }
 
+export class SessionLostError extends Error {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+export function isSessionLostError(error: unknown): boolean {
+  return error instanceof SessionLostError;
+}
+
 export interface ReactorState {
   status: ReactorStatus;
   lastError?: ReactorError;

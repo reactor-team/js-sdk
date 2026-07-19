@@ -1,7 +1,8 @@
+# This folder is its own pnpm workspace root, so `pnpm install` here installs
+# the app's own dependencies even when the folder lives inside another workspace.
+packages: []
+
 allowBuilds:
-  msw: set this to true or false
-  sharp: set this to true or false
-onlyBuiltDependencies:
-  - sharp
-  - msw
-  - esbuild
+  msw: true
+  sharp: true
+  esbuild: true
