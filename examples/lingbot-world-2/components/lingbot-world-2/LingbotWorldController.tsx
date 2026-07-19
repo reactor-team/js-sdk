@@ -6,54 +6,36 @@ import {
   useLingbotWorld2Message,
   type LingbotWorld2Message,
 } from "@reactor-models/lingbot-world-2";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
-  EXAMPLES,
   STRUCTURED_EXAMPLES,
   composePrompt,
   cloneScene,
   emptyScene,
   scenesEqual,
-  isEventAvailable,
   type StructuredExample,
   type StructuredScene,
   type Objective,
-  type NamedEvent,
-  type GateState,
 } from "@/lib/lingbot-world-prompts";
 import { PlayerController } from "@/lib/player-controller";
 
-import { LayeredSceneEditor } from "@/components/lingbot-world-2/LayeredSceneEditor";
 import { LivePromptInspector } from "@/components/lingbot-world-2/LivePromptInspector";
 import { PlayerHud } from "@/components/lingbot-world-2/PlayerHud";
 import { useDirectorBridge } from "@/components/lingbot-world-2/controller/useDirectorBridge";
-import {
-  ChargeGridEditor,
-  CrouchDipEditor,
-} from "@/components/lingbot-world-2/controller/ChargeCrouchEditors";
 import {
   CHUNK_LATENTS,
   NUM_CHARGE_LEVELS,
   LEVEL_DWELL_MS,
   useChargeCrouchPatterns,
 } from "@/components/lingbot-world-2/controller/charge-crouch";
-import { PadButton } from "@/components/lingbot-world-2/ControlPrimitives";
-import { EventChips } from "@/components/lingbot-world-2/EventChips";
-import { MovePad } from "@/components/lingbot-world-2/MovePad";
-import { SidebarExamples } from "@/components/lingbot-world-2/SidebarExamples";
 import {
   useHudGating,
   type VitalChange,
 } from "@/components/lingbot-world-2/controller/useHudGating";
 import { ControllerSidebar } from "@/components/lingbot-world-2/controller/ControllerSidebar";
 import { ControllerControls } from "@/components/lingbot-world-2/controller/ControllerControls";
+import { useKeyboard } from "@/components/lingbot-world-2/controller/useKeyboard";
 import {
-  KEY_TO_MOVE_L,
-  KEY_TO_MOVE_LAT,
-  KEY_TO_LOOK_H,
-  KEY_TO_LOOK_V,
   MOUSE_SENS_DEFAULT,
   MOUSE_SENS_MIN,
   MOUSE_SENS_MAX,
@@ -68,8 +50,6 @@ import {
   CROUCH_DIP,
   CROUCH_SPEED,
   DIRECTOR_HOTKEYS,
-  keyToHoldSlot,
-  keyToDirectorIndex,
   type MoveL,
   type MoveLat,
   type LookH,
@@ -1300,189 +1280,12 @@ export function LingbotWorldController({ className }: { className?: string }) {
 
   // ---- Keyboard ----
 
-  useEffect(() => {
-    const isTypingTarget = (el: EventTarget | null): boolean => {
-      if (!(el instanceof HTMLElement)) return false;
-      const tag = el.tagName;
-      return tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable;
-    };
-
-    // When a movement / look key is pressed but a button (or other
-    // focusable, non-typing element) inside a scrollable ancestor still
-    // holds focus, the browser may scroll that ancestor before our window
-    // handler runs preventDefault. Move focus off such elements before
-    // dispatching, so the only effect of the key is the controller action.
-    const blurFocusedNonTyping = () => {
-      const el = document.activeElement as HTMLElement | null;
-      if (!el || el === document.body) return;
-      if (isTypingTarget(el)) return;
-      el.blur?.();
-    };
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.repeat) return;
-      if (isTypingTarget(e.target)) return;
-
-      const mvL = KEY_TO_MOVE_L[e.key];
-      if (mvL) {
-        e.preventDefault();
-        blurFocusedNonTyping();
-        const stack = moveLStackRef.current;
-        if (!stack.includes(mvL)) stack.push(mvL);
-        applyMovementStack();
-        return;
-      }
-      const mvLat = KEY_TO_MOVE_LAT[e.key];
-      if (mvLat) {
-        e.preventDefault();
-        blurFocusedNonTyping();
-        const stack = moveLatStackRef.current;
-        if (!stack.includes(mvLat)) stack.push(mvLat);
-        applyMovementStack();
-        return;
-      }
-      // Arrow look feeds the same camera_pose yaw/pitch as mouse-look (see
-      // ARROW_LOOK_SPEED / sendCameraPoseChunk) — a steady, fixed-rate look,
-      // so it also drives orbit. An arrow key while mouse-look (pointer lock)
-      // is engaged still preempts it (release the lock, same as Esc) so the
-      // arrows read as a clean, deliberate handoff from free-look.
-      const lh = KEY_TO_LOOK_H[e.key];
-      if (lh) {
-        e.preventDefault();
-        blurFocusedNonTyping();
-        if (mouseLookRef.current) document.exitPointerLock();
-        pushLookH(lh);
-        return;
-      }
-      const lv = KEY_TO_LOOK_V[e.key];
-      if (lv) {
-        e.preventDefault();
-        blurFocusedNonTyping();
-        if (mouseLookRef.current) document.exitPointerLock();
-        pushLookV(lv);
-        return;
-      }
-
-      // Esc / M release mouse-look (the cursor is hidden under pointer lock,
-      // so the toggle button can't be clicked — a key is the way out).
-      if (
-        (e.key === "Escape" || e.key === "m" || e.key === "M") &&
-        mouseLookRef.current
-      ) {
-        e.preventDefault();
-        document.exitPointerLock();
-        return;
-      }
-
-      // Space (and J) = Jump (up); C = Crouch (down) — hold controls, like
-      // WASD. (Pause/resume is the on-screen button now; Space-to-pause made
-      // no sense in a WASD game.) Crouch is on C, NOT Ctrl: macOS reserves
-      // Ctrl+arrows for Spaces / Mission Control and grabs them at the OS level
-      // before the page sees the keydown, so a Ctrl-held crouch would silently
-      // swallow arrow-look (rotation) — an unfixable collision from JS.
-      if (e.code === "Space" || e.key === "j" || e.key === "J") {
-        e.preventDefault();
-        blurFocusedNonTyping();
-        onJumpDown();
-        return;
-      }
-      if (e.key === "c" || e.key === "C") {
-        e.preventDefault();
-        blurFocusedNonTyping();
-        setVert(-1);
-        return;
-      }
-
-      // Q / E = roll (3rd rotation DOF, around the view axis).
-      if (e.key === "q" || e.key === "Q") {
-        e.preventDefault();
-        blurFocusedNonTyping();
-        setRoll(-1);
-        return;
-      }
-      if (e.key === "e" || e.key === "E") {
-        e.preventDefault();
-        blurFocusedNonTyping();
-        setRoll(1);
-        return;
-      }
-
-      // O = mute / un-mute orbit: toggle R between 0 (rotate in place) and the last non-zero radius.
-      if (e.key === "o" || e.key === "O") {
-        e.preventDefault();
-        blurFocusedNonTyping();
-        setOrbitRadius((r) =>
-          r > 0 ? 0 : lastOrbitRadiusRef.current || ORBIT_RADIUS_DEFAULT,
-        );
-        return;
-      }
-
-      const slot = keyToHoldSlot(e.key);
-      if (slot !== undefined) {
-        e.preventDefault();
-        holdPress(slot);
-        return;
-      }
-
-      // Alphabetic hotkeys fire DIRECTOR events (checked AFTER all player controls
-      // above, so WASD/roll/etc. always win — player actions are never blocked).
-      const dir = keyToDirectorIndex(e.key);
-      if (dir !== undefined) {
-        e.preventDefault();
-        fireDirectorEvent(dir);
-        return;
-      }
-    };
-
-    const onKeyUp = (e: KeyboardEvent) => {
-      const mvL = KEY_TO_MOVE_L[e.key];
-      if (mvL) {
-        moveLStackRef.current = moveLStackRef.current.filter((m) => m !== mvL);
-        applyMovementStack();
-        return;
-      }
-      const mvLat = KEY_TO_MOVE_LAT[e.key];
-      if (mvLat) {
-        moveLatStackRef.current = moveLatStackRef.current.filter(
-          (m) => m !== mvLat,
-        );
-        applyMovementStack();
-        return;
-      }
-      if (KEY_TO_LOOK_H[e.key]) {
-        pushLookH("idle");
-        return;
-      }
-      if (KEY_TO_LOOK_V[e.key]) {
-        pushLookV("idle");
-        return;
-      }
-      if (e.code === "Space" || e.key === "j" || e.key === "J") {
-        onJumpUp();
-        return;
-      }
-      if (e.key === "c" || e.key === "C") {
-        if (vertDirRef.current < 0) setVert(0);
-        return;
-      }
-      if (e.key === "q" || e.key === "Q" || e.key === "e" || e.key === "E") {
-        setRoll(0);
-        return;
-      }
-      const slot = keyToHoldSlot(e.key);
-      if (slot !== undefined) {
-        holdRelease(slot);
-        return;
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-    };
-  }, [
+  useKeyboard({
+    moveLStackRef,
+    moveLatStackRef,
+    mouseLookRef,
+    vertDirRef,
+    lastOrbitRadiusRef,
     applyMovementStack,
     pushLookH,
     pushLookV,
@@ -1492,7 +1295,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
     setRoll,
     onJumpDown,
     onJumpUp,
-  ]);
+    setOrbitRadius,
+    fireDirectorEvent,
+  });
 
   const onMoveLPress = (mv: Exclude<MoveL, "idle">) => {
     const stack = moveLStackRef.current;

@@ -128,6 +128,19 @@
   }
 }
 
+/* Shared typography utilities — collapse the repeated inline font-mono class
+   spam into semantic names. Compose with overrides as usual, e.g.
+   `mono-label mt-0.5` or `mono-xs text-amber-300/70`. */
+@utility mono-label {
+  @apply font-mono text-[9px] uppercase tracking-wider text-white/40;
+}
+@utility mono-xs {
+  @apply font-mono text-[10px];
+}
+@utility mono-sm {
+  @apply font-mono text-[11px];
+}
+
 /* Subtle scrollbars that match the dark UI (the default white bar clashes
    against the dark panels). Firefox + WebKit/Chromium. */
 .dark {
