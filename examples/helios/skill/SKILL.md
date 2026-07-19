@@ -85,7 +85,7 @@ For each: add a small component, drop it into the sidebar at the right phase, an
 
 ## Auth — `getJwt` resolver + cacheable GET route
 
-Two pieces work together: a Next.js GET route that mints (and caches) the JWT server-side, and a `getJwt` resolver prop on `<HeliosProvider>` that calls it on every Coordinator HTTP hop.
+Two pieces work together: a Next.js GET route that mints (and caches) a session-scoped JWT server-side, and a `getJwt` resolver prop on `<HeliosProvider>` that calls it on every Coordinator HTTP hop.
 
 ### `getJwt`, not `jwtToken`
 
@@ -108,6 +108,7 @@ Already implemented. You usually don't need to touch it, but here's why it works
 1. **GET, not POST.** Browsers don't cache POST responses. The route handler still POSTs to the Reactor API internally; the public route exposes itself as GET so the browser's HTTP cache can transparently serve repeat calls.
 2. **`Cache-Control: private`.** Never `public` — JWTs are per-user and must not be shared across users by any CDN or proxy.
 3. **`max-age` derived from the server's `expires_at`**, not a hardcoded number. The Reactor `/tokens` endpoint accepts an `expires_after` body and returns `{ jwt, expires_at }`. The route uses `expires_at` to set the cache window so it always tracks what the server actually granted.
+4. **`authorization_details` scopes the token.** The mint pins the JWT to this app's model with a bounded session budget (`max_sessions`): the browser's token can only create sessions for that one model and act on the sessions it created — everything else on the account answers 403. Never hand a browser an unscoped token; that is the API key's full user-level access in cookie-jar form.
 
 Because the route is GET + cacheable, the `getJwt` resolver is also dumb on the wire — every Coordinator hop calls `fetch("/api/reactor/token")`, which 99% of the time comes back from the browser's HTTP cache without ever touching your server.
 

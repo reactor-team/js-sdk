@@ -29,7 +29,7 @@ pnpm install
 pnpm dev                    # http://localhost:3000
 ```
 
-Get an API key from the [Reactor dashboard](https://reactor.inc). It stays on the server — the browser only ever sees a short-lived JWT minted by `app/api/reactor/token/route.ts`.
+Get an API key from the [Reactor dashboard](https://reactor.inc). It stays on the server — the browser only ever sees a short-lived JWT minted by `app/api/reactor/token/route.ts`, scoped to `reactor/longlive-v2` sessions via `authorization_details`.
 
 ## What you can do with it
 
@@ -60,7 +60,7 @@ The sidebar is **phase-driven** by the model's `state` snapshot (`snapshot.start
 | `app/components/NowPlaying.tsx`  | Live: active prompt, scene budget, pause/resume/reset  |
 | `app/lib/storyboard-store.ts`    | Zustand store for the authored storyboard              |
 | `app/lib/prompts.ts`             | Preset storyboards (full multi-shot sequences)         |
-| `app/api/reactor/token/route.ts` | Mints the short-lived JWT server-side                  |
+| `app/api/reactor/token/route.ts` | Mints the short-lived, session-scoped JWT server-side  |
 | `app/components/SnapClip.tsx`    | Model-agnostic clip recording (drop-in)                |
 
 ## Going further

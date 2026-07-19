@@ -27,7 +27,7 @@ pnpm install
 pnpm dev                    # http://localhost:3000
 ```
 
-Get a **production** API key (`rk_...`) from the [Reactor dashboard](https://reactor.inc) - the app targets `https://api.reactor.inc`. The key stays on the server (`REACTOR_API_KEY` is the only env var); the browser only ever sees a short-lived JWT minted by `app/api/reactor/token/route.ts`.
+Get a **production** API key (`rk_...`) from the [Reactor dashboard](https://reactor.inc) - the app targets `https://api.reactor.inc`. The key stays on the server (`REACTOR_API_KEY` is the only env var); the browser only ever sees a short-lived JWT minted by `app/api/reactor/token/route.ts`, scoped to `reactor/sana-streaming` sessions via `authorization_details`.
 
 ## What you can do with it
 
@@ -60,7 +60,7 @@ The app talks to the model through the typed SDK: `<SanaStreamingProvider getJwt
 | `app/components/Prompt.tsx`            | Prompt textarea + Apply, preset chips, active prompt                              |
 | `app/components/Stage.tsx`             | Edited output — single in webcam mode; split with `your video` in video mode      |
 | `app/lib/state.ts`                     | Reduces the typed `state` message into `SanaState`; the start flow                |
-| `app/api/reactor/token/route.ts`       | Mints the short-lived JWT server-side                                             |
+| `app/api/reactor/token/route.ts`       | Mints the short-lived, session-scoped JWT server-side                             |
 | `app/components/SnapClip.tsx`          | Model-agnostic clip recording on `@reactor-team/js-sdk` (drop-in)                 |
 
 ## Going further
