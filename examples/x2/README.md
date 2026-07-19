@@ -30,7 +30,7 @@ pnpm install
 pnpm dev                    # http://localhost:3000
 ```
 
-Get a **production** API key (`rk_...`) from the [Reactor dashboard](https://reactor.inc) - the app targets `https://api.reactor.inc`. The key stays on the server (`REACTOR_API_KEY` is the only required env var); the browser only ever sees a short-lived JWT minted by `app/api/reactor/token/route.ts`.
+Get a **production** API key (`rk_...`) from the [Reactor dashboard](https://reactor.inc) - the app targets `https://api.reactor.inc`. The key stays on the server (`REACTOR_API_KEY` is the only required env var); the browser only ever sees a short-lived JWT minted by `app/api/reactor/token/route.ts`, scoped to `xmax/x2` sessions via `authorization_details`.
 
 ## What you can do with it
 
@@ -78,7 +78,7 @@ The typed client comes from the published [`@reactor-models/x2`](https://www.npm
 | `app/components/PointerOverlay.tsx`    | Drag-to-steer overlay mapping pointer to output-frame coords (`set_pointer`)     |
 | `app/components/PointerPanel.tsx`      | Sidebar readout of the model-echoed `pointer_x` / `pointer_y` / `pointer_active` |
 | `app/components/Stage.tsx`             | Edited output — single in webcam mode; split with the source in video / image    |
-| `app/api/reactor/token/route.ts`       | Mints the short-lived JWT server-side                                            |
+| `app/api/reactor/token/route.ts`       | Mints the short-lived, session-scoped JWT server-side                            |
 | `app/components/SnapClip.tsx`          | Model-agnostic clip recording on `@reactor-team/js-sdk` (drop-in)                |
 
 ## Going further

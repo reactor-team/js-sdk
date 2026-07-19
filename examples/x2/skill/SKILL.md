@@ -41,13 +41,14 @@ While generating, the source-mode toggle is locked (`SourcePanel`): switching th
 
 ## Auth — `getJwt` resolver + cacheable GET route
 
-Two pieces work together: a Next.js GET route that mints (and caches) the JWT server-side, and the `getJwt` resolver prop on `<X2Provider>` that calls it on every Reactor API HTTP hop (connect, ICE refresh, SDP renegotiation, uploads, clip manifests).
+Two pieces work together: a Next.js GET route that mints (and caches) a session-scoped JWT server-side, and the `getJwt` resolver prop on `<X2Provider>` that calls it on every Reactor API HTTP hop (connect, ICE refresh, SDP renegotiation, uploads, clip manifests).
 
-Three non-negotiables in `app/api/reactor/token/route.ts`:
+Four non-negotiables in `app/api/reactor/token/route.ts`:
 
 1. **GET, not POST.** Browsers don't cache POST responses. The handler still POSTs to the Reactor API internally; exposing it as GET lets the browser's HTTP cache transparently serve repeat calls.
 2. **`Cache-Control: private`.** Never `public` — JWTs are per-user and must not be shared by any CDN or proxy.
 3. **`max-age` derived from the server's `expires_at`**, not a hardcoded number. The route sends `expires_after` and reads `expires_at` back, so the cache window always tracks what the server actually granted.
+4. **`authorization_details` scopes the token.** The mint pins the JWT to this app's model with a bounded session budget (`max_sessions`): the browser's token can only create sessions for that one model and act on the sessions it created — everything else on the account answers 403. Never hand a browser an unscoped token; that is the API key's full user-level access in cookie-jar form.
 
 Because the route is cacheable, the `getJwt` resolver is dumb on the wire — every hop calls `fetch("/api/reactor/token")` and it comes back from the browser cache until the JWT actually expires. Don't add a localStorage layer or parse the JWT client-side.
 
