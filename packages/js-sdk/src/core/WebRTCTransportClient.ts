@@ -429,6 +429,13 @@ export class WebRTCTransportClient implements TransportClient {
       this.iceCandidateFlushTimer = undefined;
     }
 
+    if (this.connectionId === undefined) {
+      console.debug(
+        "[WebRTCTransportClient] skipping ICE candidate flush because the connection is not established yet"
+      );
+      return;
+    }
+
     const batch = this.pendingIceCandidates;
     this.pendingIceCandidates = [];
 
@@ -648,6 +655,11 @@ export class WebRTCTransportClient implements TransportClient {
       trackMapping,
       reconnect
     );
+
+    this.flushPendingIceCandidates(
+      this.peerConnection !== undefined &&
+        this.peerConnection.iceGatheringState === "complete"
+    ); // drain candidates buffered during prepare()
 
     const answerResponse = await this.pollSdpAnswer(this.connectionId);
 
