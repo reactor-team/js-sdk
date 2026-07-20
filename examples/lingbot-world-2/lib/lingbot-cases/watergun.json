@@ -88,6 +88,16 @@
         "removeItem": "water"
       },
       {
+        "name": "Swim",
+        "actor": "player",
+        "detail": "The view drops to water level as the player jumps off the inflatable float into the green quarry lake and swims forward, arms and hands stroking through the water at the lower frame and spray fanning up ahead as the colourful aqua-park platforms bob past on either side. First-person view, never a third-person body."
+      },
+      {
+        "name": "Dive",
+        "actor": "player",
+        "detail": "The view plunges underwater as the player dives down beneath the surface of the green quarry lake, the water closing over the frame into murky green light shot through with rising bubbles and shafts of sunlight, the undersides of the inflatable floats and swimmers' legs drifting overhead through the rippling surface. First-person view, never a third-person body."
+      },
+      {
         "name": "Rival Blaster Ambush",
         "actor": "director",
         "detail": "A rival player in a life vest pops up from behind an inflatable platform ahead and opens fire with their own water blaster, jets of water arcing straight toward the camera and splattering across the lens, the rival ducking and weaving as they keep firing.",

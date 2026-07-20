@@ -1,0 +1,132 @@
+{
+  "id": "movement-test",
+  "name": "Movement Test",
+  "description": "Locomotion/action-rig fixture — a businessman on an open GTA street for testing movement: WASD walk/sprint, look-camera, jump, crouch/stand, emote, and a pick-up interaction. Keys: 1 Sprint, 2 Wave, 3 Pick Up Cash; Space jump, C crouch. Director: Traffic Rushes Past, Gravity Weakens (physics). Third-person locomotion in an open world.",
+  "objective": {
+    "summary": "Move freely through the open street — walk, sprint, look around, jump, crouch and emote, and grab the loose cash on the sidewalk.",
+    "director": "Keep the street alive and shape the space the player moves through: send traffic rushing past and change the physics underfoot. Build on what has happened; do not repeat the same event back-to-back.",
+    "success": [
+      "the player moves freely around the street"
+    ],
+    "failure": [],
+    "durationChunks": 120,
+    "reward": "Traffic Rushes Past"
+  },
+  "image": {
+    "label": "Movement Test",
+    "src": "/lingbot-cases/Gemini_Generated_Image_38hzcd38hzcd38hz.png"
+  },
+  "scene": {
+    "base": {
+      "default": "A wide sunny Los-Santos-style city boulevard at midday, GTA-style photorealistic open world. The world contains EXACTLY ONE tall roadside billboard on the left at a fixed position AND EXACTLY ONE row of tall palm trees on the right at a fixed position AND EXACTLY ONE traffic light straight ahead at a fixed position AND EXACTLY ONE scatter of loose green dollar bills on the sidewalk on the right at a fixed position. Low pale storefronts line both sides of a wide empty asphalt road, cracked pale-grey sidewalks, distant hazy hills and a faint city skyline under a bright clear blue sky. Warm midday daylight, crisp hard shadows, photorealistic.",
+      "lowgravity": "The same sunny GTA-style city boulevard, but with the gravity weakened — loose dust, litter and the dollar bills drifting and hanging in the air over the asphalt, everything settling in gentle slow motion. The world still contains EXACTLY ONE tall roadside billboard on the left at a fixed position AND EXACTLY ONE row of tall palm trees on the right at a fixed position AND EXACTLY ONE traffic light straight ahead at a fixed position. Bright midday light, hard shadows, photorealistic, near-weightless drift.",
+      "flooded": "The same GTA-style city boulevard, now flooded — brown floodwater risen waist-deep across the whole street and sidewalks, submerging the kerbs and lapping at the storefronts, litter and debris floating on the surface under the bright midday sun. The world still contains EXACTLY ONE tall roadside billboard on the left at a fixed position AND EXACTLY ONE row of tall palm trees on the right at a fixed position AND EXACTLY ONE traffic light straight ahead at a fixed position, half-submerged in the water. Photorealistic, bright sunlit floodwater.",
+      "neon": "The same GTA-style city boulevard at dusk, with every roadside billboard transformed into a blazing neon sign. The world contains EXACTLY ONE tall glowing-neon billboard on the left at a fixed position AND EXACTLY ONE row of tall palm trees on the right at a fixed position AND EXACTLY ONE traffic light straight ahead at a fixed position, the billboards now bright electric neon signs in vivid pink, blue and green casting coloured glow across the asphalt. Deepening dusk sky, saturated neon reflections on the pavement, photorealistic."
+    },
+    "player": {
+      "default": "A man in a sharp black business suit seen from behind, holding a dark leather briefcase in his right hand, standing on the sidewalk. EXACTLY ONE man in the entire street — a single lone figure, the only person anywhere in the scene, no second man, no other people, no duplicate and no clone."
+    },
+    "camera": {
+      "default": {
+        "static": "Third-person view from behind the man, the suited figure locked at the exact centre of the frame at constant size and distance, back to the camera — never a first-person view. Neither the man nor the camera moves on its own; arrow-key look-input is the only source of camera motion, arcing the camera around the stationary, centred man only while held.",
+        "dynamic": "Strict third-person rear view, the man locked at the exact centre of the frame as the camera holds a fixed position behind him and tracks him forward down the street — never a first-person view. The camera does not rotate around the man; look-input becomes the man changing heading."
+      }
+    },
+    "movement": {
+      "default": {
+        "static": "The man stands still on the cracked sidewalk, briefcase in hand, his suit jacket shifting slightly in the warm breeze as the empty street stretches out around him.",
+        "dynamic": "The man strides forward along the sidewalk and out across the wide asphalt boulevard, walking at a steady pace, his shadow sweeping across the pavement as the storefronts slide past on either side."
+      },
+      "lowgravity": {
+        "static": "In the weakened gravity the man drifts and bobs slowly in place, his shoes barely touching the pavement and his suit jacket and tie floating up around him as loose litter and dollar bills hang in the air, everything settling in gentle slow motion.",
+        "dynamic": "In the weakened gravity the man pushes forward in long slow floating bounds down the boulevard, drifting between strides with his feet leaving the ground, dust and litter rising and hanging in the air around him as he moves in slow motion."
+      }
+    },
+    "events": [
+      {
+        "name": "Sprint",
+        "actor": "player",
+        "detail": "The man breaks into a hard sprint down the boulevard, arms pumping and the briefcase swinging at his side as he races forward along the asphalt at full speed, his jacket flapping and his shadow streaking across the pavement. EXACTLY ONE man — a single lone figure, no duplicate and no clone.",
+        "health": 0
+      },
+      {
+        "name": "Wave",
+        "actor": "player",
+        "detail": "The man lifts his free hand and waves it high overhead in a broad friendly wave, holding the briefcase in his other hand as he stands on the sidewalk, then lowers the hand back to his side. EXACTLY ONE man — a single lone figure, no duplicate and no clone.",
+        "health": 0
+      },
+      {
+        "name": "Pick Up Cash",
+        "actor": "player",
+        "detail": "The man crouches and scoops the loose dollar bills up off the sidewalk, gathering the scattered notes into his hand and tucking them into his jacket — the bills now GONE from the pavement, leaving only bare grey concrete where they lay. EXACTLY ONE man — a single lone figure, no duplicate and no clone.",
+        "health": 0,
+        "addItem": "cash"
+      },
+      {
+        "name": "Swim",
+        "actor": "player",
+        "requires": { "fired": ["Street Floods"] },
+        "detail": "The man wades in and swims through the deep floodwater, arms stroking through the murky brown water and legs kicking out behind him as he moves across the submerged boulevard, keeping his head above the surface. EXACTLY ONE man — a single lone figure, no duplicate and no clone.",
+        "health": 0
+      },
+      {
+        "name": "Dive",
+        "actor": "player",
+        "requires": { "fired": ["Street Floods"] },
+        "detail": "The man takes a breath and dives down beneath the surface of the floodwater, plunging headfirst underwater with his legs kicking up behind him and a burst of bubbles trailing as he submerges below the murky surface. EXACTLY ONE man — a single lone figure, no duplicate and no clone.",
+        "health": 0
+      },
+      {
+        "name": "Billboards Turn Neon",
+        "actor": "director",
+        "baseVersion": "neon",
+        "detail": "Every billboard along the boulevard flickers and transforms into a blazing neon sign — the roadside billboards igniting with bright electric neon light in vivid pink, blue and green, their faces now glowing neon artwork that casts coloured light across the street as the sky dims toward dusk. From then on the billboards STAY neon, glowing bright. The man stays EXACTLY ONE in frame, unchanged in pose and appearance; only the world around him changes."
+      },
+      {
+        "name": "Traffic Light Turns Red",
+        "actor": "director",
+        "detail": "The traffic light straight ahead switches to red — its top lamp glowing bright red at that fixed position ahead while the amber and green lamps go dark, casting a faint red glow over the intersection. From then on the light STAYS red, glowing at the fixed traffic light ahead. The man stays EXACTLY ONE in frame, unchanged in pose and appearance; only the world around him changes."
+      },
+      {
+        "name": "Street Floods",
+        "actor": "director",
+        "baseVersion": "flooded",
+        "detail": "Water surges in and floods the whole boulevard — brown floodwater rising fast across the asphalt and up over the sidewalks until the street is submerged waist-deep, litter and debris floating on the rising surface. From then on the street STAYS flooded, deep water across the whole boulevard. The man stays EXACTLY ONE in frame, unchanged in pose and appearance; only the world around him changes."
+      },
+      {
+        "name": "Car Pulls Up",
+        "actor": "director",
+        "chance": 0.3,
+        "detail": "A car drives up the boulevard and pulls in to the curb beside the row of palm trees on the right, easing to a stop and parking at that fixed spot — one more car added to the street. EXACTLY ONE car pulls up at the curb on the right, a single parked car, no duplicate and no clone. The man stays EXACTLY ONE in frame, unchanged in pose and appearance; only the world around him changes.",
+        "count": 1
+      },
+      {
+        "name": "Traffic Rushes Past",
+        "actor": "director",
+        "detail": "A stream of cars floods onto the boulevard and rushes past the man — sedans, trucks and taxis speeding down the asphalt in both directions, sunlight flashing off their windscreens and heat-haze rising off the road as the once-empty street fills with fast-moving traffic. The man stays EXACTLY ONE in frame, unchanged in pose and appearance; only the world around him changes.",
+        "win": true
+      },
+      {
+        "name": "Car Crash",
+        "actor": "director",
+        "requires": { "firedAny": ["Car Pulls Up", "Traffic Rushes Past"] },
+        "detail": "Two cars collide in a violent crash at the traffic light straight ahead — metal crumpling and glass breaking as the vehicles smash together and skew across the intersection, one car flipping onto its side, smoke and steam rising from the crushed wreckage. From then on the wrecked cars STAY there, crashed and smoking across the intersection ahead. The man stays EXACTLY ONE in frame, unchanged in pose and appearance; only the world around him changes."
+      },
+      {
+        "name": "Palm Tree Falls Over",
+        "actor": "director",
+        "detail": "One of the tall palm trees in the row on the right topples and crashes over — its trunk cracking and the whole palm leaning, then falling, its fronds sweeping down as it comes crashing to the ground across the sidewalk on the right, kicking up a burst of dust where it lands. From then on that palm tree STAYS down, fallen across the pavement on the right. The man stays EXACTLY ONE in frame, unchanged in pose and appearance; only the world around him changes."
+      },
+      {
+        "name": "Gravity Weakens",
+        "actor": "director",
+        "movementVersion": "lowgravity",
+        "baseVersion": "lowgravity",
+        "detail": "The pull of gravity weakens across the whole street — the man, the dust, the litter and the loose dollar bills all begin to float and hang in the air, rising slowly and settling in gentle slow motion as though the world has gone near-weightless. From then on the world STAYS in low gravity, everything drifting and floating. The man stays EXACTLY ONE in frame, unchanged in pose and appearance; only the physics around him changes."
+      }
+    ],
+    "jumpPrompt": "The man leaps up off the sidewalk, both shoes lifting clear of the pavement and rising into the air for a moment before dropping back down and landing on the concrete, his suit settling as he lands.",
+    "crouchPrompt": "The camera lowers toward the ground as the man crouches down low on the sidewalk, bending his knees and ducking his head into a compact, hunched stance; the viewpoint sinks smoothly to a low, near-ground vantage and settles there, close to the pavement.",
+    "standPrompt": "The man straightens back up out of the crouch, rising to full standing height as the camera lifts smoothly back to its normal over-the-shoulder vantage."
+  }
+}

@@ -124,6 +124,21 @@ def test_destroyed_object_disappears() -> None:
         assert any(w in d for w in gone), f"{e['name']}: destroyed/dropped object not described as gone"
 
 
+def test_diverse_actions() -> None:
+    # The blog's locomotion/action rig — "diverse actions like jumping, sprinting,
+    # swimming, emoting". The harness exposes these as vertical PLAYER actions
+    # (Space jump / C crouch / release stand), a locomotion split in the movement
+    # layer (idle vs moving = walk/sprint), and several DISTINCT hold-key interactions.
+    assert SCENE.get("jumpPrompt", "").strip(), "no jump action (Space) — jumping unsupported"
+    assert SCENE.get("crouchPrompt", "").strip(), "no crouch action (C held)"
+    assert SCENE.get("standPrompt", "").strip(), "no stand action (C release)"
+    mv = SCENE["movement"]["default"]
+    assert isinstance(mv, dict) and mv.get("static", "").strip() and mv.get("dynamic", "").strip(), \
+        "movement layer missing the idle/moving (locomotion) split"
+    names = {e["name"].strip().lower() for e in PLAYER if e.get("name", "").strip()}
+    assert len(names) >= 3, f"only {len(names)} distinct player actions — not a diverse action set"
+
+
 def test_video_only_no_audio() -> None:
     # The model has no sound: no audio-only words anywhere in the scene prose.
     banned = ("roar", "cheer", "chant", "silence", "howl", "hiss", "scream",
@@ -139,7 +154,8 @@ def main() -> None:
     tests = [
         test_decomposed_conditioning, test_player_director_split, test_prompt_invariance,
         test_gated_progression, test_vlm_visual_triggers, test_reward_objective,
-        test_destroyed_object_disappears, test_video_only_no_audio,
+        test_destroyed_object_disappears, test_diverse_actions,
+        test_video_only_no_audio,
     ]
     failures = 0
     for t in tests:

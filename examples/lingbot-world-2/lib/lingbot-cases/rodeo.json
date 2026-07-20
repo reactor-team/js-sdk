@@ -11,7 +11,7 @@
       "default": "A dusty floodlit rodeo arena. The world contains EXACTLY ONE tall metal chute gate on the left at a fixed position AND EXACTLY ONE packed grandstand of spectators on the right at a fixed position AND EXACTLY ONE blue barrel on the churned dirt straight ahead at a fixed position. Kicked-up dust hanging in the air, a scuffed dirt floor, advertising banners along the arena fence, bright stadium floodlights against a deep evening sky. Sunset-lit dusty arena, photorealistic, cinematic depth of field."
     },
     "player": {
-      "default": "A cowboy in a wide-brimmed hat, chaps and boots, seen from behind, gripping the rope one-handed on the back of a massive bucking bull. EXACTLY ONE cowboy on EXACTLY ONE bull — a single rider, no duplicate and no clone."
+      "default": "A cowboy in a wide-brimmed hat, chaps and boots, seen from behind, gripping the rope one-handed on the back of a massive bucking bull. EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — two clearly separate figures: the cowboy is a man riding on top of the single bull, distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone."
     },
     "camera": {
       "default": {
@@ -29,113 +29,113 @@
       {
         "name": "Buck",
         "actor": "director",
-        "detail": "The bull explodes into a violent buck, kicking its hind legs high and slamming its front hooves back down, hurling the cowboy up out of the saddle and back down again as dust bursts off the dirt; he snaps his free arm out, clings to the rope and rides it out. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "The bull explodes into a violent buck, kicking its hind legs high and slamming its front hooves back down, hurling the cowboy up out of the saddle and back down again as dust bursts off the dirt; he snaps his free arm out, clings to the rope and rides it out. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone."
       },
       {
         "name": "Spin",
         "actor": "director",
-        "detail": "The bull drops its shoulder and spins hard in a tight circle, whipping around again and again with its hooves tearing at the dirt, the cowboy leaning against the turn and fighting to stay centred over its back, then it straightens out of the spin. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "The bull drops its shoulder and spins hard in a tight circle, whipping around again and again with its hooves tearing at the dirt, the cowboy leaning against the turn and fighting to stay centred over its back, then it straightens out of the spin. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone."
       },
       {
         "name": "Thrown Off",
         "actor": "player",
-        "detail": "The bull heaves in a savage twist and flings the cowboy clear off its back; he tumbles through the air and hits the dirt in a rolling sprawl, dust flying up around him, then scrambles up onto his feet as the bull veers away. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "The bull heaves in a savage twist and flings the cowboy clear off its back; he tumbles through the air and hits the dirt in a rolling sprawl, dust flying up around him, then scrambles up onto his feet as the bull veers away. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone."
       },
       {
         "name": "Wave Hat",
         "actor": "player",
-        "detail": "The cowboy sweeps his wide-brimmed hat off with his free hand and waves it high over his head in a showy flourish toward the roaring grandstand, then settles it back down and re-grips for balance. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "The cowboy sweeps his wide-brimmed hat off with his free hand and waves it high over his head in a showy flourish toward the roaring grandstand, then settles it back down and re-grips for balance. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone."
       },
       {
         "name": "Barrel Turn",
         "actor": "player",
-        "detail": "The bull thunders up to the blue barrel ahead and cuts a hard, tight turn around it, hooves carving a spray of dirt as it whips around the marker, the cowboy leaning deep into the turn, then it powers back out across the arena. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "The bull thunders up to the blue barrel ahead and cuts a hard, tight turn around it, hooves carving a spray of dirt as it whips around the marker, the cowboy leaning deep into the turn, then it powers back out across the arena. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone."
       },
       {
         "name": "Spur the Bull",
         "actor": "player",
-        "detail": "The cowboy digs his boot heels and spurs hard into the heaving flanks of the bull, urging it on, and the bull kicks and bucks even more violently beneath him as dust flies up from the arena floor. EXACTLY ONE cowboy and ONE bull in frame — a single lone rider on a single bull, no second rider, no second bull, no duplicate and no clone.",
+        "detail": "The cowboy digs his boot heels and spurs hard into the heaving flanks of the bull, urging it on, and the bull kicks and bucks even more violently beneath him as dust flies up from the arena floor. EXACTLY ONE cowboy and ONE bull in frame — a single lone rider on a single bull, no second rider, no second bull, no duplicate and no clone. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone.",
         "health": -5
       },
       {
         "name": "Tighten Grip",
         "actor": "player",
-        "detail": "The cowboy clamps down, wrapping the rope tighter around his gloved hand and squeezing hard with his legs, hunkering low and locked against the back of the bull as it heaves under him, then holds steady. EXACTLY ONE cowboy and ONE bull in frame — a single lone rider on a single bull, no second rider, no second bull, no duplicate and no clone.",
+        "detail": "The cowboy clamps down, wrapping the rope tighter around his gloved hand and squeezing hard with his legs, hunkering low and locked against the back of the bull as it heaves under him, then holds steady. EXACTLY ONE cowboy and ONE bull in frame — a single lone rider on a single bull, no second rider, no second bull, no duplicate and no clone. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone.",
         "health": 10
       },
       {
         "name": "Lean Back",
         "actor": "player",
-        "detail": "The cowboy throws his weight back and drops his free arm for balance as the front end of the bull rears up, countering the buck and staying centred over its back before settling forward again. EXACTLY ONE cowboy and ONE bull in frame — a single lone rider on a single bull, no second rider, no second bull, no duplicate and no clone.",
+        "detail": "The cowboy throws his weight back and drops his free arm for balance as the front end of the bull rears up, countering the buck and staying centred over its back before settling forward again. EXACTLY ONE cowboy and ONE bull in frame — a single lone rider on a single bull, no second rider, no second bull, no duplicate and no clone. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone.",
         "health": 5
       },
       {
         "name": "Free Hand High",
         "actor": "player",
-        "detail": "The cowboy flings his free hand high overhead in classic rodeo form, arm raised and fingers splayed for balance and style as he rides the bucking bull, then brings it back down to brace on the rope. EXACTLY ONE cowboy and ONE bull in frame — a single lone rider on a single bull, no second rider, no second bull, no duplicate and no clone.",
+        "detail": "The cowboy flings his free hand high overhead in classic rodeo form, arm raised and fingers splayed for balance and style as he rides the bucking bull, then brings it back down to brace on the rope. EXACTLY ONE cowboy and ONE bull in frame — a single lone rider on a single bull, no second rider, no second bull, no duplicate and no clone. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone.",
         "health": 0
       },
       {
         "name": "Dust Storm Rolls In",
         "actor": "director",
-        "detail": "A thick wall of tan dust rolls in across the rodeo arena, wind kicking up swirling clouds that haze the air and dim the light; the dust hangs over the ring and lingers. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "A thick wall of tan dust rolls in across the rodeo arena, wind kicking up swirling clouds that haze the air and dim the light; the dust hangs over the ring and lingers. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone."
       },
       {
         "name": "Arena Fire",
         "actor": "director",
-        "detail": "The cowboy stays mounted on the bull, unchanged in pose and position, while flames erupt across the arena dirt ahead of him — a spreading blaze of orange fire and thick black smoke rising from the ground in the middle of the arena, heat rippling the air above the burning dirt. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "The cowboy stays mounted on the bull, unchanged in pose and position, while flames erupt across the arena dirt ahead of him — a spreading blaze of orange fire and thick black smoke rising from the ground in the middle of the arena, heat rippling the air above the burning dirt. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone."
       },
       {
         "name": "Bull Bucks Violently",
         "actor": "director",
-        "detail": "The director drives the bull into a violent bucking frenzy — it explodes upward off all fours, kicking its hind legs high and slamming back down again and again, twisting hard to hurl the rider, dust flying up around it in the arena. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "The director drives the bull into a violent bucking frenzy — it explodes upward off all fours, kicking its hind legs high and slamming back down again and again, twisting hard to hurl the rider, dust flying up around it in the arena. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone."
       },
       {
         "name": "Bull Spins Hard",
         "actor": "director",
-        "detail": "The bull whips into a tight, fast spin, cranking around its own axis over and over in one direction, its horns sweeping and hooves tearing up the dirt as it tries to fling the rider off centrifugally. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "The bull whips into a tight, fast spin, cranking around its own axis over and over in one direction, its horns sweeping and hooves tearing up the dirt as it tries to fling the rider off centrifugally. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone."
       },
       {
         "name": "Bull Charges the Rail",
         "actor": "director",
-        "detail": "The bull breaks into a hard charge straight across the arena toward the rail, head lowered and horns forward, thundering through the dirt at full speed before wheeling away at the last moment. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "The bull breaks into a hard charge straight across the arena toward the rail, head lowered and horns forward, thundering through the dirt at full speed before wheeling away at the last moment. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone."
       },
       {
         "name": "Bull Throws the Rider",
         "actor": "director",
-        "detail": "The bull gives one final savage buck-and-twist and hurls the rider clean off its back, sending them tumbling through the air to land hard in the arena dirt as the bull kicks free and trots off. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "The bull gives one final savage buck-and-twist and hurls the rider clean off its back, sending them tumbling through the air to land hard in the arena dirt as the bull kicks free and trots off. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone."
       },
       {
         "name": "Crowd Erupts",
         "actor": "director",
-        "detail": "The packed grandstands surge to their feet in a wave, arms thrown up and cowboy hats and banners waving wildly overhead, a sea of standing figures jumping and pumping their fists behind the rider. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "The packed grandstands surge to their feet in a wave, arms thrown up and cowboy hats and banners waving wildly overhead, a sea of standing figures jumping and pumping their fists behind the rider. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone."
       },
       {
         "name": "Crowd Recoils",
         "actor": "director",
-        "detail": "The crowd freezes mid-motion in a rippling wave, hands flying up to their faces and bodies half-rising and leaning forward, a grandstand full of tense, wide-eyed frozen figures. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "The crowd freezes mid-motion in a rippling wave, hands flying up to their faces and bodies half-rising and leaning forward, a grandstand full of tense, wide-eyed frozen figures. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone."
       },
       {
         "name": "Crowd Stills",
         "actor": "director",
-        "detail": "The crowd goes completely motionless, everyone frozen in place and leaning forward, hats and banners hanging still, not a single figure moving across the packed grandstand. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "The crowd goes completely motionless, everyone frozen in place and leaning forward, hats and banners hanging still, not a single figure moving across the packed grandstand. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone."
       },
       {
         "name": "Crowd Waves",
         "actor": "director",
-        "detail": "The whole crowd rises and drops in a rhythmic wave rolling along the bleachers, arms and hats pumping up and down in unison, the grandstand rippling with synchronized motion. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it."
+        "detail": "The whole crowd rises and drops in a rhythmic wave rolling along the bleachers, arms and hats pumping up and down in unison, the grandstand rippling with synchronized motion. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone."
       },
       {
         "name": "Rodeo Clown Distracts",
         "actor": "director",
-        "detail": "A rodeo clown in a painted face and baggy bright costume darts out into the arena waving his arms and a red flag, capering just ahead of the bull to draw its attention and kicking up dust as he dances across the churned dirt. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "detail": "A rodeo clown in a painted face and baggy bright costume darts out into the arena waving his arms and a red flag, capering just ahead of the bull to draw its attention and kicking up dust as he dances across the churned dirt. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone.",
         "health": 5,
         "count": 1
       },
       {
         "name": "Floodlights Flicker",
         "actor": "director",
-        "detail": "The arena floodlights buzz and flicker, stuttering down toward darkness and plunging the dusty ring into deep shadow before snapping back on in a harsh white glare that throws long shifting shadows across the churned dirt. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
+        "detail": "The arena floodlights buzz and flicker, stuttering down toward darkness and plunging the dusty ring into deep shadow before snapping back on in a harsh white glare that throws long shifting shadows across the churned dirt. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. There is EXACTLY ONE bull — the animal — and EXACTLY ONE cowboy — the rider — in the arena: two clearly separate figures, the man distinct from the animal and never merged into it, no second bull and no second cowboy, no duplicate and no clone.",
         "health": -5
       }
     ],
