@@ -73,8 +73,9 @@ Current health: {health}"""
 USER_TEXT = "Based on the current world state and objective, choose which authored event (if any) to fire, as JSON only."
 
 # User text for a probe (checklist) call — the derived questions are appended after it.
-PROBE_USER = ("Answer each of these yes/no questions about the image. Respond with ONLY a "
-              "JSON object mapping each id to true or false.")
+PROBE_USER = ("Answer each of these yes/no questions about the image. Use \"unknown\" when "
+              "you genuinely cannot tell from the image — do not guess. Respond with ONLY a "
+              "JSON object mapping each id to true, false, or \"unknown\".")
 
 
 def make_probe(vlm, scene_json, debug=False, **probe_opts):

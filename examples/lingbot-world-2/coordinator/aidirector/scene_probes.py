@@ -109,7 +109,9 @@ def derive_probes(scene, include_player_actions=True, include_invariants=False,
                            "requires": e.get("requires")})
 
     system = ("You are a visual state checker. Answer each question true or false about the "
-              "image. Respond with ONLY a JSON object mapping each id to true or false.")
+              "image, or \"unknown\" when you genuinely cannot tell from the image — never "
+              "guess. Respond with ONLY a JSON object mapping each id to true, false, or "
+              "\"unknown\".")
     return {"system": system, "probes": probes}
 
 
@@ -133,14 +135,33 @@ def _op_to_coordinator(op):
     raise ValueError(f"unknown op: {k!r}")
 
 
-def resolve(answers, probes):
-    """answers {id: bool} + probes -> (coordinator ops, observations {predicate: bool}).
+def _tri(v):
+    """Coerce a raw VLM answer to True / False / None(unknown). Anything that is
+    not a clean yes/no — the literal "unknown", null, a missing key — is unknown.
+    (Note bool("unknown") is True, so a plain bool() would silently mis-read it.)"""
+    if v is True or v is False:
+        return v
+    if isinstance(v, str):
+        s = v.strip().lower()
+        if s in ("true", "yes"):
+            return True
+        if s in ("false", "no"):
+            return False
+    return None
 
-    ops go to the coordinator; observations are the flat bool state the scene declares.
+
+def resolve(answers, probes):
+    """answers {id: true|false|"unknown"} + probes -> (coordinator ops, observations
+    {predicate: bool}). An "unknown" (or missing) answer updates NOTHING: the
+    predicate is left out of obs and no onTrue/onFalse op fires — so the state
+    machine never acts on a guess. ops go to the coordinator; observations are the
+    flat bool state the scene declares.
     """
     ops, obs = [], {}
     for p in probes:
-        val = bool(answers.get(p["id"], False))
+        val = _tri(answers.get(p["id"]))
+        if val is None:
+            continue  # unknown -> don't update state
         if p.get("observe"):
             obs[p["observe"]] = val
         branch = p.get("onTrue") if val else p.get("onFalse")

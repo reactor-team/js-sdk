@@ -20,7 +20,7 @@ import time
 
 from PIL import Image
 
-from scene_probes import derive_probes, resolve
+from scene_probes import derive_probes, resolve, _tri
 from client import NVIDIA_URL, DEFAULT_MODEL, MODELS, make_client, vlm_call, parse_json
 
 DEFAULT_IMAGE = "../../../assets/shark.jpg"
@@ -84,8 +84,9 @@ def main():
     # One call: system + every probe as "id: question" + the frame; expect JSON {id: bool}.
     questions = "\n".join(f'- {p["id"]}: {p["q"]}' for p in probes)
     user_text = (
-        "Answer each of these yes/no questions about the image. Respond with ONLY a JSON "
-        "object mapping each id to true or false.\n\n" + questions
+        "Answer each of these yes/no questions about the image. Use \"unknown\" when you "
+        "genuinely cannot tell from the image — do not guess. Respond with ONLY a JSON "
+        "object mapping each id to true, false, or \"unknown\".\n\n" + questions
     )
     if args.no_think:
         user_text += "\n\n/no_think"  # Qwen3 soft-switch: skip the reasoning trace
@@ -126,9 +127,11 @@ def main():
         print(reply)
         raise SystemExit(1)
 
-    print("\n===== VLM ANSWERS (true only) =====")
-    trues = [p["id"] for p in probes if bool(answers.get(p["id"], False))]
-    print(", ".join(trues) if trues else "(all false)")
+    print("\n===== VLM ANSWERS (true / unknown) =====")
+    trues = [p["id"] for p in probes if _tri(answers.get(p["id"])) is True]
+    unknowns = [p["id"] for p in probes if _tri(answers.get(p["id"])) is None]
+    print("true   :", ", ".join(trues) if trues else "(none)")
+    print("unknown:", ", ".join(unknowns) if unknowns else "(none)")
 
     print("\n===== OBSERVATIONS (flat state) =====")
     for k, v in obs.items():
@@ -154,19 +157,23 @@ def main():
         probe_ids = {p["id"] for p in probes}
         failures = []
         print("\n===== ASSERTIONS =====")
+        def _label(v):
+            return "true" if v is True else "unknown" if v is None else "false"
         for pid in exp_true:
             if pid not in probe_ids:
                 print(f"  WARNING: '{pid}' is not a derived probe id (typo?)")
-            got = bool(answers.get(pid, False))
-            print(f"  expect-true  {pid}: {'true' if got else 'false'}  [{'OK' if got else 'FALSE NEGATIVE'}]")
-            if not got:
-                failures.append(f"false negative: {pid}")
+            v = _tri(answers.get(pid))
+            ok = v is True  # unknown counts as a miss for a required-true probe
+            print(f"  expect-true  {pid}: {_label(v)}  [{'OK' if ok else 'FALSE NEGATIVE'}]")
+            if not ok:
+                failures.append(f"false negative: {pid} ({_label(v)})")
         for pid in exp_false:
             if pid not in probe_ids:
                 print(f"  WARNING: '{pid}' is not a derived probe id (typo?)")
-            got = bool(answers.get(pid, False))
-            print(f"  expect-false {pid}: {'true' if got else 'false'}  [{'FALSE POSITIVE' if got else 'OK'}]")
-            if got:
+            v = _tri(answers.get(pid))
+            bad = v is True  # unknown is NOT a false positive
+            print(f"  expect-false {pid}: {_label(v)}  [{'FALSE POSITIVE' if bad else 'OK'}]")
+            if bad:
                 failures.append(f"false positive: {pid}")
         print(f"  RESULT: {'PASS' if not failures else 'FAIL (' + str(len(failures)) + ')'}")
         if failures:

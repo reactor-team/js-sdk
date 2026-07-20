@@ -590,7 +590,9 @@ wss.on("connection", (ws) => {
         // The AI director posts the probe's latest yes/no reads so json-rules-engine
         // rules (and any observation-gated logic) can see what's on screen. Facts-only:
         // no History mutation, not mode-gated (perception, not a director action).
-        observations = m.obs ?? {};
+        // MERGE, don't replace: a probe that answered "unknown" omits that id, so we
+        // keep its previous value rather than update state on something it couldn't see.
+        observations = { ...observations, ...(m.obs ?? {}) };
         break;
       case "count":
         // Director spawn/kill bumps the shared count. `set` is absolute; else
