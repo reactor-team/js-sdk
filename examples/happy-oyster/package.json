@@ -8,12 +8,10 @@
     "start": "next start"
   },
   "dependencies": {
-    "@happy-oyster/js-sdk": "0.1.1",
-    "@reactor-models/happy-oyster": "^0.1.0",
+    "@reactor-models/happy-oyster": "^0.2.0",
     "@reactor-team/js-sdk": "^2.12.0",
     "@reactor-team/ui": "^1.4.0",
     "clsx": "^2.1.1",
-    "hls.js": "^1.6.0",
     "next": "15.5.9",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -28,10 +26,5 @@
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
     "typescript": "^5"
-  },
-  "pnpm": {
-    "overrides": {
-      "@happy-oyster/js-sdk": "0.1.1"
-    }
   }
 }

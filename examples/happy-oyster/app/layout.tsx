@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "HappyOyster",
   description:
-    "Build a world from a prompt, then travel it live, WASD in Adventure, text in Director. World video streams direct from the edge.",
+    "Build a world from a prompt, then travel it live, WASD in Adventure, text in Director.",
 };
 
 export default function RootLayout({

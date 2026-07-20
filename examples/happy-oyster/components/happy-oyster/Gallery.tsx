@@ -8,6 +8,7 @@
 import { useState } from "react";
 import {
   FEATURED_WORLDS,
+  modeName,
   type FeaturedWorld,
   type WorldIntent,
 } from "@/lib/worlds";
@@ -69,16 +70,14 @@ function WorldTile({
           world.encryptedWorldId
             ? {
                 kind: "attach",
+                mode: modeName(world.mode),
                 encryptedWorldId: world.encryptedWorldId,
                 title: world.title,
-                mode: world.mode,
               }
             : {
                 kind: "create",
-                params:
-                  world.mode === 2
-                    ? { mode: 2, prompt: world.prompt }
-                    : { mode: 1, prompt: world.prompt },
+                mode: modeName(world.mode),
+                params: { prompt: world.prompt },
                 title: world.title,
               },
         )

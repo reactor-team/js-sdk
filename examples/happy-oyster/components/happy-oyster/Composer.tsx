@@ -39,18 +39,18 @@ export function CustomCompose({
     const firstFrameImage = imageFile ?? undefined;
     onIntent({
       kind: "create",
+      mode: mode === 2 ? "director" : "adventure",
       title: "Your world",
       params:
         mode === 2
           ? {
-              mode: 2,
               prompt: text,
               firstFrameImage,
               resolution,
               ...(layout !== "auto" ? { layout } : {}),
               ...(narrative !== "auto" ? { narrative } : {}),
             }
-          : { mode: 1, prompt: text, firstFrameImage, perspective },
+          : { prompt: text, firstFrameImage, perspective },
     });
   };
 
@@ -173,13 +173,25 @@ export function AttachById({
   onIntent: (intent: WorldIntent) => void;
 }) {
   const [id, setId] = useState("");
+  // A world only attaches through its own experience's model, so the attach
+  // has to connect to the matching mode — pick it here.
+  const [mode, setMode] = useState<1 | 2>(1);
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
       <SectionLabel>Return to an existing world</SectionLabel>
       <p className="text-[11px] leading-relaxed text-white/30">
         Worlds are permanent. Paste an <code>encrypted_world_id</code> you saved
-        from an earlier build to jump straight back in, no build wait.
+        from an earlier build to jump straight back in, no build wait — and pick
+        the experience it belongs to.
       </p>
+      <div className="flex items-center gap-1 self-start rounded-md border border-white/10 bg-black/20 p-0.5">
+        <ModeToggle active={mode === 1} onClick={() => setMode(1)}>
+          Adventure
+        </ModeToggle>
+        <ModeToggle active={mode === 2} onClick={() => setMode(2)}>
+          Director
+        </ModeToggle>
+      </div>
       <div className="flex gap-1.5">
         <input
           value={id}
@@ -191,6 +203,7 @@ export function AttachById({
           onClick={() =>
             onIntent({
               kind: "attach",
+              mode: mode === 2 ? "director" : "adventure",
               encryptedWorldId: id.trim(),
               title: "Attached world",
             })

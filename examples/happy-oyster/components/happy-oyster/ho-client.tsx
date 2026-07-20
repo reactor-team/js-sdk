@@ -4,11 +4,11 @@
 //
 // Every screen in this app talks to `useHappyOysterClient()`, never to the SDK
 // hook directly. <LiveClientProvider> mounts the real <HappyOysterProvider> and
-// adapts useHappyOyster() onto the surface below; world video comes straight
-// from the edge into <HappyOysterVideo>.
+// adapts useHappyOyster() onto the surface below, rendering the live world into
+// <HappyOysterVideo>.
 //
-// The surface is deliberately the shape of the SDK facade, so the adapter is
-// almost a pass-through.
+// The surface is deliberately the shape of the SDK facade, so the adapter is a
+// thin forwarding layer that keeps the SDK hook isolated to this file.
 
 import {
   createContext,
@@ -27,6 +27,7 @@ import {
 import type {
   AdventureCommand,
   CreateWorldParams,
+  HappyOysterMode,
   HappyOysterPhase,
   TravelStateMessage,
   WorldStateMessage,
@@ -87,14 +88,17 @@ export function useVideoSlot(): ReactNode {
 
 // ── live ─────────────────────────────────────────────────────────────────────
 
-// Local mode talks straight to a model served by the Reactor runtime (the
-// happy-oyster backend on its own host), skipping the Coordinator: connect()
-// takes no JWT and there is no /tokens exchange. Point apiUrl at that host.
+// Local mode talks to a model served by the Reactor runtime on your own host
+// (adventure on :8080, director on :8081), skipping the Coordinator: connect()
+// takes no JWT and there is no /tokens exchange. `local` lets the SDK pick the
+// right per-mode port; an explicit NEXT_PUBLIC_COORDINATOR_URL always wins.
 const LOCAL_RUNTIME = process.env.NEXT_PUBLIC_HO_LOCAL_RUNTIME === "1";
+const COORDINATOR_URL = process.env.NEXT_PUBLIC_COORDINATOR_URL;
 
-const API_URL =
-  process.env.NEXT_PUBLIC_COORDINATOR_URL ??
-  (LOCAL_RUNTIME ? "http://localhost:8080" : "https://api.reactor.inc");
+// The Reactor connection options, minus the mode the provider is mounted with.
+const providerOptions = LOCAL_RUNTIME
+  ? { local: true, ...(COORDINATOR_URL ? { apiUrl: COORDINATOR_URL } : {}) }
+  : { apiUrl: COORDINATOR_URL ?? "https://api.reactor.inc" };
 
 // JWT resolver: the SDK calls it on every Coordinator HTTP hop, so a short-lived
 // token can't age out mid-session. The route caches the token, so most calls
@@ -109,12 +113,18 @@ async function fetchToken(): Promise<string> {
   return jwt;
 }
 
-export function LiveClientProvider({ children }: { children: ReactNode }) {
+// The mode is fixed for the life of the session — it picks which Reactor model
+// (adventure or director) the session connects to — so the provider is mounted
+// (and keyed) on it and switching experiences remounts a fresh session.
+export function LiveClientProvider({
+  mode,
+  children,
+}: {
+  mode: HappyOysterMode;
+  children: ReactNode;
+}) {
   return (
-    <HappyOysterProvider
-      apiUrl={API_URL}
-      {...(LOCAL_RUNTIME ? { local: true } : {})}
-    >
+    <HappyOysterProvider mode={mode} {...providerOptions}>
       <LiveClientBridge>{children}</LiveClientBridge>
     </HappyOysterProvider>
   );

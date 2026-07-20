@@ -5,7 +5,3 @@ node_modules
 *.log
 .DS_Store
 *.tsbuildinfo
-
-# Local-only build of the typed SDK, file-linked for verification until the
-# npm package publishes (REA-4015). Never committed. See STAGING.md.
-.local-typed-sdk

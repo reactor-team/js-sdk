@@ -82,7 +82,7 @@ function SeedFrameCard({ src }: { src: string }) {
 function IntentCard({ session }: { session: WorldSession }) {
   const { view, intent, client } = session;
   if (!intent) return null;
-  const mode = intent.kind === "create" ? intent.params.mode : intent.mode;
+  const mode = intent.mode === "director" ? 2 : 1;
   const prompt =
     client.worldState?.prompt ??
     (intent.kind === "create" ? intent.params.prompt : null);

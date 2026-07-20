@@ -1,8 +1,7 @@
 "use client";
 
-// Adventure (mode 1) control deck. Held movement is sent straight to the edge
-// over the travel channel, it never transits Reactor. Every key is tracked
-// independently so chords compose: W+A resolves to the protocol's Front_Left
+// Adventure (mode 1) control deck. Movement is held state: every key is tracked
+// independently so chords compose — W+A resolves to the protocol's Front_Left
 // diagonal, Shift+W sprints, releasing one key of an axis falls back to
 // whatever else is still held. The SDK re-sends the combined held command every
 // generation chunk, so a held button keeps applying. Highlighting reads local

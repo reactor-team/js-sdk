@@ -19,6 +19,17 @@ import {
 } from "@/lib/view";
 import { useHappyOysterClient, type HappyOysterClient } from "./ho-client";
 
+// The intent lives above the provider (HappyOysterApp) because the mode it
+// carries decides which model the session connects to. This hook receives it,
+// walks it through the client, and drives run/exit back up.
+export interface WorldSessionInput {
+  intent: WorldIntent | null;
+  /** Set a new intent (and its mode) — invoked by the browse surfaces. */
+  onRun: (intent: WorldIntent) => void;
+  /** Drop the intent, back to browsing. */
+  onClearIntent: () => void;
+}
+
 export interface WorldSession {
   view: AppView;
   /** The loading steps of the API's machine, for the loading pane. */
@@ -38,7 +49,11 @@ export interface WorldSession {
   beginTravel: () => void;
 }
 
-export function useWorldSession(): WorldSession {
+export function useWorldSession({
+  intent,
+  onRun,
+  onClearIntent,
+}: WorldSessionInput): WorldSession {
   const client = useHappyOysterClient();
   const {
     phase,
@@ -51,7 +66,6 @@ export function useWorldSession(): WorldSession {
     disconnect,
   } = client;
 
-  const [intent, setIntent] = useState<WorldIntent | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -119,13 +133,16 @@ export function useWorldSession(): WorldSession {
     attachWorld,
   ]);
 
-  const run = useCallback((next: WorldIntent) => {
-    connectTries.current = 0;
-    lastConnectError.current = null;
-    setError(null);
-    setAttempt((value) => value + 1);
-    setIntent(next);
-  }, []);
+  const run = useCallback(
+    (next: WorldIntent) => {
+      connectTries.current = 0;
+      lastConnectError.current = null;
+      setError(null);
+      setAttempt((value) => value + 1);
+      onRun(next);
+    },
+    [onRun],
+  );
 
   const retry = useCallback(() => {
     connectTries.current = 0;
@@ -136,9 +153,9 @@ export function useWorldSession(): WorldSession {
 
   const exit = useCallback(() => {
     void disconnect().catch(() => {});
-    setIntent(null);
     setError(null);
-  }, [disconnect]);
+    onClearIntent();
+  }, [disconnect, onClearIntent]);
 
   const beginTravel = useCallback(() => {
     setError(null);

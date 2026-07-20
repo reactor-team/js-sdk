@@ -2,8 +2,8 @@
 
 // The content screen — the app's fixed sandbox, reserved for the world:
 // every view renders into the same plain frame the travel video plays in
-// (the generated first frame lives in the sidebar), and the stream (direct
-// from the edge, never through Reactor) plays on top.
+// (the generated first frame lives in the sidebar), and the live world stream
+// plays on top.
 
 import type { ReactNode } from "react";
 import type { JourneyStep } from "@/lib/view";

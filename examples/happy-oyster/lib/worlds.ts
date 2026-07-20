@@ -1,6 +1,14 @@
-import type { CreateWorldParams } from "@reactor-models/happy-oyster";
+import type {
+  CreateWorldParams,
+  HappyOysterMode,
+} from "@reactor-models/happy-oyster";
 import baseWorlds from "./featured-worlds.json";
 import worldPins from "./world-pins.json";
+
+/** The experience number the featured-world data uses → the SDK's mode name. */
+export function modeName(mode: 1 | 2): HappyOysterMode {
+  return mode === 2 ? "director" : "adventure";
+}
 
 export interface FeaturedWorld {
   key: string;
@@ -42,16 +50,20 @@ export const TRAVEL_SECONDS: Record<1 | 2, number> = {
   2: 180,
 };
 
+// The experience is fixed per session — each mode is its own Reactor model —
+// so every intent carries the mode the session must connect with, and the
+// create params carry only that mode's own knobs (no mode field).
 /** One thing to do with the session: build a new world, or attach an existing one. */
 export type WorldIntent =
   | {
       kind: "create";
+      mode: HappyOysterMode;
       params: CreateWorldParams;
       title: string;
     }
   | {
       kind: "attach";
+      mode: HappyOysterMode;
       encryptedWorldId: string;
       title: string;
-      mode?: 1 | 2;
     };
