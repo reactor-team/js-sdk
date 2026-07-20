@@ -371,7 +371,14 @@ export function DirectorPanel({
               {optionsOpen ? "▾" : "▸"} scene · {sceneEvents.length}
             </button>
             {optionsOpen &&
-              sceneEvents.map((ev, i) => (
+              sceneEvents.map((ev, i) => {
+              // Highlight the buttons we've USED — an event is "fired" while its
+              // scene:<slug> fact is live in History (whether a human clicked it or
+              // the AI director fired it). Emerald via btn(active).
+              const isFired = coordFacts.some(
+                (f) => f.key === "scene:" + ev.name.toLowerCase().replace(/\s+/g, "_"),
+              );
+              return (
               <button
                 key={ev.name}
                 // Only LOCKED events are disabled-greyed. In AI mode the human can't
@@ -379,7 +386,7 @@ export function DirectorPanel({
                 // what the AI could fire) — made non-clickable via pointer-events-none.
                 disabled={ev.available === false}
                 className={cn(
-                  btn(),
+                  btn(isFired),
                   "whitespace-nowrap",
                   ev.available === false && "opacity-40",
                   humanDisabled && "pointer-events-none cursor-default",
@@ -400,7 +407,8 @@ export function DirectorPanel({
                 )}
                 {ev.name}
               </button>
-            ))}
+              );
+            })}
           </div>
         </>
       )}

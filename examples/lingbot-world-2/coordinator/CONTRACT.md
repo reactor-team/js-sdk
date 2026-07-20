@@ -46,6 +46,9 @@ of these. Change a contract → all implementers must change together.
                                                └────────────────────────────────────┘
 ```
 
+> Default mode is **rules-decide**: the `decide` box above is opt-in (`--vlm-decide`). Normally
+> the coordinator's `json-rules-engine` is the brain and the director runs only the `probe`.
+
 **Three flows that define the system:**
 
 1. **Gating — one History, everyone's fires count.** An event fires (player / human panel /
@@ -58,13 +61,40 @@ of these. Change a contract → all implementers must change together.
    the scene's own still so it is never blind. Cloud video only exists in the browser, so
    `FrameTap` is the cloud path's only real-frame source.
 
-3. **Probe/decide — split by modality.** The **probe** is the sole vision call (frame →
-   observations, asking only gate-valid questions). **Decide** is text-only — it reasons from
-   the state/History in its system prompt (facts, observations, objective, health, fired
-   memory), never the pixels. They run concurrently; a fire is paced by `--fire-cooldown`.
+3. **Perception vs decision — the observer and the state machine.** By default
+   (**rules-decide**, the norm now that the VLM decide is off) the AI director is
+   PERCEPTION-ONLY: the **probe** — the sole vision call, frame → observations, gate-valid
+   questions only — posts `op:"observe"`, and the coordinator's **`json-rules-engine`** is the
+   brain that decides which authored event fires (paced by `RULE_COOLDOWN`, and **frozen while
+   the director's model is disconnected** so it never fires blind). An `"unknown"` probe answer
+   updates NO state — the machine never acts on a guess. The VLM **decide** brain is opt-in
+   (`--vlm-decide`): text-only, reasoning from state/History in its system prompt, never pixels.
 
 **Invariants:** exactly one History (§6); the coordinator touches no video (ops in, clauses
-out); gates read the shared History so human + AI + win-clock fires all unlock alike.
+out); gates read the shared History so human + AI + win-clock fires all unlock alike; the probe
+is an OBSERVER — it never mutates History, only the state machine does; switching games wipes the
+prior game's accumulated state (facts / chunks / vitals) so nothing leaks across.
+
+---
+
+## Game Cartridge mapping (Roblox "Worlds Research Station", Hojel 2026)
+
+This system is a **Game Cartridge**: a programmable code harness wrapped around a video world
+model, with a VLM observer grounding pixels back into abstract state.
+
+| Roblox Game Cartridge          | this app                                                    |
+| ------------------------------ | ----------------------------------------------------------- |
+| Luau state machine (engine)    | coordinator + `json-rules-engine` over `history.ts`         |
+| Video World Model (VWM)        | the Reactor/local video model the browser renders           |
+| VLM observer / visual triggers | the AI director **probe** (`scene_probes.derive_probes`)    |
+| Decomposed conditioning        | scene layers: `base` (World) · `player` (Character) · `movement` (Actions) · `camera` (Dynamics) |
+| Prompt invariance              | landmark-anchored placement (`at the base of the tree`, `at a fixed position`) — never player-relative |
+| Quest progression              | gated director events (`requires`) + objective `reward` (win) |
+
+The **`agent-test`** scene (`lib/lingbot-cases/agent-test.json`) is the reference fixture for
+these mechanics; `coordinator/aidirector/test_agent_cartridge.py` (via `run_test_agent_cartridge.bat`)
+asserts them — decomposition, invariance, player/director split, gated progression, VLM triggers,
+and video-only prose.
 
 ---
 
@@ -108,7 +138,10 @@ decide(frame: PIL.Image, system_prompt: str) -> str   # raw model reply
 | `objective` | `objective` | set active objective (restarts win clock) |
 | `count` | `delta` \| `set` | signed spawn/kill or absolute entity count (clamp ≥0) |
 | `log` | `cmd`, `detail` | record-only (audit); no state change |
-| `observe` | `obs: {predicate: bool}` | AI director posts the probe's latest reads → the `observations` fact (for rules / gating); no History change |
+| `observe` | `obs: {predicate: bool}` | AI director posts the probe's latest reads → MERGED into the `observations` fact (an `"unknown"`/omitted key keeps its prior value); no History change |
+| `hello` | `role:"ai"`, `model`, `modelOk`, `decides` | AI director registers; `decides:false` = rules-decide (rules stay active); `modelOk` seeds the model-connect state |
+| `model` | `role:"ai"`, `ok: bool` | live model up/down ping — `false` freezes rule firing (director's eyes shut), `true` resumes |
+| `game` | `role`, `slug` | set/switch/unload the active game; a switch wipes the prior game's accumulated state |
 
 **server → client (broadcasts):**
 

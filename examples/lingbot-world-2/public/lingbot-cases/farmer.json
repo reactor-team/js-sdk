@@ -1,0 +1,90 @@
+{
+  "title": "Farmer tool-swap showcase",
+  "backend": "odyssey",
+  "_category": "interactions",
+  "_doc": "Single chapter. The farmer starts with sickle (in hand) plus canteen and torch in inventory; rifle is the only item that must be picked up off-screen. Hotkeys: 0 = swing sickle, W = equip rifle (swaps in for sickle), A = raise torch, S = drink from canteen, D = sling rifle on back (free hands), Space = ignite wheat. Tab cycles through all six in order.",
+  "chapters": [
+    {
+      "id": "wheat_field",
+      "seed_image": "examples/Farmer_Interaction/farmer.png",
+      "world": "A golden wheat field stretching to a distant horizon, scattered red poppies, a wooden fence line at the far edge.",
+      "character": "A farmer in a loose linen shirt, brown trousers, and a straw hat, mid-swing with a curved iron sickle held in both hands, blade catching sunlight.",
+      "dynamics": "Third-person side-on camera at chest height, midday sun overhead, light wind moving the wheat.",
+      "persistent_facts": [
+        "Exactly one farmer is in this scene; never duplicate them. Tool changes swap only what is in their hands. Their straw hat, linen shirt, brown trousers, body, face, and stance remain the same farmer.",
+        "The wheat field, sky, fence line, and overall composition stay the same across tool changes. Only update what the farmer is holding and any explicit world_append additions."
+      ],
+      "initial_inventory": ["sickle", "canteen", "torch"],
+      "initial_health": 100,
+      "triggers": [
+        {
+          "hotkey": "0",
+          "prompt": "the farmer swings the sickle and cuts down a swath of wheat, leaving fresh stubble",
+          "cycle": true,
+          "question": "Has the wheat been freshly cut down to stubble where the farmer is standing?",
+          "effects": {
+            "score_delta": 1,
+            "world_append": "A patch of wheat at the farmer's feet is freshly cut down to golden stubble, severed stalks lying in piles.",
+            "add_fact": "Cut wheat lies in neat piles along the rows the farmer has worked."
+          },
+          "cooldown_s": 6.0
+        },
+        {
+          "hotkey": "W",
+          "prompt": "the same farmer puts down the sickle and now holds a bolt-action rifle in its place; do not duplicate the farmer or change their clothing or face; the wheat field, sky, lighting, and camera stay exactly the same — only the object in their hands changes",
+          "cycle": true,
+          "question": "Has the farmer just equipped a rifle?",
+          "effects": {
+            "inventory_remove": ["sickle"],
+            "inventory_add": ["rifle"],
+            "set_character": "A farmer in a loose linen shirt, brown trousers, and a straw hat, shouldering a bolt-action rifle in firing stance, eye to the iron sights."
+          },
+          "cooldown_s": 6.0
+        },
+        {
+          "hotkey": "A",
+          "prompt": "the same farmer now holds a flaming wooden torch raised overhead in one hand; do not duplicate the farmer or change their clothing or face; the wheat field, sky, lighting, and camera stay exactly the same — only swap what is in their hand to the torch",
+          "cycle": true,
+          "question": "Has the farmer just equipped a flaming torch?",
+          "effects": {
+            "set_character": "A farmer in a loose linen shirt, brown trousers, and a straw hat, holding a flaming wooden torch raised overhead in one hand, ember sparks drifting."
+          },
+          "cooldown_s": 6.0
+        },
+        {
+          "hotkey": "S",
+          "prompt": "the same farmer now holds a battered metal canteen up to their lips and drinks; do not duplicate the farmer or change their clothing or face; the wheat field, sky, lighting, and camera stay exactly the same — only swap what is in their hands to the canteen",
+          "cycle": true,
+          "question": "Is the farmer drinking from a metal water canteen held up to their mouth?",
+          "effects": {
+            "reset_drink_timer": true,
+            "set_character": "A farmer in a loose linen shirt, brown trousers, and a straw hat, holding a battered metal canteen up to their lips and drinking, head tilted slightly back."
+          },
+          "cooldown_s": 6.0
+        },
+        {
+          "hotkey": "D",
+          "cycle": true,
+          "prompt": "the same farmer slings the rifle across their back on a leather strap so their hands are free at their sides; do not duplicate the farmer or change their clothing or face; the wheat field, sky, lighting, and camera stay exactly the same — only the object the farmer is holding moves to their back",
+          "question": "Has the farmer slung the rifle across their back so their hands are free?",
+          "effects": {
+            "set_character": "A farmer in a loose linen shirt, brown trousers, and a straw hat, rifle slung across the back on a leather strap, both hands free and relaxed at the sides."
+          },
+          "cooldown_s": 6.0
+        },
+        {
+          "hotkey": "Space",
+          "cycle": true,
+          "prompt": "the torch ignites the dry wheat and fire begins to spread",
+          "question": "Has fire begun spreading through the wheat?",
+          "effects": {
+            "flags": {"fire_spreading": true},
+            "world_append": "Fire is spreading in a curved front near the farmer, dark smoke rising and bending east with the wind.",
+            "set_dynamics": "Third-person side-on camera at chest height, midday sun overhead, light wind moving the wheat, fire glow casting amber rim light on the farmer."
+          },
+          "cooldown_s": 10.0
+        }
+      ]
+    }
+  ]
+}

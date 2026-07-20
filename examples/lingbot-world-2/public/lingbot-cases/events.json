@@ -1,0 +1,27 @@
+[
+  {
+    "at": 0.2,
+    "label": "CUT CORN",
+    "prompt": "Style: Cartoony non-photorealistic cartoon look, matching the cartoony style of the first frame. The farmer swings the curved iron sickle and cuts down a swath of corn stalks, leaving fresh stubble where the stalks fall. Same farmer, same corn field, third-person side-on camera."
+  },
+  {
+    "at": 0.4,
+    "label": "SHOOT RIFLE",
+    "prompt": "Style: Cartoony non-photorealistic cartoon look, matching the cartoony style of the first frame. The farmer puts down the sickle, raises a bolt-action rifle to their shoulder and fires it across the green corn field, a bright muzzle flash and puff of smoke bursting from the barrel as the rifle recoils. Do not duplicate the farmer or change the field; same third-person side-on camera."
+  },
+  {
+    "at": 0.55,
+    "label": "DROP RIFLE",
+    "prompt": "Style: Cartoony non-photorealistic cartoon look, matching the cartoony style of the first frame. The farmer lets go of the rifle and it drops and falls straight down to the ground, landing in the dirt at the farmer's feet where it lies on the ground, the farmer now standing empty-handed in the green corn field. Same farmer, same field, third-person side-on camera."
+  },
+  {
+    "at": 0.68,
+    "label": "TORCH",
+    "prompt": "Style: Cartoony non-photorealistic cartoon look, matching the cartoony style of the first frame. The farmer reaches down and picks up a flaming wooden torch from the ground, gripping it firmly in one hand and raising it up, then lowers it to the dry corn stalks setting them alight. No rifle is present anymore. Standing in the green corn field; same third-person side-on camera."
+  },
+  {
+    "at": 0.85,
+    "label": "FIRE SPREADS",
+    "prompt": "Style: Cartoony non-photorealistic cartoon look, matching the cartoony style of the first frame. The fire burns the corn, flames consuming and charring the corn stalks across the whole field, the rows of corn catching fire and burning down to blackened stubble, smoke billowing up around the farmer. Same third-person side-on camera."
+  }
+]

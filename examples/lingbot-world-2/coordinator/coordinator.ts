@@ -268,7 +268,7 @@ function gameFacts(): Record<string, unknown> {
 // Paced by COORDINATOR_RULE_COOLDOWN. ON by default (COORDINATOR_RULES=0 to disable);
 // still only fires when director mode is ai/both — dormant in the default human mode.
 const RULES_ENABLED = process.env.COORDINATOR_RULES !== "0";
-const RULE_COOLDOWN = Number(process.env.COORDINATOR_RULE_COOLDOWN ?? 6); // min chunks between fires
+const RULE_COOLDOWN = Number(process.env.COORDINATOR_RULE_COOLDOWN ?? 12); // min chunks between fires (doubled to let the scene breathe)
 const RULE_WARMUP = 4; // ungated events wait this many chunks so the scene settles first
 let rulesEngine: Engine | null = null;
 let lastRuleFireChunk = -1e9;

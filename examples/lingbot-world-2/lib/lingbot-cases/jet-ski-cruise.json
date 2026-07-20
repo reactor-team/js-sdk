@@ -175,7 +175,7 @@
       {
         "name": "Fuel Runs Low",
         "actor": "director",
-        "requires": { "minChunks": 40 },
+        "requires": { "minChunks": 80 },
         "detail": "The jet ski's engine begins to strain and sputter as the fuel runs low — the motor coughing and losing power far out on the open water, well away from the safe shallows, the craft labouring on across the swell as the tank drops toward empty. EXACTLY ONE rider on EXACTLY ONE jet ski — a single lone rider, no second jet ski, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": -40
       },
@@ -195,7 +195,7 @@
         "baseVersion": "empty",
         "cameraVersion": "empty",
         "movementVersion": "empty",
-        "requires": { "minChunks": 160, "minHealth": 1, "notFired": ["Thrown from the Jet Ski"] },
+        "requires": { "minChunks": 320, "minHealth": 1, "notFired": ["Thrown from the Jet Ski"] },
         "detail": "The sun sinks low toward the horizon and the sky blazes into deep orange, gold and pink as the rider cruises on across the calm, glittering water, the jet ski gliding smoothly over the gentle golden swell straight into the sunset, its wake shining in the warm light as the day's ride winds down and the sea spreads out ahead all molten copper and rose. EXACTLY ONE rider on EXACTLY ONE jet ski — a single lone rider, no second jet ski, no duplicate and no clone. The jet ski ALWAYS stays up on top of the water, above the surface of the waves at all times — it never sinks, dips below, submerges or goes underwater, always riding on top of the water.",
         "health": 0
       },
@@ -205,7 +205,7 @@
         "baseVersion": "empty",
         "cameraVersion": "empty",
         "movementVersion": "empty",
-        "requires": { "minChunks": 160, "maxHealth": 0 },
+        "requires": { "minChunks": 320, "maxHealth": 0 },
         "detail": "The jet ski's engine sputters, coughs and dies as the last of the fuel runs dry, and the craft coasts to a slow stop far out on the open water — drifting silently on the swell with no power, the rider stranded alone on the still, empty sea as the wake fades away to nothing around the dead hull. EXACTLY ONE rider on EXACTLY ONE jet ski — a single lone rider, no second jet ski, no duplicate and no clone.",
         "health": 0
       }

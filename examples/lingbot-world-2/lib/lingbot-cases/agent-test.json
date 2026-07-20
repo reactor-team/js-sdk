@@ -1,0 +1,79 @@
+{
+  "id": "agent-test",
+  "name": "Agent Test",
+  "description": "Game-Cartridge fixture (farmer field) — the equipped-tool + world-consequence sandbox from the Roblox world-model post. ALL tools are present in the scene from the start (sickle in hand, rifle + torch on the ground); actions are NOT chained — do any of them in any order. Keys: 1 Cut Corn (sickle), 2 Shoot Rifle, 3 Drop Rifle, 4 Pick Up Torch (sets stalks alight); Space jump, C crouch. Director: Fire Spreads (world burns down). Exercises decomposed World/Character/Actions/Dynamics conditioning, player-vs-director split, prompt invariance, and VLM visual triggers.",
+  "objective": {
+    "summary": "Work the field however you like, then burn it — cut the corn, cycle through the tools, put a torch to the dry stalks, and let the fire spread until the whole field is scorched to blackened stubble.",
+    "director": "Escalate toward destruction and build on what has happened: once the field is dry and the tools are out, spread the fire across the whole field until the corn is burned to blackened stubble. Do not repeat the same event back-to-back.",
+    "success": [
+      "the corn field is burned down to blackened stubble"
+    ],
+    "failure": [
+      "time runs out with the field still green and un-burned"
+    ],
+    "durationChunks": 120,
+    "reward": "Fire Spreads"
+  },
+  "image": {
+    "label": "Agent Test",
+    "src": "/lingbot-cases/farmer.png"
+  },
+  "scene": {
+    "base": {
+      "default": "Cartoony non-photorealistic cartoon look. A sunlit field of tall green-and-gold corn stalks under a warm hazy sky, a bare dirt path worn through the rows. The world contains EXACTLY ONE dense wall of tall corn on the left at a fixed position AND EXACTLY ONE dense wall of tall corn on the right at a fixed position AND EXACTLY ONE line of distant trees along the horizon straight ahead at a fixed position AND EXACTLY ONE bolt-action rifle lying on the bare dirt of the path at a fixed position AND EXACTLY ONE flaming wooden torch stuck upright in the ground at a fixed position. All three tools are present in the field from the start — the sickle in the farmer's hands, the rifle and the torch on the ground — no tool appears out of nowhere. Dust drifting in the warm light, stalks swaying gently, rich saturated cartoon colours, soft painterly shading.",
+      "burned": "Cartoony non-photorealistic cartoon look. The same corn field after the fire — the rows burned down to blackened, charred stubble and bare scorched dirt, thin grey smoke drifting up across the field and hanging in the hazy air. The world still contains EXACTLY ONE burned-out stretch of field on the left at a fixed position AND EXACTLY ONE burned-out stretch of field on the right at a fixed position AND EXACTLY ONE line of distant trees along the horizon straight ahead at a fixed position, dim behind the smoke. Ash drifting, deep char, muted smoky cartoon colours."
+    },
+    "player": {
+      "default": "A farmer seen from behind in a wide-brimmed straw hat, a white long-sleeved shirt and a dark waistcoat with suspenders, dark trousers and boots, holding EXACTLY ONE curved iron sickle in both hands, standing among the corn. EXACTLY ONE farmer in the entire field — a single lone figure, the only person anywhere in the scene, no second farmer, no other people, no duplicate and no clone of the farmer."
+    },
+    "camera": {
+      "default": {
+        "static": "Third-person view from behind the farmer, the figure locked at the exact centre of the frame at constant size and distance, back to the camera — never a first-person view. Neither the farmer nor the camera moves on its own; arrow-key look-input is the only source of camera motion, arcing the camera around the stationary, centred farmer only while held.",
+        "dynamic": "Strict third-person rear view, the farmer locked at the exact centre of the frame as the camera holds a fixed position behind them and tracks them forward down the dirt path through the corn — never a first-person view. The camera does not rotate around the farmer; look-input becomes the farmer changing heading."
+      }
+    },
+    "movement": {
+      "default": {
+        "static": "The farmer stands still among the corn, the sickle in hand, the tall stalks swaying gently around them and dust drifting in the warm light.",
+        "dynamic": "The farmer strides forward down the worn dirt path between the rows of corn, boots kicking up dust, the stalks brushing past on either side as they move deeper into the field."
+      }
+    },
+    "events": [
+      {
+        "name": "Cut Corn",
+        "actor": "player",
+        "detail": "The farmer swings the curved iron sickle low and cuts down a swath of corn stalks, the cut stalks toppling and falling away to leave fresh pale stubble and bare dirt where they stood — the cut stalks now GONE, only low stubble left behind. EXACTLY ONE farmer holding EXACTLY ONE sickle — a single lone figure, no duplicate and no clone.",
+        "health": 0
+      },
+      {
+        "name": "Shoot Rifle",
+        "actor": "player",
+        "detail": "The farmer sets down the sickle, takes up the bolt-action rifle from the ground and raises it to their shoulder, then fires it across the corn field — a bright muzzle flash and a puff of white smoke bursting from the barrel as the rifle kicks back against their shoulder. EXACTLY ONE farmer holding EXACTLY ONE rifle — a single lone figure, no duplicate and no clone.",
+        "health": 0
+      },
+      {
+        "name": "Drop Rifle",
+        "actor": "player",
+        "detail": "The farmer lets go of the rifle and it drops straight down to the ground, landing in the dirt at their feet where it lies still; the farmer now stands empty-handed in the corn field with nothing in their hands. EXACTLY ONE farmer — a single lone figure, no duplicate and no clone.",
+        "health": 0
+      },
+      {
+        "name": "Pick Up Torch",
+        "actor": "player",
+        "detail": "The farmer takes up the flaming wooden torch, gripping it firmly and raising it high, then lowers the flame to the dry corn stalks and sets them alight, small flames catching and climbing the nearest stalks. EXACTLY ONE farmer holding EXACTLY ONE torch — a single lone figure, no duplicate and no clone.",
+        "health": 0
+      },
+      {
+        "name": "Fire Spreads",
+        "actor": "director",
+        "requires": { "minChunks": 30 },
+        "baseVersion": "burned",
+        "detail": "The fire spreads through the corn — flames consuming and charring the stalks across the whole field as the rows catch and burn down to blackened stubble, thick grey smoke billowing up around the farmer and the green field left scorched and black. From then on the field STAYS burned: blackened, charred stubble and drifting smoke, the standing corn GONE. The farmer stays EXACTLY ONE in frame, unchanged in pose and appearance; only the world around them changes.",
+        "win": true
+      }
+    ],
+    "jumpPrompt": "The farmer leaps up off the ground, both boots lifting clear of the dirt and rising into the air for a moment before dropping back down and landing among the corn, dust puffing up around their feet.",
+    "crouchPrompt": "The camera lowers toward the ground as the farmer crouches down low among the stalks, bending the knees and ducking the head into a compact, hunched stance; the viewpoint sinks smoothly to a low, near-ground vantage and settles there, close to the dirt.",
+    "standPrompt": "The farmer straightens back up out of the crouch, rising to full standing height as the camera lifts smoothly back to its normal over-the-shoulder vantage."
+  }
+}
