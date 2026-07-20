@@ -8,7 +8,10 @@
   },
   "scene": {
     "base": {
-      "default": "A cowboy in a wide-brimmed hat, chaps and boots, seen from behind, gripping the rope one-handed on the back of a massive bucking bull in a dusty floodlit rodeo arena. The world contains EXACTLY ONE tall metal chute gate on the left at a fixed position AND EXACTLY ONE packed grandstand of spectators on the right at a fixed position AND EXACTLY ONE blue barrel on the churned dirt straight ahead at a fixed position. Kicked-up dust hanging in the air, a scuffed dirt floor, advertising banners along the arena fence, bright stadium floodlights against a deep evening sky. Sunset-lit dusty arena, photorealistic, cinematic depth of field."
+      "default": "A dusty floodlit rodeo arena. The world contains EXACTLY ONE tall metal chute gate on the left at a fixed position AND EXACTLY ONE packed grandstand of spectators on the right at a fixed position AND EXACTLY ONE blue barrel on the churned dirt straight ahead at a fixed position. Kicked-up dust hanging in the air, a scuffed dirt floor, advertising banners along the arena fence, bright stadium floodlights against a deep evening sky. Sunset-lit dusty arena, photorealistic, cinematic depth of field."
+    },
+    "player": {
+      "default": "A cowboy in a wide-brimmed hat, chaps and boots, seen from behind, gripping the rope one-handed on the back of a massive bucking bull. EXACTLY ONE cowboy on EXACTLY ONE bull — a single rider, no duplicate and no clone."
     },
     "camera": {
       "default": {

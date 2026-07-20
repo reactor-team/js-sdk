@@ -9,7 +9,11 @@
   },
   "scene": {
     "base": {
-      "default": "A lone figure gripping a large futuristic heavy-duty portable teleportation device in both hands — a portal gun with glowing blue nozzles, intricate mechanical detailing, brushed-metal plating and an aged, worn industrial look. A single rotating, swirling portal is projected ahead from the device's nozzle: a shimmering liquid vortex ringed with drifting particles and rippling distortion, another world faintly visible through its centre. The world contains EXACTLY ONE swirling portal directly ahead at a fixed position AND EXACTLY ONE tall support pillar on the left at a fixed position AND EXACTLY ONE stack of industrial crates on the right at a fixed position. A dim, fog-filled chamber of dark metal walls and scattered machinery, thick volumetric haze catching shafts of light. Dramatic cinematic lighting, ray-traced reflections on wet metal, deep depth of field, Unreal Engine 5 rendering, hyper-realistic, 8K.",
+      "default": "A single rotating, swirling portal projected ahead: a shimmering liquid vortex ringed with drifting particles and rippling distortion, another world faintly visible through its centre. The world contains EXACTLY ONE swirling portal directly ahead at a fixed position AND EXACTLY ONE tall support pillar on the left at a fixed position AND EXACTLY ONE stack of industrial crates on the right at a fixed position. A dim, fog-filled chamber of dark metal walls and scattered machinery, thick volumetric haze catching shafts of light. Dramatic cinematic lighting, ray-traced reflections on wet metal, deep depth of field, Unreal Engine 5 rendering, hyper-realistic, 8K.",
+      "empty": ""
+    },
+    "player": {
+      "default": "A lone figure gripping a large futuristic heavy-duty portable teleportation device in both hands — a portal gun with glowing blue nozzles, intricate mechanical detailing, brushed-metal plating and an aged, worn industrial look. EXACTLY ONE figure holding EXACTLY ONE portal gun — a single lone person, no duplicate and no clone.",
       "empty": ""
     },
     "camera": {

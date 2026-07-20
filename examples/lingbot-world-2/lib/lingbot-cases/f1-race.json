@@ -8,7 +8,10 @@
   },
   "scene": {
     "base": {
-      "default": "First-person onboard cockpit view from inside a Formula 1 race car — the driver's gloved hands gripping the steering wheel with its lit digital dash display at the centre foreground, looking out over the nose and the halo through the windscreen down a wide smooth asphalt racing circuit ahead. The world contains EXACTLY ONE steering wheel with its glowing dash display held in the driver's gloved hands at the centre of the frame at a fixed position AND EXACTLY ONE start-finish gantry spanning the track ahead at a fixed position AND EXACTLY ONE grandstand on the left at a fixed position. Crisp painted red-and-white kerbs edge the track, gravel run-off beyond, banner-lined fences and distant hills under a clear blue sky. Bright sunny racing-game look, motion-blurred asphalt rushing beneath the nose, photorealistic."
+      "default": "First-person onboard cockpit view from inside a Formula 1 race car, looking out over the nose and the halo through the windscreen down a wide smooth asphalt racing circuit ahead. The world contains EXACTLY ONE start-finish gantry spanning the track ahead at a fixed position AND EXACTLY ONE grandstand on the left at a fixed position. Crisp painted red-and-white kerbs edge the track, gravel run-off beyond, banner-lined fences and distant hills under a clear blue sky. Bright sunny racing-game look, motion-blurred asphalt rushing beneath the nose, photorealistic."
+    },
+    "player": {
+      "default": "The driver's gloved hands gripping the steering wheel with its lit digital dash display at the centre foreground. EXACTLY ONE steering wheel with its glowing dash display held in the driver's gloved hands at the centre of the frame at a fixed position."
     },
     "camera": {
       "default": {
@@ -64,7 +67,12 @@
       {
         "name": "Rain Sweeps In",
         "actor": "director",
-        "requires": { "notFired": ["Sun Glare", "Clear Dry Track"] },
+        "requires": {
+          "notFired": [
+            "Sun Glare",
+            "Clear Dry Track"
+          ]
+        },
         "detail": "Dark storm clouds roll over and rain sweeps across the windscreen — droplets streaking and beading over the glass and halo, the track ahead darkening and glistening wet, spray kicking up off the nose; the rain stays, slicking the view ahead. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
         "count": 1
       },
@@ -84,14 +92,22 @@
       {
         "actor": "director",
         "name": "Puddle on the Track",
-        "requires": { "fired": ["Rain Sweeps In"] },
+        "requires": {
+          "fired": [
+            "Rain Sweeps In"
+          ]
+        },
         "detail": "A wide sheet of standing water lies across the track ahead in the windscreen; the view rushes toward it and blasts through, a wall of spray exploding up over the halo and glass, the cockpit hydroplaning for a moment before the track grips again. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
         "health": -5
       },
       {
         "actor": "director",
         "name": "Oil Slick Ahead",
-        "requires": { "fired": ["Rain Sweeps In"] },
+        "requires": {
+          "fired": [
+            "Rain Sweeps In"
+          ]
+        },
         "detail": "A dark oil slick spreads across the track ahead in the windscreen; the view hits it and slews sideways, the barriers swinging across the glass as the rear slides, before it snaps back straight down the track. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
         "health": -8
       },
@@ -104,7 +120,12 @@
       {
         "actor": "director",
         "name": "Sun Glare",
-        "requires": { "notFired": ["Rain Sweeps In", "Clear Dry Track"] },
+        "requires": {
+          "notFired": [
+            "Rain Sweeps In",
+            "Clear Dry Track"
+          ]
+        },
         "detail": "The low sun drops to the end of the straight and blazes straight into the windscreen — a blinding wash of golden glare flooding the cockpit and washing out the track ahead, lens flare streaking across the halo and glass, before the view crests into shade. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
         "health": -5,
         "count": 1
@@ -112,7 +133,12 @@
       {
         "name": "Clear Dry Track",
         "actor": "director",
-        "requires": { "notFired": ["Rain Sweeps In", "Sun Glare"] },
+        "requires": {
+          "notFired": [
+            "Rain Sweeps In",
+            "Sun Glare"
+          ]
+        },
         "detail": "The clouds break and the circuit runs clear and dry ahead in the windscreen — bright even daylight over dry grey tarmac, the racing line sharp and grippy, no rain on the glass and no water on the surface, just clean fast conditions as the view races on down the track. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
         "count": 1
       },
@@ -122,7 +148,10 @@
         "baseVersion": "empty",
         "cameraVersion": "empty",
         "movementVersion": "empty",
-        "requires": { "minChunks": 160, "minHealth": 1 },
+        "requires": {
+          "minChunks": 160,
+          "minHealth": 1
+        },
         "win": true,
         "detail": "The car sweeps across the start-finish line to take the chequered flag — a trackside marshal waving the black-and-white chequered flag high over the gantry as the car flashes past the line and eases off into a victory slowdown down the pit straight, the packed grandstands rising to their feet. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
         "health": 0
@@ -133,7 +162,9 @@
         "baseVersion": "empty",
         "cameraVersion": "empty",
         "movementVersion": "empty",
-        "requires": { "maxHealth": 0 },
+        "requires": {
+          "maxHealth": 0
+        },
         "detail": "The car snaps out of control and spears off the track into the barriers — the nose crumpling and carbon debris flying as it slams into the tyre wall and grinds to a dead stop, steam rising from the wreck and the race over for the driver as marshals wave yellow flags across the track. EXACTLY ONE of each thing shown — a single car on a single track and only one of any object described, no second car, no duplicate and no clone.",
         "health": 0
       }

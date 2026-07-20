@@ -8,8 +8,13 @@
   },
   "scene": {
     "base": {
-      "default": "A lone uniformed police officer in dark blue tactical gear, his hands completely empty and open, resting at his sides and holding nothing, empty-handed by default with NO pistol, gun, rifle or weapon of any kind in his hands, his service pistol kept holstered at his hip and never drawn or raised unless a firing action is triggered, in a narrow urban alley at night. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE glowing exit door at the far end of the alley straight ahead at a fixed position, a heavy door set into the wall at the very end of the lane, its edges outlined in bright glowing light that spills out across the wet cobblestones and marks the way out AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles on the wet asphalt, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces.",
+      "default": "A narrow urban alley at night. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE glowing exit door at the far end of the alley straight ahead at a fixed position, a heavy door set into the wall at the very end of the lane, its edges outlined in bright glowing light that spills out across the wet cobblestones and marks the way out AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles on the wet asphalt, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces.",
       "downed": "A narrow urban alley at night where a uniformed police officer in dark blue tactical gear now lies COLLAPSED, FACE-DOWN and MOTIONLESS on the wet asphalt, sprawled in a spreading puddle, his empty hands limp at his sides — he does not get up. The world contains EXACTLY ONE tall street lamp on the right at a fixed position AND EXACTLY ONE glowing neon shop sign on the left at a fixed position AND EXACTLY ONE glowing exit door at the far end of the alley straight ahead at a fixed position, a heavy door set into the wall at the very end of the lane, its edges outlined in bright glowing light that spills out across the wet cobblestones and marks the way out AND EXACTLY ONE green dumpster on the right at a fixed position. Dark brick walls, heavy rain falling, shiny puddles, yellow police tape, blue and red ambient light. Cinematic noir night, reflective wet surfaces, rain pooling around the still body.",
+      "empty": ""
+    },
+    "player": {
+      "default": "A lone uniformed police officer in dark blue tactical gear, his hands completely empty and open, resting at his sides and holding nothing, empty-handed by default with NO pistol, gun, rifle or weapon of any kind in his hands, his service pistol kept holstered at his hip and never drawn or raised unless a firing action is triggered. EXACTLY ONE officer — a single lone officer, no duplicate and no clone.",
+      "downed": "",
       "empty": ""
     },
     "camera": {
@@ -123,7 +128,9 @@
       {
         "name": "Roof on Fire",
         "actor": "director",
-        "requires": { "minChunks": 20 },
+        "requires": {
+          "minChunks": 20
+        },
         "detail": "High above the alley the rooftop of one of the brick buildings catches fire — orange flames erupt along the roofline and climb into the rainy night sky, thick black smoke rolling out and an angry orange glow flickering down the wet brick walls and dancing across the puddles below, embers drifting down through the rain. The blaze stays, burning on the rooftop above. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The uniformed police officer himself stays the focus of the frame, unchanged in pose, position and appearance throughout — only the world around him changes.",
         "health": -10,
         "count": 1
@@ -144,7 +151,14 @@
       {
         "name": "Exit Door Appears",
         "actor": "director",
-        "requires": { "fired": ["Gunman on the Fire Escape"], "notFired": ["Gunman Falls"] },
+        "requires": {
+          "fired": [
+            "Gunman on the Fire Escape"
+          ],
+          "notFired": [
+            "Gunman Falls"
+          ]
+        },
         "detail": "A shop doorway in the brick building along the side of the lane swings wide open and floods with bright warm golden light — a glowing rectangle of light opening up in the lane-side wall partway down the alley, set into the side of the building, its glow spilling out across the wet cobblestones and reflecting in the puddles, an unmistakable lit exit appearing on the building at the side of the lane where there was only shadow before, and it stays open and glowing. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it. The uniformed police officer himself stays the focus of the frame, unchanged in pose, position and appearance throughout — only the world around him changes.",
         "health": 0
       },
@@ -171,7 +185,10 @@
         "baseVersion": "empty",
         "cameraVersion": "empty",
         "movementVersion": "empty",
-        "requires": { "minChunks": 160, "minHealth": 1 },
+        "requires": {
+          "minChunks": 160,
+          "minHealth": 1
+        },
         "chance": 0.2,
         "detail": "Over-the-shoulder third-person view from behind the uniformed police officer in dark blue tactical gear as a single police squad car rolls into the alley with its red-and-blue roof lights flashing through the rain and pulls up beside him; he strides to the driver door, pulls it open and climbs in out of the downpour, the door swinging shut behind him, and the squad car pulls away down the rain-slicked street, its lights receding into the night as the dark alley falls away out of frame. Cinematic noir, the warm glow of the dashboard against the cold blue night. EXACTLY ONE police officer and EXACTLY ONE police car — a single officer, a single squad car, no second officer, no second car, no duplicate and no clone.",
         "health": 0

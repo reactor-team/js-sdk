@@ -8,7 +8,10 @@
   },
   "scene": {
     "base": {
-      "default": "A warrior in green armor and a hood, mounted on a brown horse and holding a large curved blade, on a muddy battlefield strewn with scattered debris and a distant burning campfire. Somber, war-torn atmosphere under a heavy grey sky."
+      "default": "A muddy battlefield strewn with scattered debris and a distant burning campfire. Somber, war-torn atmosphere under a heavy grey sky."
+    },
+    "player": {
+      "default": "A warrior in green armor and a hood, mounted on a brown horse and holding a large curved blade. EXACTLY ONE warrior on EXACTLY ONE horse — a single mounted rider, no duplicate and no clone."
     },
     "camera": {
       "default": {

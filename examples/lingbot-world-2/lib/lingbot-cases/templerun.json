@@ -12,7 +12,10 @@
   },
   "scene": {
     "base": {
-      "default": "A lone explorer seen from behind — a young adventurer in a torn off-white shirt, brown trousers and boots, arms out for balance — on a narrow ancient stone temple path of mossy cracked flagstones through misty jungle ruins. NO monster and NO creature is present — the path behind him is empty ruins, with nothing chasing him yet. The world contains EXACTLY ONE explorer at the centre of the frame at a fixed position AND EXACTLY ONE row of carved stone guardian statues lining the path ahead at a fixed position. Overgrown jungle-temple ruins draped in vines and moss, crumbling walls and carved idols, deep water far below on either side of the narrow bridge, a trail of glowing golden diamond coins floating down the centre of the path, shafts of green sunlight through the canopy. Temple Run video-game look, vivid saturated colours, third-person over-the-shoulder running-game framing, photorealistic. EXACTLY ONE explorer, a single lone runner, no duplicate and no clone, and NO monster until one is introduced."
+      "default": "A narrow ancient stone temple path of mossy cracked flagstones through misty jungle ruins. NO monster and NO creature is present — the path behind is empty ruins, with nothing chasing yet. The world contains EXACTLY ONE row of carved stone guardian statues lining the path ahead at a fixed position. Overgrown jungle-temple ruins draped in vines and moss, crumbling walls and carved idols, deep water far below on either side of the narrow bridge, a trail of glowing golden diamond coins floating down the centre of the path, shafts of green sunlight through the canopy. Temple Run video-game look, vivid saturated colours, third-person over-the-shoulder running-game framing, photorealistic. NO monster until one is introduced."
+    },
+    "player": {
+      "default": "A lone explorer seen from behind — a young adventurer in a torn off-white shirt, brown trousers and boots, arms out for balance. EXACTLY ONE explorer — a single lone runner, no duplicate and no clone."
     },
     "camera": {
       "default": {

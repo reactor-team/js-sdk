@@ -8,8 +8,12 @@
   },
   "scene": {
     "base": {
-      "default": "First-person point of view holding a blue and red toy water blaster gripped in a bare hand at the lower right of the frame, aiming out across a colourful floating inflatable aqua park on a calm green quarry lake under bright summer sun. The world contains EXACTLY ONE blue and red water blaster held at the lower right at a fixed position AND EXACTLY ONE large ring-shaped blue inflatable obstacle platform straight ahead at a fixed position AND EXACTLY ONE person in swimwear standing on the floats ahead at a fixed position AND EXACTLY ONE rocky tree-lined bank across the water in the background at a fixed position. Interconnected inflatable platforms in blue, green and yellow float on the dark green water, swimmers in life vests and swimsuits scattered across them, sunlight glinting off the ripples. Photorealistic first-person action-cam look, saturated colours, bright midday light.",
+      "default": "First-person point of view aiming out across a colourful floating inflatable aqua park on a calm green quarry lake under bright summer sun. The world contains EXACTLY ONE large ring-shaped blue inflatable obstacle platform straight ahead at a fixed position AND EXACTLY ONE person in swimwear standing on the floats ahead at a fixed position AND EXACTLY ONE rocky tree-lined bank across the water in the background at a fixed position. Interconnected inflatable platforms in blue, green and yellow float on the dark green water, swimmers in life vests and swimsuits scattered across them, sunlight glinting off the ripples. Photorealistic first-person action-cam look, saturated colours, bright midday light.",
       "downed": "First-person point of view plunged down into the green quarry water after being knocked off the floats — the view is half-submerged at the waterline, water sloshing across the lens, bubbles and ripples all around, the colourful inflatable platforms bobbing above at the surface. The player is in the water, no longer up on the floats. Photorealistic first-person action-cam look."
+    },
+    "player": {
+      "default": "A bare hand at the lower right of the frame gripping a blue and red toy water blaster. EXACTLY ONE water blaster held at the lower right at a fixed position.",
+      "downed": ""
     },
     "camera": {
       "default": {

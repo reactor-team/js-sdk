@@ -9,7 +9,10 @@
   },
   "scene": {
     "base": {
-      "default": "A man in a sharp black business suit, seen from behind, holding a dark leather briefcase in his right hand, standing on a wide sunny city boulevard at midday. The world contains EXACTLY ONE tall roadside billboard on the left at a fixed position AND EXACTLY ONE tall palm tree on the right at a fixed position AND EXACTLY ONE traffic light straight ahead at a fixed position. Low pale storefronts line both sides of a wide empty asphalt road, cracked pale-grey sidewalks, distant hazy hills and a faint city skyline under a bright clear blue sky. Sunny GTA-style open-world, warm midday daylight, crisp hard shadows, photorealistic."
+      "default": "A wide sunny city boulevard at midday. The world contains EXACTLY ONE tall roadside billboard on the left at a fixed position AND EXACTLY ONE tall palm tree on the right at a fixed position AND EXACTLY ONE traffic light straight ahead at a fixed position. Low pale storefronts line both sides of a wide empty asphalt road, cracked pale-grey sidewalks, distant hazy hills and a faint city skyline under a bright clear blue sky. Sunny GTA-style open-world, warm midday daylight, crisp hard shadows, photorealistic."
+    },
+    "player": {
+      "default": "A man in a sharp black business suit, seen from behind, holding a dark leather briefcase in his right hand. EXACTLY ONE man — a single lone person, no duplicate and no clone."
     },
     "camera": {
       "default": {

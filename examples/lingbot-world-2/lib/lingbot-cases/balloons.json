@@ -9,7 +9,11 @@
   },
   "scene": {
     "base": {
-      "default": "A lone figure in dark clothing standing in a vast grey concrete courtyard scattered with large white translucent spherical balloons that drift and bob at head height. The world contains EXACTLY ONE long low concrete building with square dark openings on the left at a fixed position AND EXACTLY ONE dense cluster of white balloons on the right at a fixed position AND EXACTLY ONE low concrete wall straight ahead at a fixed position AND EXACTLY ONE single large balloon drifting high overhead at a fixed position. Overcast grey sky with heavy soft clouds, wet reflective concrete ground, diffuse muted daylight, moody cinematic tone, desaturated cool colors, high detail.",
+      "default": "A vast grey concrete courtyard scattered with large white translucent spherical balloons that drift and bob at head height. The world contains EXACTLY ONE long low concrete building with square dark openings on the left at a fixed position AND EXACTLY ONE dense cluster of white balloons on the right at a fixed position AND EXACTLY ONE low concrete wall straight ahead at a fixed position AND EXACTLY ONE single large balloon drifting high overhead at a fixed position. Overcast grey sky with heavy soft clouds, wet reflective concrete ground, diffuse muted daylight, moody cinematic tone, desaturated cool colors, high detail.",
+      "empty": ""
+    },
+    "player": {
+      "default": "A lone figure in dark clothing standing in the courtyard. EXACTLY ONE figure — a single lone person, no duplicate and no clone.",
       "empty": ""
     },
     "camera": {

@@ -8,7 +8,10 @@
   },
   "scene": {
     "base": {
-      "default": "A rugged industrial spaceship with a grey armored hull, yellow-and-black hazard markings and glowing blue engine thrusters, flying through a dense field of jagged pale-grey rock asteroids in deep space. The world contains EXACTLY ONE large ringed planet in the background at a fixed position AND EXACTLY ONE massive spire-shaped asteroid straight ahead at a fixed position AND EXACTLY ONE cluster of tumbling boulders on the left at a fixed position AND EXACTLY ONE distant bright star on the right at a fixed position. Cold blue starlight, drifting rock dust, deep black star-flecked sky, cinematic sci-fi space, sharp high detail."
+      "default": "A dense field of jagged pale-grey rock asteroids in deep space. The world contains EXACTLY ONE large ringed planet in the background at a fixed position AND EXACTLY ONE massive spire-shaped asteroid straight ahead at a fixed position AND EXACTLY ONE cluster of tumbling boulders on the left at a fixed position AND EXACTLY ONE distant bright star on the right at a fixed position. Cold blue starlight, drifting rock dust, deep black star-flecked sky, cinematic sci-fi space, sharp high detail."
+    },
+    "player": {
+      "default": "A rugged industrial spaceship with a grey armored hull, yellow-and-black hazard markings and glowing blue engine thrusters, flying through the asteroid field. EXACTLY ONE spaceship — a single lone ship, no duplicate and no clone."
     },
     "camera": {
       "default": {
@@ -50,7 +53,9 @@
       {
         "name": "Deploy Shield",
         "actor": "player",
-        "requires": { "minChunks": 20 },
+        "requires": {
+          "minChunks": 20
+        },
         "detail": "A translucent hexagonal energy shield flickers to life and wraps around the ship in a glowing blue dome, rippling and sparking as bits of rock and dust glance off it, then holding steady around the hull. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
         "health": 15
       },
@@ -75,7 +80,9 @@
       {
         "name": "Land on Planet",
         "actor": "player",
-        "requires": { "minChunks": 50 },
+        "requires": {
+          "minChunks": 50
+        },
         "detail": "The ship descends toward a nearby planet, dropping through its upper atmosphere as the curved surface swells to fill the view, and settles down onto the planet's terrain, dust kicking up around the landing site as it touches down. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
         "health": 10
       },
@@ -88,7 +95,12 @@
       {
         "name": "Asteroid Storm",
         "actor": "director",
-        "requires": { "notFired": ["Solar Flare", "Comet Streaks By"] },
+        "requires": {
+          "notFired": [
+            "Solar Flare",
+            "Comet Streaks By"
+          ]
+        },
         "detail": "A dense surge of tumbling pale-grey asteroids sweeps in across the whole field, the rocks crowding thick and close and hurtling past the ship on every side as dust and debris fill the black space; the storm of rock keeps coming. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
         "health": -8,
         "count": 1
@@ -96,7 +108,12 @@
       {
         "name": "Solar Flare",
         "actor": "director",
-        "requires": { "notFired": ["Asteroid Storm", "Comet Streaks By"] },
+        "requires": {
+          "notFired": [
+            "Asteroid Storm",
+            "Comet Streaks By"
+          ]
+        },
         "detail": "The distant bright star on the right erupts in a blinding solar flare, a searing wave of white-gold light and radiation washing across the asteroid field and flooding the frame with harsh glare as the rocks flash bright and heat-haze ripples through space; the glare lingers. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
         "health": -5,
         "count": 1
@@ -104,7 +121,9 @@
       {
         "name": "Wormhole Opens",
         "actor": "director",
-        "requires": { "minChunks": 100 },
+        "requires": {
+          "minChunks": 100
+        },
         "chance": 0.06,
         "detail": "A swirling blue-violet wormhole tears open in the starfield straight ahead, a churning spiral vortex of glowing energy that warps the stars around its rim and pulls drifting dust and small rocks spiraling into its core, hanging open ahead. EXACTLY ONE wormhole in frame — one single vortex, no second wormhole, no duplicate and no clone of it. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
         "health": 0,
@@ -116,7 +135,13 @@
         "baseVersion": "empty",
         "cameraVersion": "empty",
         "movementVersion": "empty",
-        "requires": { "fired": ["Wormhole Opens"], "minChunks": 160, "minHealth": 1 },
+        "requires": {
+          "fired": [
+            "Wormhole Opens"
+          ],
+          "minChunks": 160,
+          "minHealth": 1
+        },
         "win": true,
         "detail": "The pilot banks the ship hard toward the swirling blue-violet wormhole and flies straight into its glowing core; the churning vortex swallows the ship in a rush of streaking light, and it bursts out the far side into a calm, unfamiliar new starfield — a fresh sweep of bright stars and drifting nebulae stretching away ahead, the asteroid field and all its dangers gone, left behind on the other side. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
         "health": 0
@@ -124,7 +149,12 @@
       {
         "name": "Comet Streaks By",
         "actor": "director",
-        "requires": { "notFired": ["Asteroid Storm", "Solar Flare"] },
+        "requires": {
+          "notFired": [
+            "Asteroid Storm",
+            "Solar Flare"
+          ]
+        },
         "detail": "A single brilliant comet blazes across the starfield, a bright icy nucleus trailing a long glowing blue-white tail that sweeps a luminous arc through the black sky behind the drifting asteroids, then carries on across the frame. EXACTLY ONE comet in frame — one single comet, no second comet, no duplicate and no clone of it. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
         "health": 0,
         "count": 1
@@ -144,7 +174,10 @@
       {
         "name": "Hull Breach",
         "actor": "director",
-        "requires": { "maxHealth": 20, "minChunks": 30 },
+        "requires": {
+          "maxHealth": 20,
+          "minChunks": 30
+        },
         "detail": "Warning klaxons blare and the cockpit floods with pulsing red alert light as a hull breach tears open along the ship's flank — sparks spray from ruptured panels, a plume of venting vapor streams out into the black space behind, and jagged scorch marks scar the scorched hull as the ship flies on wounded and trailing smoke. The main subject stays EXACTLY ONE in frame — a single main character, no second copy of the main subject, no duplicate and no clone of it.",
         "health": 0,
         "count": 1

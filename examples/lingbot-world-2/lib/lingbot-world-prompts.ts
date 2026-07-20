@@ -287,8 +287,11 @@ export function composePrompt(
   const activeMovement = mostRecentCompatible
     ? movementVersionOf(mostRecentCompatible)
     : DEFAULT_LAYER_VERSION;
+  // Player layer tracks the BASE version by default (world + subject move together),
+  // so an event with baseVersion:"empty"/"downed" gets player."empty"/"downed" —
+  // set those to "" to avoid re-describing the subject a variant base already carries.
   const activePlayer = mostRecentCompatible
-    ? playerVersionOf(mostRecentCompatible)
+    ? (mostRecentCompatible.playerVersion ?? activeBase)
     : DEFAULT_LAYER_VERSION;
 
   const base = resolveBase(scene, activeBase);

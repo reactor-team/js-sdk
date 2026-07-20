@@ -115,6 +115,7 @@ export function DirectorPanel({
   const [clause, setClause] = useState("");
   const [objective, setObjective] = useState<{ summary?: string; director?: string } | null>(null);
   const [showState, setShowState] = useState(false); // optional coordinator-state view
+  const [optionsOpen, setOptionsOpen] = useState(true); // fold the scene-event fire buttons (headline stays)
   const [coordFacts, setCoordFacts] = useState<
     { key: string; clause: string; weight: number; remaining: string }[]
   >([]);
@@ -361,8 +362,16 @@ export function DirectorPanel({
       {sceneEvents.length > 0 && (
         <>
           <div className="flex basis-full flex-wrap items-center gap-1 min-w-0">
-            <span className="mono-label">scene</span>
-            {sceneEvents.map((ev, i) => (
+            <button
+              type="button"
+              onClick={() => setOptionsOpen((v) => !v)}
+              className="mono-label hover:text-white/70 shrink-0"
+              title={optionsOpen ? "Collapse director options" : "Expand director options"}
+            >
+              {optionsOpen ? "▾" : "▸"} scene · {sceneEvents.length}
+            </button>
+            {optionsOpen &&
+              sceneEvents.map((ev, i) => (
               <button
                 key={ev.name}
                 // Only LOCKED events are disabled-greyed. In AI mode the human can't
