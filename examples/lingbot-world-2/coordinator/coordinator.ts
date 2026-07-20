@@ -276,6 +276,11 @@ let lastRuleFireChunk = -1e9;
 // engine then stays dormant so the two never double-fire; a director run with
 // --rules-decide announces decides:false in its hello, which keeps rules active.
 let vlmDeciderPresent = false;
+// True while a connected AI director reports a REACHABLE model. In rules-decide mode
+// the coordinator does the firing, so it must not fire blind: if the director's model
+// is down (or no director is connected), the AI's eyes are shut — freeze firing until
+// it's back. Set from the director's hello (modelOk) and live op:"model" up/down pings.
+let aiModelConnected = false;
 
 /** (Re)build the engine for the active scene's events, or clear it. Rule construction
  *  lives in `./rules` (pure + unit-tested); this just owns the enabled/empty gating. */
@@ -296,6 +301,7 @@ function rebuildRulesEngine(): void {
 async function runRules(): Promise<void> {
   if (!rulesEngine || directorMode === "human") return; // rules ARE the AI director here
   if (vlmDeciderPresent) return; // a VLM director is deciding — don't double-fire
+  if (!aiModelConnected) return; // AI model not connected — don't fire blind (eyes shut)
   if (chunks - lastRuleFireChunk < RULE_COOLDOWN) return; // pace fires
   let events: { params?: Record<string, unknown> }[];
   try {
@@ -329,7 +335,7 @@ async function runRules(): Promise<void> {
 }
 
 interface Op {
-  op: "assert" | "retract" | "clear" | "tick" | "vital" | "mode" | "log" | "scene_events" | "objective" | "count" | "game" | "hello" | "observe";
+  op: "assert" | "retract" | "clear" | "tick" | "vital" | "mode" | "log" | "scene_events" | "objective" | "count" | "game" | "hello" | "observe" | "model";
   fact?: Fact;
   key?: string;
   change?: VitalChange;
@@ -347,6 +353,7 @@ interface Op {
   modelOk?: boolean; // for op:"hello" — whether the model server was reachable at startup
   decides?: boolean; // for op:"hello" — does this director run its OWN VLM decide? (false = rules-decide)
   obs?: Record<string, boolean>; // for op:"observe" — the probe's latest yes/no reads (rules fact)
+  ok?: boolean; // for op:"model" — live model reachability (false = down → freeze firing)
 }
 
 function broadcastSceneEvents(): void {
@@ -399,7 +406,10 @@ wss.on("connection", (ws) => {
   console.log(`[coordinator] client connected  (${wss.clients.size} total)`);
   ws.on("close", () => {
     const wasDirector = directorSockets.delete(ws);
-    if (wasDirector) vlmDeciderPresent = false; // director gone → rules resume deciding
+    if (wasDirector) {
+      vlmDeciderPresent = false; // director gone → rules resume deciding
+      aiModelConnected = false; // ...but with no director, the model isn't connected → don't fire
+    }
     console.log(
       `[coordinator] ${wasDirector ? "AI DIRECTOR" : "client"} disconnected  (${wss.clients.size} total)`,
     );
@@ -502,6 +512,7 @@ wss.on("connection", (ws) => {
           // --rules-decide directors send decides:false; older directors omit it (treated as
           // deciding, for backward compat — rules won't fight a legacy VLM director).
           vlmDeciderPresent = m.decides !== false;
+          aiModelConnected = m.modelOk !== false; // reachable unless it says otherwise
           const modelInfo = m.model
             ? `  model=${m.model} [${m.modelOk === false ? "UNREACHABLE" : "reachable"}]`
             : "";
@@ -510,6 +521,17 @@ wss.on("connection", (ws) => {
               `(${directorSockets.size} director(s); rules ${vlmDeciderPresent ? "dormant" : "active"})`,
           );
           sendAll(JSON.stringify({ type: "activity", id: ++activitySeq, role: "ai", op: "hello" }));
+        }
+        break;
+      case "model":
+        // Live model up/down ping from the AI director. When its VLM goes unreachable
+        // it sends ok:false (rules freeze); on reconnect ok:true (rules resume).
+        if (m.role === "ai") {
+          const nowOk = m.ok !== false;
+          if (nowOk !== aiModelConnected) {
+            aiModelConnected = nowOk;
+            console.log(`[coordinator] AI model ${nowOk ? "connected — firing resumes" : "not connected — firing frozen"}`);
+          }
         }
         break;
       case "log":

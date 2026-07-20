@@ -77,10 +77,15 @@ def main():
                          "fresh frames always wins. Billed per look.")
     ap.add_argument("--no-self-feed", dest="self_feed", action="store_false",
                     help="disable self-feed (rely solely on an external frame tap / feeder).")
+    # Deciding is RULES-DECIDE by default: the director is perception-only (probe +
+    # op:observe), the coordinator's json-rules-engine does the deciding, and NO decide
+    # VLM call is ever billed. Pass --vlm-decide to opt into the (billed) VLM decide.
+    ap.add_argument("--vlm-decide", action="store_true",
+                    help="opt IN to the VLM decide call (the director picks events itself). "
+                         "Default is rules-decide: perception-only, never bills a decide.")
     ap.add_argument("--rules-decide", action="store_true",
-                    help="PERCEPTION-ONLY: skip the VLM decide; the coordinator's json-rules-engine "
-                         "does the deciding. The director just probes and posts observations "
-                         "(op:observe) — deterministic, no billed decide call.")
+                    help="explicit no-op (rules-decide is the default) — kept for back-compat; "
+                         "forces perception-only even if --vlm-decide is also given.")
     # Probe checklist sizing. Default is the LEAN set: ungated director-event + ungated
     # player-action presence probes only (no invariants, no alt-state). Flags add back.
     ap.add_argument("--no-player-actions", dest="probe_player_actions", action="store_false",
@@ -182,14 +187,15 @@ def main():
 
     print(f"[director] NVIDIA inference: {args.model}  probes={'on' if probe else 'off'}  "
           f"debug={'on' if debug else 'off'}", flush=True)
+    vlm_decide = args.vlm_decide and not args.rules_decide  # rules-decide is the default
     asyncio.run(
         run_director(decide, args.url, args.frame, scene, args.interval, args.once,
                      probe=probe, debug=debug, reload_game=reload_game,
                      hello_extra={"model": args.model, "modelOk": True,
-                                  "decides": not args.rules_decide},
+                                  "decides": vlm_decide},
                      model_check=model_check, fire_cooldown=args.fire_cooldown,
                      warmup=args.warmup, reuse_frame=args.reuse_frame,
-                     self_feed=args.self_feed, vlm_decide=not args.rules_decide)
+                     self_feed=args.self_feed, vlm_decide=vlm_decide)
     )
 
 

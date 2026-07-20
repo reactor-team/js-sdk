@@ -252,7 +252,7 @@ async def _noop_call():
 
 async def run_director(decide, url, frame_path, scene, interval, once, probe=None, debug=False,
                        reload_game=None, hello_extra=None, model_check=None, fire_cooldown=0,
-                       warmup=0.0, reuse_frame=False, self_feed=True, vlm_decide=True):
+                       warmup=0.0, reuse_frame=False, self_feed=True, vlm_decide=False):
     # Latest state pushed by the coordinator (facts + vitals) for prompt context.
     # `fired` = short memory of the arc (event names introduced); `step` = pacing.
     # `observations` = the probe read of the current frame (the AI director's eyes).
@@ -438,6 +438,10 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                         model_down = False
                         last_idle_msg = None
                         print("[director] model server reconnected — AI resuming.", flush=True)
+                        try:  # tell the coordinator to resume firing (rules-decide)
+                            await ws.send(json.dumps({"op": "model", "role": "ai", "ok": True}))
+                        except Exception:  # noqa: BLE001
+                            pass
                     else:
                         await asyncio.sleep(interval)
                         continue
@@ -570,6 +574,18 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                             obs = {}
                             if p_err is not None:
                                 print(f"[director] probe error: {type(p_err).__name__}: {p_err}", flush=True)
+                                # Probe is the ONLY VLM call in rules-decide — if it failed
+                                # because the model is unreachable, PAUSE and tell the
+                                # coordinator to freeze firing (no firing on shut eyes).
+                                if model_check is not None and not model_check():
+                                    model_down = True
+                                    print("[director] model server not connected — AI paused (rules-decide).", flush=True)
+                                    try:
+                                        await ws.send(json.dumps({"op": "model", "role": "ai", "ok": False}))
+                                    except Exception:  # noqa: BLE001
+                                        pass
+                                    await asyncio.sleep(interval)
+                                    continue
                             elif p_res is not None:
                                 p_ops, obs = p_res
                                 state["observations"] = obs
@@ -614,6 +630,10 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                                 model_down = True
                                 consec_vlm_errors = 0
                                 print("[director] model server not connected — AI paused (waiting to reconnect, no VLM calls).", flush=True)
+                                try:  # tell the coordinator to freeze firing (rules-decide)
+                                    await ws.send(json.dumps({"op": "model", "role": "ai", "ok": False}))
+                                except Exception:  # noqa: BLE001
+                                    pass
                                 await asyncio.sleep(interval)
                                 continue
                             if consec_vlm_errors >= MAX_VLM_ERRORS:
