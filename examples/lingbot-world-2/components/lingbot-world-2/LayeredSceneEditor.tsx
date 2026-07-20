@@ -1495,6 +1495,7 @@ export function LayeredSceneEditor({
   // tab-level mark since the Events panel renders an inline notice.
   const editCounts: Record<Tab, number> = {
     base: diff ? diff.base.added.size + diff.base.edited.size : 0,
+    player: 0, // player layer has no diff wired yet (edited via the Player tab)
     camera: diff
       ? diff.camera.added.size +
         diff.camera.staticChanged.size +

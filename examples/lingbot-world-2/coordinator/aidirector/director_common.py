@@ -267,6 +267,7 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
     last_mtime = 0.0
     last_idle_msg = None  # throttle: only re-print an idle reason when it changes
     paused_announced = False  # human-mode pause: announce once per transition, then stay silent
+    model_down = False  # model-server pause: set on a confirmed disconnect, polls to auto-resume
     last_stale_warn = 0.0  # throttle the "frame is stale — feeder not running?" warning
     STALE_WARN_SECS = 30.0  # frame older than this => warn that nothing is feeding it
     STALE_WARN_EVERY = 30.0  # re-warn at most this often while it stays stale
@@ -427,6 +428,17 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                     await asyncio.sleep(interval)
                     continue
                 paused_announced = False
+                # MODEL GATE (top of loop): while the model server is known-down, PAUSE —
+                # no probe/decide (no billing), just poll for reconnect and auto-resume when
+                # it's back. Only checks while paused, so the healthy path pings nothing extra.
+                if model_down:
+                    if model_check is None or model_check():
+                        model_down = False
+                        last_idle_msg = None
+                        print("[director] model server reconnected — AI resuming.", flush=True)
+                    else:
+                        await asyncio.sleep(interval)
+                        continue
                 # SELF-FEED (default ON): when a game is loaded, the director sources the
                 # frame from the scene's OWN still (kept in state on game load) — NO external
                 # feeder, NO active_game.txt. It's a FALLBACK, not a clobber: it only writes
@@ -591,14 +603,19 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                             msg = f"{type(d_err).__name__}: {d_err}"
                             consec_vlm_errors += 1
                             print(f"[director] VLM error ({consec_vlm_errors}/{MAX_VLM_ERRORS}): {msg}", flush=True)
-                            # STOP when the model is disconnected. Two triggers: model_check
-                            # confirms the server is down, OR too many errors in a row (a
-                            # backstop for when model_check is absent/unreliable — a real
-                            # disconnect must not loop forever billing failed calls).
+                            # If the model server is unreachable, PAUSE (don't stop): flag it
+                            # and let the top-of-loop MODEL GATE poll for reconnect and auto-
+                            # resume — no billing while down. The consecutive-error count is a
+                            # separate backstop that STOPS on persistent NON-disconnect failures.
                             server_down = model_check is not None and not model_check()
-                            if server_down or consec_vlm_errors >= MAX_VLM_ERRORS:
-                                why = ("model server unreachable" if server_down
-                                       else f"{consec_vlm_errors} consecutive VLM errors")
+                            if server_down:
+                                model_down = True
+                                consec_vlm_errors = 0
+                                print("[director] model server not connected — AI paused (waiting to reconnect, no VLM calls).", flush=True)
+                                await asyncio.sleep(interval)
+                                continue
+                            if consec_vlm_errors >= MAX_VLM_ERRORS:
+                                why = f"{consec_vlm_errors} consecutive VLM errors"
                                 print(f"[director] {why} — unloading game and stopping the AI director.", flush=True)
                                 try:
                                     await ws.send(json.dumps(
