@@ -38,7 +38,14 @@ _INVARIANT_RULES = [
 
 def _first_sentence(text: str | None, n: int = 90) -> str:
     s = re.split(r"(?<=[.!?])\s", (text or "").strip())
-    return (s[0] if s else "")[:n]
+    first = s[0] if s else ""
+    if len(first) <= n:
+        return first
+    # Too long for one sentence: cut at the last word boundary within n (not mid-word)
+    # and mark the elision, so the probe question reads as a whole clause.
+    cut = first[:n]
+    sp = cut.rfind(" ")
+    return (cut[:sp] if sp > 0 else cut).rstrip() + "…"
 
 
 def _slug(name: str | None) -> str:
@@ -61,8 +68,11 @@ def derive_probes(scene: dict[str, Any], include_player_actions: bool = True,
     base = sc.get("base", {}) or {}
     probes = []
 
-    # Invariant scan spans all base versions + default camera framing.
+    # Invariant scan spans all base versions + the player layer + default camera framing.
+    # The player split moved the SUBJECT (and its "a single lone / EXACTLY ONE" markers)
+    # out of base into `player`, so scan both or duplicate_subject stops deriving.
     parts = [v for v in base.values() if isinstance(v, str)]
+    parts += [v for v in (sc.get("player", {}) or {}).values() if isinstance(v, str)]
     cam = (sc.get("camera", {}) or {}).get("default", {})
     if isinstance(cam, dict):
         parts += [cam.get("static", ""), cam.get("dynamic", "")]

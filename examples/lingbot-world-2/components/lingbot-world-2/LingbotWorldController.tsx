@@ -487,6 +487,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
           prompt?: string;
           health?: number;
           inventory?: string[];
+          slug?: string;
         };
         if (m.type === "facts") {
           coordPromptRef.current = m.prompt ?? "";
@@ -495,6 +496,22 @@ export function LingbotWorldController({ className }: { className?: string }) {
           setVitalsFromServer(m.health ?? 0, m.inventory ?? []);
         } else if (m.type === "won") {
           setGameResult("won"); // objective survived — the coordinator fired the reward
+        } else if (m.type === "game") {
+          // Coordinator-driven game load/switch: populate the LOCAL scene too, so the
+          // player-action chips, HUD and gate flags light up (the prompt already arrives
+          // via `facts`). Skip when we're the loader that already has this scene, so a
+          // local override isn't clobbered by the pristine copy.
+          const slug = m.slug ?? "";
+          if (!slug) {
+            setScene(null);
+            activeGameRef.current = "";
+          } else if (slug !== activeGameRef.current || !sceneRef.current) {
+            const resolved = effectiveSceneFor(slug);
+            if (resolved) {
+              setScene(resolved);
+              activeGameRef.current = slug;
+            }
+          }
         }
       } catch {
         /* ignore malformed frames */

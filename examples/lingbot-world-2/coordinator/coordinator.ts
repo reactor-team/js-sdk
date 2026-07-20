@@ -554,11 +554,26 @@ wss.on("connection", (ws) => {
           if (newGame === "") {
             unloadGame("game op (empty slug)");
           } else {
+            // Switching games — wipe the PREVIOUS game's accumulated state so it can't
+            // leak into the new one (fired facts, chunks, vitals, spawn count, win). The
+            // new scene's events/objective arrive right after and rebuild the rules. Without
+            // this, GameA's fired facts (e.g. a noir event) bleed into GameB.
+            history.clear();
+            observations = {};
+            entityCount = 0;
+            chunks = 0;
+            won = false;
+            lastRuleFireChunk = -1e9;
+            vitals.health = vitals.maxHealth;
+            vitals.inventory = [];
             activeGame = newGame;
             gameOwner = ws; // the client that loaded the game owns it (the Player)
-            console.log(`[coordinator] active game -> ${activeGame}`);
+            console.log(`[coordinator] active game -> ${activeGame} (prior state reset)`);
             broadcastActivity({ ...m, slug: newGame }); // show it in the activity feed
             broadcastGame(); // the AI director reloads accordingly
+            broadcastVitals();
+            broadcastCount();
+            broadcast(); // push the cleared facts + state to clients
           }
         }
         break;
