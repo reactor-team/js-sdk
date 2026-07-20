@@ -20,12 +20,12 @@ export function Gallery({
   onIntent: (intent: WorldIntent) => void;
 }) {
   const adventure = FEATURED_WORLDS.filter((world) => world.mode === 1);
-  const director = FEATURED_WORLDS.filter((world) => world.mode === 2);
+  const directing = FEATURED_WORLDS.filter((world) => world.mode === 2);
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
       <SectionLabel>Example worlds</SectionLabel>
       <ModeGroup label="Adventure" worlds={adventure} onIntent={onIntent} />
-      <ModeGroup label="Director" worlds={director} onIntent={onIntent} />
+      <ModeGroup label="Directing" worlds={directing} onIntent={onIntent} />
     </div>
   );
 }

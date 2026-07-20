@@ -7,13 +7,13 @@ import worldPins from "./world-pins.json";
 
 /** The experience number the featured-world data uses → the SDK's mode name. */
 export function modeName(mode: 1 | 2): HappyOysterMode {
-  return mode === 2 ? "director" : "adventure";
+  return mode === 2 ? "directing" : "adventure";
 }
 
 export interface FeaturedWorld {
   key: string;
   title: string;
-  /** 1 = Adventure (walk it, WASD) · 2 = Director (steer the story, text). */
+  /** 1 = Adventure (walk it, WASD) · 2 = Directing (steer the story, text). */
   mode: 1 | 2;
   /** Display copy, and the create prompt when this world has no pinned id. */
   prompt: string;

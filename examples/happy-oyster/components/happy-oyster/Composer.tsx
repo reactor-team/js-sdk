@@ -1,7 +1,7 @@
 "use client";
 
 // The sidebar's ways in while browsing:
-//   • a custom prompt — compose your own world, choose Adventure or Director;
+//   • a custom prompt — compose your own world, choose Adventure or Directing;
 //   • an existing world id — attach a world you built earlier (instant).
 // Both resolve to a WorldIntent the session then runs.
 
@@ -39,7 +39,7 @@ export function CustomCompose({
     const firstFrameImage = imageFile ?? undefined;
     onIntent({
       kind: "create",
-      mode: mode === 2 ? "director" : "adventure",
+      mode: mode === 2 ? "directing" : "adventure",
       title: "Your world",
       params:
         mode === 2
@@ -107,7 +107,7 @@ export function CustomCompose({
             Adventure
           </ModeToggle>
           <ModeToggle active={mode === 2} onClick={() => setMode(2)}>
-            Director
+            Directing
           </ModeToggle>
         </div>
         <Button onClick={build} disabled={prompt.trim().length === 0}>
@@ -161,7 +161,7 @@ export function CustomCompose({
       <p className="text-[11px] leading-relaxed text-white/30">
         {mode === 1
           ? "Adventure worlds are playable, you drive them with WASD."
-          : "Director worlds are steered with text instructions and transport."}
+          : "Directing worlds are steered with text instructions and transport."}
       </p>
     </div>
   );
@@ -189,7 +189,7 @@ export function AttachById({
           Adventure
         </ModeToggle>
         <ModeToggle active={mode === 2} onClick={() => setMode(2)}>
-          Director
+          Directing
         </ModeToggle>
       </div>
       <div className="flex gap-1.5">
@@ -203,7 +203,7 @@ export function AttachById({
           onClick={() =>
             onIntent({
               kind: "attach",
-              mode: mode === 2 ? "director" : "adventure",
+              mode: mode === 2 ? "directing" : "adventure",
               encryptedWorldId: id.trim(),
               title: "Attached world",
             })

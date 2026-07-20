@@ -1,6 +1,6 @@
 # HappyOyster
 
-A Next.js + TypeScript reference frontend for **HappyOyster**, a real-time interactive world model on Reactor. Build a world from a prompt (or attach one you built before), then travel it live: **Adventure** worlds you drive like a game with WASD, **Director** worlds you steer with text instructions and pause / rewind transport.
+A Next.js + TypeScript reference frontend for **HappyOyster**, a real-time interactive world model on Reactor. Build a world from a prompt (or attach one you built before), then travel it live: **Adventure** worlds you drive like a game with WASD, **Directing** worlds you steer with text instructions and pause / rewind transport.
 
 ```
 ┌─────────────────────────┬────────────────────────────────────┐
@@ -15,7 +15,7 @@ A Next.js + TypeScript reference frontend for **HappyOyster**, a real-time inter
 │  ── while traveling ──  │                                    │
 │  0:42 countdown         │                                    │
 │  WASD · look · verbs    │                                    │
-│  (Director: instruct,   │                                    │
+│  (Directing: instruct,  │                                    │
 │   pause, rewind)        │                                    │
 └─────────────────────────┴────────────────────────────────────┘
 ```
@@ -42,11 +42,11 @@ The API key never reaches the browser: the server route [`app/api/reactor/token/
 
 ## What you can do with it
 
-- **Featured worlds.** Six curated worlds: four Adventure, two Director. A world with a pinned id **attaches** instantly; the rest **create** from their prompt (a ~30s build).
-- **Compose your own.** Free-text prompt, an Adventure/Director mode toggle, an optional first-frame image upload (≤2MB), and the knobs that apply to the chosen mode: perspective for Adventure; resolution, camera motion, and narrative for Director.
+- **Featured worlds.** Six curated worlds: four Adventure, two Directing. A world with a pinned id **attaches** instantly; the rest **create** from their prompt (a ~30s build).
+- **Compose your own.** Free-text prompt, an Adventure/Directing mode toggle, an optional first-frame image upload (≤2MB), and the knobs that apply to the chosen mode: perspective for Adventure; resolution, camera motion, and narrative for Directing.
 - **Attach by id.** Worlds are permanent; paste an `encrypted_world_id` you saved earlier (and pick its experience) to jump straight back in, no build.
 - **Drive Adventure worlds.** WASD moves, arrows (or the on-screen pad) look, chords compose (W+A strafes, Shift+W sprints), and the world's advertised action verbs appear as buttons.
-- **Direct Director worlds.** Type instructions to steer the next scene, pause / resume, and rewind (multiples of 4s, while paused). The instruction timeline and auto-detected chapters render live.
+- **Steer Directing worlds.** Type instructions to steer the next scene, pause / resume, and rewind (multiples of 4s, while paused). The instruction timeline and auto-detected chapters render live.
 
 ## How it works
 
@@ -58,7 +58,7 @@ From there the flow is the typed SDK's linear lifecycle:
 2. **`createWorld(params)` / `attachWorld(id)`** makes a world the session's current one — create builds a fresh world (~30s), attach reopens a permanent one (instant).
 3. **`startTravel()`** begins streaming the live world into `<HappyOysterVideo>` and unlocks the controls.
 
-The model owns all world state and broadcasts one authoritative `world_state` snapshot on every change (and a `travel_state` snapshot during travel). The app mirrors those snapshots and never derives world state locally, so the UI can't drift from the model. Adventure `hold()` / `interact()` and Director `instruct()` / `pause()` / `rewind()` steer the live world.
+The model owns all world state and broadcasts one authoritative `world_state` snapshot on every change (and a `travel_state` snapshot during travel). The app mirrors those snapshots and never derives world state locally, so the UI can't drift from the model. Adventure `hold()` / `interact()` and Directing `instruct()` / `pause()` / `rewind()` steer the live world.
 
 ## The typed SDK
 
@@ -66,11 +66,11 @@ Everything model-specific runs through the typed **`@reactor-models/happy-oyster
 
 ## Configuration
 
-| Env var                        | Required   | What it does                                                                                                                                               |
-| ------------------------------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `REACTOR_API_KEY`              | yes (live) | Server-side key exchanged for session JWTs by `app/api/reactor/token/route.ts`.                                                                            |
-| `NEXT_PUBLIC_COORDINATOR_URL`  | no         | Reactor API base URL. Defaults to `https://api.reactor.inc`.                                                                                               |
-| `NEXT_PUBLIC_HO_LOCAL_RUNTIME` | no         | Set to `1` to talk straight to a runtime-served model (adventure on `:8080`, director on `:8081`), skipping the Coordinator: no `REACTOR_API_KEY`, no JWT. |
+| Env var                        | Required   | What it does                                                                                                                                                |
+| ------------------------------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `REACTOR_API_KEY`              | yes (live) | Server-side key exchanged for session JWTs by `app/api/reactor/token/route.ts`.                                                                             |
+| `NEXT_PUBLIC_COORDINATOR_URL`  | no         | Reactor API base URL. Defaults to `https://api.reactor.inc`.                                                                                                |
+| `NEXT_PUBLIC_HO_LOCAL_RUNTIME` | no         | Set to `1` to talk straight to a runtime-served model (adventure on `:8080`, directing on `:8081`), skipping the Coordinator: no `REACTOR_API_KEY`, no JWT. |
 
 If `REACTOR_API_KEY` is missing, the app renders a friendly setup landing instead of erroring (see [`app/SetupRequired.tsx`](app/SetupRequired.tsx)).
 
@@ -87,7 +87,7 @@ If `REACTOR_API_KEY` is missing, the app renders a friendly setup landing instea
 | [`components/happy-oyster/Screen.tsx`](components/happy-oyster/Screen.tsx)                                                            | The content screen the travel video plays in: the journey pane while loading, then the live stream, then the end scene with the world id.                                                           |
 | [`components/happy-oyster/Gallery.tsx`](components/happy-oyster/Gallery.tsx) + [`Composer.tsx`](components/happy-oyster/Composer.tsx) | The browse surfaces: featured worlds, custom compose (prompt, mode toggle, ≤2MB first-frame upload), and attach-by-id.                                                                              |
 | [`components/happy-oyster/AdventureControls.tsx`](components/happy-oyster/AdventureControls.tsx)                                      | WASD + arrows + chords → `hold` / `interact` / `release`; world-advertised verbs.                                                                                                                   |
-| [`components/happy-oyster/DirectorControls.tsx`](components/happy-oyster/DirectorControls.tsx)                                        | Text `instruct`, pause / resume / rewind transport, the instruction + chapter timeline.                                                                                                             |
+| [`components/happy-oyster/DirectingControls.tsx`](components/happy-oyster/DirectingControls.tsx)                                      | Text `instruct`, pause / resume / rewind transport, the instruction + chapter timeline.                                                                                                             |
 | [`app/api/reactor/token/route.ts`](app/api/reactor/token/route.ts)                                                                    | Cacheable GET route that exchanges `REACTOR_API_KEY` for a short-lived JWT.                                                                                                                         |
 | [`lib/worlds.ts`](lib/worlds.ts) + [`lib/featured-worlds.json`](lib/featured-worlds.json)                                             | Featured world data, travel-time caps, and the `WorldIntent` type.                                                                                                                                  |
 | [`skill/SKILL.md`](skill/SKILL.md)                                                                                                    | The extension guide: the client surface, the lifecycle, the input models, auth, and every gotcha.                                                                                                   |

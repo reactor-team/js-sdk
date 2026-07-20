@@ -1,6 +1,6 @@
 ---
 name: building-happy-oyster-frontends
-description: Extend this cloned HappyOyster example app - add worlds, controls, or UI on top of the typed `@reactor-models/happy-oyster` without breaking the patterns the existing code uses. Covers the per-session mode (adventure vs director), the connect → createWorld/attachWorld → startTravel lifecycle, the authoritative world_state snapshot, the Adventure held-input model and Director transport, and the getJwt auth route.
+description: Extend this cloned HappyOyster example app - add worlds, controls, or UI on top of the typed `@reactor-models/happy-oyster` without breaking the patterns the existing code uses. Covers the per-session mode (adventure vs directing), the connect → createWorld/attachWorld → startTravel lifecycle, the authoritative world_state snapshot, the Adventure held-input model and Directing transport, and the getJwt auth route.
 ---
 
 # Building on this HappyOyster app
@@ -9,15 +9,15 @@ You've cloned this folder and want to extend it: a new world, a new control, a d
 
 ## What HappyOyster actually is, in three sentences
 
-HappyOyster is a **real-time interactive world model**. You build a world from a prose prompt (an **Adventure** world you drive like a game, or a **Director** world you steer with text), then **travel** it, streaming live video you keep influencing. Worlds are permanent account assets; a session is a viewport onto one current world at a time.
+HappyOyster is a **real-time interactive world model**. You build a world from a prose prompt (an **Adventure** world you drive like a game, or a **Directing** world you steer with text), then **travel** it, streaming live video you keep influencing. Worlds are permanent account assets; a session is a viewport onto one current world at a time.
 
 ## Mode is fixed per session (read this first)
 
 Each experience is its own Reactor model — `happy-oyster-adventure` (walk it, movement controls) and `happy-oyster-director` (steer it, text instructions). **The mode is chosen before connecting and is fixed for the life of the session.** This one fact shapes the app's structure:
 
 - [`HappyOysterApp`](../app/HappyOysterApp.tsx) owns the pending `WorldIntent` **above** the provider, because the intent's `mode` decides which model the session connects to. It mounts `<LiveClientProvider mode={mode} key={mode}>`, so picking a world of the other experience remounts a fresh session.
-- Every `WorldIntent` carries a `mode` (`"adventure" | "director"`). The create params carry only that mode's own knobs (perspective for Adventure; resolution/layout/narrative for Director) — never a mode field.
-- A world only attaches through its own experience's model. Attaching a director world to an adventure session is rejected with `MODE_MISMATCH`, which is why the attach-by-id surface asks for the experience.
+- Every `WorldIntent` carries a `mode` (`"adventure" | "directing"`). The create params carry only that mode's own knobs (perspective for Adventure; resolution/layout/narrative for Directing) — never a mode field.
+- A world only attaches through its own experience's model. Attaching a Directing world to an Adventure session is rejected with `MODE_MISMATCH`, which is why the attach-by-id surface asks for the experience.
 
 ## The client surface
 
@@ -30,7 +30,7 @@ Every screen talks to **one** surface (`useHappyOysterClient()` from [`component
 | **Setup**     | Make a world current                                                                        | `createWorld(params)`, `attachWorld(encryptedWorldId)`                                |
 | **Travel**    | Open / close the live world stream                                                          | `startTravel()`, `endTravelSession()`, `streaming`                                    |
 | **Adventure** | Held movement + world verbs (mode 1)                                                        | `hold(cmd)`, `interact(verb)`, `release(axes)`, `stop()`                              |
-| **Director**  | Text steering + transport (mode 2)                                                          | `instruct(text)`, `pause()`, `resume()`, `rewind(sec)`, `travelState`, `travelStatus` |
+| **Directing** | Text steering + transport (mode 2)                                                          | `instruct(text)`, `pause()`, `resume()`, `rewind(sec)`, `travelState`, `travelStatus` |
 
 `LiveClientProvider` (in `ho-client.tsx`) implements this surface: it mounts the real `<HappyOysterProvider mode={...}>` and adapts `useHappyOyster()` onto the surface above. Its video slot is `<HappyOysterVideo>`, the `<video>` the live world renders into.
 
@@ -52,14 +52,14 @@ The model is the single source of truth: it broadcasts one `world_state` snapsho
 
 ### Build cost: the shape to design around
 
-`createWorld()` runs on the **live, connected session** and an Adventure build takes ~30s (Director similar; the upstream cap is ~120s). `attachWorld()` on a pre-built world is **instant (no build)**. So:
+`createWorld()` runs on the **live, connected session** and an Adventure build takes ~30s (Directing similar; the upstream cap is ~120s). `attachWorld()` on a pre-built world is **instant (no build)**. So:
 
 - Featured worlds with a pinned `encryptedWorldId` attach (cheapest, fastest). The rest create from their prompt.
 - Surface the build honestly: `worldState.phase` moves `creating → building → ready`, and the ready snapshot carries the `first_frame` and the `encrypted_world_id` you should save.
 
 ## Setup: create vs attach
 
-- **`createWorld(params)`** takes `params.prompt` (≤2000 chars) plus the current mode's own knobs: Adventure `perspective`, or Director `resolution` / `layout` / `narrative`. The mode is fixed by the connected model, so it is not a param. Optionally a first frame: `firstFrameImageUrl` (a public URL) **or** `firstFrameImage` (a `File`/`Blob` ≤2MB, uploaded to the session first), never both.
+- **`createWorld(params)`** takes `params.prompt` (≤2000 chars) plus the current mode's own knobs: Adventure `perspective`, or Directing `resolution` / `layout` / `narrative`. The mode is fixed by the connected model, so it is not a param. Optionally a first frame: `firstFrameImageUrl` (a public URL) **or** `firstFrameImage` (a `File`/`Blob` ≤2MB, uploaded to the session first), never both.
 - **`attachWorld(encryptedWorldId)`** makes an existing world current with no build. The id is an opaque **capability** you saved from an earlier `createWorld`; there is no listing and no read-only peek. Save it (this app shows it as a copyable chip on the ready screen), and it re-opens the exact world later — through the same experience's model.
 
 Both are **locked while a travel is live**; end the travel before re-pointing the world.
@@ -74,9 +74,9 @@ The most important rule in [`AdventureControls.tsx`](../components/happy-oyster/
 - **World verbs are advertised, not guessed.** `travelState.character_actions` / `environment_actions` list the verbs a world understands. Offer those (the app renders them as buttons); the channel accepts any string but the world no-ops most things outside its vocabulary. A verb press holds ~1200ms then releases.
 - **Keyboard handlers ignore typing.** Every handler early-returns when the event target is an `INPUT`/`TEXTAREA`/contentEditable, and `preventDefault()`s handled keys so arrows don't scroll. Keep that.
 
-## Director transport
+## Directing transport
 
-[`DirectorControls.tsx`](../components/happy-oyster/DirectorControls.tsx): `instruct(text)` injects a steering instruction into the **live** world (it does not rebuild). `pause()` / `resume()` gate generation; `rewind(sec)` needs the session **paused** and snaps to multiples of 4s (the server rounds down). Debounce sends and disable transport while a call is in flight; the app tracks a `busy` flag. The instruction timeline and auto-detected chapters come off `travelState` (`user_instructions`, `chapters`); render them, don't invent them.
+[`DirectingControls.tsx`](../components/happy-oyster/DirectingControls.tsx): `instruct(text)` injects a steering instruction into the **live** world (it does not rebuild). `pause()` / `resume()` gate generation; `rewind(sec)` needs the session **paused** and snaps to multiples of 4s (the server rounds down). Debounce sends and disable transport while a call is in flight; the app tracks a `busy` flag. The instruction timeline and auto-detected chapters come off `travelState` (`user_instructions`, `chapters`); render them, don't invent them.
 
 The experience is chosen before connecting and cannot switch mid-session. The composer (and the featured tiles) pick it; the in-session control deck branches on `worldState.mode`.
 
@@ -98,7 +98,7 @@ The example creates its own Reactor session: the client's `connect()` calls `ho.
 | Attaching the wrong experience | action error `MODE_MISMATCH`  | Attach through the world's own mode instead.  |
 | Session drop                   | `phase === "ended"`           | Leave the travel view; no reconnect here.     |
 
-Client-side travel caps live in [`lib/worlds.ts`](../lib/worlds.ts) (`TRAVEL_SECONDS`: 60s Adventure, 180s Director); the timer auto-ends the travel at zero and the world stays ready for another run.
+Client-side travel caps live in [`lib/worlds.ts`](../lib/worlds.ts) (`TRAVEL_SECONDS`: 60s Adventure, 180s Directing); the timer auto-ends the travel at zero and the world stays ready for another run.
 
 ## The typed SDK
 
@@ -119,7 +119,7 @@ The app maps Reactor's design tokens from `@reactor-team/ui`'s stylesheet into s
 3. **Importing `useHappyOyster()` in a screen.** Go through `useHappyOysterClient()` instead so the SDK hook stays isolated to `ho-client.tsx`.
 4. **Choosing the mode after connecting.** The mode is fixed per session; pick it before mounting the provider (the intent carries it), and remount to switch.
 5. **Attaching a world through the wrong experience.** The id belongs to one mode's model; attach it through that mode or it's rejected with `MODE_MISMATCH`.
-6. **Rebuilding a world to change it.** Director steering is `instruct()` on the live world, not a new `createWorld`.
+6. **Rebuilding a world to change it.** Directing steering is `instruct()` on the live world, not a new `createWorld`.
 7. **Rewind while running.** It needs the session paused and snaps to 4s multiples.
 
 ## Checklist for new components

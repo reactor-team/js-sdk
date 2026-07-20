@@ -7,7 +7,7 @@
 //   ready     → the world card (id capability, travel limit), Start travel
 //   traveling → the countdown and the mode-matched control deck
 //   error     → Try again / Back to worlds
-// Adventure travels get 60s, Director 180s; at zero the travel ends
+// Adventure travels get 60s, Directing 180s; at zero the travel ends
 // client-side and the world stays ready for another run.
 
 import { useEffect, useRef, useState } from "react";
@@ -18,7 +18,7 @@ import { StatusBadge } from "./StatusBadge";
 import { Gallery } from "./Gallery";
 import { CustomCompose, AttachById } from "./Composer";
 import { AdventureControls } from "./AdventureControls";
-import { DirectorControls } from "./DirectorControls";
+import { DirectingControls } from "./DirectingControls";
 import { ModeBadge, SectionLabel, Spinner, WorldIdChip } from "./ui";
 
 export function Sidebar({ session }: { session: WorldSession }) {
@@ -82,7 +82,7 @@ function SeedFrameCard({ src }: { src: string }) {
 function IntentCard({ session }: { session: WorldSession }) {
   const { view, intent, client } = session;
   if (!intent) return null;
-  const mode = intent.mode === "director" ? 2 : 1;
+  const mode = intent.mode === "directing" ? 2 : 1;
   const prompt =
     client.worldState?.prompt ??
     (intent.kind === "create" ? intent.params.prompt : null);
@@ -179,7 +179,7 @@ function TravelDeck({ session }: { session: WorldSession }) {
         </button>
       </div>
       {session.seedFrame && <SeedFrameCard src={session.seedFrame} />}
-      {live && (mode === 2 ? <DirectorControls /> : <AdventureControls />)}
+      {live && (mode === 2 ? <DirectingControls /> : <AdventureControls />)}
     </>
   );
 }

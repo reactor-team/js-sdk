@@ -89,7 +89,7 @@ export function useVideoSlot(): ReactNode {
 // ── live ─────────────────────────────────────────────────────────────────────
 
 // Local mode talks to a model served by the Reactor runtime on your own host
-// (adventure on :8080, director on :8081), skipping the Coordinator: connect()
+// (adventure on :8080, directing on :8081), skipping the Coordinator: connect()
 // takes no JWT and there is no /tokens exchange. `local` lets the SDK pick the
 // right per-mode port; an explicit NEXT_PUBLIC_COORDINATOR_URL always wins.
 const LOCAL_RUNTIME = process.env.NEXT_PUBLIC_HO_LOCAL_RUNTIME === "1";
@@ -114,7 +114,7 @@ async function fetchToken(): Promise<string> {
 }
 
 // The mode is fixed for the life of the session — it picks which Reactor model
-// (adventure or director) the session connects to — so the provider is mounted
+// (adventure or directing) the session connects to — so the provider is mounted
 // (and keyed) on it and switching experiences remounts a fresh session.
 export function LiveClientProvider({
   mode,

@@ -48,7 +48,7 @@ export function WorldIdChip({ worldId }: { worldId: string }) {
 export function ModeBadge({ mode }: { mode: number | null }) {
   return (
     <span className="rounded-full border border-white/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-tight text-white/60">
-      {mode === 2 ? "Director" : "Adventure"}
+      {mode === 2 ? "Directing" : "Adventure"}
     </span>
   );
 }
