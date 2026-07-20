@@ -350,7 +350,7 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                             state["step"] = 0
                             state["game_image"] = ""  # nothing to self-feed while idle
                             last_key_clause.clear()
-                            print("[director] === GAME UNLOADED === (idle, waiting for a game)", flush=True)
+                            print(f"[director] === GAME UNLOADED === (idle, waiting for a game; mode={state.get('mode') or '(unknown)'})", flush=True)
                         elif slug and slug != state.get("game_slug") and reload_game is not None:
                             loaded = reload_game(slug)
                             if loaded:
@@ -370,7 +370,8 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                                 print(f"[director] === GAME START === {slug}: "
                                       f"{scene.get('objective') or '(no objective)'} "
                                       f"({len(scene.get('dir_events') or [])} events, "
-                                      f"probes={'on' if new_probe else 'off'})", flush=True)
+                                      f"probes={'on' if new_probe else 'off'}, "
+                                      f"mode={state.get('mode') or '(unknown)'})", flush=True)
                             else:
                                 dbg(f"game '{slug}': scene file not found — keeping current")
                     elif m.get("type") == "scene_events":
