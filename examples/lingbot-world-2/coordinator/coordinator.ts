@@ -484,16 +484,16 @@ wss.on("connection", (ws) => {
       c.setHealth !== undefined ||
       (typeof c.health === "number" && c.health !== 0) ||
       !!c.addItem || !!c.removeItem || !!c.reset;
-    if (
-      m.op === "assert" || m.op === "retract" ||
-      m.op === "count" || m.op === "clear" ||
-      (m.op === "vital" && meaningfulVital) ||
-      (m.op === "log" && m.cmd === "action") || // a player action with no vital
-      (m.op === "log" && m.cmd === "look") || // AI-director heartbeat (looked, fired nothing)
-      (m.op === "log" && m.cmd === "error") // something went wrong — surface it in the feed
-    ) {
-      broadcastActivity(m);
-    }
+    const isLogActivity =
+      m.op === "log" && (m.cmd === "action" || m.cmd === "look" || m.cmd === "error");
+    const isActivity =
+      m.op === "assert" || m.op === "retract" || m.op === "count" ||
+      m.op === "clear" || (m.op === "vital" && meaningfulVital) || isLogActivity;
+    // In human director mode the AI is paused — drop its idle heartbeats / status /
+    // errors so the feed isn't spammed by a still-connected but idle director (robust
+    // even against an old director build). Player logs are unaffected.
+    const mutedAiLog = isLogActivity && m.role === "ai" && directorMode === "human";
+    if (isActivity && !mutedAiLog) broadcastActivity(m);
     switch (m.op) {
       case "hello":
         if (m.role === "ai") {

@@ -11,7 +11,6 @@ import { Header } from "@/components/Header";
 import { SnapClip } from "@/components/SnapClip";
 import { LingbotWorldController } from "@/components/lingbot-world-2/LingbotWorldController";
 import { DirectorPanel } from "@/components/lingbot-world-2/DirectorPanel";
-import { DirectorModeSwitch } from "@/components/lingbot-world-2/DirectorModeSwitch";
 import { ActivityTicker } from "@/components/lingbot-world-2/ActivityTicker";
 import { FrameTap } from "@/components/lingbot-world-2/FrameTap";
 
@@ -127,7 +126,7 @@ function StatusBar() {
 
 function MainContent() {
   const { sidebar, controls, hud } = LingbotWorldController({});
-  const [directorOpen, setDirectorOpen] = useState(false);
+  const [directorOpen, setDirectorOpen] = useState(true);
 
   return (
     <main className="relative z-10 flex-1 min-h-0 flex flex-col px-4 sm:px-6 pb-4 sm:pb-6 pt-3 max-lg:overflow-y-auto lg:overflow-hidden">
@@ -165,8 +164,6 @@ function MainContent() {
               <FrameTap />
               {/* Player HUD — absolute overlay on the viewport */}
               {hud}
-              {/* Persistent runtime switch for the active director */}
-              <DirectorModeSwitch />
               {!directorOpen && (
                 <Button
                   size="xs"

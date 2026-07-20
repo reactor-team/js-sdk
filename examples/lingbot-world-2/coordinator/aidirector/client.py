@@ -56,12 +56,34 @@ def encode_image(frame, max_px=768):
 # extra_body so unknown fields are ignored rather than erroring the request.
 _NO_THINK_BODY = {"chat_template_kwargs": {"thinking": False}, "reasoning_effort": "low"}
 
+# Running token tally across every VLM call this session (probe + decide + tests).
+_TOKENS = {"prompt": 0, "completion": 0, "total": 0, "calls": 0}
+
+
+def usage_of(resp):
+    """(prompt, completion, total) token counts from an OpenAI-compatible response."""
+    u = getattr(resp, "usage", None)
+    if u is None:
+        return (0, 0, 0)
+    return (getattr(u, "prompt_tokens", 0) or 0,
+            getattr(u, "completion_tokens", 0) or 0,
+            getattr(u, "total_tokens", 0) or 0)
+
 
 def _create(client, model, messages, max_tokens, temperature, think):
     kw = dict(model=model, messages=messages, temperature=temperature, max_tokens=max_tokens)
     if not think:
         kw["extra_body"] = _NO_THINK_BODY
-    return client.chat.completions.create(**kw)
+    resp = client.chat.completions.create(**kw)
+    p, c, t = usage_of(resp)
+    _TOKENS["prompt"] += p
+    _TOKENS["completion"] += c
+    _TOKENS["total"] += t
+    _TOKENS["calls"] += 1
+    print(f"[vlm] tokens: {p} in + {c} out = {t}  "
+          f"(session: {_TOKENS['total']} tok over {_TOKENS['calls']} calls, "
+          f"{_TOKENS['prompt']} in / {_TOKENS['completion']} out)", flush=True)
+    return resp
 
 
 def vlm_call(client, model, frame, system, user, max_tokens=512, max_px=768, temperature=0.0, think=True):

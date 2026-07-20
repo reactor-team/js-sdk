@@ -88,6 +88,7 @@ export interface NamedEvent {
   // to "default") to compose against the layer's default version;
   // otherwise must be a key in the corresponding layer registry.
   baseVersion?: string;
+  playerVersion?: string; // pick a variant of the PLAYER layer (equip a tool, go overboard)
   cameraVersion?: string;
   movementVersion?: string;
   detail: EventVariant;
@@ -163,6 +164,10 @@ export interface HudConfig {
 
 export interface StructuredScene {
   base: LayerRegistry<string>;
+  // Optional PLAYER layer — the player/subject (avatar + equipment), split out
+  // of `base` so events can restyle the player (equip a tool, go overboard) WITHOUT
+  // touching the world. Omitted → the subject stays described inside `base` (legacy).
+  player?: LayerRegistry<string>;
   camera: LayerRegistry<ShotVariant>;
   movement: LayerRegistry<ShotVariant>;
   events: NamedEvent[];
@@ -212,6 +217,9 @@ function resolveDetail(e: NamedEvent, isMoving: boolean): string {
 function baseVersionOf(e: NamedEvent): string {
   return e.baseVersion ?? DEFAULT_LAYER_VERSION;
 }
+function playerVersionOf(e: NamedEvent): string {
+  return e.playerVersion ?? DEFAULT_LAYER_VERSION;
+}
 function cameraVersionOf(e: NamedEvent): string {
   return e.cameraVersion ?? DEFAULT_LAYER_VERSION;
 }
@@ -221,6 +229,12 @@ function movementVersionOf(e: NamedEvent): string {
 
 function resolveBase(scene: StructuredScene, version: string): string {
   return scene.base[version] ?? scene.base.default;
+}
+// Empty string when a scene has no player layer (legacy scenes) — composePrompt
+// filters empties, so the subject just stays described inside `base` as before.
+function resolvePlayer(scene: StructuredScene, version: string): string {
+  if (!scene.player) return "";
+  return scene.player[version] ?? scene.player.default;
 }
 function resolveCamera(
   scene: StructuredScene,
@@ -273,12 +287,17 @@ export function composePrompt(
   const activeMovement = mostRecentCompatible
     ? movementVersionOf(mostRecentCompatible)
     : DEFAULT_LAYER_VERSION;
+  const activePlayer = mostRecentCompatible
+    ? playerVersionOf(mostRecentCompatible)
+    : DEFAULT_LAYER_VERSION;
 
   const base = resolveBase(scene, activeBase);
+  const player = resolvePlayer(scene, activePlayer);
   const camera = resolveCamera(scene, activeCamera, isMoving);
   const movement = resolveMovement(scene, activeMovement, isMoving);
   const details = compatible.map((e) => resolveDetail(e, isMoving));
-  return [base, camera, movement, ...details, verticalPrompt]
+  // Order: world (base) → subject (player) → shot (camera) → motion → beats.
+  return [base, player, camera, movement, ...details, verticalPrompt]
     .map((s) => s.trim())
     .filter(Boolean)
     .join(" ");
@@ -297,6 +316,7 @@ export function cloneScene(scene: StructuredScene): StructuredScene {
   };
   return {
     base: { ...scene.base },
+    ...(scene.player ? { player: { ...scene.player } } : {}),
     camera: cloneShotRegistry(scene.camera),
     movement: cloneShotRegistry(scene.movement),
     events: scene.events.map((e) => ({

@@ -125,7 +125,6 @@ export function DirectorPanel({
   const [count, setCount] = useState(0); // shared entity/spawn count
   // Live activity feed — who did what (esp. the AI director's fires), newest first.
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
-  const [msgCount, setMsgCount] = useState(0); // every WS message (proves traffic is flowing)
   const activityBoxRef = useRef<HTMLDivElement>(null); // to keep the newest row in view
 
   useEffect(() => {
@@ -138,7 +137,6 @@ export function DirectorPanel({
     ws.onmessage = (e) => {
       try {
         const m = JSON.parse(String(e.data));
-        setMsgCount((c) => c + 1); // any message = traffic is flowing
         if (m.type === "facts") setFacts(m.prompt || "");
         else if (m.type === "mode") setMode(m.mode);
         else if (m.type === "scene_events") setSceneEvents(m.events || []);
@@ -402,9 +400,6 @@ export function DirectorPanel({
           Always shown, with a live status line, so an empty feed is diagnosable. */}
       {(
         <div ref={activityBoxRef} className="flex basis-full flex-col gap-0.5 rounded border border-white/10 bg-black/40 p-1.5 max-h-28 overflow-y-auto">
-          <span className="mono-label">
-            activity · {connected ? "live" : "offline"} · {msgCount} msgs · {activity.length} shown
-          </span>
           {activity.length === 0 && (
             <span className="mono-xs text-white/30">
               waiting… player actions + ai fires appear here

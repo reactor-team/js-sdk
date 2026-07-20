@@ -266,6 +266,7 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
     last_key_clause = {}  # dedup: only re-assert when a key's clause changes
     last_mtime = 0.0
     last_idle_msg = None  # throttle: only re-print an idle reason when it changes
+    paused_announced = False  # human-mode pause: announce once per transition, then stay silent
     last_stale_warn = 0.0  # throttle the "frame is stale — feeder not running?" warning
     STALE_WARN_SECS = 30.0  # frame older than this => warn that nothing is feeding it
     STALE_WARN_EVERY = 30.0  # re-warn at most this often while it stays stale
@@ -320,11 +321,16 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                             if k.startswith("scene:"):
                                 fired.add(k[len("scene:"):].replace("_", " "))
                         state["shared_fired"] = fired
-                        dbg(f"<- state: shared_fired={sorted(fired)}")
+                        # directorMode rides in the state snapshot too — track it so the
+                        # loop can pause the AI (no VLM calls) while it's the human's turn.
+                        if m.get("mode"):
+                            state["mode"] = m.get("mode")
+                        dbg(f"<- state: shared_fired={sorted(fired)} mode={state.get('mode')}")
                     elif m.get("type") == "vitals":
                         state["health"] = m.get("health", state["health"])
                         dbg(f"<- vitals: health={state['health']}")
                     elif m.get("type") == "mode":
+                        state["mode"] = m.get("mode")
                         dbg(f"<- mode: {m.get('mode')}")
                     elif m.get("type") == "game":
                         # The UI selected a game. Reload that FULL scene file (identity +
@@ -408,6 +414,19 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
                     print("[director] coordinator disconnected — stopping (no billed "
                           "decisions without a server).", flush=True)
                     break
+                # MODE GATE (top of loop): in "human" director mode the AI is fully paused —
+                # the coordinator drops its ops anyway. Skip EVERYTHING (self-feed, frame
+                # checks, probe/decide, stale warnings) and idle SILENTLY — post NOTHING to
+                # the activity feed so switching to human in the UI cleanly stops all AI
+                # logging. A one-shot console line (local only) marks the transition.
+                if state.get("mode") == "human":
+                    if not paused_announced:
+                        paused_announced = True
+                        last_idle_msg = None
+                        print("[director] human director mode — AI paused (silent; no frames, no VLM calls)", flush=True)
+                    await asyncio.sleep(interval)
+                    continue
+                paused_announced = False
                 # SELF-FEED (default ON): when a game is loaded, the director sources the
                 # frame from the scene's OWN still (kept in state on game load) — NO external
                 # feeder, NO active_game.txt. It's a FALLBACK, not a clobber: it only writes

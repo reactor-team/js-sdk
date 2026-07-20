@@ -241,17 +241,30 @@ function computeSceneDiff(
 
 // ---- Layout primitives ----
 
-type LayerName = "base" | "camera" | "movement";
-type VersionField = "baseVersion" | "cameraVersion" | "movementVersion";
+type LayerName = "base" | "player" | "camera" | "movement";
+type VersionField =
+  | "baseVersion"
+  | "playerVersion"
+  | "cameraVersion"
+  | "movementVersion";
 const LAYER_TO_FIELD: Record<LayerName, VersionField> = {
   base: "baseVersion",
+  player: "playerVersion",
   camera: "cameraVersion",
   movement: "movementVersion",
 };
 
-type Tab = "base" | "camera" | "movement" | "vertical" | "events" | "preview";
+type Tab =
+  | "base"
+  | "player"
+  | "camera"
+  | "movement"
+  | "vertical"
+  | "events"
+  | "preview";
 const TABS: { id: Tab; label: string }[] = [
   { id: "base", label: "Base" },
+  { id: "player", label: "Player" },
   { id: "camera", label: "Camera" },
   { id: "movement", label: "Movement" },
   { id: "vertical", label: "Jump / Crouch" },
@@ -1454,6 +1467,8 @@ export function LayeredSceneEditor({
 
   const setBase = (next: LayerRegistry<string>) =>
     onChange({ ...scene, base: next });
+  const setPlayer = (next: LayerRegistry<string>) =>
+    onChange({ ...scene, player: next });
   const setCamera = (next: LayerRegistry<ShotVariant>) =>
     onChange({ ...scene, camera: next });
   const setMovement = (next: LayerRegistry<ShotVariant>) =>
@@ -1467,6 +1482,7 @@ export function LayeredSceneEditor({
 
   const counts: Record<Tab, number> = {
     base: Object.keys(scene.base).length,
+    player: scene.player ? Object.keys(scene.player).length : 0,
     camera: Object.keys(scene.camera).length,
     movement: Object.keys(scene.movement).length,
     vertical: (scene.jumpPrompt ? 1 : 0) + (scene.crouchPrompt ? 1 : 0),
@@ -1604,6 +1620,14 @@ export function LayeredSceneEditor({
                 diff={diff?.base ?? null}
                 onChange={setBase}
                 onRename={(o, n) => renameLayerVersion("base", o, n)}
+              />
+            )}
+            {tab === "player" && (
+              <BasePanel
+                registry={scene.player ?? { default: "" }}
+                diff={null}
+                onChange={setPlayer}
+                onRename={(o, n) => renameLayerVersion("player", o, n)}
               />
             )}
             {tab === "camera" && (
