@@ -12,7 +12,7 @@
     "@reactor-team/js-sdk": "^2.12.0",
     "@reactor-team/ui": "^1.4.1",
     "hls.js": "^1.6.0",
-    "next": "^15.5.0",
+    "next": "^16.2.10",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "zustand": "^5.0.6"
