@@ -8,12 +8,18 @@ nemotron-nano-12b-v2-vl.
 
 Needs an nvapi key in NVIDIA_API_KEY. Runs the shared director loop.
 """
+from __future__ import annotations
+
 import argparse
 import asyncio
 import glob
 import json
 import os
 import time
+from collections.abc import Callable
+from typing import Any
+
+from openai import OpenAI
 
 from director_common import USER_TEXT, load_scene, make_probe, run_director, resolve_model
 from client import NVIDIA_URL, DEFAULT_MODEL, make_client, vlm_call, text_call
@@ -23,15 +29,15 @@ from client import NVIDIA_URL, DEFAULT_MODEL, make_client, vlm_call, text_call
 _builtin_print = print
 
 
-def print(*args, **kwargs):  # noqa: A001 — intentional module-level shadow
+def print(*args: Any, **kwargs: Any) -> None:  # noqa: A001 — intentional module-level shadow
     _builtin_print(time.strftime("%H:%M:%S"), *args, **kwargs)
 
 
-def make_vlm(client, model, max_px, think=True):
+def make_vlm(client: OpenAI, model: str, max_px: int, think: bool = True) -> Callable[..., str]:
     """vlm(frame, system, user_text, max_tokens) -> reply text, over the shared vlm_call.
     The vision/probe path — reasoning ON by default (benchmarked faster on cosmos).
     `think=False` uses the no-think path (slower on cosmos)."""
-    def vlm(frame, system, user_text, max_tokens=384):
+    def vlm(frame: Any, system: str, user_text: str, max_tokens: int = 384) -> str:
         text, _resp = vlm_call(client, model, frame, system, user_text, max_tokens, max_px,
                                think=think)
         return text
@@ -39,7 +45,7 @@ def make_vlm(client, model, max_px, think=True):
     return vlm
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", default="ws://localhost:8090", help="coordinator WebSocket")
     ap.add_argument("--frame", default="frame.png", help="latest-frame image file to watch")
@@ -107,7 +113,7 @@ def main():
     # model_check() pings the MODEL server (NVIDIA inference) — separate from the
     # coordinator; the model is the director's brain. Reused at startup AND at runtime
     # so the director never decides (never bills) while the model is unreachable.
-    def model_check():
+    def model_check() -> bool:
         try:
             client.models.list()
             return True
@@ -129,7 +135,7 @@ def main():
     # both probe and decide.
     _think = not args.no_think
     vlm = make_vlm(client, args.model, args.max_px, think=_think)
-    decide = lambda frame, system: text_call(client, args.model, system, USER_TEXT, 384, think=_think)[0]  # noqa: E731
+    decide: Callable[[Any, str], str] = lambda frame, system: text_call(client, args.model, system, USER_TEXT, 384, think=_think)[0]  # noqa: E731
     scene = load_scene(args.scene)
 
     # Probe pass = the AI director's eyes. Needs the FULL scene JSON (derive_probes),
@@ -151,8 +157,8 @@ def main():
     cases_dir = os.path.dirname(args.scene) or "../lib/lingbot-cases"
     img_dir = os.path.join(os.path.dirname(cases_dir), "..", "public", "lingbot-cases")
 
-    def _index_cases():
-        idx = {}
+    def _index_cases() -> dict[str, str]:
+        idx: dict[str, str] = {}
         for p in glob.glob(os.path.join(cases_dir, "*.json")):
             idx[os.path.splitext(os.path.basename(p))[0]] = p  # by filename stem
             try:
@@ -165,7 +171,7 @@ def main():
 
     scene_index = _index_cases()
 
-    def reload_game(slug):
+    def reload_game(slug: str) -> tuple[Any, Any, str] | None:
         path = scene_index.get(slug)
         if not path:
             scene_index.update(_index_cases())  # rescan once in case a scene was added
@@ -191,7 +197,7 @@ def main():
     asyncio.run(
         run_director(decide, args.url, args.frame, scene, args.interval, args.once,
                      probe=probe, debug=debug, reload_game=reload_game,
-                     hello_extra={"model": args.model, "modelOk": True,
+                     hello_extra={"model": args.model, "modelOk": model_check(),
                                   "decides": vlm_decide},
                      model_check=model_check, fire_cooldown=args.fire_cooldown,
                      warmup=args.warmup, reuse_frame=args.reuse_frame,

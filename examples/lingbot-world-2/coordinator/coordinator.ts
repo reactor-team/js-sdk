@@ -520,6 +520,12 @@ wss.on("connection", (ws) => {
             `[coordinator] AI DIRECTOR registered${modelInfo} decides=${vlmDeciderPresent}  ` +
               `(${directorSockets.size} director(s); rules ${vlmDeciderPresent ? "dormant" : "active"})`,
           );
+          // Model-connect state on connect: whether the director's model is reachable
+          // right now, and what it means for firing (frozen while the model is down).
+          console.log(
+            `[coordinator] AI model ${aiModelConnected ? "CONNECTED" : "NOT CONNECTED"}` +
+              `${m.model ? ` (${m.model})` : ""} — firing ${aiModelConnected ? "enabled" : "frozen"}`,
+          );
           sendAll(JSON.stringify({ type: "activity", id: ++activitySeq, role: "ai", op: "hello" }));
         }
         break;

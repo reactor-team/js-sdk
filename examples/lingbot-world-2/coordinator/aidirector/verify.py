@@ -11,6 +11,8 @@ extra piece in the live bat is the coordinator WS + frame.png handoff (separate 
 
 Needs NVIDIA_API_KEY. Run:  verify.bat  [--full]   (exit 0 = all pass, 1 = a failure)
 """
+from __future__ import annotations
+
 import argparse
 import os
 import subprocess
@@ -24,7 +26,7 @@ if not os.path.isfile(PY):
 SHARK_EXPECT = "../../../assets/shark.expected.json"  # relative to COORD
 
 
-def run(label, cmd, needs):
+def run(label: str, cmd: list[str], needs: str) -> bool:
     """Run cmd (cwd=coordinator); PASS iff exit 0 AND `needs` appears in the output."""
     print(f"\n=== {label} ===\n$ {' '.join(cmd)}", flush=True)
     r = subprocess.run(cmd, cwd=COORD, capture_output=True, text=True)
@@ -36,7 +38,7 @@ def run(label, cmd, needs):
     return ok
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--full", action="store_true", help="also exercise the slow qwen override (~60s billed)")
     args = ap.parse_args()

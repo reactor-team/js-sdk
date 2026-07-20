@@ -12,6 +12,8 @@ Usage (defaults to the shark frame + jet-ski scene):
     python test_probes.py --image ../../../assets/shark.jpg \
         --scene ../lib/lingbot-cases/jet-ski-cruise.json
 """
+from __future__ import annotations
+
 import argparse
 import json
 import os
@@ -27,7 +29,7 @@ DEFAULT_IMAGE = "../../../assets/shark.jpg"
 DEFAULT_SCENE = "../lib/lingbot-cases/jet-ski-cruise.json"
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(description="Test derive_probes -> VLM -> resolve on one frame.")
     ap.add_argument("--image", default=None, help="frame image to probe")
     ap.add_argument("--scene", default=None, help="game JSON to derive the checklist from")
@@ -157,7 +159,7 @@ def main():
         probe_ids = {p["id"] for p in probes}
         failures = []
         print("\n===== ASSERTIONS =====")
-        def _label(v):
+        def _label(v: bool | None) -> str:
             return "true" if v is True else "unknown" if v is None else "false"
         for pid in exp_true:
             if pid not in probe_ids:

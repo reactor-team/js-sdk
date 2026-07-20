@@ -7,6 +7,8 @@ probes) and starts directing it. Pair with watch_activity.py to see the result.
     sim_game.bat case_asteroids      (the UI slug is the scene JSON's `id`)
     sim_game.bat jet-ski-cruise      (filename stem also works)
 """
+from __future__ import annotations
+
 import argparse
 import asyncio
 import json
@@ -14,7 +16,7 @@ import json
 import websockets
 
 
-async def run(url, slug):
+async def run(url: str, slug: str) -> None:
     # "none"/"unload"/"-" -> empty slug, which UNLOADS the game (director goes idle).
     if slug.lower() in ("none", "unload", "-"):
         slug = ""
@@ -28,7 +30,7 @@ async def run(url, slug):
         await asyncio.sleep(0.3)
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(description="Simulate a UI game switch (headless).")
     ap.add_argument("slug", help="scene slug (JSON id or filename stem)")
     ap.add_argument("--url", default="ws://localhost:8090", help="coordinator WebSocket")

@@ -2,10 +2,13 @@
 a single VLM call, and JSON parsing. Standalone (no scene/coordinator deps) so every
 tool (director + probe + tests) imports the same helpers instead of copy-pasting.
 """
+from __future__ import annotations
+
 import base64
 import io
 import json
 import re
+from typing import Any
 
 from openai import OpenAI
 from PIL import Image
@@ -27,16 +30,16 @@ MODELS = {
 DEFAULT_MODEL = MODELS["cosmos"]
 
 
-def resolve_model(name):
+def resolve_model(name: str) -> str:
     """Expand a shortcut (cosmos) to its full slug; pass a raw slug through unchanged."""
     return MODELS.get(name, name)
 
 
-def make_client(api_key, base_url=NVIDIA_URL):
+def make_client(api_key: str, base_url: str = NVIDIA_URL) -> OpenAI:
     return OpenAI(api_key=api_key, base_url=base_url, max_retries=2, timeout=120)
 
 
-def encode_image(frame, max_px=768):
+def encode_image(frame: Image.Image | str, max_px: int = 768) -> str:
     """Downscale (to stay under the request-size limit) + base64 a JPEG. `frame` is a
     PIL Image or an image file path."""
     img = frame if hasattr(frame, "size") else Image.open(frame)
@@ -60,7 +63,7 @@ _NO_THINK_BODY = {"chat_template_kwargs": {"thinking": False}, "reasoning_effort
 _TOKENS = {"prompt": 0, "completion": 0, "total": 0, "calls": 0}
 
 
-def usage_of(resp):
+def usage_of(resp: Any) -> tuple[int, int, int]:
     """(prompt, completion, total) token counts from an OpenAI-compatible response."""
     u = getattr(resp, "usage", None)
     if u is None:
@@ -70,7 +73,8 @@ def usage_of(resp):
             getattr(u, "total_tokens", 0) or 0)
 
 
-def _create(client, model, messages, max_tokens, temperature, think):
+def _create(client: OpenAI, model: str, messages: list[dict[str, Any]], max_tokens: int,
+            temperature: float, think: bool) -> Any:
     kw = dict(model=model, messages=messages, temperature=temperature, max_tokens=max_tokens)
     if not think:
         kw["extra_body"] = _NO_THINK_BODY
@@ -86,7 +90,9 @@ def _create(client, model, messages, max_tokens, temperature, think):
     return resp
 
 
-def vlm_call(client, model, frame, system, user, max_tokens=512, max_px=768, temperature=0.0, think=True):
+def vlm_call(client: OpenAI, model: str, frame: Image.Image | str, system: str, user: str,
+             max_tokens: int = 512, max_px: int = 768, temperature: float = 0.0,
+             think: bool = True) -> tuple[str, Any]:
     """One image+text VLM call (vision). Returns (reply_text, response). Reasoning is ON by
     default — benchmarked FASTER on cosmos (the thinking:false path is less optimized and was
     consistently slower, esp. at 768). Pass think=False only if a model's no-think path wins."""
@@ -106,7 +112,8 @@ def vlm_call(client, model, frame, system, user, max_tokens=512, max_px=768, tem
     return text, resp
 
 
-def text_call(client, model, system, user, max_tokens=384, temperature=0.0, think=True):
+def text_call(client: OpenAI, model: str, system: str, user: str, max_tokens: int = 384,
+              temperature: float = 0.0, think: bool = True) -> tuple[str, Any]:
     """Text-only completion (NO image). The director's decide() reasons purely from
     the shared state/History carried in the system prompt — the probe is the sole
     vision call ('eyes'); decide is the 'brain' over state. `think=False` (default)
@@ -120,7 +127,7 @@ def text_call(client, model, system, user, max_tokens=384, temperature=0.0, thin
     return text, resp
 
 
-def parse_json(text):
+def parse_json(text: str) -> dict[str, Any] | None:
     """First {...} block, with any <think>…</think> reasoning trace stripped first."""
     text = re.sub(r"<think>.*?</think>", "", text or "", flags=re.DOTALL)
     m = re.search(r"\{.*\}", text, re.DOTALL)

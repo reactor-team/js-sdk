@@ -12,6 +12,8 @@ Usage:
     NVIDIA_API_KEY=nvapi-... python test_vlm_image.py --image ../public/lingbot-cases/templerun.jpg
     python test_vlm_image.py --image frame.png --prompt "What is happening in this scene?"
 """
+from __future__ import annotations
+
 import argparse
 import os
 import sys
@@ -25,7 +27,7 @@ DEFAULT_MODEL = MODELS["cosmos"]  # cosmos3-nano-reasoner — fastest + accurate
 DEFAULT_PROMPT = "Describe this image in detail. What is shown, and what is happening?"
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(description="Send one image to an NVIDIA-inference VLM and print the reply.")
     ap.add_argument("--image", required=True, help="path to the image file to send")
     ap.add_argument("--prompt", default=DEFAULT_PROMPT, help="text prompt sent with the image")

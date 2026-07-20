@@ -15,6 +15,8 @@ Usage (defaults to a jet-ski frame + scene):
         --scene ../lib/lingbot-cases/jet-ski-cruise.json \
         --health 40 --fired "Shark Appears,Storm Rolls In" --step 12
 """
+from __future__ import annotations
+
 import argparse
 import json
 import os
@@ -29,7 +31,7 @@ DEFAULT_IMAGE = "../../../assets/shark.jpg"
 DEFAULT_SCENE = "../lib/lingbot-cases/jet-ski-cruise.json"
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(description="Test the AI director's event decision on one frame + state.")
     ap.add_argument("--image", default=DEFAULT_IMAGE, help="frame the director looks at")
     ap.add_argument("--scene", default=DEFAULT_SCENE, help="game JSON (identity + objective + event list)")

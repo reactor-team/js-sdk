@@ -13,7 +13,10 @@ updates state (the ops). See CONTRACT.md §6.3.
 All questions are yes/no. Heuristic by design; the scene stays authoritative and a
 hand-written probes_*.json can still override.
 """
+from __future__ import annotations
+
 import re
+from typing import Any
 
 # If a marker appears in the scene's identity text, add a violation check whose YES
 # answer means "the invariant is broken" and fires a corrective re-anchor assert.
@@ -33,17 +36,18 @@ _INVARIANT_RULES = [
 ]
 
 
-def _first_sentence(text, n=90):
+def _first_sentence(text: str | None, n: int = 90) -> str:
     s = re.split(r"(?<=[.!?])\s", (text or "").strip())
     return (s[0] if s else "")[:n]
 
 
-def _slug(name):
+def _slug(name: str | None) -> str:
     return re.sub(r"[^a-z0-9]+", "_", (name or "").lower()).strip("_")
 
 
-def derive_probes(scene, include_player_actions=True, include_invariants=False,
-                  include_state=False):
+def derive_probes(scene: dict[str, Any], include_player_actions: bool = True,
+                  include_invariants: bool = False,
+                  include_state: bool = False) -> dict[str, Any]:
     """Build the yes/no checklist from the scene. Each director-event and player-action
     probe is TAGGED with its `requires` gate; the probe pass (make_probe) then asks only
     the ones whose gate is currently VALID (ungated events always; gated events once
@@ -117,7 +121,7 @@ def derive_probes(scene, include_player_actions=True, include_invariants=False,
 
 # --- applying the answers (the other half: JSON -> state update) ---------------
 
-def _op_to_coordinator(op):
+def _op_to_coordinator(op: dict[str, Any]) -> dict[str, Any]:
     """Translate a probe's declarative op into a coordinator wire op (CONTRACT §3)."""
     k = op.get("op")
     if k == "assert":
@@ -135,7 +139,7 @@ def _op_to_coordinator(op):
     raise ValueError(f"unknown op: {k!r}")
 
 
-def _tri(v):
+def _tri(v: Any) -> bool | None:
     """Coerce a raw VLM answer to True / False / None(unknown). Anything that is
     not a clean yes/no — the literal "unknown", null, a missing key — is unknown.
     (Note bool("unknown") is True, so a plain bool() would silently mis-read it.)"""
@@ -150,7 +154,7 @@ def _tri(v):
     return None
 
 
-def resolve(answers, probes):
+def resolve(answers: dict[str, Any], probes: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, bool]]:
     """answers {id: true|false|"unknown"} + probes -> (coordinator ops, observations
     {predicate: bool}). An "unknown" (or missing) answer updates NOTHING: the
     predicate is left out of obs and no onTrue/onFalse op fires — so the state

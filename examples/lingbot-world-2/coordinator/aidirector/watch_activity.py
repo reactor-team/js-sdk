@@ -10,14 +10,17 @@ Run the real coordinator + the director, then this, then feed a frame:
     (in another shell)  feed_frame.bat templerun
 -> you should see rows like:  ai      assert scene:gold_coin_appears  "..."
 """
+from __future__ import annotations
+
 import argparse
 import asyncio
 import json
+from typing import Any
 
 import websockets
 
 
-def _fmt(m):
+def _fmt(m: dict[str, Any]) -> str | None:
     t = m.get("type")
     if t == "activity":
         role = m.get("role", "?")
@@ -37,7 +40,7 @@ def _fmt(m):
     return None  # skip facts/state/scene_events/objective (noisy)
 
 
-async def run(url, out):
+async def run(url: str, out: str) -> None:
     # Fresh log each session so the in-app ticker starts clean.
     if out:
         try:
@@ -62,7 +65,7 @@ async def run(url, out):
                         pass
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(description="Headless view of the coordinator's activity feed.")
     ap.add_argument("--url", default="ws://localhost:8090", help="coordinator WebSocket")
     ap.add_argument("--out", default="activity.log",

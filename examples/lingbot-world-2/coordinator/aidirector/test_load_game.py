@@ -11,11 +11,14 @@ Run from the coordinator/ folder (so ../lib/lingbot-cases resolves):
     python aidirector/test_load_game.py                (test every scene)
     python aidirector/test_load_game.py case1_0036     (test one slug)
 """
+from __future__ import annotations
+
 import argparse
 import glob
 import json
 import os
 import sys
+from typing import Any
 
 from director_common import load_scene
 from scene_probes import derive_probes
@@ -30,9 +33,9 @@ KNOWN_MAP = {
 }
 
 
-def index_cases(cases_dir):
+def index_cases(cases_dir: str) -> dict[str, str]:
     """slug -> path, keyed by BOTH the filename stem and the JSON `id`."""
-    idx = {}
+    idx: dict[str, str] = {}
     for p in glob.glob(os.path.join(cases_dir, "*.json")):
         idx[os.path.splitext(os.path.basename(p))[0]] = p
         try:
@@ -44,7 +47,7 @@ def index_cases(cases_dir):
     return idx
 
 
-def load_by_slug(idx, slug):
+def load_by_slug(idx: dict[str, str], slug: str) -> tuple[str, dict[str, Any], dict[str, Any]] | None:
     """Resolve + load exactly like the director's reload_game does."""
     path = idx.get(slug)
     if not path:
@@ -55,7 +58,7 @@ def load_by_slug(idx, slug):
     return path, scene, derived
 
 
-def check(idx, slug):
+def check(idx: dict[str, str], slug: str) -> tuple[str, bool]:
     r = load_by_slug(idx, slug)
     if not r:
         return f"{slug}: NOT RESOLVED (no scene file for this slug)", False
@@ -70,7 +73,7 @@ def check(idx, slug):
     return detail, ok
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(description="Load a game by slug without the UI.")
     ap.add_argument("slug", nargs="?", help="one slug to test; default = every scene")
     args = ap.parse_args()

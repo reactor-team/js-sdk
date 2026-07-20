@@ -11,11 +11,14 @@ the app's frame.png handoff (both mocked here). Needs NVIDIA_API_KEY.
 
 Run:  verify_director_live.bat
 """
+from __future__ import annotations
+
 import asyncio
 import json
 import os
 import shutil
 import sys
+from typing import Any
 
 import websockets
 
@@ -32,7 +35,7 @@ SHARK = os.path.join(COORD, "..", "..", "..", "assets", "shark.jpg")
 received = []
 
 
-async def handler(ws, *_):
+async def handler(ws: Any, *_: Any) -> None:
     # Collect every op the director sends; stay open until it disconnects.
     async for raw in ws:
         try:
@@ -41,7 +44,7 @@ async def handler(ws, *_):
             pass
 
 
-async def main():
+async def main() -> None:
     if not os.environ.get("NVIDIA_API_KEY"):
         raise SystemExit("Set NVIDIA_API_KEY first.")
     shutil.copy(SHARK, FRAME)  # fresh mtime -> the director acts on one frame

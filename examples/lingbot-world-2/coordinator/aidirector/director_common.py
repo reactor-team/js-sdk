@@ -7,11 +7,15 @@ system prompt from the scene + live state, calls decide(), parses the JSON, and
 emits assert/vital ops (role="ai") to the coordinator. Backend: director_nim.py
 (NVIDIA NIM inference).
 """
+from __future__ import annotations
+
 import asyncio
 import json
 import os
 import shutil
 import time
+from collections.abc import Callable
+from typing import Any
 
 import websockets
 from PIL import Image
@@ -19,10 +23,10 @@ from PIL import Image
 # Prefix every director log line with the wall-clock time (HH:MM:SS, no date) so
 # events in the console can be correlated. Shadows the builtin print for this
 # module only — dbg() and every print(f"[director] ...") pick it up automatically.
-_builtin_print = print
+_builtin_print: Callable[..., None] = print
 
 
-def print(*args, **kwargs):  # noqa: A001 — intentional module-level shadow
+def print(*args: Any, **kwargs: Any) -> None:  # noqa: A001 — intentional module-level shadow
     _builtin_print(time.strftime("%H:%M:%S"), *args, **kwargs)
 
 
@@ -78,7 +82,12 @@ PROBE_USER = ("Answer each of these yes/no questions about the image. Use \"unkn
               "JSON object mapping each id to true, false, or \"unknown\".")
 
 
-def make_probe(vlm, scene_json, debug=False, **probe_opts):
+def make_probe(
+    vlm: Callable[..., str],
+    scene_json: dict[str, Any],
+    debug: bool = False,
+    **probe_opts: Any,
+) -> Callable[[Image.Image, dict[str, Any] | None], tuple[list[dict[str, Any]], dict[str, Any]]]:
     """Build a probe(frame) -> (ops, observations) from the FULL scene JSON.
 
     Reuses the backend's vlm(frame, system, user_text) call. Derives the typed
@@ -98,7 +107,9 @@ def make_probe(vlm, scene_json, debug=False, **probe_opts):
             gate = " [gated]" if p.get("requires") else ""
             print(f"[director:dbg]   ? {p['id']}: {p['q']}{gate}", flush=True)
 
-    def probe(frame, state=None):
+    def probe(
+        frame: Image.Image, state: dict[str, Any] | None = None
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         # Ask only gate-valid probes this frame (ungated + unlocked gated events).
         active = [p for p in all_probes if _gate_ok(p.get("requires"), state or {})]
         questions = "\n".join(f'- {p["id"]}: {p["q"]}' for p in active)
@@ -118,7 +129,7 @@ def make_probe(vlm, scene_json, debug=False, **probe_opts):
     return probe
 
 
-def load_scene(path):
+def load_scene(path: str | None) -> dict[str, Any]:
     if not path or not os.path.exists(path):
         return {"base": "An interactive world.", "dir_events": [], "objective": ""}
     with open(path, "r", encoding="utf-8") as f:
@@ -143,14 +154,14 @@ def load_scene(path):
     return {"base": base, "dir_events": dir_events, "objective": director_goal}
 
 
-def _norm_name(s):
+def _norm_name(s: Any) -> str:
     """Normalize an event name for matching: the model may reply with the display
     name ("Gold Coin Appears") OR the slug form ("gold_coin_appears") — treat them
     the same by lowercasing and unifying underscores/spaces."""
     return str(s).strip().lower().replace("_", " ")
 
 
-def _event_summary(clause):
+def _event_summary(clause: str) -> str:
     """Distinct one-liner for the candidate list. Strips the shared "explorer
     unchanged … ONLY the world … changes:" boilerplate so each event reads
     differently (else clause[:N] is identical for every event and the model
@@ -160,7 +171,7 @@ def _event_summary(clause):
     return text[:130]
 
 
-def _gate_ok(requires, state):
+def _gate_ok(requires: dict[str, Any] | None, state: dict[str, Any]) -> bool:
     """Python mirror of isEventAvailable (lib/lingbot-world-prompts.ts): a director
     event is only a valid AI trigger when its declarative `requires` gate holds.
     Gating reads the ONE shared History (`shared_fired`, derived from the
@@ -190,7 +201,7 @@ def _gate_ok(requires, state):
     return True
 
 
-def _event_open(e, state):
+def _event_open(e: dict[str, Any], state: dict[str, Any]) -> bool:
     """Is director event `e` a valid AI trigger right now? Prefer the authored
     `requires` gate (load_scene path) evaluated against the DIRECTOR's own state —
     authoritative for the AI's own fires. If `requires` is absent (the event came
@@ -202,7 +213,7 @@ def _event_open(e, state):
     return e.get("available") is not False
 
 
-def build_system(scene, state):
+def build_system(scene: dict[str, Any], state: dict[str, Any]) -> str:
     fired = state.get("fired") or []
     fired_lower = {f.lower() for f in fired}
     dir_events = scene.get("dir_events") or []
@@ -234,7 +245,7 @@ def build_system(scene, state):
     )
 
 
-async def _timed_call(fn, *args):
+async def _timed_call(fn: Callable[..., Any], *args: Any) -> tuple[Any, Exception | None, float]:
     """Run a blocking VLM call in a worker thread and time it, so probe and decide
     can run CONCURRENTLY under asyncio.gather. Returns (result, err, seconds) and
     never raises — the caller inspects `err`."""
@@ -245,14 +256,29 @@ async def _timed_call(fn, *args):
         return None, e, time.monotonic() - _t
 
 
-async def _noop_call():
+async def _noop_call() -> tuple[None, None, float]:
     """Stand-in for the probe coroutine when no probe is configured."""
     return None, None, 0.0
 
 
-async def run_director(decide, url, frame_path, scene, interval, once, probe=None, debug=False,
-                       reload_game=None, hello_extra=None, model_check=None, fire_cooldown=0,
-                       warmup=0.0, reuse_frame=False, self_feed=True, vlm_decide=False):
+async def run_director(
+    decide: Callable[[Image.Image, str], str],
+    url: str,
+    frame_path: str,
+    scene: dict[str, Any],
+    interval: float,
+    once: bool,
+    probe: Callable[[Image.Image, dict[str, Any] | None], tuple[list[dict[str, Any]], dict[str, Any]]] | None = None,
+    debug: bool = False,
+    reload_game: Callable[[str], tuple[dict[str, Any], Any, str] | None] | None = None,
+    hello_extra: dict[str, Any] | None = None,
+    model_check: Callable[[], bool] | None = None,
+    fire_cooldown: int = 0,
+    warmup: float = 0.0,
+    reuse_frame: bool = False,
+    self_feed: bool = True,
+    vlm_decide: bool = False,
+) -> None:
     # Latest state pushed by the coordinator (facts + vitals) for prompt context.
     # `fired` = short memory of the arc (event names introduced); `step` = pacing.
     # `observations` = the probe read of the current frame (the AI director's eyes).
@@ -275,7 +301,7 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
     consec_vlm_errors = 0  # STOP the director after this many decides fail in a row
     MAX_VLM_ERRORS = 3  # (a model disconnect that model_check misses shouldn't loop forever)
 
-    def dbg(*a):
+    def dbg(*a: Any) -> None:
         if debug:
             print("[director:dbg]", *a, flush=True)
 
@@ -303,7 +329,7 @@ async def run_director(decide, url, frame_path, scene, interval, once, probe=Non
         state["game_start_time"] = time.monotonic()  # for --warmup (do nothing at game start)
         print(f"[director] === GAME START === {scene.get('objective') or '(no objective)'}", flush=True)
 
-        async def listen():
+        async def listen() -> None:
             try:
                 async for raw in ws:
                     try:

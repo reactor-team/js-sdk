@@ -8,9 +8,13 @@ Usage:
     NVIDIA_API_KEY=nvapi-... python bench_speed.py --image ../public/lingbot-cases/noir-alley-patrol.jpg
     python bench_speed.py --image frame.png --repeat 2
 """
+from __future__ import annotations
+
 import argparse
 import os
 import time
+from collections.abc import Callable
+from typing import Any
 
 from PIL import Image
 
@@ -24,7 +28,7 @@ PROBE_USER = ("Answer these about the image as JSON: is_night, subject_visible, 
               "duplicate_subject, fire_visible, character_fighting.")
 
 
-def _time(fn, n):
+def _time(fn: Callable[[], tuple[Any, Any]], n: int) -> tuple[float | None, Any]:
     best = None
     for _ in range(n):
         t = time.perf_counter()
@@ -35,7 +39,7 @@ def _time(fn, n):
     return best, ct
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(description="Measure non-reasoning + frame-size speedup.")
     ap.add_argument("--image", required=True, help="a frame/scene image to probe")
     ap.add_argument("--model", default=MODELS["cosmos"], help="model id or shortcut (default cosmos)")
