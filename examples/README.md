@@ -4,6 +4,7 @@ Self-contained, runnable Next.js apps built on `@reactor-team/js-sdk` and the ty
 
 | Example                                 | Model                                                                                                       | Highlights                                                                                                                                                                                                                                                                         |
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`happy-oyster/`](./happy-oyster)       | [`@reactor-models/happy-oyster`](https://www.npmjs.com/package/@reactor-models/happy-oyster)                | Interactive world model. Build a world from a prompt (or attach a permanent one), then travel it live: **Adventure** worlds you drive with WASD, **Director** worlds you steer with text `instruct` + pause/rewind. Mode-fixed sessions, authoritative `world_state` snapshot.     |
 | [`helios/`](./helios)                   | [`@reactor-models/helios`](https://www.npmjs.com/package/@reactor-models/helios)                            | Continuous prompt-driven video generation. Curated text and image scenes, mid-stream prompt hot-swap via `setPrompt`, atomic `setConditioning({ prompt, image })` for image-to-video, snap-clip recording, design tokens from `@reactor-team/ui`.                                  |
 | [`lingbot/`](./lingbot)                 | [`@reactor-models/lingbot`](https://www.npmjs.com/package/@reactor-models/lingbot)                          | Interactive world model. Pick a starting image, drive the scene with WASD, layer in curated dynamic events (rain, fog, …) as live prompt swaps, snap-clip recording.                                                                                                               |
 | [`lingbot-world-2/`](./lingbot-world-2) | [`@reactor-models/lingbot-world-2`](https://www.npmjs.com/package/@reactor-models/lingbot-world-2)          | Interactive world model you drive like a game. Two-axis WASD driving, per-latent `set_camera_pose` motion (mouse-look, roll, orbit, jump arcs, crouch dips), hold-key world events, a layered prompt workbench with live editor + inspector, attn-window / KV-cache knobs.         |
@@ -29,6 +30,7 @@ API keys come from [reactor.inc/account/api-keys](https://www.reactor.inc/accoun
 ## Scaffolding from these templates
 
 ```bash
+npx create-reactor-app my-app --model happy-oyster
 npx create-reactor-app my-app --model helios
 npx create-reactor-app my-app --model lingbot
 npx create-reactor-app my-app --model lingbot-world-2
