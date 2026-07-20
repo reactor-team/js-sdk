@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@reactor-models/happy-oyster':
-        specifier: ^0.2.0
-        version: 0.2.0(@tensorflow/tfjs-core@4.22.0)(react@19.2.3)(seedrandom@3.0.5)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.3))
+        specifier: 0.2.1
+        version: 0.2.1(@tensorflow/tfjs-core@4.22.0)(react@19.2.3)(seedrandom@3.0.5)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.3))
       '@reactor-team/js-sdk':
         specifier: ^2.12.0
         version: 2.12.1(hls.js@1.6.16)(react@19.2.3)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.3))
@@ -505,8 +505,8 @@ packages:
   '@open-draft/until@2.1.0':
     resolution: {integrity: sha512-U69T3ItWHvLwGg5eJ0n3I62nWuE6ilHlmz7zM0npLBRvPRd7e6NYmg54vvRtP5mZG7kZqZCFVdsTWo7BPtBujg==}
 
-  '@reactor-models/happy-oyster@0.2.0':
-    resolution: {integrity: sha512-EiO/iPXmb+2pFFBfPtUu+5ZpCIxvuqN70CD/EhUwY0V/+mXyD4Ls24s4OGJ1ZVASFsELxS9zs21W8HYuzNy09g==}
+  '@reactor-models/happy-oyster@0.2.1':
+    resolution: {integrity: sha512-w0t5xQB8D6TrfAMZhA2A5Ussj3xU/2EwA7psVliS+zWuTintmUHL/Ez2OYNtp8v+EtlzkDbbtO5cELhJ5dX1jw==}
     peerDependencies:
       react: '>=18'
     peerDependenciesMeta:
@@ -2784,7 +2784,7 @@ snapshots:
 
   '@open-draft/until@2.1.0': {}
 
-  '@reactor-models/happy-oyster@0.2.0(@tensorflow/tfjs-core@4.22.0)(react@19.2.3)(seedrandom@3.0.5)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.3))':
+  '@reactor-models/happy-oyster@0.2.1(@tensorflow/tfjs-core@4.22.0)(react@19.2.3)(seedrandom@3.0.5)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.3))':
     dependencies:
       '@reactor-team/js-sdk': 2.12.1(hls.js@1.6.16)(react@19.2.3)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.3))
       aliyun-rtc-sdk: 7.3.3(@tensorflow/tfjs-core@4.22.0)(seedrandom@3.0.5)

@@ -1,6 +1,6 @@
 "use client";
 
-// Director (mode 2) control deck: steer the story with free-text instructions
+// Directing (mode 2) control deck: steer the story with free-text instructions
 // plus pause / resume / rewind transport, over the live instruction timeline
 // the runtime reconciles into travel_state. Rewind needs the session paused and
 // snaps to multiples of 4 seconds (the server rounds down).
@@ -9,7 +9,7 @@ import { useState } from "react";
 import { useHappyOysterClient } from "./ho-client";
 import { SectionLabel } from "./ui";
 
-export function DirectorControls() {
+export function DirectingControls() {
   const { instruct, pause, resume, rewind, travelState, travelStatus } =
     useHappyOysterClient();
   const [text, setText] = useState("");
