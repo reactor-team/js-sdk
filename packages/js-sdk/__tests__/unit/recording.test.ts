@@ -394,7 +394,7 @@ describe("fetchPlaylist", () => {
     expect(calls).toBe(3);
   });
 
-  it("throws CLIP_NOT_READY when deadline passes with stuck 202", async () => {
+  it("throws CLIP_NOT_READY when an opt-in slackMs deadline passes with stuck 202", async () => {
     let calls = 0;
     globalThis.fetch = vi.fn().mockImplementation(() => {
       calls++;
@@ -406,8 +406,8 @@ describe("fetchPlaylist", () => {
       );
     }) as any;
 
-    // Deadline already in the past → first poll returns 202, second loop
-    // sees Date.now() >= deadline and bails.
+    // Opt into a bound: deadline already in the past → first poll
+    // returns 202, second loop sees Date.now() >= deadline and bails.
     await expect(
       fetchPlaylist("http://localhost/clips?x=1", {
         predictedReadyAtMs: Date.now() - 10_000,
@@ -419,7 +419,7 @@ describe("fetchPlaylist", () => {
     expect(calls).toBeGreaterThan(0);
   });
 
-  it("throws CLIP_NOT_READY when fallback maxRetries is exhausted", async () => {
+  it("throws CLIP_NOT_READY when an opt-in maxRetries cap is exhausted", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(
       new Response(null, {
         status: 202,
@@ -433,6 +433,62 @@ describe("fetchPlaylist", () => {
         maxRetryDelayMs: 0,
       })
     ).rejects.toMatchObject({ code: "CLIP_NOT_READY" });
+  });
+
+  it("polls past the predicted-ready epoch by default (no bound → no CLIP_NOT_READY)", async () => {
+    // predictedReadyAtMs far in the past used to anchor a 15s deadline;
+    // now it is informational only. With no slackMs / maxRetries the
+    // stuck 202s keep being retried until the manifest lands.
+    let calls = 0;
+    globalThis.fetch = vi.fn().mockImplementation(() => {
+      calls++;
+      if (calls <= 25) {
+        return Promise.resolve(
+          new Response(null, { status: 202, headers: { "Retry-After": "0" } })
+        );
+      }
+      return Promise.resolve(new Response(SAMPLE_MANIFEST, { status: 200 }));
+    }) as any;
+
+    const body = await fetchPlaylist("http://localhost/clips?x=1", {
+      predictedReadyAtMs: Date.now() - 60_000,
+      minRetryDelayMs: 0,
+      maxRetryDelayMs: 0,
+    });
+    expect(body).toBe(SAMPLE_MANIFEST);
+    expect(calls).toBe(26);
+  });
+
+  it("polls indefinitely by default and stops only when the signal aborts", async () => {
+    let calls = 0;
+    globalThis.fetch = vi
+      .fn()
+      .mockImplementation((_url, init?: RequestInit) => {
+        if (init?.signal?.aborted) {
+          return Promise.reject(new DOMException("Aborted", "AbortError"));
+        }
+        calls++;
+        return Promise.resolve(
+          new Response(null, { status: 202, headers: { "Retry-After": "0" } })
+        );
+      }) as any;
+
+    const controller = new AbortController();
+    const promise = fetchPlaylist("http://localhost/clips?x=1", {
+      // Both a past predicted epoch and no bound: the old code would
+      // have given up (fallback maxRetries). The new default does not.
+      predictedReadyAtMs: Date.now() - 60_000,
+      minRetryDelayMs: 0,
+      maxRetryDelayMs: 0,
+      signal: controller.signal,
+    });
+
+    // Let it spin well past the old 5-attempt fallback ceiling.
+    await new Promise((r) => setTimeout(r, 20));
+    controller.abort();
+
+    await expect(promise).rejects.toBeInstanceOf(DOMException);
+    expect(calls).toBeGreaterThan(5);
   });
 
   it("throws PLAYLIST_FETCH_FAILED on other 4xx/5xx", async () => {

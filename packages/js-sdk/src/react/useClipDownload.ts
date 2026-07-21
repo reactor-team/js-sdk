@@ -130,9 +130,18 @@ export function useClipDownload(
   // handled correctly.
   const inFlightRef = useRef(false);
 
+  // `downloadClipAsFile` polls `/clips` indefinitely by default, so an
+  // in-flight download that never resolves would otherwise outlive the
+  // component. Abort it on unmount; the abort surfaces as an
+  // `AbortError` which we swallow rather than paint as a failure.
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => abortRef.current?.abort(), []);
+
   const download = useCallback(async (): Promise<Blob | undefined> => {
     if (inFlightRef.current) return undefined;
     inFlightRef.current = true;
+    const abort = new AbortController();
+    abortRef.current = abort;
     setState({ kind: "downloading", fetched: 0, total: 0 });
     try {
       // Explicit `options.getJwt` wins; fall back to the provider's
@@ -147,6 +156,7 @@ export function useClipDownload(
         filenameRef.current,
         {
           jwt,
+          signal: abort.signal,
           onProgress: ({ fetched, total }) =>
             setState({ kind: "downloading", fetched, total }),
         }
@@ -154,6 +164,9 @@ export function useClipDownload(
       setState({ kind: "idle" });
       return blob;
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return undefined;
+      }
       const message =
         err instanceof RecordingError
           ? `${err.code}: ${err.reason}`
