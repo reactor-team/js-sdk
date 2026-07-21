@@ -71,16 +71,15 @@ export interface ClipPlayerProps {
    */
   getJwt?: () => string | Promise<string>;
   /**
-   * Override the grace period beyond ``clip.predictedReadyAtMs``
-   * before the SDK gives up polling the ``/clips`` manifest endpoint
-   * with ``CLIP_NOT_READY``.  Defaults to
-   * {@link DEFAULT_PLAYLIST_POLL_SLACK_MS} (15 s) — enough for snap
-   * clips, but long-running session recordings may legitimately need
-   * a minute or more for the final boundary chunk to finish encoding
-   * + uploading, in which case pass a larger value (e.g. ``120_000``
-   * for two-minute grace).  Forwarded directly to
-   * {@link fetchPlaylist}'s ``slackMs`` option — see that helper for
-   * the polling semantics.
+   * Opt into a *bounded* wait: give up polling the ``/clips`` manifest
+   * endpoint with ``CLIP_NOT_READY`` once
+   * ``max(clip.predictedReadyAtMs, pollStart) + slackMs`` passes.  By
+   * default this is **unset** — the player polls indefinitely until the
+   * clip is ready, and stops only when it unmounts or ``clip`` changes
+   * (both abort the in-flight poll).  Set a value when you want a hard
+   * ceiling (e.g. ``120_000`` for a two-minute cap).  Forwarded
+   * directly to {@link fetchPlaylist}'s ``slackMs`` option — see that
+   * helper for the polling semantics.
    */
   slackMs?: number;
   /** Play automatically once the manifest is attached. Default ``true``. */

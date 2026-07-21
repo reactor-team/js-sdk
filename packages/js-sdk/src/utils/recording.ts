@@ -63,9 +63,10 @@ export type ClipKind = "snap" | "recording";
  * - `predictedReadyAtMs` is a **Unix epoch in milliseconds** — the
  *   runtime's estimate of when the boundary chunk will be servable
  *   by `/clips`. Compare against `Date.now()` to drive a "ready in
- *   Ns" indicator. The SDK uses this as the polling deadline: past
- *   `predictedReadyAtMs + slackMs` and still 202, the SDK fails with
- *   `CLIP_NOT_READY` on the assumption the runtime crashed.
+ *   Ns" indicator. It is only an estimate: the SDK polls `/clips`
+ *   until the manifest is actually ready and does not give up when
+ *   this epoch passes (see {@link fetchPlaylist} for the polling and
+ *   cancellation model).
  * - `playlistUrl` is short-lived in production (the embedded chunk
  *   URLs are presigned for a few minutes). Re-issuing the request
  *   produces a fresh URL with fresh presigning.
@@ -224,22 +225,30 @@ interface ParsedPlaylist {
 }
 
 /**
- * Default grace period after `predictedReadyAtMs` before
- * {@link fetchPlaylist} gives up.  Applied from
- * `max(predictedReadyAtMs, pollStart)` so late clicks still get the
- * full window.
+ * Suggested grace period for callers that opt into a *bounded* wait by
+ * passing it as {@link FetchPlaylistOptions.slackMs}.  It is **not** a
+ * default: {@link fetchPlaylist} polls indefinitely unless a bound is
+ * supplied.  Provided so callers who do want the old ~15 s ceiling can
+ * ask for it by name rather than hard-coding a magic number.
  */
 export const DEFAULT_PLAYLIST_POLL_SLACK_MS = 15_000;
 
 export interface FetchPlaylistOptions {
   /**
    * Unix epoch (ms) when the runtime predicts the boundary chunk will
-   * be servable. Pass `clip.predictedReadyAtMs` here. When set, polling
-   * continues until `predictedReadyAtMs + slackMs`; once past, a
-   * stuck `202` produces `CLIP_NOT_READY` (assume runtime crashed).
+   * be servable. Pass `clip.predictedReadyAtMs` here. On its own it
+   * does *not* stop polling — it only anchors the optional `slackMs`
+   * deadline. Use it to drive a "ready in Ns" indicator.
    */
   predictedReadyAtMs?: number;
-  /** Grace period after `predictedReadyAtMs`. Default {@link DEFAULT_PLAYLIST_POLL_SLACK_MS}. */
+  /**
+   * Opt-in grace period that turns polling into a *bounded* wait. When
+   * set to a finite value, a stuck `202` produces `CLIP_NOT_READY` once
+   * `max(predictedReadyAtMs, pollStart) + slackMs` passes. Omit (the
+   * default) to poll indefinitely until the manifest is ready or the
+   * caller aborts via `signal`. See {@link DEFAULT_PLAYLIST_POLL_SLACK_MS}
+   * for a sensible value if you want the old ~15 s ceiling.
+   */
   slackMs?: number;
   /**
    * Hard cap on the per-poll wait. The server's `Retry-After` header is
@@ -249,12 +258,18 @@ export interface FetchPlaylistOptions {
   /** Floor on the per-poll wait so we don't hot-loop on cheap networks. Default 200 ms. */
   minRetryDelayMs?: number;
   /**
-   * Fallback retry count used when `predictedReadyAtMs` is omitted
-   * (e.g. someone calls `fetchPlaylist` directly with a saved URL,
-   * outside of a fresh `Clip`). Default 5.
+   * Opt-in cap on the number of `202` responses tolerated before
+   * `CLIP_NOT_READY`. Omit (the default) to poll indefinitely; set it
+   * for a simple attempt-count ceiling when you don't have a
+   * `predictedReadyAtMs` to anchor a `slackMs` deadline.
    */
   maxRetries?: number;
-  /** Aborts in-flight fetches and the inter-poll sleep. */
+  /**
+   * Aborts in-flight fetches and the inter-poll sleep. Because polling
+   * is unbounded by default, this is the primary way a caller ends a
+   * wait that is taking too long (a timeout, a user "cancel", a React
+   * unmount).
+   */
   signal?: AbortSignal;
   /**
    * Coordinator JWT.  When set, attached as `Authorization: Bearer
@@ -268,31 +283,50 @@ export interface FetchPlaylistOptions {
  * Fetch the playlist URL, polling on `202 Accepted` (which the manifest
  * endpoint returns while the boundary chunk is still uploading).
  *
- * Polling deadline is driven by `predictedReadyAtMs + slackMs` when a
- * `Clip` was just minted by the runtime; without that field the
- * function falls back to `maxRetries` attempts. Either way:
+ * Polling is **unbounded by default** — it keeps retrying on `202`
+ * until the manifest is ready or the caller aborts via `signal`. This
+ * matches the reality that a clip's boundary chunk can take arbitrarily
+ * long to land (a paused model closes no chunks; a long recording's
+ * final chunk is large). Callers own the give-up policy: pass `signal`
+ * to cancel, or opt into a ceiling with `slackMs` / `maxRetries`.
+ *
  * - `200` → returns the manifest body.
  * - `410` / `404` → throws `CLIP_GONE`.
  * - `5xx`/other → throws `PLAYLIST_FETCH_FAILED` (no retry).
- * - Past the deadline / retries with stuck `202` → throws
- *   `CLIP_NOT_READY` (the runtime probably crashed mid-chunk).
+ * - `202` past an opt-in `slackMs` deadline or `maxRetries` cap →
+ *   throws `CLIP_NOT_READY`.
+ * - aborted `signal` → rejects with the fetch/`sleep` `AbortError`.
  */
 export async function fetchPlaylist(
   playlistUrl: string,
   options: FetchPlaylistOptions = {}
 ): Promise<string> {
-  const slackMs = options.slackMs ?? DEFAULT_PLAYLIST_POLL_SLACK_MS;
   const minDelay = Math.max(0, options.minRetryDelayMs ?? 200);
   const maxDelay = Math.max(minDelay, options.maxRetryDelayMs ?? 2_000);
-  const fallbackMaxRetries = options.maxRetries ?? 5;
 
-  const hasDeadline = typeof options.predictedReadyAtMs === "number";
-  // Slack window starts from max(predictedReadyAtMs, now), so late
-  // clicks still get the full grace window.
+  // Polling is unbounded by default: on `202` we keep polling until the
+  // manifest is ready (`200`), a terminal status arrives (`410`/`404`/
+  // other), or the caller aborts via `signal`. The clip's boundary
+  // chunk may take arbitrarily long to land (a paused model closes no
+  // chunks, a long recording's final chunk is large), so a fixed
+  // give-up window would fail clips that were only slow. Two bounds are
+  // opt-in for callers who want a ceiling: a wall-clock deadline
+  // (`slackMs`, anchored at `predictedReadyAtMs`) and a poll count
+  // (`maxRetries`). Neither is applied unless the caller sets it.
+  const hasDeadline =
+    typeof options.slackMs === "number" && Number.isFinite(options.slackMs);
+  // Deadline anchors at max(predictedReadyAtMs, now) so a late click
+  // (polling started well after the predicted-ready epoch) still gets
+  // the full grace window rather than a deadline already in the past.
   const startedPollingAt = Date.now();
   const deadlineMs = hasDeadline
-    ? Math.max(options.predictedReadyAtMs as number, startedPollingAt) + slackMs
+    ? Math.max(
+        options.predictedReadyAtMs ?? startedPollingAt,
+        startedPollingAt
+      ) + (options.slackMs as number)
     : undefined;
+  const maxRetries =
+    typeof options.maxRetries === "number" ? options.maxRetries : undefined;
 
   const headers = options.jwt
     ? { Authorization: `Bearer ${options.jwt}` }
@@ -319,17 +353,16 @@ export async function fetchPlaylist(
     // Order matters: 202 is in the 2xx range so it would match
     // ``response.ok`` if we didn't branch on it first.
     if (response.status === 202) {
-      // Decide whether to keep polling.
-      if (hasDeadline) {
-        if (Date.now() >= (deadlineMs as number)) {
-          throw new RecordingError(
-            "CLIP_NOT_READY",
-            `Boundary chunk still pending after ${slackMs}ms grace (predicted ready ${new Date(
-              options.predictedReadyAtMs as number
-            ).toISOString()}). Runtime may have crashed mid-clip.`
-          );
-        }
-      } else if (attempt >= fallbackMaxRetries) {
+      // Give up only against a caller-supplied bound; otherwise poll on.
+      if (deadlineMs !== undefined && Date.now() >= deadlineMs) {
+        throw new RecordingError(
+          "CLIP_NOT_READY",
+          `Boundary chunk still pending after ${options.slackMs}ms grace (predicted ready ${new Date(
+            options.predictedReadyAtMs ?? startedPollingAt
+          ).toISOString()}). Runtime may have crashed mid-clip.`
+        );
+      }
+      if (maxRetries !== undefined && attempt >= maxRetries) {
         throw new RecordingError(
           "CLIP_NOT_READY",
           `Manifest still pending after ${attempt + 1} attempts (last status ${lastStatus})`
@@ -341,10 +374,12 @@ export async function fetchPlaylist(
         minDelay
       );
       const delay = Math.min(maxDelay, Math.max(minDelay, headerDelay));
-      // Don't sleep past the deadline; clamp so the next loop sees it.
-      const clampedDelay = hasDeadline
-        ? Math.min(delay, Math.max(0, (deadlineMs as number) - Date.now()))
-        : delay;
+      // Don't sleep past a deadline (if any); clamp so the next loop
+      // observes it promptly.
+      const clampedDelay =
+        deadlineMs !== undefined
+          ? Math.min(delay, Math.max(0, deadlineMs - Date.now()))
+          : delay;
       await sleep(clampedDelay, options.signal);
       attempt++;
       continue;
