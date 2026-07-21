@@ -466,6 +466,142 @@ describe("WebRTCTransportClient", () => {
     });
   });
 
+  // ── ICE candidate trickle ─────────────────────────────────────────────
+
+  describe("ICE candidate trickle", () => {
+    // Route responses by URL/method so the fire-and-forget ice_candidates
+    // POST (issued mid-connect(), before the SDP answer poll) doesn't have to
+    // line up with a fixed once-queue ordering.
+    function routeFetch(connectionId = 5001) {
+      mockFetch.mockImplementation((url: any, opts: any) => {
+        const u = String(url);
+        if (u.includes("/ice_servers")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(ICE_SERVERS_RESPONSE),
+          });
+        }
+        if (u.endsWith("/connections")) {
+          return Promise.resolve({
+            ok: true,
+            status: 201,
+            json: () =>
+              Promise.resolve({ connection_id: connectionId, track_map: {} }),
+          });
+        }
+        if (u.includes("/ice_candidates")) {
+          return Promise.resolve({ ok: true, status: 202 });
+        }
+        if (u.includes("/sdp_params")) {
+          if (opts?.method === "GET") {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: () => Promise.resolve({ sdp_answer: "v=0\r\nanswer" }),
+            });
+          }
+          return Promise.resolve({ ok: true, status: 202 });
+        }
+        return Promise.resolve({ ok: true, status: 202 });
+      });
+    }
+
+    function iceCandidatePosts() {
+      return mockFetch.mock.calls
+        .filter((c: any) => String(c[0]).includes("/ice_candidates"))
+        .map((c: any) => ({
+          url: String(c[0]),
+          body: JSON.parse(c[1].body),
+        }));
+    }
+
+    // Let the fire-and-forget ice_candidates POST (and its awaited headers)
+    // settle after connect() resolves.
+    function flushMicrotasks() {
+      return new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    function emitCandidate(candidate: string) {
+      mockPC.onicecandidate({
+        candidate: { candidate, sdpMid: "0", sdpMLineIndex: 0 },
+      });
+    }
+
+    it("retains candidates gathered before connect() and sends them once the connection id is assigned", async () => {
+      const client = createClient();
+      routeFetch(5001);
+      await client.prepare(MOCK_TRACKS);
+
+      // Browser trickles candidates while connectionId is still undefined.
+      mockPC.iceGatheringState = "gathering";
+      emitCandidate("candidate:host");
+      emitCandidate("candidate:srflx");
+
+      // Nothing is POSTed yet — the connection id does not exist.
+      expect(iceCandidatePosts()).toHaveLength(0);
+
+      await client.connect();
+      await flushMicrotasks();
+
+      const posts = iceCandidatePosts();
+      expect(posts).toHaveLength(1);
+      expect(posts[0].url).toContain("/connections/5001/ice_candidates");
+      expect(posts[0].body.candidates).toHaveLength(2);
+      expect(posts[0].body.candidates[0].candidate).toBe("candidate:host");
+      expect(posts[0].body.candidates[1].candidate).toBe("candidate:srflx");
+      // Gathering still in progress → not the final batch.
+      expect(posts[0].body.is_final).toBe(false);
+    });
+
+    it("does not drop candidates via the debounce timer while connectionId is undefined", async () => {
+      vi.useFakeTimers();
+      const client = createClient();
+      routeFetch(5001);
+      await client.prepare(MOCK_TRACKS);
+
+      mockPC.iceGatheringState = "gathering";
+      emitCandidate("candidate:host");
+
+      // Fire the 25ms debounce while the connection id is still undefined.
+      // The old code flushed here and sendIceCandidates() dropped the batch.
+      await vi.advanceTimersByTimeAsync(50);
+      expect(iceCandidatePosts()).toHaveLength(0);
+
+      vi.useRealTimers();
+      await client.connect();
+      await flushMicrotasks();
+
+      const posts = iceCandidatePosts();
+      expect(posts).toHaveLength(1);
+      expect(posts[0].body.candidates).toHaveLength(1);
+      expect(posts[0].body.candidates[0].candidate).toBe("candidate:host");
+    });
+
+    it("sends is_final=true when ICE gathering completes before the connection id is assigned", async () => {
+      const client = createClient();
+      routeFetch(5001);
+      await client.prepare(MOCK_TRACKS);
+
+      // Candidates gathered, then the end-of-candidates marker fires — all
+      // before connect() assigns the id, so the marker would otherwise be lost.
+      mockPC.iceGatheringState = "gathering";
+      emitCandidate("candidate:host");
+      mockPC.iceGatheringState = "complete";
+      mockPC.onicecandidate({ candidate: null });
+
+      expect(iceCandidatePosts()).toHaveLength(0);
+
+      await client.connect();
+      await flushMicrotasks();
+
+      const posts = iceCandidatePosts();
+      expect(posts).toHaveLength(1);
+      expect(posts[0].body.candidates).toHaveLength(1);
+      // The drain recovers the swallowed end-of-candidates marker.
+      expect(posts[0].body.is_final).toBe(true);
+    });
+  });
+
   // ── abort() ───────────────────────────────────────────────────────────
 
   describe("abort()", () => {

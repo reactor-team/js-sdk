@@ -368,7 +368,7 @@ export class WebRTCTransportClient implements TransportClient {
     is_final: boolean
   ): Promise<void> {
     if (this.connectionId === undefined) {
-      console.debug(
+      console.warn(
         "[WebRTCTransport] ICE candidates dropped: no active connection"
       );
       return;
@@ -427,6 +427,13 @@ export class WebRTCTransportClient implements TransportClient {
     if (this.iceCandidateFlushTimer !== undefined) {
       clearTimeout(this.iceCandidateFlushTimer);
       this.iceCandidateFlushTimer = undefined;
+    }
+
+    if (this.connectionId === undefined) {
+      console.debug(
+        "[WebRTCTransportClient] skipping ICE candidate flush because the connection is not established yet"
+      );
+      return;
     }
 
     const batch = this.pendingIceCandidates;
@@ -648,6 +655,19 @@ export class WebRTCTransportClient implements TransportClient {
       trackMapping,
       reconnect
     );
+
+    // Drain candidates buffered during prepare()/registration, now that
+    // connectionId is set. Only flush when something was actually buffered —
+    // an empty flush would emit a needless is_final-only POST; future
+    // candidates take the normal trickle path. Derive is_final from the
+    // gathering state so the end-of-candidates marker isn't lost when
+    // gathering completed before the connection id was assigned.
+    if (this.pendingIceCandidates.length > 0) {
+      this.flushPendingIceCandidates(
+        this.peerConnection !== undefined &&
+          this.peerConnection.iceGatheringState === "complete"
+      );
+    }
 
     const answerResponse = await this.pollSdpAnswer(this.connectionId);
 
