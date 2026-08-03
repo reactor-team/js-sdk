@@ -28,7 +28,7 @@ Every screen talks to **one** surface (`useHappyOysterClient()` from [`component
 | **Lifecycle** | Client phase `idle → connecting → connected → starting_stream → streaming → ended / failed` | `phase`, `connect()`, `disconnect()`                                                  |
 | **World**     | The session's current world, from the model's snapshot                                      | `worldState` (`phase`, `mode`, `prompt`, `first_frame`, `encrypted_world_id`)         |
 | **Setup**     | Make a world current                                                                        | `createWorld(params)`, `attachWorld(encryptedWorldId)`                                |
-| **Travel**    | Open / close the live world stream                                                          | `startTravel()`, `endTravelSession()`, `streaming`                                    |
+| **Travel**    | Open / close the live world stream                                                          | `startTravel()`, `endTravelSession()`, `streaming`, `maxExperienceTimeSec`            |
 | **Adventure** | Held movement + world verbs (mode 1)                                                        | `hold(cmd)`, `interact(verb)`, `release(axes)`, `stop()`                              |
 | **Directing** | Text steering + transport (mode 2)                                                          | `instruct(text)`, `pause()`, `resume()`, `rewind(sec)`, `travelState`, `travelStatus` |
 
@@ -98,7 +98,11 @@ The example creates its own Reactor session: the client's `connect()` calls `ho.
 | Attaching the wrong experience | action error `MODE_MISMATCH`  | Attach through the world's own mode instead.  |
 | Session drop                   | `phase === "ended"`           | Leave the travel view; no reconnect here.     |
 
-Client-side travel caps live in [`lib/worlds.ts`](../lib/worlds.ts) (`TRAVEL_SECONDS`: 60s Adventure, 180s Directing); the timer auto-ends the travel at zero and the world stays ready for another run.
+## Travel length
+
+Size any timer from `client.maxExperienceTimeSec`, the budget granted to the live travel. An Adventure travel runs up to **2 min**; a Directing travel runs up to **3 min** and reports `null`.
+
+The granted value lands with the streaming phase and clears when the travel ends, so `TRAVEL_SECONDS` in [`lib/worlds.ts`](../lib/worlds.ts) sizes the clock while the stream is still opening, and for Directing travels. At zero the timer ends the travel and the world stays ready for another run.
 
 ## The typed SDK
 

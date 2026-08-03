@@ -1,6 +1,7 @@
-import type {
-  CreateWorldParams,
-  HappyOysterMode,
+import {
+  ADVENTURE_MAX_EXPERIENCE_SEC,
+  type CreateWorldParams,
+  type HappyOysterMode,
 } from "@reactor-models/happy-oyster";
 import baseWorlds from "./featured-worlds.json";
 import worldPins from "./world-pins.json";
@@ -44,9 +45,11 @@ export const FEATURED_WORLDS: FeaturedWorld[] = (
   baseWorlds as FeaturedWorld[]
 ).map((world) => ({ ...world, ...realPin(pins[world.key]) }));
 
-/** Client-side travel time limits, per experience mode (seconds). */
+/** Countdown length per experience mode (seconds): 2 min Adventure, 3 min
+ * Directing. A live travel reports its own budget, so these size the clock
+ * while the stream opens, and for Directing travels. */
 export const TRAVEL_SECONDS: Record<1 | 2, number> = {
-  1: 60,
+  1: ADVENTURE_MAX_EXPERIENCE_SEC,
   2: 180,
 };
 
