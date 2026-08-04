@@ -7,7 +7,8 @@
 //   ready     → the world card (id capability, travel limit), Start travel
 //   traveling → the countdown and the mode-matched control deck
 //   error     → Try again / Back to worlds
-// Adventure travels get 60s, Directing 180s; at zero the travel ends
+// The countdown runs on the budget HappyOyster granted the live travel, sized
+// from TRAVEL_SECONDS while the stream opens; at zero the travel ends
 // client-side and the world stays ready for another run.
 
 import { useEffect, useRef, useState } from "react";
@@ -159,7 +160,11 @@ function TravelDeck({ session }: { session: WorldSession }) {
   const { view, client } = session;
   const live = view.kind === "traveling" && view.live;
   const mode = (client.worldState?.mode === 2 ? 2 : 1) as 1 | 2;
-  const totalSeconds = TRAVEL_SECONDS[mode];
+  // The budget HappyOyster granted this travel, so the countdown expires with
+  // the stream. It lands with the streaming phase — the same signal `live`
+  // reads — so TRAVEL_SECONDS sizes the clock while the stream opens, and for
+  // Directing travels.
+  const totalSeconds = client.maxExperienceTimeSec ?? TRAVEL_SECONDS[mode];
   const secondsLeft = useTravelTimer(live, totalSeconds, () => {
     void client.endTravelSession().catch(() => {});
   });

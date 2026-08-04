@@ -38,6 +38,9 @@ export interface HappyOysterClient {
   worldState: WorldStateMessage | null;
   travelState: TravelStateMessage | null;
   streaming: boolean;
+  /** Seconds HappyOyster granted the live travel: null until one is open, and
+   * for Directing travels, which run 3 min. */
+  maxExperienceTimeSec: number | null;
   travelStatus: string;
   /** The last connect failure, humanized — cleared on the next attempt. */
   lastError: string | null;
@@ -160,6 +163,7 @@ function LiveClientBridge({ children }: { children: ReactNode }) {
       worldState: ho.worldState,
       travelState: ho.travelState,
       streaming: ho.streaming,
+      maxExperienceTimeSec: ho.maxExperienceTimeSec,
       travelStatus,
       lastError,
       connect,
