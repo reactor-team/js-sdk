@@ -33,7 +33,7 @@ jobs:
 
       - name: Create docs PR if needed
         id: claude-docs-pr
-        uses: anthropics/claude-code-action@v1.0.189
+        uses: anthropics/claude-code-action@v1.0.190
         env:
           DOCS_REPO_PAT: ${{ secrets.DOCS_REPO_PAT }}
         with:
