@@ -82,6 +82,9 @@ export interface ConnectOptions {
    * to keep recvonly tracks paused on connect and resume them individually via
    * `resumeTrack()` (e.g. multi-connection apps that only subscribe to a
    * subset of peers).
+   *
+   * A track that arrives after that is resumed on its own, so one track
+   * appearing never disturbs another the caller has paused.
    */
   autoResumeTracks?: boolean;
   /**

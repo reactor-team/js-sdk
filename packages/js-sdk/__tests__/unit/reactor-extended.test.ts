@@ -289,6 +289,50 @@ describe("Reactor (extended)", () => {
       );
     });
 
+    it("resumes only the track that arrived", async () => {
+      // The runtime renegotiates to pause a track, which makes the surviving
+      // tracks fire `track` again. Resuming the whole set here would lift a
+      // pause the caller had just asked for.
+      const r = new Reactor({
+        modelName: "echo",
+        modelTracks: [
+          {
+            name: "main_video" as const,
+            kind: "video" as const,
+            direction: "recvonly" as const,
+          },
+          {
+            name: "main_audio" as const,
+            kind: "audio" as const,
+            direction: "recvonly" as const,
+          },
+        ],
+      });
+      await r.connect("jwt");
+      mockTransportClient.resumeTrack.mockClear();
+
+      transportHandlers["trackReceived"]("main_video", "track", "stream");
+
+      expect(mockTransportClient.resumeTrack).toHaveBeenCalledWith(
+        "main_video"
+      );
+      expect(mockTransportClient.resumeTrack).not.toHaveBeenCalledWith(
+        "main_audio"
+      );
+      await r.disconnect();
+    });
+
+    it("leaves a track it does not know alone", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      await r.connect("jwt");
+      mockTransportClient.resumeTrack.mockClear();
+
+      transportHandlers["trackReceived"]("unknown", "track", "stream");
+
+      expect(mockTransportClient.resumeTrack).not.toHaveBeenCalled();
+      await r.disconnect();
+    });
+
     it("forwards trackReceived events", async () => {
       const r = new Reactor({ modelName: "echo" });
       await r.connect("jwt");
