@@ -371,6 +371,13 @@ export class Reactor {
     this.transportClient?.resumeTrack(name);
   }
 
+  /** Whether `name` is a track this client receives rather than sends. */
+  private isRecvonly(name: string): boolean {
+    return this.tracks.some(
+      (track) => track.name === name && track.direction === "recvonly"
+    );
+  }
+
   /**
    * Reconnects to an existing session with a fresh transport.
    */
@@ -665,12 +672,13 @@ export class Reactor {
         if (this.transportClient !== client) return;
         this.emit("trackReceived", name, track, stream);
 
-        if (this.autoResumeTracks) {
-          for (const track of this.tracks) {
-            if (track.direction === "recvonly") {
-              this.resumeTrack(track.name);
-            }
-          }
+        // Resume the track that arrived, and only it. A track event says
+        // nothing about the state of the others, and the runtime renegotiates
+        // to pause one — which makes the surviving tracks fire `track` again,
+        // so resuming the whole set here lifts a pause the caller just asked
+        // for.
+        if (this.autoResumeTracks && this.isRecvonly(name)) {
+          this.resumeTrack(name);
         }
       }
     );
