@@ -208,7 +208,7 @@ const reactor = useReactor((s) => s.internal.reactor);
 const clip = await reactor.requestClip(10); // last 10 s
 ```
 
-`<ClipPlayer>` uses native HLS on Safari/iOS; install `hls.js` to support Chrome, Firefox, and Edge:
+`<ClipPlayer>` plays clips through `hls.js` on every browser with Media Source Extensions, and falls back to the browser's own HLS support where they're absent — iOS Safari, in practice. Install it to cover Chrome, Firefox, Edge, and desktop Safari:
 
 ```bash
 pnpm add hls.js
