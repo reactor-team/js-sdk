@@ -2,13 +2,25 @@
  * Attaches an HLS manifest to a `<video>` element for clip preview.
  *
  * Playback goes through `hls.js` on every browser that has Media
- * Source Extensions, and falls back to the element's own HLS support
- * only where they are absent — today that means iOS Safari, plus any
- * browser where the consumer skipped the optional `hls.js` peer
- * dependency.  `canPlayType("application/vnd.apple.mpegurl")` is not a
- * usable signal on its own: Chrome answers `"maybe"` and then fails the
- * load with `MediaError` 4, so the element is asked only after
- * `Hls.isSupported()` has said no.
+ * Source Extensions — including the Managed variant iOS Safari
+ * exposes — and falls back to the element's own HLS support only where
+ * they are absent, or where the consumer skipped the optional `hls.js`
+ * peer dependency.  `canPlayType("application/vnd.apple.mpegurl")`
+ * cannot make that decision: Chrome and WebKit both answer `"maybe"`
+ * and then fail the load with `MediaError` 4, so the element is asked
+ * only after `Hls.isSupported()` has said no.
+ *
+ * What defeats the element is the delivery of a clip, not its format.
+ * Native HLS loads media segments through the element itself, which
+ * refuses segments from an origin other than the page's whatever CORS
+ * headers they carry, and clip chunks are presigned URLs that always
+ * come from elsewhere.  `hls.js` fetches those chunks itself and feeds
+ * them through Media Source Extensions, where their origin is an
+ * ordinary CORS question they pass.  WebKit adds a second constraint:
+ * its native HLS won't read a `blob:` manifest at all, and the
+ * manifest is always a blob because fetching it takes an
+ * `Authorization` header.  The fallback is a genuine last resort, not
+ * the iOS path.
  *
  * The element is the single source of truth for readiness and failure:
  * `loadedmetadata` is what marks playback ready (a manifest parsed by
@@ -69,6 +81,7 @@ export function attachClipPlayback(
 ): ClipPlayback {
   let destroyed = false;
   let failed = false;
+  let ready = false;
   let hls: HlsInstance | null = null;
 
   const fail = (message: string) => {
@@ -78,7 +91,11 @@ export function attachClipPlayback(
   };
 
   const handleLoadedMetadata = () => {
-    if (destroyed) return;
+    // Metadata can arrive more than once, and can arrive after a
+    // failure was reported.  Reporting it again would clear an error
+    // the viewer is reading, or restart a clip they paused.
+    if (destroyed || failed || ready) return;
+    ready = true;
     onReady();
     if (autoPlay) {
       video.play().catch(() => {

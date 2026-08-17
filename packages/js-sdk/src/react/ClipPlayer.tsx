@@ -15,12 +15,14 @@ import {
  * Video preview for a captured {@link Clip}.
  *
  * Renders an HLS manifest into a ``<video controls>`` element, driven
- * by ``hls.js`` wherever Media Source Extensions exist and by the
- * element's own HLS support where they don't — iOS Safari, in
- * practice.  ``hls.js`` is dynamically imported and declared as an
- * **optional peer dependency** so consumers who don't use this
- * component aren't billed the ~80 KB.  If ``hls.js`` isn't installed
- * and native HLS isn't available the player surfaces an inline error
+ * by ``hls.js`` wherever Media Source Extensions exist — every current
+ * browser, iOS Safari 17.1 and later included.  ``hls.js`` is
+ * dynamically imported and declared as an **optional peer
+ * dependency** so consumers who don't use this component aren't
+ * billed the ~80 KB, but it is what makes preview work in practice:
+ * the fallback to the element's own HLS support can't reach a clip's
+ * chunks in Chrome or read its in-memory manifest in Safari.  When
+ * neither path is available the player surfaces an inline error
  * overlay; the underlying chunks remain downloadable via
  * {@link useClipDownload} / {@link ClipDownloadButton} (which don't
  * depend on hls.js at all).

@@ -173,6 +173,29 @@ describe("attachClipPlayback readiness", () => {
     expect(video.play).toHaveBeenCalledTimes(1);
   });
 
+  it("reports readiness once however often metadata arrives", () => {
+    const video = new FakeVideo();
+
+    const { onReady } = attach(video);
+    video.emit("loadedmetadata");
+    video.emit("loadedmetadata");
+
+    expect(onReady).toHaveBeenCalledTimes(1);
+    expect(video.play).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays failed when metadata arrives after an error", () => {
+    const video = new FakeVideo();
+
+    const { onReady } = attach(video);
+    video.error = { code: 4, message: "" } as MediaError;
+    video.emit("error");
+    video.emit("loadedmetadata");
+
+    expect(onReady).not.toHaveBeenCalled();
+    expect(video.play).not.toHaveBeenCalled();
+  });
+
   it("leaves playback to the user when autoPlay is off", () => {
     const video = new FakeVideo();
 
