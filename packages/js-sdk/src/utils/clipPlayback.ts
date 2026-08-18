@@ -1,31 +1,35 @@
 /**
- * Attaches an HLS manifest to a `<video>` element for clip preview.
+ * Attaches a captured clip to a `<video>` element for preview.
  *
- * Playback goes through `hls.js` on every browser that has Media
- * Source Extensions — including the Managed variant iOS Safari
- * exposes — and falls back to the element's own HLS support only where
- * they are absent, or where the consumer skipped the optional `hls.js`
- * peer dependency.  `canPlayType("application/vnd.apple.mpegurl")`
- * cannot make that decision: Chrome and WebKit both answer `"maybe"`
- * and then fail the load with `MediaError` 4, so the element is asked
- * only after `Hls.isSupported()` has said no.
+ * There are two ways to put a clip on an element, and which one is
+ * available is decided by `Hls.isSupported()` — never by
+ * `canPlayType("application/vnd.apple.mpegurl")`, which answers
+ * `"maybe"` in browsers that then fail the load with `MediaError` 4.
  *
- * What defeats the element is the delivery of a clip, not its format.
- * Native HLS loads media segments through the element itself, which
- * refuses segments from an origin other than the page's whatever CORS
- * headers they carry, and clip chunks are presigned URLs that always
- * come from elsewhere.  `hls.js` fetches those chunks itself and feeds
- * them through Media Source Extensions, where their origin is an
- * ordinary CORS question they pass.  WebKit adds a second constraint:
- * its native HLS won't read a `blob:` manifest at all, and the
- * manifest is always a blob because fetching it takes an
- * `Authorization` header.  The fallback is a genuine last resort, not
- * the iOS path.
+ * `hls.js` streams the clip wherever Media Source Extensions exist,
+ * which is every current browser, including the Managed variant iOS
+ * Safari exposes.  Where they don't — older iOS, or a consumer who
+ * skipped the optional peer dependency — the clip is assembled into a
+ * single flat MP4 and played from memory.  That costs the whole clip
+ * up front instead of streaming it, which for a few seconds of video
+ * is a fair trade for working at all.
  *
- * The element is the single source of truth for readiness and failure:
- * `loadedmetadata` is what marks playback ready (a manifest parsed by
- * `hls.js` says nothing about the element having decodable media yet),
- * and the element's `error` event carries the `MediaError` that would
+ * Handing the manifest to the element instead is not a third option,
+ * and each engine rules it out for its own reason.  Native HLS makes
+ * the element load the media segments, and Chromium refuses segments
+ * from an origin other than the page's whatever CORS headers they
+ * carry, while a clip's chunks are presigned URLs that always come
+ * from elsewhere.  WebKit takes those cross-origin segments happily
+ * but won't read a `blob:` manifest at all — and the manifest is
+ * always a blob, because fetching it takes an `Authorization` header.
+ * Both playback paths here therefore fetch the media themselves:
+ * `hls.js` appends it through Media Source Extensions, and the
+ * assembled MP4 has no sub-resources left to load.
+ *
+ * The element is the single source of truth for readiness and
+ * failure: `loadedmetadata` marks playback ready (a parsed manifest
+ * says nothing about the element holding decodable media), and the
+ * element's `error` event carries the `MediaError` that would
  * otherwise leave the viewer looking at a black frame.
  *
  * Rendering, state, and manifest fetching live in the `ClipPlayer`
@@ -34,7 +38,17 @@
  * @internal
  */
 
-const HLS_MIME_TYPE = "application/vnd.apple.mpegurl";
+/** The two forms a clip can take, either of which can drive an element. */
+export interface ClipSource {
+  /** `blob:` URL of the HLS manifest, streamed by `hls.js`. */
+  manifestUrl: string;
+  /**
+   * Assemble the clip into one self-contained MP4.  Called only when
+   * `hls.js` can't run, and expected to honour the caller's abort
+   * signal.
+   */
+  assembleMp4: () => Promise<Blob>;
+}
 
 /** Wired up by {@link attachClipPlayback}. */
 export interface ClipPlaybackOptions {
@@ -42,7 +56,7 @@ export interface ClipPlaybackOptions {
   autoPlay: boolean;
   /** Called once the element has loaded the clip's metadata. */
   onReady: () => void;
-  /** Called at most once, with a message suitable for display. */
+  /** Called at most once, with an error suitable for display. */
   onError: (error: Error) => void;
   /**
    * Resolves the optional `hls.js` peer dependency.  Defaults to a
@@ -53,22 +67,22 @@ export interface ClipPlaybackOptions {
 }
 
 export interface ClipPlayback {
-  /** Detaches every listener and tears down `hls.js`. */
+  /** Detaches every listener, tears down `hls.js`, frees the MP4. */
   destroy: () => void;
 }
 
 /**
- * Play `manifestUrl` on `video`.
+ * Play `source` on `video`.
  *
- * Returns as soon as the element is wired up: choosing a playback path
- * involves loading `hls.js`, so it happens in the background and the
- * handle is destroyable throughout, including while that load is still
- * in flight.  Playback becoming available is reported through
- * {@link ClipPlaybackOptions.onReady}.
+ * Returns as soon as the element is wired up: choosing a path means
+ * loading `hls.js`, and taking the fallback means downloading the
+ * clip, so both happen in the background and the handle is
+ * destroyable throughout. Playback becoming available is reported
+ * through {@link ClipPlaybackOptions.onReady}.
  */
 export function attachClipPlayback(
   video: HTMLVideoElement,
-  manifestUrl: string,
+  source: ClipSource,
   {
     autoPlay,
     onReady,
@@ -83,11 +97,12 @@ export function attachClipPlayback(
   let failed = false;
   let ready = false;
   let hls: HlsInstance | null = null;
+  let mp4Url: string | null = null;
 
-  const fail = (message: string) => {
+  const fail = (error: Error) => {
     if (destroyed || failed) return;
     failed = true;
-    onError(new Error(message));
+    onError(error);
   };
 
   const handleLoadedMetadata = () => {
@@ -105,7 +120,7 @@ export function attachClipPlayback(
   };
 
   const handleElementError = () => {
-    fail(describeMediaError(video.error));
+    fail(new Error(describeMediaError(video.error)));
   };
 
   video.addEventListener("loadedmetadata", handleLoadedMetadata);
@@ -118,6 +133,10 @@ export function attachClipPlayback(
       video.removeEventListener("error", handleElementError);
       hls?.destroy();
       hls = null;
+      if (mp4Url) {
+        URL.revokeObjectURL(mp4Url);
+        mp4Url = null;
+      }
     },
   };
 
@@ -127,12 +146,12 @@ export function attachClipPlayback(
 
     if (HlsCtor?.isSupported()) {
       const instance = new HlsCtor();
-      instance.loadSource(manifestUrl);
+      instance.loadSource(source.manifestUrl);
       instance.attachMedia(video);
       instance.on(HlsCtor.Events.ERROR, (_evt: unknown, data: HlsErrorData) => {
         if (destroyed) return;
         if (data.fatal) {
-          fail(`Playback error: ${data.details ?? "unknown"}`);
+          fail(new Error(`Playback error: ${data.details ?? "unknown"}`));
           return;
         }
         // Non-fatal errors are the usual explanation for a "fetches but
@@ -145,20 +164,14 @@ export function attachClipPlayback(
       return;
     }
 
-    if (video.canPlayType(HLS_MIME_TYPE) !== "") {
-      video.src = manifestUrl;
-      return;
-    }
-
-    fail(
-      HlsCtor
-        ? "This browser cannot play HLS clips. Use Download instead."
-        : "HLS playback unavailable in this browser. Install `hls.js` as a peer dependency, or use Download."
-    );
+    const blob = await source.assembleMp4();
+    if (destroyed) return;
+    mp4Url = URL.createObjectURL(blob);
+    video.src = mp4Url;
   };
 
   selectPath().catch((err: unknown) => {
-    fail(err instanceof Error ? err.message : String(err));
+    fail(err instanceof Error ? err : new Error(String(err)));
   });
 
   return handle;

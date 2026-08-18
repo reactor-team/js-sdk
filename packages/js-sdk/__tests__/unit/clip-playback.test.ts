@@ -1,11 +1,31 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   attachClipPlayback,
   type HlsConstructor,
   type HlsErrorData,
 } from "../../src/utils/clipPlayback";
+import { RecordingError } from "../../src/utils/recording";
 
 const MANIFEST_URL = "blob:https://app.example/manifest";
+const OBJECT_URL = "blob:https://app.example/assembled-mp4";
+
+// Node has no `URL.createObjectURL`; the assembled-MP4 path needs one.
+const originalObjectUrlApi = {
+  create: URL.createObjectURL,
+  revoke: URL.revokeObjectURL,
+};
+let revokeObjectURL: ReturnType<typeof vi.fn>;
+
+beforeEach(() => {
+  URL.createObjectURL = vi.fn(() => OBJECT_URL);
+  revokeObjectURL = vi.fn();
+  URL.revokeObjectURL = revokeObjectURL;
+});
+
+afterEach(() => {
+  URL.createObjectURL = originalObjectUrlApi.create;
+  URL.revokeObjectURL = originalObjectUrlApi.revoke;
+});
 
 /**
  * Minimal stand-in for the `<video>` element: enough surface for the
@@ -80,79 +100,92 @@ function emitHlsError(
 
 function attach(
   video: FakeVideo,
-  overrides: Partial<Parameters<typeof attachClipPlayback>[2]> = {}
+  overrides: Partial<
+    Parameters<typeof attachClipPlayback>[1] &
+      Parameters<typeof attachClipPlayback>[2]
+  > = {}
 ) {
   const onReady = vi.fn();
   const onError = vi.fn();
-  const playback = attachClipPlayback(video.asElement(), MANIFEST_URL, {
-    autoPlay: true,
-    onReady,
-    onError,
-    loadHls: () => Promise.reject(new Error("hls.js not installed")),
-    ...overrides,
-  });
-  return { playback, onReady, onError };
+  const assembleMp4 = vi.fn(
+    async () => new Blob([new Uint8Array([1, 2, 3])], { type: "video/mp4" })
+  );
+  const playback = attachClipPlayback(
+    video.asElement(),
+    {
+      manifestUrl: MANIFEST_URL,
+      assembleMp4,
+      ...overrides,
+    },
+    {
+      autoPlay: true,
+      onReady,
+      onError,
+      loadHls: () => Promise.reject(new Error("hls.js not installed")),
+      ...overrides,
+    }
+  );
+  return { playback, onReady, onError, assembleMp4 };
 }
 
 describe("attachClipPlayback path selection", () => {
-  it("uses hls.js even when the element claims it can play HLS", async () => {
-    // Chrome answers "maybe" to `canPlayType` and then fails the load,
-    // which is the regression this ordering exists to prevent.
+  it("streams with hls.js even when the element claims it can play HLS", async () => {
+    // Every browser answers "maybe" to `canPlayType` and then fails
+    // the load, which is the regression this ordering prevents.
     const video = new FakeVideo();
     video.canPlayType.mockReturnValue("maybe");
     const { instance, loadHls } = fakeHls(true);
 
-    const { onError } = attach(video, { loadHls });
+    const { onError, assembleMp4 } = attach(video, { loadHls });
     await vi.waitFor(() => expect(instance.attachMedia).toHaveBeenCalled());
 
     expect(instance.loadSource).toHaveBeenCalledWith(MANIFEST_URL);
     expect(instance.attachMedia).toHaveBeenCalledWith(video);
+    expect(assembleMp4).not.toHaveBeenCalled();
     expect(video.src).toBe("");
     expect(onError).not.toHaveBeenCalled();
   });
 
-  it("falls back to native HLS without Media Source Extensions", async () => {
+  it("plays an assembled MP4 without Media Source Extensions", async () => {
     const video = new FakeVideo();
     video.canPlayType.mockReturnValue("maybe");
     const { constructed, loadHls } = fakeHls(false);
 
-    const { onError } = attach(video, { loadHls });
-    await vi.waitFor(() => expect(video.src).toBe(MANIFEST_URL));
+    const { onError, assembleMp4 } = attach(video, { loadHls });
+    await vi.waitFor(() => expect(video.src).toBe(OBJECT_URL));
 
+    expect(assembleMp4).toHaveBeenCalledTimes(1);
     expect(constructed()).toBe(0);
     expect(onError).not.toHaveBeenCalled();
+    // Never the manifest: an element can't load a clip's chunks itself.
+    expect(video.src).not.toBe(MANIFEST_URL);
   });
 
-  it("falls back to native HLS when the hls.js peer dep is absent", async () => {
+  it("plays an assembled MP4 when the hls.js peer dep is absent", async () => {
     const video = new FakeVideo();
-    video.canPlayType.mockReturnValue("maybe");
 
-    const { onError } = attach(video);
-    await vi.waitFor(() => expect(video.src).toBe(MANIFEST_URL));
+    const { onError, assembleMp4 } = attach(video);
+    await vi.waitFor(() => expect(video.src).toBe(OBJECT_URL));
 
+    expect(assembleMp4).toHaveBeenCalledTimes(1);
     expect(onError).not.toHaveBeenCalled();
   });
 
-  it("points at the peer dep when neither path is available", async () => {
+  it("surfaces an assembly failure as the player's error", async () => {
     const video = new FakeVideo();
-
-    const { onError } = attach(video);
-    await vi.waitFor(() => expect(onError).toHaveBeenCalled());
-
-    expect(onError.mock.calls[0][0].message).toContain("Install `hls.js`");
-    expect(video.src).toBe("");
-  });
-
-  it("reports an unplayable browser when hls.js is installed but unsupported", async () => {
-    const video = new FakeVideo();
-    const { loadHls } = fakeHls(false);
-
-    const { onError } = attach(video, { loadHls });
-    await vi.waitFor(() => expect(onError).toHaveBeenCalled());
-
-    expect(onError.mock.calls[0][0].message).toBe(
-      "This browser cannot play HLS clips. Use Download instead."
+    const failure = new RecordingError(
+      "CHUNK_FETCH_FAILED",
+      "Chunk 2 returned HTTP 403"
     );
+
+    const { onError } = attach(video, {
+      assembleMp4: vi.fn(() => Promise.reject(failure)),
+    });
+    await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+
+    // Handed over intact so the player can format it as `CODE: reason`.
+    expect(onError.mock.calls[0][0]).toBe(failure);
+    expect(video.src).toBe("");
   });
 });
 
@@ -285,6 +318,39 @@ describe("attachClipPlayback teardown", () => {
     video.emit("error");
     expect(onReady).not.toHaveBeenCalled();
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("frees the assembled MP4", async () => {
+    const video = new FakeVideo();
+    const { loadHls } = fakeHls(false);
+
+    const { playback } = attach(video, { loadHls });
+    await vi.waitFor(() => expect(video.src).toBe(OBJECT_URL));
+
+    playback.destroy();
+
+    expect(revokeObjectURL).toHaveBeenCalledWith(OBJECT_URL);
+  });
+
+  it("drops an MP4 that finishes assembling after teardown", async () => {
+    const video = new FakeVideo();
+    const { loadHls } = fakeHls(false);
+    let finishAssembly: (blob: Blob) => void = () => {};
+    const assembleMp4 = vi.fn(
+      () =>
+        new Promise<Blob>((resolve) => {
+          finishAssembly = resolve;
+        })
+    );
+
+    const { playback } = attach(video, { loadHls, assembleMp4 });
+    await vi.waitFor(() => expect(assembleMp4).toHaveBeenCalled());
+    playback.destroy();
+    finishAssembly(new Blob([new Uint8Array([1])], { type: "video/mp4" }));
+    await Promise.resolve();
+
+    expect(video.src).toBe("");
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
   });
 
   it("never starts playback when destroyed while hls.js is loading", async () => {

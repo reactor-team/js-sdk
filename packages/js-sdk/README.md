@@ -208,13 +208,13 @@ const reactor = useReactor((s) => s.internal.reactor);
 const clip = await reactor.requestClip(10); // last 10 s
 ```
 
-`<ClipPlayer>` plays clips through `hls.js`, which covers every current browser — Chrome, Firefox, Edge, and Safari, including iOS Safari 17.1 and later. Install it alongside the SDK:
+`<ClipPlayer>` streams clips with `hls.js` wherever the browser has Media Source Extensions — Chrome, Firefox, Edge, Safari, and iOS Safari 17.1 and later. Install it for streaming playback:
 
 ```bash
 pnpm add hls.js
 ```
 
-It's an optional peer dependency, but treat it as required: without it the player falls back to the browser's own HLS support, which can't load a clip's chunks from their storage origin in Chrome and can't read the in-memory manifest at all in Safari.
+It stays genuinely optional. Without it, and on older iOS, the player fetches the clip's chunks itself and plays the assembled MP4 from memory: the viewer waits for the whole clip instead of the first segment, and it works in every browser.
 
 Downloads are remuxed into a flat MP4 (`start_time=0`, faststart, `major_brand=isom`) under the hood so the resulting file uploads cleanly to Twitter, Instagram, TikTok, and YouTube without any extra setup on your side — the H.264 / AAC bitstream itself is passed through untouched.
 

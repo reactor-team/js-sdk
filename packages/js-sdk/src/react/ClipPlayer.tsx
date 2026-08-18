@@ -6,6 +6,7 @@ import { ReactorContext } from "../core/store";
 import { attachClipPlayback, type ClipPlayback } from "../utils/clipPlayback";
 import {
   RecordingError,
+  assembleClipBlob,
   createPlayableManifestUrl,
   fetchPlaylist,
   type Clip,
@@ -14,18 +15,17 @@ import {
 /**
  * Video preview for a captured {@link Clip}.
  *
- * Renders an HLS manifest into a ``<video controls>`` element, driven
- * by ``hls.js`` wherever Media Source Extensions exist — every current
+ * Plays into a ``<video controls>`` element, streaming the clip with
+ * ``hls.js`` wherever Media Source Extensions exist — every current
  * browser, iOS Safari 17.1 and later included.  ``hls.js`` is
  * dynamically imported and declared as an **optional peer
  * dependency** so consumers who don't use this component aren't
- * billed the ~80 KB, but it is what makes preview work in practice:
- * the fallback to the element's own HLS support can't reach a clip's
- * chunks in Chrome or read its in-memory manifest in Safari.  When
- * neither path is available the player surfaces an inline error
- * overlay; the underlying chunks remain downloadable via
- * {@link useClipDownload} / {@link ClipDownloadButton} (which don't
- * depend on hls.js at all).
+ * billed the ~80 KB.  Without it, and on older iOS, the clip is
+ * assembled into a single MP4 and played from memory instead: the
+ * whole clip is fetched before it starts, and it plays.  Failures
+ * surface in an inline error overlay, and the same clip stays
+ * downloadable via {@link useClipDownload} /
+ * {@link ClipDownloadButton}.
  *
  * **Preview only.**  This component intentionally does *not* render a
  * download UI.  Compose it with {@link ClipDownloadButton} or build
@@ -161,9 +161,10 @@ export function ClipPlayer({
   }, [phase]);
 
   // Playback pipeline: fetch manifest (with optional JWT) → wrap in
-  // blob URL → hand to `attachClipPlayback`, which picks hls.js or
-  // native HLS.  Re-runs only when `clip` changes by reference.  The
-  // cleanup closure tears every piece down deterministically.
+  // blob URL → hand to `attachClipPlayback`, which either streams it
+  // with hls.js or assembles the chunks into an MP4.  Re-runs only
+  // when `clip` changes by reference.  The cleanup closure tears
+  // every piece down deterministically.
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -202,13 +203,23 @@ export function ClipPlayer({
         if (cancelled) return;
         setPhase({ kind: "loading" });
         manifestBlobUrl = createPlayableManifestUrl(body, clip.playlistUrl);
-        playback = attachClipPlayback(video, manifestBlobUrl, {
-          autoPlay: autoPlayRef.current,
-          onReady: () => {
-            if (!cancelled) setPhase({ kind: "ready" });
+        playback = attachClipPlayback(
+          video,
+          {
+            manifestUrl: manifestBlobUrl,
+            assembleMp4: () =>
+              assembleClipBlob(body, clip.playlistUrl, {
+                signal: abort.signal,
+              }),
           },
-          onError: fail,
-        });
+          {
+            autoPlay: autoPlayRef.current,
+            onReady: () => {
+              if (!cancelled) setPhase({ kind: "ready" });
+            },
+            onError: fail,
+          }
+        );
       } catch (err) {
         if (cancelled) return;
         // `AbortError` from teardown is expected — don't paint it as
