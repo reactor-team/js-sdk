@@ -48,6 +48,9 @@ importers:
       awaitqueue:
         specifier: ^3.3.0
         version: 3.3.0
+      hls.js:
+        specifier: ^1.6.0
+        version: 1.6.16
       mp4box:
         specifier: ^2.3.0
         version: 2.3.0
@@ -76,9 +79,6 @@ importers:
       '@types/sdp-transform':
         specifier: ^2.15.0
         version: 2.15.0
-      hls.js:
-        specifier: ^1.6.0
-        version: 1.6.16
       prettier:
         specifier: ^3.8.4
         version: 3.8.4

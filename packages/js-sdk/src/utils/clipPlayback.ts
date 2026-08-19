@@ -8,11 +8,17 @@
  *
  * `hls.js` streams the clip wherever Media Source Extensions exist,
  * which is every current browser, including the Managed variant iOS
- * Safari exposes.  Where they don't — older iOS, or a consumer who
- * skipped the optional peer dependency — the clip is assembled into a
- * single flat MP4 and played from memory.  That costs the whole clip
- * up front instead of streaming it, which for a few seconds of video
- * is a fair trade for working at all.
+ * Safari exposes.  Where they don't — iOS before 17.1 — the clip is
+ * assembled into a single flat MP4 and played from memory.  That
+ * costs the whole clip up front instead of streaming it, which for a
+ * few seconds of video is a fair trade for working at all.
+ *
+ * `hls.js` is a dependency rather than an optional peer, imported
+ * dynamically so bundlers keep it in a chunk of its own: an app that
+ * never renders a player drops it entirely, and one that does fetches
+ * it when a clip first attaches.  As an optional peer it broke the
+ * build outright for anyone on webpack, which resolves the specifier
+ * whatever the manifest says it may skip.
  *
  * Handing the manifest to the element instead is not a third option,
  * and each engine rules it out for its own reason.  Native HLS makes
@@ -59,9 +65,10 @@ export interface ClipPlaybackOptions {
   /** Called at most once, with an error suitable for display. */
   onError: (error: Error) => void;
   /**
-   * Resolves the optional `hls.js` peer dependency.  Defaults to a
-   * dynamic `import()`, which bundlers keep in its own chunk so
-   * consumers who never render a player aren't billed for it.
+   * Resolves `hls.js`.  Defaults to a dynamic `import()`, which
+   * bundlers keep in its own chunk so consumers who never render a
+   * player aren't billed for it.  A rejection is not fatal: playback
+   * falls back to the assembled MP4.
    */
   loadHls?: () => Promise<HlsConstructor>;
 }
@@ -197,11 +204,10 @@ function describeMediaError(error: MediaError | null): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Minimal local typings for the optional `hls.js` peer dep.  We
-// can't `import type { Hls } from "hls.js"` because the dep is
-// optional — that import would fail in environments where it
-// isn't installed.  The structural types below cover exactly the
-// surface this module uses.
+// Structural typings covering exactly the `hls.js` surface this
+// module drives.  Naming the shape rather than importing the class
+// keeps the loader swappable, which is what lets the tests exercise
+// every path without the real library.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface HlsInstance {

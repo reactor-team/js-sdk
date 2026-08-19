@@ -18,10 +18,10 @@ import {
  * Plays into a ``<video controls>`` element, streaming the clip with
  * ``hls.js`` wherever Media Source Extensions exist — every current
  * browser, iOS Safari 17.1 and later included.  ``hls.js`` is
- * dynamically imported and declared as an **optional peer
- * dependency** so consumers who don't use this component aren't
- * billed the ~80 KB.  Without it, and on older iOS, the clip is
- * assembled into a single MP4 and played from memory instead: the
+ * dynamically imported, so bundlers give it a chunk of its own that
+ * an app importing this component fetches on first play and one that
+ * never renders a player drops entirely.  On iOS before 17.1 the clip
+ * is assembled into a single MP4 and played from memory instead: the
  * whole clip is fetched before it starts, and it plays.  Failures
  * surface in an inline error overlay, and the same clip stays
  * downloadable via {@link useClipDownload} /
