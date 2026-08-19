@@ -148,7 +148,12 @@ export function attachClipPlayback(
   };
 
   const selectPath = async () => {
-    const HlsCtor = await loadHls().catch(() => null);
+    // A browser with no MediaSource of any kind can't run `hls.js`,
+    // so don't spend the download to find out — go straight to the
+    // MP4.  Loading it and asking is still the rule everywhere else:
+    // this test is the weakest part of `Hls.isSupported()`, never a
+    // reimplementation of it.
+    const HlsCtor = hasMediaSource() ? await loadHls().catch(() => null) : null;
     if (destroyed) return;
 
     if (HlsCtor?.isSupported()) {
@@ -182,6 +187,19 @@ export function attachClipPlayback(
   });
 
   return handle;
+}
+
+/**
+ * Whether the browser exposes a MediaSource `hls.js` could drive —
+ * the Managed variant included, which is the one iOS Safari 17.1
+ * added.  Older iOS has none of the three and is the reason clips
+ * still need a path that doesn't stream.
+ */
+function hasMediaSource(): boolean {
+  const scope = globalThis as Record<string, unknown>;
+  return Boolean(
+    scope.ManagedMediaSource ?? scope.MediaSource ?? scope.WebKitMediaSource
+  );
 }
 
 const MEDIA_ERROR_MESSAGES: Record<number, string> = {

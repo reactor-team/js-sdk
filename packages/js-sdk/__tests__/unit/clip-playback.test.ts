@@ -16,16 +16,32 @@ const originalObjectUrlApi = {
 };
 let revokeObjectURL: ReturnType<typeof vi.fn>;
 
+/**
+ * Node has no `MediaSource`, so every test would otherwise look like
+ * iOS 16 to the module.  Browsers that can run `hls.js` are the norm,
+ * so they're the default here; {@link withoutMediaSource} plays the
+ * browser that can't.
+ */
+const scope = globalThis as Record<string, unknown>;
+
 beforeEach(() => {
   URL.createObjectURL = vi.fn(() => OBJECT_URL);
   revokeObjectURL = vi.fn();
   URL.revokeObjectURL = revokeObjectURL;
+  scope.MediaSource = class {};
 });
 
 afterEach(() => {
   URL.createObjectURL = originalObjectUrlApi.create;
   URL.revokeObjectURL = originalObjectUrlApi.revoke;
+  delete scope.MediaSource;
+  delete scope.ManagedMediaSource;
 });
+
+function withoutMediaSource() {
+  delete scope.MediaSource;
+  delete scope.ManagedMediaSource;
+}
 
 /**
  * Minimal stand-in for the `<video>` element: enough surface for the
@@ -161,7 +177,7 @@ describe("attachClipPlayback path selection", () => {
     expect(video.src).not.toBe(MANIFEST_URL);
   });
 
-  it("plays an assembled MP4 when the hls.js peer dep is absent", async () => {
+  it("plays an assembled MP4 when the hls.js chunk fails to load", async () => {
     const video = new FakeVideo();
 
     const { onError, assembleMp4 } = attach(video);
@@ -169,6 +185,35 @@ describe("attachClipPlayback path selection", () => {
 
     expect(assembleMp4).toHaveBeenCalledTimes(1);
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("doesn't fetch hls.js on a browser with no MediaSource", async () => {
+    // iOS before 17.1: hls.js has nothing to drive, so downloading it
+    // would cost the viewer a chunk that can only answer "no".
+    withoutMediaSource();
+    const video = new FakeVideo();
+    const loadHls = vi.fn(() => Promise.resolve(fakeHls(true).ctor));
+
+    const { onError, assembleMp4 } = attach(video, { loadHls });
+    await vi.waitFor(() => expect(video.src).toBe(OBJECT_URL));
+
+    expect(loadHls).not.toHaveBeenCalled();
+    expect(assembleMp4).toHaveBeenCalledTimes(1);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("streams when only the Managed MediaSource exists", async () => {
+    // iOS 17.1 and later expose that variant and nothing else.
+    withoutMediaSource();
+    scope.ManagedMediaSource = class {};
+    const video = new FakeVideo();
+    const { instance, loadHls } = fakeHls(true);
+
+    const { assembleMp4 } = attach(video, { loadHls });
+    await vi.waitFor(() => expect(instance.attachMedia).toHaveBeenCalled());
+
+    expect(instance.loadSource).toHaveBeenCalledWith(MANIFEST_URL);
+    expect(assembleMp4).not.toHaveBeenCalled();
   });
 
   it("surfaces an assembly failure as the player's error", async () => {
