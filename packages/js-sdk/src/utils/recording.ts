@@ -584,10 +584,43 @@ export async function downloadClipAsFile(
     signal: options.signal,
     jwt: options.jwt,
   });
-  const { initUrl, segmentUrls } = parsePlaylist(
-    manifestBody,
-    clip.playlistUrl
-  );
+  const blob = await assembleClipBlob(manifestBody, clip.playlistUrl, options);
+
+  if (filename === null) {
+    return blob;
+  }
+  if (
+    typeof document === "undefined" ||
+    typeof URL.createObjectURL !== "function"
+  ) {
+    throw new RecordingError(
+      "DOWNLOAD_UNSUPPORTED",
+      "downloadClipAsFile requires a DOM environment; pass filename=null to skip the download trigger"
+    );
+  }
+
+  triggerBrowserDownload(blob, filename);
+  return blob;
+}
+
+/**
+ * Fetch every chunk an already-retrieved manifest references and
+ * remux them into one flat MP4 held in memory.
+ *
+ * This code fetches the chunks itself, so their origin is an ordinary
+ * CORS question rather than a media element's same-origin rule, and
+ * the result is a self-contained file with no sub-resources left to
+ * load.  That makes it both the download payload and the playback
+ * path for browsers that can't run `hls.js`.
+ *
+ * @internal
+ */
+export async function assembleClipBlob(
+  manifestBody: string,
+  playlistUrl: string,
+  options: Pick<DownloadClipOptions, "signal" | "onProgress"> = {}
+): Promise<Blob> {
+  const { initUrl, segmentUrls } = parsePlaylist(manifestBody, playlistUrl);
 
   const orderedUrls = [initUrl, ...segmentUrls];
   const parts: Uint8Array[] = [];
@@ -621,23 +654,7 @@ export async function downloadClipAsFile(
   }
 
   const finalBytes = await maybeRemux(parts);
-  const blob = new Blob([finalBytes as BlobPart], { type: "video/mp4" });
-
-  if (filename === null) {
-    return blob;
-  }
-  if (
-    typeof document === "undefined" ||
-    typeof URL.createObjectURL !== "function"
-  ) {
-    throw new RecordingError(
-      "DOWNLOAD_UNSUPPORTED",
-      "downloadClipAsFile requires a DOM environment; pass filename=null to skip the download trigger"
-    );
-  }
-
-  triggerBrowserDownload(blob, filename);
-  return blob;
+  return new Blob([finalBytes as BlobPart], { type: "video/mp4" });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
