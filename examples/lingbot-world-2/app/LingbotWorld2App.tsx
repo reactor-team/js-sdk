@@ -10,10 +10,10 @@ import { Header } from "@/components/Header";
 import { SnapClip } from "@/components/SnapClip";
 import { LingbotWorldController } from "@/components/lingbot-world-2/LingbotWorldController";
 
-// Reactor coordinator the SDK connects to. Override with
-// NEXT_PUBLIC_COORDINATOR_URL in .env.local if you need a different one.
+// Reactor Platform the SDK connects to. Override with
+// NEXT_PUBLIC_REACTOR_API_URL in .env.local if you need a different one.
 const API_URL =
-  process.env.NEXT_PUBLIC_COORDINATOR_URL ?? "https://api.reactor.inc";
+  process.env.NEXT_PUBLIC_REACTOR_API_URL ?? "https://api.reactor.inc";
 
 // JWT resolver passed to <LingbotWorld2Provider getJwt>.
 //
