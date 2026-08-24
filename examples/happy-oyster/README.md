@@ -38,7 +38,7 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000), pick a featured world or compose your own, and the app connects a Reactor session, builds (or attaches) the world, and drops you into the live travel.
 
-The API key never reaches the browser: the server route [`app/api/reactor/token/route.ts`](app/api/reactor/token/route.ts) exchanges it for a short-lived JWT (see [docs.reactor.inc/authentication](https://docs.reactor.inc/authentication)), and the SDK re-fetches it (through the browser's HTTP cache) on every Coordinator call via the `getJwt` resolver.
+The API key never reaches the browser: the server route [`app/api/reactor/token/route.ts`](app/api/reactor/token/route.ts) exchanges it for a short-lived JWT (see [docs.reactor.inc/authentication](https://docs.reactor.inc/authentication)), and the SDK re-fetches it (through the browser's HTTP cache) on every Reactor Platform call via the `getJwt` resolver.
 
 ## What you can do with it
 
@@ -70,7 +70,7 @@ Everything model-specific runs through the typed **`@reactor-models/happy-oyster
 | ------------------------------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `REACTOR_API_KEY`              | yes (live) | Server-side key exchanged for session JWTs by `app/api/reactor/token/route.ts`.                                                                             |
 | `NEXT_PUBLIC_COORDINATOR_URL`  | no         | Reactor API base URL. Defaults to `https://api.reactor.inc`.                                                                                                |
-| `NEXT_PUBLIC_HO_LOCAL_RUNTIME` | no         | Set to `1` to talk straight to a runtime-served model (adventure on `:8080`, directing on `:8081`), skipping the Coordinator: no `REACTOR_API_KEY`, no JWT. |
+| `NEXT_PUBLIC_HO_LOCAL_RUNTIME` | no         | Set to `1` to talk straight to a runtime-served model (adventure on `:8080`, directing on `:8081`), skipping the Reactor Platform: no `REACTOR_API_KEY`, no JWT. |
 
 If `REACTOR_API_KEY` is missing, the app renders a friendly setup landing instead of erroring (see [`app/SetupRequired.tsx`](app/SetupRequired.tsx)).
 
