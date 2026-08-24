@@ -67,7 +67,7 @@ The model only ever sees a single prose string (`set_prompt`), but the app autho
 | Env var                       | Required | What it does                                                                    |
 | ----------------------------- | -------- | ------------------------------------------------------------------------------- |
 | `REACTOR_API_KEY`             | yes      | Server-side key exchanged for session JWTs by `app/api/reactor/token/route.ts`. |
-| `NEXT_PUBLIC_COORDINATOR_URL` | no       | Reactor API base URL. Defaults to `https://api.reactor.inc`.                    |
+| `NEXT_PUBLIC_REACTOR_API_URL` | no       | Reactor API base URL. Defaults to `https://api.reactor.inc`.                    |
 
 If `REACTOR_API_KEY` is missing, the app renders a friendly setup landing instead of erroring — see [`app/SetupRequired.tsx`](app/SetupRequired.tsx).
 

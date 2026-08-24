@@ -92,18 +92,19 @@ export function useVideoSlot(): ReactNode {
 // ── live ─────────────────────────────────────────────────────────────────────
 
 // Local mode talks to a model served by the Reactor runtime on your own host
-// (adventure on :8080, directing on :8081), skipping the Coordinator: connect()
-// takes no JWT and there is no /tokens exchange. `local` lets the SDK pick the
-// right per-mode port; an explicit NEXT_PUBLIC_COORDINATOR_URL always wins.
+// (adventure on :8080, directing on :8081), skipping the Reactor Platform:
+// connect() takes no JWT and there is no /tokens exchange. `local` lets the
+// SDK pick the right per-mode port; an explicit NEXT_PUBLIC_REACTOR_API_URL
+// always wins.
 const LOCAL_RUNTIME = process.env.NEXT_PUBLIC_HO_LOCAL_RUNTIME === "1";
-const COORDINATOR_URL = process.env.NEXT_PUBLIC_COORDINATOR_URL;
+const REACTOR_API_URL = process.env.NEXT_PUBLIC_REACTOR_API_URL;
 
 // The Reactor connection options, minus the mode the provider is mounted with.
 const providerOptions = LOCAL_RUNTIME
-  ? { local: true, ...(COORDINATOR_URL ? { apiUrl: COORDINATOR_URL } : {}) }
-  : { apiUrl: COORDINATOR_URL ?? "https://api.reactor.inc" };
+  ? { local: true, ...(REACTOR_API_URL ? { apiUrl: REACTOR_API_URL } : {}) }
+  : { apiUrl: REACTOR_API_URL ?? "https://api.reactor.inc" };
 
-// JWT resolver: the SDK calls it on every Coordinator HTTP hop, so a short-lived
+// JWT resolver: the SDK calls it on every Reactor Platform HTTP hop, so a short-lived
 // token can't age out mid-session. The route caches the token, so most calls
 // come back from the browser's HTTP cache without hitting the server.
 async function fetchToken(): Promise<string> {

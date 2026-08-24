@@ -53,7 +53,7 @@ export async function GET() {
   }
 
   const baseUrl =
-    process.env.NEXT_PUBLIC_COORDINATOR_URL || "https://api.reactor.inc";
+    process.env.NEXT_PUBLIC_REACTOR_API_URL || "https://api.reactor.inc";
 
   const res = await fetch(`${baseUrl}/tokens`, {
     method: "POST",
