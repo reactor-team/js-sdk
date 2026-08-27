@@ -1754,6 +1754,19 @@ export function LingbotWorldController({ className }: { className?: string }) {
 
         setLoadingExampleId(opts.id);
 
+        // A reply-declaring command resolving `undefined` has three
+        // distinguishable causes; name the one that happened instead of
+        // guessing. No recorded error means the model acked with no body
+        // — the session landed on a pod running pre-3.2 model code whose
+        // handler returns nothing (e.g. a stale ReplicaSet mid-rollout).
+        const explainMissingReply = (command: string): string => {
+          const err = lw2.lastError;
+          return err
+            ? `${command} failed: [${err.code}] ${err.message}`
+            : `${command} was acknowledged without a reply — this session's ` +
+                `pod is likely running a pre-3.2 model release`;
+        };
+
         try {
           // Upload the starting image ("keep" assumes the previously-sent
           // image is still in place).
@@ -1767,14 +1780,14 @@ export function LingbotWorldController({ className }: { className?: string }) {
             });
             const ref = await uploadFile(file);
             const accepted = await lw2.setImage({ image: ref });
-            if (!accepted) throw new Error("Image was not accepted");
+            if (!accepted) throw new Error(explainMissingReply("set_image"));
             setSentImagePreview(opts.image.src);
             setHasImage(true);
             setImageInfo({ w: accepted.width, h: accepted.height });
           } else if (opts.image.kind === "file") {
             const ref = await uploadFile(opts.image.file);
             const accepted = await lw2.setImage({ image: ref });
-            if (!accepted) throw new Error("Image was not accepted");
+            if (!accepted) throw new Error(explainMissingReply("set_image"));
             setSentImagePreview(opts.image.previewUrl);
             setHasImage(true);
             setImageInfo({ w: accepted.width, h: accepted.height });
