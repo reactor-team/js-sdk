@@ -15,12 +15,13 @@ import { LingbotWorldController } from "@/components/lingbot-world-2/LingbotWorl
 const API_URL =
   process.env.NEXT_PUBLIC_REACTOR_API_URL ?? "https://api.reactor.inc";
 
-// JWT resolver passed to <LingbotWorld2Provider getJwt>.
+// JWT resolver passed to <LingbotWorld2Provider jwtToken>.
 //
-// `@reactor-team/js-sdk` ≥ 2.10.1 takes a resolver instead of a static
-// string so the SDK can mint a fresh JWT on every Coordinator HTTP hop
-// — uploads, clip manifests, ICE refreshes, SDP renegotiation. With a
-// static string those hops 401 the moment the token ages out.
+// `@reactor-team/js-sdk` 3.x takes a `JwtSource` — a static string or a
+// resolver. Pass the resolver so the SDK can mint a fresh JWT on every
+// Coordinator HTTP hop — uploads, clip manifests, ICE refreshes, SDP
+// renegotiation. With a static string those hops 401 the moment the
+// token ages out.
 //
 // We don't write a cache layer here either. The route returns the JWT
 // with `Cache-Control: private, max-age=<seconds-until-expiry>`, so
@@ -178,7 +179,7 @@ export function LingbotWorld2App() {
 
       <div className="relative h-screen flex flex-col overflow-hidden bg-zinc-950">
         <Header />
-        <LingbotWorld2Provider apiUrl={API_URL} getJwt={fetchToken}>
+        <LingbotWorld2Provider apiUrl={API_URL} jwtToken={fetchToken}>
           <div className="relative z-10 shrink-0">
             <StatusBar />
           </div>

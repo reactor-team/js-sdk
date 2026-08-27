@@ -420,9 +420,13 @@ export function LingbotWorldController({ className }: { className?: string }) {
   // Typed LingBot World 2 surface. The setter methods (lw2.setPrompt, …) are
   // per-render wrappers around the store's stable `sendCommand`, so callbacks
   // keep `sendCommand` as their dependency anchor — a stale `lw2` closure
-  // still drives the same underlying store. Raw `sendCommand` remains in use
-  // only for the commands the published schema doesn't declare yet
-  // (set_kv_cache_reset, trigger_kv_cache_reset).
+  // still drives the same underlying store. Every command the app sends is
+  // declared in the published schema, so the raw `sendCommand` escape hatch
+  // is no longer used directly. Commands with a declared reply resolve with
+  // it (`setPrompt` → `prompt_accepted`, `setImage` → `image_accepted`,
+  // `pause`/`resume`/`reset` → `generation_*`); the rest resolve `undefined`
+  // once the model's handler has run. None of them reject — failures land
+  // on the `command_error` broadcast (→ toast) and `lastError`.
   const lw2 = useLingbotWorld2();
   const { status, sendCommand, uploadFile } = lw2;
 
@@ -713,7 +717,12 @@ export function LingbotWorldController({ className }: { className?: string }) {
     if (next === lastSentPromptRef.current) return;
     lastSentPromptRef.current = next;
     if (isReadyRef.current) {
-      lw2.setPrompt({ prompt: next }).catch(console.error);
+      // Resolves with the correlated `prompt_accepted` reply (or
+      // `undefined` when the send fails — the model's `command_error`
+      // broadcast carries the reason to the toast).
+      void lw2.setPrompt({ prompt: next }).then((reply) => {
+        if (reply) setHasPrompt(true);
+      });
     }
   }, [sendCommand]);
   // Ref indirection so the per-chunk message handler can drop the jump
@@ -725,9 +734,15 @@ export function LingbotWorldController({ className }: { className?: string }) {
 
   // ---- Messages from backend ----
 
+  // Broadcasts only. On runtime 3.2+ the success acknowledgements
+  // (`prompt_accepted`, `image_accepted`, `generation_paused`/`resumed`/
+  // `reset`) are correlated replies delivered to the calling connection —
+  // they resolve the awaited command instead of arriving here. The
+  // handlers below cover what the model still `self.send`s to every
+  // connection: shared state, per-chunk progress, and error reports.
   useLingbotWorld2Message((raw) => {
-    // The published schema (0.2.5) doesn't declare `workers_ready` yet, so
-    // widen the union locally; every other branch narrows to its typed shape.
+    // The published schema doesn't declare `workers_ready`, so widen the
+    // union locally; every other branch narrows to its typed shape.
     const msg = raw as
       | LingbotWorld2Message
       | { type: "workers_ready"; tsp_size?: number };
@@ -735,13 +750,6 @@ export function LingbotWorldController({ className }: { className?: string }) {
     switch (msg.type) {
       case "workers_ready":
         setTspSize(msg.tsp_size ?? null);
-        break;
-      case "prompt_accepted":
-        setHasPrompt(true);
-        break;
-      case "image_accepted":
-        setHasImage(true);
-        setImageInfo({ w: msg.width, h: msg.height });
         break;
       case "conditions_ready":
         setHasPrompt(msg.has_prompt);
@@ -784,39 +792,9 @@ export function LingbotWorldController({ className }: { className?: string }) {
         // Drive the native camera-pose layer one chunk at a time.
         sendCameraPoseChunkRef.current();
         break;
-      case "generation_paused":
-        setIsPaused(true);
-        break;
-      case "generation_resumed":
-        setIsPaused(false);
-        break;
       case "generation_complete":
         setIsGenerating(false);
         setIsPaused(false);
-        break;
-      case "generation_reset":
-        setIsGenerating(false);
-        setIsPaused(false);
-        clearMovementInputs(); // never leave a held control stuck after a reset
-        if (isApplyingExampleRef.current) break;
-        setHasPrompt(false);
-        setHasImage(false);
-        setLoadingExampleId(null);
-        setSentImagePreview(null);
-        setImageInfo(null);
-        setChunkIndex(0);
-        lastSentPromptRef.current = "";
-        heldSlotsRef.current = [];
-        setHeldSlots([]);
-        sceneRef.current = null;
-        setScene(null);
-        setActiveExampleId(null);
-        // Overrides persist across resets (they're per-example presets,
-        // not session state).
-        if (pendingImage && pendingImage.previewUrl.startsWith("blob:")) {
-          URL.revokeObjectURL(pendingImage.previewUrl);
-        }
-        setPendingImage(null);
         break;
       case "command_error":
         setErrorToast(
@@ -825,6 +803,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
         break;
     }
   });
+
 
   useEffect(() => {
     if (!errorToast) return;
@@ -911,10 +890,8 @@ export function LingbotWorldController({ className }: { className?: string }) {
   // so a fresh session reflects the UI state rather than only the config default.
   useEffect(() => {
     if (!isReady) return;
-    lw2.setAttnWindow({ attn_window: attnWindow }).catch(console.error);
-    sendCommand("set_kv_cache_reset", { mode: kvCacheResetMode }).catch(
-      console.error,
-    );
+    void lw2.setAttnWindow({ attn_window: attnWindow });
+    void lw2.setKvCacheReset({ mode: kvCacheResetMode });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady]);
 
@@ -1394,6 +1371,38 @@ export function LingbotWorldController({ className }: { className?: string }) {
     pushLookV("idle");
   }, [applyMovementStack, pushLookH, pushLookV, setVert, setRoll]);
 
+  // Full local cleanup after a user-initiated Reset. On runtime 3.2+ the
+  // model's `generation_reset` is the correlated reply to `lw2.reset()`
+  // (not a broadcast), so `sendLifecycle` awaits the call and invokes
+  // this on the ack. `applyScene` does its own narrower cleanup inline,
+  // matching what the old broadcast handler skipped while
+  // `isApplyingExampleRef` was set.
+  const handleGenerationReset = useCallback(() => {
+    setIsGenerating(false);
+    setIsPaused(false);
+    clearMovementInputs(); // never leave a held control stuck after a reset
+    setHasPrompt(false);
+    setHasImage(false);
+    setLoadingExampleId(null);
+    setSentImagePreview(null);
+    setImageInfo(null);
+    setChunkIndex(0);
+    lastSentPromptRef.current = "";
+    heldSlotsRef.current = [];
+    setHeldSlots([]);
+    sceneRef.current = null;
+    setScene(null);
+    setActiveExampleId(null);
+    // Overrides persist across resets (they're per-example presets,
+    // not session state).
+    setPendingImage((p) => {
+      if (p && p.previewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(p.previewUrl);
+      }
+      return null;
+    });
+  }, [clearMovementInputs]);
+
   // ---- Prompt handlers ----
 
   const holdPress = useCallback(
@@ -1670,9 +1679,14 @@ export function LingbotWorldController({ className }: { className?: string }) {
     setIsUploading(true);
     try {
       const ref = await uploadFile(pendingImage.file);
-      await lw2.setImage({ image: ref });
+      // Resolves with the correlated `image_accepted` reply carrying the
+      // decoded dimensions; `undefined` means the send failed (the
+      // model's `command_error` broadcast carries the reason).
+      const accepted = await lw2.setImage({ image: ref });
+      if (!accepted) return;
       setSentImagePreview(pendingImage.previewUrl);
       setHasImage(true);
+      setImageInfo({ w: accepted.width, h: accepted.height });
       setPendingImage((p) =>
         p && p.previewUrl === pendingImage.previewUrl ? null : p,
       );
@@ -1721,9 +1735,12 @@ export function LingbotWorldController({ className }: { className?: string }) {
         setHeldSlots([]);
         sceneRef.current = null;
 
-        // If currently generating or paused, reset first so the new scene starts clean
+        // If currently generating or paused, reset first so the new scene
+        // starts clean. The awaited call resolves with the correlated
+        // `generation_reset` reply once the model's handler has run — no
+        // arbitrary sleep needed before sending new data.
         if (isGenerating || isPaused) {
-          lw2.reset().catch(console.error);
+          await lw2.reset();
           setIsGenerating(false);
           setIsPaused(false);
           setHasPrompt(false);
@@ -1733,8 +1750,6 @@ export function LingbotWorldController({ className }: { className?: string }) {
             setImageInfo(null);
           }
           lastSentPromptRef.current = "";
-          // Give the backend time to process the reset before we send new data
-          await new Promise((r) => setTimeout(r, 600));
         }
 
         setLoadingExampleId(opts.id);
@@ -1751,14 +1766,18 @@ export function LingbotWorldController({ className }: { className?: string }) {
               type: blob.type || "image/jpeg",
             });
             const ref = await uploadFile(file);
-            await lw2.setImage({ image: ref });
+            const accepted = await lw2.setImage({ image: ref });
+            if (!accepted) throw new Error("Image was not accepted");
             setSentImagePreview(opts.image.src);
             setHasImage(true);
+            setImageInfo({ w: accepted.width, h: accepted.height });
           } else if (opts.image.kind === "file") {
             const ref = await uploadFile(opts.image.file);
-            await lw2.setImage({ image: ref });
+            const accepted = await lw2.setImage({ image: ref });
+            if (!accepted) throw new Error("Image was not accepted");
             setSentImagePreview(opts.image.previewUrl);
             setHasImage(true);
+            setImageInfo({ w: accepted.width, h: accepted.height });
             // Don't revoke the previewUrl — it was just promoted to
             // sentImagePreview, so the URL is still in use.
             setPendingImage(null);
@@ -1770,11 +1789,13 @@ export function LingbotWorldController({ className }: { className?: string }) {
           setActiveExampleId(opts.id);
           const p = composePrompt(opts.scene, false, []).trim();
           lastSentPromptRef.current = p;
-          await lw2.setPrompt({ prompt: p });
-          setHasPrompt(true);
+          const promptAck = await lw2.setPrompt({ prompt: p });
+          if (promptAck) setHasPrompt(true);
 
-          // Auto-start after a short delay to let the backend process
-          await new Promise((r) => setTimeout(r, 1500));
+          // Auto-start. The image/prompt acks above already guarantee
+          // their handlers ran, so no settle delay is needed; `start`
+          // declares no reply — the await is the completion barrier, and
+          // the `generation_started` broadcast confirms it took.
           await lw2.start();
           setIsGenerating(true);
         } catch (err) {
@@ -1835,17 +1856,32 @@ export function LingbotWorldController({ className }: { className?: string }) {
     return `Need to ${missing.join(" and ")}.`;
   }, [canStart, isReady, isGenerating, hasPrompt, hasImage]);
 
+  // Lifecycle buttons set state from the command's correlated reply
+  // rather than optimistically: `pause`/`resume`/`reset` resolve with
+  // `generation_paused`/`generation_resumed`/`generation_reset` once the
+  // handler has run (or `undefined` on failure, with the reason arriving
+  // as a `command_error` broadcast → toast). `start` declares no reply;
+  // its `generation_started` broadcast flips the state.
   const sendLifecycle = (cmd: "start" | "pause" | "resume" | "reset") => {
-    lw2[cmd]().catch((err) => console.error(err));
-    if (cmd === "start") setIsGenerating(true);
-    if (cmd === "pause") setIsPaused(true);
-    if (cmd === "resume") setIsPaused(false);
-    if (cmd === "reset") {
-      setIsGenerating(false);
-      setIsPaused(false);
-      setHasPrompt(false);
-      setHasImage(false);
-      clearMovementInputs(); // don't leave a held key's joystick mirror stuck
+    switch (cmd) {
+      case "start":
+        void lw2.start();
+        break;
+      case "pause":
+        void lw2.pause().then((reply) => {
+          if (reply) setIsPaused(true);
+        });
+        break;
+      case "resume":
+        void lw2.resume().then((reply) => {
+          if (reply) setIsPaused(false);
+        });
+        break;
+      case "reset":
+        void lw2.reset().then((reply) => {
+          if (reply) handleGenerationReset();
+        });
+        break;
     }
   };
 
@@ -1871,8 +1907,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
   const pushKvCacheResetMode = (mode: KvResetMode) => {
     if (kvCacheResetMode === mode) return;
     setKvCacheResetMode(mode);
-    if (isReady)
-      sendCommand("set_kv_cache_reset", { mode }).catch(console.error);
+    if (isReady) void lw2.setKvCacheReset({ mode });
   };
 
   // One-shot forced KV-cache reset. The backend honors this in "auto" and
@@ -1880,7 +1915,7 @@ export function LingbotWorldController({ className }: { className?: string }) {
   // so the button is disabled in the UI when the mode is "off".
   const triggerKvCacheReset = () => {
     if (isReady && kvCacheResetMode !== "off") {
-      sendCommand("trigger_kv_cache_reset", {}).catch(console.error);
+      void lw2.triggerKvCacheReset();
     }
   };
 
