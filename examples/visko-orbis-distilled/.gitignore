@@ -5,3 +5,11 @@ node_modules
 *.log
 .DS_Store
 *.tsbuildinfo
+
+# The vendored typed SDK ships only its built output (dist/ + package.json +
+# README) — exactly what `npm i @reactor-models/visko-orbis-distilled` would
+# lay down once the package is published. The repo-root .gitignore ignores
+# `dist/` everywhere (it exists for the library build), which would otherwise
+# strip the vendored package's only payload and make a fresh clone unrunnable.
+# Re-include it here so the PR is self-contained. See vendor/README.md.
+!vendor/**/dist/
