@@ -1754,17 +1754,16 @@ export function LingbotWorldController({ className }: { className?: string }) {
 
         setLoadingExampleId(opts.id);
 
-        // A reply-declaring command resolving `undefined` has three
-        // distinguishable causes; name the one that happened instead of
-        // guessing. No recorded error means the model acked with no body
-        // — the session landed on a pod running pre-3.2 model code whose
-        // handler returns nothing (e.g. a stale ReplicaSet mid-rollout).
+        // A reply-declaring command resolving `undefined` either failed
+        // (the SDK records the error on `lastError`, timeouts included)
+        // or completed with a bodyless acknowledgement. Report which one
+        // happened — nothing more; the cause is for whoever reads it to
+        // determine.
         const explainMissingReply = (command: string): string => {
           const err = lw2.lastError;
           return err
             ? `${command} failed: [${err.code}] ${err.message}`
-            : `${command} was acknowledged without a reply — this session's ` +
-                `pod is likely running a pre-3.2 model release`;
+            : `${command} completed but returned no reply payload`;
         };
 
         try {
