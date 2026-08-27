@@ -1,0 +1,54 @@
+{
+  "name": "@reactor-models/visko-orbis-distilled",
+  "version": "2.0.0",
+  "description": "Strongly-typed SDK for the ViskoOrbisDistilled model on Reactor",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.mjs",
+      "require": "./dist/core.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.mjs",
+      "require": "./dist/react.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup"
+  },
+  "dependencies": {
+    "@reactor-team/js-sdk": "^2.12.0"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3",
+    "@types/react": "^18.0.0",
+    "react": "^18.0.0"
+  },
+  "keywords": [
+    "reactor",
+    "visko-orbis-distilled",
+    "sdk",
+    "typed",
+    "react",
+    "hooks"
+  ],
+  "author": "Reactor Technologies, Inc.",
+  "license": "MIT"
+}
