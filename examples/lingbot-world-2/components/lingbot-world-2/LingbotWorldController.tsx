@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   useLingbotWorld2,
   useLingbotWorld2Message,
+  type FileRef,
   type LingbotWorld2Message,
 } from "@reactor-models/lingbot-world-2";
 import { Button } from "@/components/ui/button";
@@ -669,6 +670,14 @@ export function LingbotWorldController({ className }: { className?: string }) {
   useEffect(() => {
     isReadyRef.current = isReady;
   }, [isReady]);
+  // Mirror of the store's `lastError`, readable mid-await. The store field
+  // captured in an async closure is a render-time snapshot; the ref follows
+  // re-renders, so a comparison against a pre-call snapshot sees errors that
+  // arrived during the call.
+  const lastErrorRef = useRef(lw2.lastError);
+  useEffect(() => {
+    lastErrorRef.current = lw2.lastError;
+  }, [lw2.lastError]);
   const isApplyingExampleRef = useRef(false);
 
   const lastSentPromptRef = useRef<string>("");
@@ -1754,16 +1763,22 @@ export function LingbotWorldController({ className }: { className?: string }) {
 
         setLoadingExampleId(opts.id);
 
-        // A reply-declaring command resolving `undefined` either failed
-        // (the SDK records the error on `lastError`, timeouts included)
-        // or completed with a bodyless acknowledgement. Report which one
-        // happened — nothing more; the cause is for whoever reads it to
-        // determine.
-        const explainMissingReply = (command: string): string => {
-          const err = lw2.lastError;
-          return err
-            ? `${command} failed: [${err.code}] ${err.message}`
-            : `${command} completed but returned no reply payload`;
+        // A reply-declaring command resolving `undefined` either failed or
+        // completed with a bodyless acknowledgement. `lastError` is a
+        // persistent record (success never clears it), so only an error
+        // that appeared SINCE the pre-call snapshot counts as this call's
+        // failure. Report which one happened — nothing more; the cause is
+        // for whoever reads it to determine.
+        const sendImage = async (ref: FileRef) => {
+          const errorBefore = lastErrorRef.current;
+          const accepted = await lw2.setImage({ image: ref });
+          if (accepted) return accepted;
+          const errorNow = lastErrorRef.current;
+          throw new Error(
+            errorNow && errorNow !== errorBefore
+              ? `set_image failed: [${errorNow.code}] ${errorNow.message}`
+              : "set_image completed but returned no reply payload",
+          );
         };
 
         try {
@@ -1778,15 +1793,13 @@ export function LingbotWorldController({ className }: { className?: string }) {
               type: blob.type || "image/jpeg",
             });
             const ref = await uploadFile(file);
-            const accepted = await lw2.setImage({ image: ref });
-            if (!accepted) throw new Error(explainMissingReply("set_image"));
+            const accepted = await sendImage(ref);
             setSentImagePreview(opts.image.src);
             setHasImage(true);
             setImageInfo({ w: accepted.width, h: accepted.height });
           } else if (opts.image.kind === "file") {
             const ref = await uploadFile(opts.image.file);
-            const accepted = await lw2.setImage({ image: ref });
-            if (!accepted) throw new Error(explainMissingReply("set_image"));
+            const accepted = await sendImage(ref);
             setSentImagePreview(opts.image.previewUrl);
             setHasImage(true);
             setImageInfo({ w: accepted.width, h: accepted.height });
