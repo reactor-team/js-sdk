@@ -110,27 +110,6 @@ Already implemented. You usually don't need to touch it, but here's why it works
 
 Because the route is GET + cacheable, the `getJwt` resolver is also dumb on the wire — every Coordinator hop calls `fetch("/api/reactor/token")`, which 99% of the time comes back from the browser's HTTP cache without ever touching your server.
 
-### Wiring an identity-provider JWT instead (Clerk, Auth0, …)
-
-If your app uses Clerk session tokens or any other short-TTL identity JWT (Clerk's `getToken({ template: "reactor" })` ships with a default ~60s TTL), `getJwt` is _the_ hook for that:
-
-```tsx
-import { useAuth } from "@clerk/nextjs";
-
-function App() {
-  const { getToken } = useAuth();
-  return (
-    <LingbotProvider
-      getJwt={async () => (await getToken({ template: "reactor" })) ?? ""}
-    >
-      {/* ... */}
-    </LingbotProvider>
-  );
-}
-```
-
-Returning `""` suppresses the `Authorization` header entirely (use this for local-dev / unauthenticated paths). `getJwt` wins over `jwtToken` when both are passed.
-
 ### Configuring autoConnect
 
 `<LingbotProvider>` is initialized **without** `autoConnect`. The user clicks "Connect" so they see the `disconnected → connecting → waiting → ready` transitions. If you're shipping a polished product where you'd rather the connection happen on page load:

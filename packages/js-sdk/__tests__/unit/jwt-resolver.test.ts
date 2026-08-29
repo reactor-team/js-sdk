@@ -160,12 +160,14 @@ describe("CoordinatorClient with JWT resolver", () => {
     const client = new CoordinatorClient({
       baseUrl: "https://api.test.com",
       jwtToken: async () => {
-        throw new Error("clerk down");
+        throw new Error("token source unavailable");
       },
       model: "echo",
     });
 
-    await expect(client.createSession()).rejects.toThrow("clerk down");
+    await expect(client.createSession()).rejects.toThrow(
+      "token source unavailable"
+    );
     expect(mockFetch).not.toHaveBeenCalled();
   });
 });

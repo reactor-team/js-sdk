@@ -78,8 +78,8 @@ export function ReactorProvider({
   // `useEffectEvent` codifies, and what we already use internally
   // in `useClipDownload` / `ClipPlayer` to absorb resolver identity
   // churn there. The ref is read at request time so the latest
-  // resolver — and any state it closes over (Clerk session, account
-  // ID, etc.) — is on the wire for every Coordinator HTTP hop.
+  // resolver — and any state it closes over — is on the wire for
+  // every Coordinator HTTP hop.
   const getJwtRef = useRef<JwtResolver | undefined>(getJwt);
   useEffect(() => {
     getJwtRef.current = getJwt;
