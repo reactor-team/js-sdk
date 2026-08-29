@@ -11,26 +11,59 @@ import { ImageStarter } from "./components/ImageStarter";
 import { SnapClip } from "./components/SnapClip";
 import { Video } from "./components/Video";
 
-// JWT resolver passed to <HeliosProvider getJwt>.
+// JWT resolver passed to <HeliosProvider jwtToken>.
 //
-// `@reactor-team/js-sdk` ≥ 2.10.1 takes a resolver instead of a static
-// string so the SDK can mint a fresh JWT on every Coordinator HTTP hop
-// — uploads, clip manifests, ICE refreshes, SDP renegotiation. With a
-// static string those hops 401 the moment the token ages out.
+// `@reactor-team/js-sdk` 3.x takes a `JwtSource` — a static string or a
+// resolver. Pass the resolver so the SDK can mint a fresh JWT on every
+// Coordinator HTTP hop — uploads, clip manifests, ICE refreshes, SDP
+// renegotiation. With a static string those hops 401 the moment the
+// token ages out.
 //
-// We don't write a cache layer here either. The route returns the JWT
-// with `Cache-Control: private, max-age=<seconds-until-expiry>`, so
-// the browser's HTTP cache serves repeat calls (after a reload, route
-// change, HMR cycle, etc.) without ever hitting our server — until
-// the JWT actually expires.
+// The token is memoized HERE, in module scope, until shortly before it
+// expires — and the fetch itself is `no-store`, so the browser HTTP
+// cache is out of the picture. This matters because the token is
+// session-scoped: a session can only be operated by the exact token
+// that created it, so every hop of a session must present the same JWT.
+// Relying on the browser cache for that breaks the moment it misses
+// (DevTools "Disable cache", cache eviction): the resolver then mints a
+// fresh token with no bound sessions and every upload/clip call 403s.
+//
+// Known edge this does not cover: a session created just before the
+// memoized token expires is orphaned at the re-mint (the fresh token
+// isn't bound to it). Fixing that requires re-minting with
+// `authorization_details.resources.sessions.bind` naming the live
+// session.
+const TOKEN_REFRESH_SKEW_MS = 60_000;
+let cachedToken: { jwt: string; expiresAtMs: number } | null = null;
+let inflightToken: Promise<string> | null = null;
+
 async function fetchToken(): Promise<string> {
-  const r = await fetch("/api/reactor/token");
-  if (!r.ok) {
-    const body = (await r.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? `Token fetch failed: ${r.status}`);
+  if (
+    cachedToken &&
+    Date.now() < cachedToken.expiresAtMs - TOKEN_REFRESH_SKEW_MS
+  ) {
+    return cachedToken.jwt;
   }
-  const { jwt } = (await r.json()) as { jwt: string };
-  return jwt;
+  // Coalesce the parallel hops the SDK fires at connect time into one mint.
+  if (inflightToken) return inflightToken;
+  inflightToken = (async () => {
+    try {
+      const r = await fetch("/api/reactor/token", { cache: "no-store" });
+      if (!r.ok) {
+        const body = (await r.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? `Token fetch failed: ${r.status}`);
+      }
+      const { jwt, expires_at } = (await r.json()) as {
+        jwt: string;
+        expires_at: number;
+      };
+      cachedToken = { jwt, expiresAtMs: expires_at * 1000 };
+      return jwt;
+    } finally {
+      inflightToken = null;
+    }
+  })();
+  return inflightToken;
 }
 
 // The client tree. HeliosProvider owns the WebRTC connection lifecycle —
@@ -42,12 +75,12 @@ async function fetchToken(): Promise<string> {
 // state machine first-hand. It's the most important Reactor mental
 // model to teach.
 //
-// `getJwt` is an inline arrow on purpose. The provider auto-stabilizes
-// it via `useRef + useMemo`, so a parent re-render does NOT tear the
-// session down. Wrapping in `useCallback` is unnecessary.
+// `jwtToken` takes the module-scope resolver above. The provider
+// auto-stabilizes it via `useRef + useMemo`, so a parent re-render does
+// NOT tear the session down — an inline arrow would be safe here too.
 export function HeliosApp() {
   return (
-    <HeliosProvider getJwt={fetchToken}>
+    <HeliosProvider jwtToken={fetchToken}>
       <div className="flex min-h-screen flex-col">
         <Header />
         <main className="flex flex-1 flex-col gap-4 p-4 lg:flex-row lg:gap-6 lg:p-6">

@@ -42,7 +42,10 @@ let cachedToken: { jwt: string; expiresAtMs: number } | null = null;
 let inflightToken: Promise<string> | null = null;
 
 async function fetchToken(): Promise<string> {
-  if (cachedToken && Date.now() < cachedToken.expiresAtMs - TOKEN_REFRESH_SKEW_MS) {
+  if (
+    cachedToken &&
+    Date.now() < cachedToken.expiresAtMs - TOKEN_REFRESH_SKEW_MS
+  ) {
     return cachedToken.jwt;
   }
   // Coalesce the parallel hops the SDK fires at connect time into one mint.

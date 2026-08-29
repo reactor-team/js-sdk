@@ -5,7 +5,6 @@ import Image from "next/image";
 import {
   useLingbot,
   useLingbotState,
-  useLingbotImageAccepted,
   type LingbotStateMessage,
 } from "@reactor-models/lingbot";
 import { SCENES, type Scene } from "../lib/scenes";
@@ -24,32 +23,22 @@ import { SCENES, type Scene } from "../lib/scenes";
 //   3. setPrompt({ prompt: scene.prompt })  → prompt_accepted
 //   4. start()                              → generation begins
 //
-// We wait for `image_accepted` between (2) and (3). Without the
-// wait, the model can receive `start` before it has finished
-// decoding the image, causing the first chunk to be generated from
-// the prompt alone — visible as a flicker on the first frame.
-//
-// We park the resolver BEFORE calling setImage so we can't miss the
-// ack. Registering the resolver after would race the model's reply.
+// Each of those acks is the command's correlated reply, so awaiting
+// the call is what waits for it. That matters most at (2): the model
+// decodes the image inside its handler, and a `start` arriving before
+// the decode finishes generates the first chunk from the prompt alone
+// — visible as a flicker on the first frame. Awaiting `setImage` puts
+// the decode behind us before (3) is even sent.
 export function ScenePicker() {
   const { status, uploadFile, setImage, setPrompt, start } = useLingbot();
   const [snapshot, setSnapshot] = useState<LingbotStateMessage | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-
-  const imageReadyRef = useRef<(() => void) | null>(null);
 
   useLingbotState((msg) => setSnapshot(msg));
 
   useEffect(() => {
     if (status !== "ready") setSnapshot(null);
   }, [status]);
-
-  useLingbotImageAccepted(() => {
-    if (imageReadyRef.current) {
-      imageReadyRef.current();
-      imageReadyRef.current = null;
-    }
-  });
 
   // Hide once we're generating — but keep rendering (in disabled form)
   // when the user is just not connected, so the page doesn't go blank
@@ -64,12 +53,12 @@ export function ScenePicker() {
       const blob = await fetch(scene.imageUrl).then((r) => r.blob());
       const ref = await uploadFile(blob, { name: `${scene.id}.jpg` });
 
-      const imageReady = new Promise<void>((resolve) => {
-        imageReadyRef.current = resolve;
-      });
-
-      await setImage({ image: ref });
-      await imageReady;
+      // Resolves with `image_accepted` once the model has decoded the
+      // reference image, or `undefined` if the send failed — in which
+      // case the model never took the image and there is no scene to
+      // start. <CommandError> surfaces the reason.
+      const accepted = await setImage({ image: ref });
+      if (!accepted) return;
       await setPrompt({ prompt: scene.prompt });
       await start();
     } finally {

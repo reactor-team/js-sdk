@@ -39,11 +39,11 @@ Get a **production** API key (`rk_...`) from the [Reactor dashboard](https://rea
 
 ## Architecture at a glance
 
-The model is the **source of truth**: only `state` messages mutate local state, and the UI gates entirely off the reduced `SanaState` (`app/lib/state.ts`). Both input sources stream into the `camera` track, so generation is always the model's live path. Commands out: `set_mode`, `set_prompt`, `set_seed`, `start`, `pause`, `resume`, `reset`. Tracks: input `camera`, output `main_video`. The full wire surface - every command, message, and the `state` payload - is documented in the [schema reference](https://docs.reactor.inc/model-api-reference/sana-streaming/schema).
+The model is the **source of truth**: only `state` messages mutate local state, and the UI gates entirely off the reduced `SanaState` (`app/lib/state.ts`). Both input sources stream into the `camera` track, so generation is always the model's live path. Commands out: `set_prompt`, `set_seed`, `start`, `pause`, `resume`, `reset`. Tracks: input `camera`, output `main_video`. The full wire surface - every command, message, and the `state` payload - is documented in the [schema reference](https://docs.reactor.inc/model-api-reference/sana-streaming/schema).
 
-> **Streaming a clip, not uploading it.** A selected video is played in a `<video>` element and captured with `captureStream()`; that track is published as `camera`. The app still sends `set_mode("live")` before `start` so the currently-deployed model takes the camera path. When the live-only model ships (no `set_mode` / `set_video`), drop the `set_mode` call in `app/lib/state.ts`.
+> **Streaming a clip, not uploading it.** A selected video is played in a `<video>` element and captured with `captureStream()`; that track is published as `camera`. From v2.0.0 the model is live-only - the file path and its `set_mode` / `set_video` commands are gone from the schema - so starting is just `start`.
 
-The app talks to the model through the typed SDK: `<SanaStreamingProvider getJwt={fetchToken}>` (model name + tracks baked in), the `useSanaStreaming()` hook for status and one typed method per command (`setMode`, `setPrompt`, `start`, …), per-message hooks like `useSanaStreamingState` / `useSanaStreamingCommandError`, and `<SanaStreamingMainVideoView />` for output. The one exception is `app/components/SnapClip.tsx`, which uses `@reactor-team/js-sdk` directly for model-agnostic clip recording.
+The app talks to the model through the typed SDK: `<SanaStreamingProvider jwtToken={fetchToken}>` (model name + tracks baked in), the `useSanaStreaming()` hook for status and one typed method per command (`setPrompt`, `start`, …), per-message hooks like `useSanaStreamingState` / `useSanaStreamingCommandError`, and `<SanaStreamingMainVideoView />` for output. The one exception is `app/components/SnapClip.tsx`, which uses `@reactor-team/js-sdk` directly for model-agnostic clip recording.
 
 ## Code tour
 

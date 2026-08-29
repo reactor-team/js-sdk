@@ -58,7 +58,7 @@ The model is the **source of truth**: it broadcasts a full `state_update` snapsh
 
 > **Streaming a clip, not uploading it.** A selected video is played in a `<video>` element and captured with `captureStream()`; that track is published as `source`. What you see in the source pane is literally what the model receives. A still image works the same way — it's painted to a canvas and captured as a constant 24 fps stream.
 
-The typed client comes from the published [`@reactor-models/x2`](https://www.npmjs.com/package/@reactor-models/x2) package. `<X2Provider getJwt={fetchToken}>` bakes in the model name and tracks; `useX2()` exposes status plus typed commands (`setPrompt`, `setReferenceImage`, `setPointer`, `setKeepBacklog`, `reset`, `uploadFile`); per-message hooks (`useX2StateUpdate`, `useX2GenerationStopped`, …) replace a hand-rolled message switch; and `<X2MainVideoView />` renders the live output.
+The typed client comes from the published [`@reactor-models/x2`](https://www.npmjs.com/package/@reactor-models/x2) package. `<X2Provider jwtToken={fetchToken}>` bakes in the model name and tracks; `useX2()` exposes status plus typed commands (`setPrompt`, `setReferenceImage`, `setPointer`, `setKeepBacklog`, `reset`, `uploadFile`); per-message hooks (`useX2StateUpdate`, `useX2GenerationStopped`, …) replace a hand-rolled message switch; and `<X2MainVideoView />` renders the live output.
 
 ## Code tour
 

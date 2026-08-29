@@ -4,7 +4,6 @@ import {
   SanaStreamingProvider,
   useSanaStreaming,
   useSanaStreamingCommandError,
-  useSanaStreamingGenerationReset,
   useSanaStreamingState,
 } from "@reactor-models/sana-streaming";
 import { useEffect, useRef, useState } from "react";
@@ -19,19 +18,51 @@ import { Stage } from "./components/Stage";
 import { SnapClip } from "./components/SnapClip";
 import { useCameraPublisher } from "./components/useCameraPublisher";
 
-// JWT resolver passed to <SanaStreamingProvider getJwt>. The provider forwards
-// it to the underlying ReactorProvider, which calls it on every Reactor API
-// request, so it must be a resolver, not a static string. The
-// /api/reactor/token route returns the JWT with a Cache-Control header, so the
-// browser caches it until it actually expires.
+// JWT resolver passed to <SanaStreamingProvider jwtToken>. js-sdk 3.x accepts a static
+// string or a resolver; the SDK calls a resolver on every Coordinator HTTP hop
+// - uploads, clip manifests, ICE refreshes, SDP renegotiation - so a static
+// string would 401 those hops the moment the token ages out.
+//
+// The token is memoized here, in module scope, until shortly before it expires,
+// and the fetch is no-store so the browser HTTP cache stays out of it. A token
+// is session-scoped: it may only operate the sessions it created, so every hop
+// of a session has to present the same JWT. If a cache miss let the resolver
+// mint a fresh token mid-session, the next upload or clip call would 403.
+//
+// Known edge this does not cover: a session created just before the memoized
+// token expires is orphaned at the re-mint. Covering it needs a re-mint naming
+// the live session in `authorization_details.resources.sessions.bind`.
+const TOKEN_REFRESH_SKEW_MS = 60_000;
+let cachedToken: { jwt: string; expiresAtMs: number } | null = null;
+let inflightToken: Promise<string> | null = null;
+
 async function fetchToken(): Promise<string> {
-  const r = await fetch("/api/reactor/token");
-  if (!r.ok) {
-    const body = (await r.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? `Token fetch failed: ${r.status}`);
+  if (
+    cachedToken &&
+    Date.now() < cachedToken.expiresAtMs - TOKEN_REFRESH_SKEW_MS
+  ) {
+    return cachedToken.jwt;
   }
-  const { jwt } = (await r.json()) as { jwt: string };
-  return jwt;
+  // Coalesce the parallel hops the SDK fires at connect time into one mint.
+  if (inflightToken) return inflightToken;
+  inflightToken = (async () => {
+    try {
+      const r = await fetch("/api/reactor/token", { cache: "no-store" });
+      if (!r.ok) {
+        const body = (await r.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? `Token fetch failed: ${r.status}`);
+      }
+      const { jwt, expires_at } = (await r.json()) as {
+        jwt: string;
+        expires_at: number;
+      };
+      cachedToken = { jwt, expiresAtMs: expires_at * 1000 };
+      return jwt;
+    } finally {
+      inflightToken = null;
+    }
+  })();
+  return inflightToken;
 }
 
 // No `autoConnect`: the user clicks Connect so they see the
@@ -40,7 +71,7 @@ async function fetchToken(): Promise<string> {
 // baked in, so commands and messages are typed all the way down.
 export function SanaStreamingApp() {
   return (
-    <SanaStreamingProvider getJwt={fetchToken}>
+    <SanaStreamingProvider jwtToken={fetchToken}>
       <Workspace />
     </SanaStreamingProvider>
   );
@@ -108,8 +139,10 @@ function Workspace() {
   }, [state.running]);
 
   // The model is the source of truth: only the typed `state` snapshot feeds
-  // the reducer. command_error and generation_reset are handled imperatively
-  // below, each with its own typed hook.
+  // the reducer. command_error is handled imperatively below, through its
+  // own typed hook; the reset cleanup runs off the reply to `reset()`
+  // instead, since that message is correlated to the caller rather than
+  // broadcast (see handleGenerationReset).
   useSanaStreamingState((msg) => {
     setState((s) => reduce(s, msg));
   });
@@ -118,10 +151,11 @@ function Workspace() {
     showCommandError(msg.reason);
   });
 
-  useSanaStreamingGenerationReset(() => {
+  // Invoked by Playback when `reset()` resolves with `generation_reset`.
+  const handleGenerationReset = () => {
     setResetNonce((n) => n + 1);
     setStageCleared(true);
-  });
+  };
 
   // Reset local state on full disconnect so a reconnect starts clean.
   useEffect(() => {
@@ -180,6 +214,7 @@ function Workspace() {
             onModeChange={setMode}
             onSelectVideo={(url) => setVideoUrl(url)}
             onTrack={setCamTrack}
+            onReset={handleGenerationReset}
           />
           <Prompt key={resetNonce} currentPrompt={state.currentPrompt} />
           <SnapClip />

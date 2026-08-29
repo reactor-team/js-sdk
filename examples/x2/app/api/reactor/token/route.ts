@@ -7,37 +7,20 @@ import { REACTOR_API_URL } from "@/app/lib/config";
 const MODEL_NAME = "xmax/x2";
 
 // Session budget for one token - how many sessions it may ever create
-// (closed sessions still count). The browser caches the token for its
+// (closed sessions still count). The client reuses one token for its
 // whole lifetime, so leave room for a burst of reconnects.
 const MAX_SESSIONS = 10;
 
 // How long we ask Reactor to make the JWT valid for (the server caps
-// this at 6h). One hour keeps a cached token - and its remaining
+// this at 6h). One hour keeps a memoized token - and its remaining
 // session budget - from outliving a normal visit.
 const TOKEN_LIFETIME_SECONDS = 60 * 60;
 
-// Safety margin on the cache lifetime so an in-flight request doesn't
-// race with the real expiry.
-const CACHE_SKEW_SECONDS = 60;
-
-// Mint a session-scoped Reactor JWT and return it with a `Cache-Control` header
-// that lets the browser reuse it for the rest of its lifetime.
-//
-// Why GET and not POST?
-//   POST responses are not cached by browsers. We expose this route
-//   as GET so the browser's HTTP cache can serve repeat calls
-//   transparently - no localStorage, no JWT parsing in client code.
-//   The route handler still POSTs to Reactor internally.
-//
-// Why `private`?
-//   Tells shared caches (CDNs, corporate proxies) not to store the
-//   response. JWTs are per-user and must never be reused across users.
-//
-// Why derive `max-age` from `expires_at`?
-//   Reactor decides the actual token lifetime (it caps the request
-//   at its server max). Reading `expires_at` off the response means
-//   the cache window is always in sync with whatever the server
-//   actually granted, with a one-minute safety skew baked in.
+// Mint a session-scoped Reactor JWT and return it together with its
+// `expires_at`, so the client can memoize it for exactly its lifetime.
+// (The client does its own caching in module scope - see fetchToken
+// in X2App - because the token must stay stable for a session's
+// whole life; the response itself is marked no-store.)
 //
 // Why `authorization_details`?
 //   This is what downscopes the token. Without it the JWT carries the
@@ -83,14 +66,17 @@ export async function GET() {
     expires_at: number;
   };
 
-  const nowSeconds = Math.floor(Date.now() / 1000);
-  const maxAge = Math.max(0, expires_at - nowSeconds - CACHE_SKEW_SECONDS);
-
+  // `expires_at` (unix seconds, decided by the server) lets the client
+  // memoize the token for exactly its real lifetime. The client fetches
+  // with `no-store` and owns the caching itself - a token must stay
+  // stable for a session's whole life (the session is bound to the token
+  // that created it), and the browser HTTP cache can't be trusted with
+  // that (DevTools "Disable cache", eviction).
   return NextResponse.json(
-    { jwt },
+    { jwt, expires_at },
     {
       headers: {
-        "Cache-Control": `private, max-age=${maxAge}`,
+        "Cache-Control": "private, no-store",
       },
     },
   );

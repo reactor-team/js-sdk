@@ -26,16 +26,17 @@ export function reduce(
 
 // Typed slice of useSanaStreaming() the start flow needs.
 interface StartControls {
-  setMode: (params: { mode: "file" | "live" }) => Promise<void>;
-  start: () => Promise<void>;
+  start: () => Promise<undefined>;
 }
 
-// Both input sources stream into the `camera` track, so generation is always
-// the model's live path. We still send set_mode("live") explicitly: the
-// deployed 0.1.x model defaults to the file path and would reject `start`
-// without an upload otherwise. Drop the set_mode call once the live-only
-// model (no set_mode/set_video) is deployed.
+// Both input sources stream into the `camera` track, and the model is live-only
+// from v2.0.0 on — the file path and its `set_mode` / `set_video` commands are
+// gone from the schema, so starting is just `start`.
+//
+// `start` declares no reply. Awaiting it is still a completion barrier: the
+// runtime acknowledges a correlated command once its handler has run, so the
+// resolved await means the model has started, not merely that the bytes left
+// the browser.
 export async function startGeneration(model: StartControls): Promise<void> {
-  await model.setMode({ mode: "live" });
   await model.start();
 }

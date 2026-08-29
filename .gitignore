@@ -21,3 +21,7 @@ tsconfig.tsbuildinfo
 # Keep only the canonical copies at the repo root in version control.
 packages/*/LICENSE
 packages/*/NOTICE
+
+# Locally generated model SDKs, built against an unreleased @reactor-team/js-sdk
+# so the examples can be type-checked before either package is on npm.
+examples/*/local/

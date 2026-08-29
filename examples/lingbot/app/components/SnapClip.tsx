@@ -25,18 +25,17 @@ import {
 // a new model example.
 //
 // `<ClipPlayer>` and `<ClipDownloadButton>` auto-inherit the JWT
-// resolver from `<LingbotProvider getJwt={…} />` via React context
-// (`@reactor-team/js-sdk` ≥ 2.10.1). No `getJwt` prop needed here.
+// resolver from `<LingbotProvider jwtToken={…} />` via React
+// context, so no `getJwt` prop is needed here.
 // The one case where you would still pass it explicitly is when the
 // clip UI renders through a portal outside the provider subtree (e.g.
 // a Sonner toast living in `app/layout.tsx`) — capture the resolver
 // with `reactor.getJwtResolver()` at action time and thread it down.
 //
-// As of `@reactor-team/js-sdk` ≥ 2.11.1, `requestClip` /
-// `requestRecording` / `downloadClipAsFile` are exposed directly on
-// the React store, so the recording surface is reachable via
-// `useReactor((s) => s.requestClip)` without the `s.internal.reactor`
-// escape hatch. The clip components also accept `onError` / `onSuccess`
+// `requestClip` / `requestRecording` / `downloadClipAsFile` sit
+// directly on the React store, so the recording surface is reachable
+// via `useReactor((s) => s.requestClip)`.
+// The clip components also accept `onError` / `onSuccess`
 // callbacks — this panel routes both player and download failures
 // into its inline error line, and clears that line when a download
 // completes.

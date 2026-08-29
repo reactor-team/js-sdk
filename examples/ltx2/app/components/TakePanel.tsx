@@ -65,7 +65,10 @@ export function TakePanel({
   status: ReactorStatus;
   ui: Ltx2UiState;
   imagePending: boolean;
-  onCommit: (edit: TakeEdit) => Promise<void>;
+  // Each `set_*` resolves with its own acceptance message, so the union has
+  // nothing narrower in common. The panel only awaits the send, never reads
+  // the reply — the snapshot that follows is what it renders from.
+  onCommit: (edit: TakeEdit) => Promise<unknown>;
   onAvatarImage: (file: File | Blob, name: string) => Promise<boolean>;
   onNotice: (notice: NoticeValue) => void;
 }) {
@@ -238,12 +241,12 @@ export function TakePanel({
     setCropFile(file);
   }
 
-  // One upload at a time. The waiters in lib/state.ts are not correlated to a
-  // particular upload, so a second image sent before the first is confirmed
-  // would have both waits resolved by whichever ack arrives first — and both
-  // would then release the hold on Start, which is the very race the ack
-  // protocol exists to close. Holding the control shut is what makes the
-  // single-in-flight assumption true rather than merely hoped for.
+  // One upload at a time. Each `set_avatar_image` gets its own correlated
+  // reply, so two in flight would not confuse each other's confirmations —
+  // but `imagePending` is one boolean, and the first upload to finish lowers
+  // it while the second is still decoding, releasing the hold on Start early.
+  // Holding the control shut is what makes the single-in-flight assumption
+  // the flag is written against true rather than merely hoped for.
   const canUpload = valid.has("set_avatar_image") && !imagePending;
 
   const words = script.split(/\s+/).filter(Boolean).length;

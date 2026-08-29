@@ -147,7 +147,7 @@ Tracks out: `main_video` and `main_audio`, in lockstep on one sample clock.
 Tracks in: none.
 
 The typed client comes from `@reactor-models/ltx2`, generated from the
-model's schema. `<Ltx2Provider getJwt={fetchToken}>` bakes in the model
+model's schema. `<Ltx2Provider jwtToken={fetchToken}>` bakes in the model
 name and tracks; `useLtx2()` exposes status plus typed commands
 (`setScript`, `setWpm`, `start`, …); and per-message hooks
 (`useLtx2StateUpdate`, `useLtx2CommandError`, …) replace a
@@ -170,7 +170,7 @@ hand-rolled message switch.
 | -------------------------------- | ----------------------------------------------------------------------------------------- |
 | `app/Ltx2App.tsx`                | Provider shell, all message handling, the action layer, TTFF anchoring                    |
 | `app/lib/machine.ts`             | The `valid_commands` gate, the queued-field lookup, the status line. **Read this first.** |
-| `app/lib/state.ts`               | `state_update` → `Ltx2UiState` reducer, plus the one-shot ack waiter                      |
+| `app/lib/state.ts`               | `state_update` → `Ltx2UiState` reducer                                                    |
 | `app/lib/types.ts`               | The reduced UI state, take fields, and the model's limits                                 |
 | `app/lib/presets.ts`             | The public demo's cast, cut to three: script, voice prompt, pace, pinned seed             |
 | `app/components/Stage.tsx`       | The `<video>` carrying both tracks, TTFF measurement, the stall watch, status line        |

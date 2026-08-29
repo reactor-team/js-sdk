@@ -8,7 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "@reactor-models/lingbot-world-2": "^1.0.0",
+    "@reactor-models/lingbot-world-2": "^1.0.1",
     "@reactor-team/js-sdk": "^3.0.0",
     "@reactor-team/ui": "^1.4.0",
     "class-variance-authority": "^0.7.1",

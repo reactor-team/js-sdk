@@ -12,7 +12,7 @@
 // exposes typed commands and per-message hooks, so the app reads the
 // same as the sibling examples:
 //
-//   <X2Provider getJwt={fetchToken} />       — session lifecycle
+//   <X2Provider jwtToken={fetchToken} />     — session lifecycle
 //   useX2()                                  — status + typed commands
 //   setPrompt({ prompt })                    — model commands
 //   useX2StateUpdate((msg) => …)             — model → client messages
@@ -44,18 +44,47 @@ import { SnapClip } from "./components/SnapClip";
 import { useSourcePublisher } from "./components/useSourcePublisher";
 import { REACTOR_API_URL } from "@/app/lib/config";
 
-// JWT resolver passed to <X2Provider getJwt>. The SDK calls it on every
-// Reactor API request, so it must be a resolver, not a static string. The
-// /api/reactor/token route returns the JWT with a Cache-Control header, so the
-// browser caches it until it actually expires.
+// JWT resolver passed to <X2Provider jwtToken>. js-sdk 3.x accepts a static
+// string or a resolver; the SDK calls a resolver on every Reactor API request,
+// which is what keeps uploads, clip manifests and ICE refreshes from 401ing
+// once the token ages out.
+//
+// The token is memoized here, in module scope, until shortly before it expires,
+// and the fetch is no-store so the browser HTTP cache stays out of it. A token
+// is session-scoped: it may only operate the sessions it created, so every hop
+// of a session has to present the same JWT. If a cache miss let the resolver
+// mint a fresh token mid-session, the next upload or clip call would 403.
+const TOKEN_REFRESH_SKEW_MS = 60_000;
+let cachedToken: { jwt: string; expiresAtMs: number } | null = null;
+let inflightToken: Promise<string> | null = null;
+
 async function fetchToken(): Promise<string> {
-  const r = await fetch("/api/reactor/token");
-  if (!r.ok) {
-    const body = (await r.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? `Token fetch failed: ${r.status}`);
+  if (
+    cachedToken &&
+    Date.now() < cachedToken.expiresAtMs - TOKEN_REFRESH_SKEW_MS
+  ) {
+    return cachedToken.jwt;
   }
-  const { jwt } = (await r.json()) as { jwt: string };
-  return jwt;
+  // Coalesce the parallel hops the SDK fires at connect time into one mint.
+  if (inflightToken) return inflightToken;
+  inflightToken = (async () => {
+    try {
+      const r = await fetch("/api/reactor/token", { cache: "no-store" });
+      if (!r.ok) {
+        const body = (await r.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? `Token fetch failed: ${r.status}`);
+      }
+      const { jwt, expires_at } = (await r.json()) as {
+        jwt: string;
+        expires_at: number;
+      };
+      cachedToken = { jwt, expiresAtMs: expires_at * 1000 };
+      return jwt;
+    } finally {
+      inflightToken = null;
+    }
+  })();
+  return inflightToken;
 }
 
 // No `autoConnect`: the user clicks Connect so they see the
@@ -64,7 +93,7 @@ export function X2App() {
   return (
     <X2Provider
       apiUrl={REACTOR_API_URL}
-      getJwt={fetchToken}
+      jwtToken={fetchToken}
       connectOptions={{ autoConnect: false }}
     >
       <Workspace />

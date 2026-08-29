@@ -3,3 +3,7 @@
 dist
 node_modules
 .generated
+
+# Locally generated model SDKs, built against an unreleased @reactor-team/js-sdk
+# so the examples can be type-checked before either package is on npm.
+examples/*/local/

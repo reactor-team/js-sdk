@@ -20,7 +20,7 @@
 // the model's schema. Every command goes through a typed method — there are no
 // hand-written command strings anywhere in this app:
 //
-//   <Ltx2Provider getJwt={fetchToken} />   — session lifecycle
+//   <Ltx2Provider jwtToken={fetchToken} /> — session lifecycle
 //   useLtx2()                              — status + typed commands
 //   setScript({ script })                        — model commands
 //   useLtx2StateUpdate((msg) => …)         — model → client messages
@@ -30,18 +30,11 @@ import {
   useLtx2,
   useLtx2CommandError,
   useLtx2GenerationFailed,
-  useLtx2GenerationReset,
   useLtx2GenerationStarted,
-  useLtx2Message,
   useLtx2StateUpdate,
 } from "@reactor-models/ltx2";
 import { REACTOR_API_URL } from "@/app/lib/config";
-import {
-  clearMessageWaiters,
-  dispatchMessageToWaiters,
-  reduce,
-  waitForMessage,
-} from "@/app/lib/state";
+import { reduce } from "@/app/lib/state";
 import type { TransportCommand } from "@/app/lib/machine";
 import {
   DEFAULT_UI_STATE,
@@ -58,31 +51,64 @@ import { StatusBadge } from "./components/StatusBadge";
 import { Transport } from "./components/Transport";
 import { TakePanel } from "./components/TakePanel";
 
-// JWT resolver passed to <Ltx2Provider getJwt>. The SDK calls it on
-// every Reactor API request, so it must be a resolver, not a static string.
-// /api/reactor/token returns the JWT with a Cache-Control header, so the
-// browser's HTTP cache serves repeat calls until it actually expires.
+// JWT resolver passed to <Ltx2Provider jwtToken>. js-sdk 3.x accepts a static
+// string or a resolver; the SDK calls a resolver on every Reactor API request,
+// which is what keeps uploads, clip manifests and ICE refreshes from 401ing
+// once the token ages out.
 //
-// The coordinator URL rides along as a query parameter purely as a cache key:
-// tokens are signed per-coordinator, so moving this app between environments
-// must not let the browser replay a JWT cached for the previous one.
+// The token is memoized here, in module scope, until shortly before it expires,
+// and the fetch is no-store so the browser HTTP cache stays out of it. Holding
+// the token in the app rather than in the browser cache is what makes its
+// lifetime observable: a cache the app owns cannot be emptied out from under a
+// live session by DevTools "Disable cache" or an eviction, and one mint then
+// serves every hop of that session. (Examples that downscope their token with
+// `authorization_details` need this for correctness, since a session may only
+// be operated by the token that created it. This route mints an account-scoped
+// token, so here it is one round trip instead of many.)
+//
+// Owning the cache also settles what the coordinator URL used to be a query
+// parameter for. Tokens are signed per-coordinator, and the parameter existed
+// only to keep the browser from replaying one environment's JWT at another.
+// This memo lives for one page load, so it cannot outlive a rebuild that
+// changes the coordinator.
+const TOKEN_REFRESH_SKEW_MS = 60_000;
+let cachedToken: { jwt: string; expiresAtMs: number } | null = null;
+let inflightToken: Promise<string> | null = null;
+
 async function fetchToken(): Promise<string> {
-  const r = await fetch(
-    `/api/reactor/token?coordinator=${encodeURIComponent(REACTOR_API_URL)}`,
-  );
-  if (!r.ok) {
-    const body = (await r.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? `Token fetch failed: ${r.status}`);
+  if (
+    cachedToken &&
+    Date.now() < cachedToken.expiresAtMs - TOKEN_REFRESH_SKEW_MS
+  ) {
+    return cachedToken.jwt;
   }
-  const { jwt } = (await r.json()) as { jwt: string };
-  return jwt;
+  // Coalesce the parallel hops the SDK fires at connect time into one mint.
+  if (inflightToken) return inflightToken;
+  inflightToken = (async () => {
+    try {
+      const r = await fetch("/api/reactor/token", { cache: "no-store" });
+      if (!r.ok) {
+        const body = (await r.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? `Token fetch failed: ${r.status}`);
+      }
+      const { jwt, expires_at } = (await r.json()) as {
+        jwt: string;
+        expires_at: number;
+      };
+      cachedToken = { jwt, expiresAtMs: expires_at * 1000 };
+      return jwt;
+    } finally {
+      inflightToken = null;
+    }
+  })();
+  return inflightToken;
 }
 
 export function Ltx2App() {
   return (
     <Ltx2Provider
       apiUrl={REACTOR_API_URL}
-      getJwt={fetchToken}
+      jwtToken={fetchToken}
       // Deliberately NOT autoConnect. Connecting on a click does two jobs at
       // once: a session holds a whole B200, so opening the page should not
       // claim one, and the click is the user gesture the browser's autoplay
@@ -101,14 +127,10 @@ export function Ltx2App() {
   );
 }
 
-// How long to wait for the model to confirm an uploaded avatar image before
-// giving up. Generous: the model fetches and decodes the upload, and a cold
-// pod can take a while to answer.
-const IMAGE_ACK_TIMEOUT_MS = 20_000;
-
 function Workspace() {
   const {
     status,
+    lastError,
     uploadFile,
     setAvatarImage: sendAvatarImage,
     setScript,
@@ -146,8 +168,12 @@ function Workspace() {
   const uiRef = useRef(ui);
   uiRef.current = ui;
 
-  // Every message also feeds the one-shot waiters (see app/lib/state.ts).
-  useLtx2Message(dispatchMessageToWaiters);
+  // A ref mirror of `lastError`, readable mid-await. The store field captured
+  // in an async closure is a render-time snapshot; the ref follows re-renders,
+  // so comparing it against a value taken before a call sees errors that
+  // arrived during that call. See setAvatarImage.
+  const lastErrorRef = useRef(lastError);
+  lastErrorRef.current = lastError;
 
   // Command rejections are always surfaced. The model is the authority on what
   // is valid — machine.ts passes `valid_commands` straight through rather than
@@ -204,14 +230,19 @@ function Workspace() {
   // The stage and its TTFF reading go with them: both describe the take the
   // reset just discarded. Leaving them would keep that take's final frame on
   // screen, captioned with its latency, for a session that has been cleared.
+  //
+  // `generation_reset` is the correlated reply to `reset()`, delivered to the
+  // calling connection rather than broadcast, so runTransport invokes this on
+  // the resolved await. A `useLtx2GenerationReset` listener would subscribe
+  // and never fire.
   const [resetNonce, setResetNonce] = useState(0);
-  useLtx2GenerationReset(() => {
+  const handleGenerationReset = useCallback(() => {
     setResetNonce((n) => n + 1);
     setStageHasTake(false);
     setTtffMs(null);
     startSentAt.current = null;
     ttffArmed.current = false;
-  });
+  }, []);
 
   const markStartSent = useCallback(() => {
     startSentAt.current = performance.now();
@@ -232,11 +263,11 @@ function Workspace() {
     if (status !== "disconnected") return;
     setUi(DEFAULT_UI_STATE);
     setPresetPending(null);
-    // The ack an upload was waiting on can never arrive once the session is
-    // gone, so without these two Start stays held for the whole next session,
-    // and the orphaned waiter gets resolved by that session's first ack.
+    // An upload in flight when the session dies resolves `undefined` (the
+    // SDK times its correlated reply out), but the `finally` that lowers this
+    // only runs once that timeout elapses — so drop the hold now rather than
+    // leaving Start dead into the next session.
     setImagePending(false);
-    clearMessageWaiters();
     setStageHasTake(false);
     setTtffMs(null);
     startSentAt.current = null;
@@ -253,10 +284,16 @@ function Workspace() {
    * `Record<TransportCommand, …>` annotation makes it exhaustive — adding a
    * command to the union without wiring it here is a type error. Components
    * ask for one by name; nothing outside this file builds a command string.
+   *
+   * The methods resolve with whatever their command declares as its reply, so
+   * the record's value type is what they have in common rather than `void`:
+   * `pause`, `resume` and `reset` answer with a message, `start` and `stop`
+   * with nothing. Only `reset`'s reply is read — it is the signal that the
+   * model has actually cleared, and it arrives here rather than at a listener.
    */
   const runTransport = useCallback(
     async (command: TransportCommand) => {
-      const transport: Record<TransportCommand, () => Promise<void>> = {
+      const transport: Record<TransportCommand, () => Promise<unknown>> = {
         start,
         pause,
         resume,
@@ -264,66 +301,57 @@ function Workspace() {
         reset,
       };
       if (command === "start") markStartSent();
-      await transport[command]();
+      const reply = await transport[command]();
+      if (command === "reset" && reply) handleGenerationReset();
     },
-    [start, pause, resume, stop, reset, markStartSent],
+    [start, pause, resume, stop, reset, markStartSent, handleGenerationReset],
   );
 
   /**
    * Upload a portrait, anchor the avatar to it, and resolve only once the
    * model has CONFIRMED the new image.
    *
-   * `setAvatarImage` resolves when the command is on the wire, not when the
-   * model has decoded the image — so a `start` racing in behind it generates
-   * the take with the previous face. Registering the waiter before sending
-   * closes the window where a fast ack could slip past the listener.
+   * The confirmation is the awaited call itself. `set_avatar_image` declares
+   * `avatar_image_accepted` as its reply, so the model's ack is delivered to
+   * this connection correlated to this command, and `sendAvatarImage` resolves
+   * with it once the handler has fetched and decoded the upload. Nothing has
+   * to be matched against a message listener, which is what an earlier version
+   * of this file did — and what a `start` racing a still-decoding image would
+   * otherwise defeat, generating the take with the previous face.
    *
-   * `avatar_image_accepted` is the confirmation. A `state_update` reporting
-   * `has_avatar_image: true` is accepted as a fallback ONLY when no image was
-   * set beforehand, because that flag is a level, not an edge: once any face
-   * is loaded it reads `true` for the rest of the session, including in
-   * snapshots describing the PREVIOUS face. This model emits a snapshot after
-   * every observable change and after every window, so on the second and
-   * subsequent uploads there is almost always one in flight that would
-   * satisfy the fallback instantly — resolving the wait before the model has
-   * decoded anything and handing `start` a face it has not loaded yet. When
-   * an image is already set the snapshot carries no new information, so the
-   * discrete ack is the only thing that can confirm.
+   * `undefined` means no reply came back, which is either a refusal or a send
+   * that failed (the SDK times the round trip out rather than hanging). Both
+   * land on `lastError`, which is a persistent record — success never clears
+   * it — so only an error that appeared since the pre-call snapshot belongs to
+   * this call. A refusal has already surfaced through the command_error
+   * handler; anything else gets its own notice.
    *
-   * Waiting is only half of it — something has to hold `start` for the length
-   * of the wait. `imagePending` does that, and it is raised HERE rather than
-   * at the call sites so every path is covered by construction: the crop modal
+   * Awaiting is only half of it — something has to hold `start` for the
+   * duration. `imagePending` does that, and it is raised HERE rather than at
+   * the call sites so every path is covered by construction: the crop modal
    * fires this and forgets it (`void onAvatarImage(…)`), and a gate each
    * caller has to remember to raise is a gate that eventually gets forgotten.
    * The `finally` is load-bearing for the same reason — a throw out of the
-   * upload or the wait must not leave Start dead for the rest of the session.
+   * upload must not leave Start dead for the rest of the session.
    */
   const setAvatarImage = useCallback(
     async (file: File | Blob, name: string): Promise<boolean> => {
       setImagePending(true);
       try {
-        const hadImage = uiRef.current.hasAvatarImage;
         const ref = await uploadFile(file, { name });
-        const ack = waitForMessage(
-          (m) =>
-            m.type === "avatar_image_accepted" ||
-            (m.type === "command_error" && m.command === "set_avatar_image") ||
-            (!hadImage &&
-              m.type === "state_update" &&
-              m.has_avatar_image === true),
-          IMAGE_ACK_TIMEOUT_MS,
-        );
-        await sendAvatarImage({ avatar_image: ref });
-        const reply = await ack;
-        if (reply === null) {
-          setNotice({
-            kind: "error",
-            text: "The model did not confirm the avatar image — try again before starting.",
-          });
+        const errorBefore = lastErrorRef.current;
+        const accepted = await sendAvatarImage({ avatar_image: ref });
+        if (accepted) return true;
+        if (lastErrorRef.current === errorBefore) {
+          // No new error, no reply: the model refused, and the
+          // command_error handler has already said why.
           return false;
         }
-        // A refusal already surfaced through the command_error handler.
-        return reply.type !== "command_error";
+        setNotice({
+          kind: "error",
+          text: "The model did not confirm the avatar image — try again before starting.",
+        });
+        return false;
       } finally {
         setImagePending(false);
       }

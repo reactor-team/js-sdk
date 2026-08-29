@@ -18,8 +18,8 @@ import { WebcamSource } from "./WebcamSource";
 // In webcam mode the self-view lives here and stays mounted across the start
 // transition, so the camera keeps streaming `camera` while generation runs. In
 // video mode the clip preview lives in the stage instead; this panel only picks
-// it. Both sources stream into the same `camera` track, so Start is always the
-// model's live path (startGeneration sends set_mode("live") then start).
+// it. Both sources stream into the same `camera` track, which is the only path
+// the model has from v2.0.0 on, so Start is just `start`.
 export function ModeInput({
   started,
   paused,
@@ -29,6 +29,7 @@ export function ModeInput({
   onModeChange,
   onSelectVideo,
   onTrack,
+  onReset,
 }: {
   started: boolean;
   paused: boolean;
@@ -38,8 +39,9 @@ export function ModeInput({
   onModeChange: (m: SanaMode) => void;
   onSelectVideo: (url: string, name: string) => void;
   onTrack: (track: MediaStreamTrack | null) => void;
+  onReset: () => void;
 }) {
-  const { setMode, start, status } = useSanaStreaming();
+  const { start, status } = useSanaStreaming();
   const ready = status === "ready";
 
   const handleModeChange = (m: SanaMode) => {
@@ -48,7 +50,7 @@ export function ModeInput({
   };
 
   const onStart = () => {
-    startGeneration({ setMode, start }).catch(console.error);
+    startGeneration({ start }).catch(console.error);
   };
 
   return (
@@ -79,7 +81,7 @@ export function ModeInput({
 
       {started ? (
         <div className="mt-3">
-          <Playback paused={paused} />
+          <Playback paused={paused} onReset={onReset} />
         </div>
       ) : (
         <div className="mt-3 flex flex-col gap-3">

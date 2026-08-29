@@ -7,7 +7,18 @@ import { IconButton } from "./ui";
 // setup controls in the Input panel: pause/resume the running edit, or reset
 // back to the setup state. `paused` decides between the pause and resume
 // affordance; it comes from the model `state` snapshot, not local guesses.
-export function Playback({ paused }: { paused: boolean }) {
+//
+// `generation_reset` is the correlated reply to `reset()` — it reaches the
+// connection that asked, not a broadcast listener — so the shell's cleanup
+// runs from `onReset` here, on the resolved await. A falsy reply means the
+// send failed, and `command_error` carries the reason.
+export function Playback({
+  paused,
+  onReset,
+}: {
+  paused: boolean;
+  onReset: () => void;
+}) {
   const { pause, resume, reset, status } = useSanaStreaming();
   const notReady = status !== "ready";
 
@@ -33,7 +44,13 @@ export function Playback({ paused }: { paused: boolean }) {
         label="Reset"
         tone="danger"
         disabled={notReady}
-        onClick={() => reset().catch(console.error)}
+        onClick={() =>
+          reset()
+            .then((reply) => {
+              if (reply) onReset();
+            })
+            .catch(console.error)
+        }
       />
       <span className="ml-1 text-xs text-zinc-500">
         {paused ? "Paused" : "Editing — reset to change the input"}

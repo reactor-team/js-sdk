@@ -5,28 +5,19 @@ import { NextResponse } from "next/server";
 // is harmless, you just get the server max back.
 const TOKEN_LIFETIME_SECONDS = 6 * 60 * 60;
 
-// Safety margin on the cache lifetime so an in-flight request doesn't
-// race with the real expiry.
-const CACHE_SKEW_SECONDS = 60;
-
-// Mint a Reactor JWT and return it with a `Cache-Control` header
-// that lets the browser reuse it for the rest of its lifetime.
+// Mint a Reactor JWT and return it together with its `expires_at`, so the
+// client can memoize it for exactly its lifetime.
+//
+// Why `no-store`?
+//   The client owns the cache (see fetchToken in
+//   components/happy-oyster/ho-client.tsx). Keeping the token in the app
+//   rather than in the browser's HTTP cache makes its lifetime observable,
+//   and keeps a cache miss from silently minting a second token part-way
+//   through a session.
 //
 // Why GET and not POST?
-//   POST responses are not cached by browsers. We expose this route
-//   as GET so the browser's HTTP cache can serve repeat calls
-//   transparently, no localStorage, no JWT parsing in client code.
+//   Nothing about the request varies, and a GET reads as the lookup it is.
 //   The route handler still POSTs to Reactor internally.
-//
-// Why `private`?
-//   Tells shared caches (CDNs, corporate proxies) not to store the
-//   response. JWTs are per-user and must never be reused across users.
-//
-// Why derive `max-age` from `expires_at`?
-//   Reactor decides the actual token lifetime (it caps the request
-//   at its server max). Reading `expires_at` off the response means
-//   the cache window is always in sync with whatever the server
-//   actually granted, with a one-minute safety skew baked in.
 export async function GET() {
   const apiKey = process.env.REACTOR_API_KEY;
   if (!apiKey) {
@@ -60,14 +51,13 @@ export async function GET() {
     expires_at: number;
   };
 
-  const nowSeconds = Math.floor(Date.now() / 1000);
-  const maxAge = Math.max(0, expires_at - nowSeconds - CACHE_SKEW_SECONDS);
-
+  // `expires_at` (unix seconds, decided by the server) lets the client
+  // memoize the token for exactly its real lifetime.
   return NextResponse.json(
-    { jwt },
+    { jwt, expires_at },
     {
       headers: {
-        "Cache-Control": `private, max-age=${maxAge}`,
+        "Cache-Control": "private, no-store",
       },
     },
   );

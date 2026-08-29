@@ -104,17 +104,49 @@ const providerOptions = LOCAL_RUNTIME
   ? { local: true, ...(REACTOR_API_URL ? { apiUrl: REACTOR_API_URL } : {}) }
   : { apiUrl: REACTOR_API_URL ?? "https://api.reactor.inc" };
 
-// JWT resolver: the SDK calls it on every Reactor Platform HTTP hop, so a short-lived
-// token can't age out mid-session. The route caches the token, so most calls
-// come back from the browser's HTTP cache without hitting the server.
+// JWT resolver: the SDK calls it on every Reactor Platform HTTP hop, so a
+// short-lived token can't age out mid-session.
+//
+// The token is memoized here, in module scope, until shortly before it expires,
+// and the fetch is no-store so the browser HTTP cache stays out of it. Holding
+// the token in the app rather than in the browser cache is what makes its
+// lifetime observable: a cache the app owns cannot be emptied out from under a
+// live session by DevTools "Disable cache" or an eviction, and one mint then
+// serves every hop of that session. (An app that downscopes its token with
+// `authorization_details` needs this for correctness, since a session may only
+// be operated by the token that created it. This route mints an account-scoped
+// token, so here it is one round trip instead of many.)
+const TOKEN_REFRESH_SKEW_MS = 60_000;
+let cachedToken: { jwt: string; expiresAtMs: number } | null = null;
+let inflightToken: Promise<string> | null = null;
+
 async function fetchToken(): Promise<string> {
-  const r = await fetch("/api/reactor/token");
-  if (!r.ok) {
-    const body = (await r.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? `Token fetch failed: ${r.status}`);
+  if (
+    cachedToken &&
+    Date.now() < cachedToken.expiresAtMs - TOKEN_REFRESH_SKEW_MS
+  ) {
+    return cachedToken.jwt;
   }
-  const { jwt } = (await r.json()) as { jwt: string };
-  return jwt;
+  // Coalesce the parallel hops the SDK fires at connect time into one mint.
+  if (inflightToken) return inflightToken;
+  inflightToken = (async () => {
+    try {
+      const r = await fetch("/api/reactor/token", { cache: "no-store" });
+      if (!r.ok) {
+        const body = (await r.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? `Token fetch failed: ${r.status}`);
+      }
+      const { jwt, expires_at } = (await r.json()) as {
+        jwt: string;
+        expires_at: number;
+      };
+      cachedToken = { jwt, expiresAtMs: expires_at * 1000 };
+      return jwt;
+    } finally {
+      inflightToken = null;
+    }
+  })();
+  return inflightToken;
 }
 
 // The mode is fixed for the life of the session — it picks which Reactor model

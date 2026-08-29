@@ -813,7 +813,6 @@ export function LingbotWorldController({ className }: { className?: string }) {
     }
   });
 
-
   useEffect(() => {
     if (!errorToast) return;
     const id = setTimeout(() => setErrorToast(null), 4000);

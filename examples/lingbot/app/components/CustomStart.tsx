@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useLingbot,
   useLingbotState,
-  useLingbotImageAccepted,
   type LingbotStateMessage,
 } from "@reactor-models/lingbot";
 
@@ -12,10 +11,10 @@ import {
 // their own image, type their own prompt, then click Start.
 //
 // The chain is the same as in <ScenePicker> — `setImage` is the slow
-// step (image decoding), so we wait for `image_accepted` before
-// sending `setPrompt` + `start`. Without that wait the first chunk
-// can render before the image conditioning is applied and visibly
-// flicker.
+// step (the model decodes the image inside its handler), and awaiting
+// it waits for exactly that: `image_accepted` is the command's
+// correlated reply. Without the wait the first chunk can render
+// before the image conditioning is applied and visibly flicker.
 //
 // `start` only succeeds once both a prompt AND an image are set.
 // We surface the readiness state with the disabled-state of the
@@ -27,8 +26,6 @@ export function CustomStart() {
   const [text, setText] = useState("");
   const [imageBusy, setImageBusy] = useState<string | null>(null);
 
-  const imageReadyRef = useRef<(() => void) | null>(null);
-
   useLingbotState((msg) => setSnapshot(msg));
 
   useEffect(() => {
@@ -37,13 +34,6 @@ export function CustomStart() {
       setImageBusy(null);
     }
   }, [status]);
-
-  useLingbotImageAccepted(() => {
-    if (imageReadyRef.current) {
-      imageReadyRef.current();
-      imageReadyRef.current = null;
-    }
-  });
 
   if (status === "ready" && snapshot?.started) return null;
 
@@ -54,13 +44,10 @@ export function CustomStart() {
   async function uploadCustomImage(file: File) {
     setImageBusy(file.name);
     try {
-      const imageReady = new Promise<void>((resolve) => {
-        imageReadyRef.current = resolve;
-      });
-
       const ref = await uploadFile(file);
+      // Resolves once the model has decoded the image; the snapshot that
+      // follows flips `has_image`, which is what enables Start.
       await setImage({ image: ref });
-      await imageReady;
     } finally {
       setImageBusy(null);
     }
