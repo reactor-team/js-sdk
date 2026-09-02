@@ -1,0 +1,9 @@
+# This folder is its own pnpm workspace root, so `pnpm install` here installs
+# the app's own dependencies even when the folder lives inside another workspace.
+packages: []
+
+allowBuilds:
+  sharp: true
+
+minimumReleaseAgeExclude:
+  - "@reactor-models/fast-h3@1.0.2"
