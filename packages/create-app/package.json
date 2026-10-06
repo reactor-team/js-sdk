@@ -45,7 +45,7 @@
   "devDependencies": {
     "@types/node": "^25.9.1",
     "tsup": "^8.0.1",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   },
   "scripts": {
     "prepack": "cp ../../LICENSE ../../NOTICE .",
