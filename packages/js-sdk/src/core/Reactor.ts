@@ -45,6 +45,13 @@ import { FileRef } from "./FileRef";
 import { RecordingClient } from "./RecordingClient";
 import type { Clip, DownloadClipOptions } from "../utils/recording";
 
+const uploadReference = (ref: FileRef) => ({
+  upload_id: ref.uploadId,
+  name: ref.name,
+  mime_type: ref.mimeType,
+  size: ref.size,
+});
+
 type EventHandler = (...args: any[]) => void;
 
 export class Reactor {
@@ -144,7 +151,10 @@ export class Reactor {
    *
    * When any value in `data` is a {@link FileRef}, it is automatically
    * extracted and serialized into a separate `uploads` section on the
-   * wire, keyed by the parameter name.  Scalar values remain in `data`.
+   * wire, keyed by the parameter name.  A {@link FileRef} inside a list
+   * has no such slot, so it stays in `data` as an inline upload
+   * reference, which the runtime resolves in place.  Scalar values
+   * remain in `data`.
    */
   async sendCommand(
     command: string,
@@ -172,20 +182,19 @@ export class Reactor {
 
         for (const [key, value] of Object.entries(data)) {
           if (value instanceof FileRef) {
-            extractedUploads[key] = {
-              upload_id: value.uploadId,
-              name: value.name,
-              mime_type: value.mimeType,
-              size: value.size,
-            };
+            extractedUploads[key] = uploadReference(value);
           } else {
-            scalarData[key] = value;
+            scalarData[key] = Array.isArray(value)
+              ? value.map((item) =>
+                  item instanceof FileRef ? uploadReference(item) : item
+                )
+              : value;
           }
         }
 
+        data = scalarData;
         if (Object.keys(extractedUploads).length > 0) {
           uploads = extractedUploads;
-          data = scalarData;
         }
       }
 

@@ -3,7 +3,8 @@
  *
  * Pass a `FileRef` as a value in {@link Reactor.sendCommand} and it will
  * be serialized into the `uploads` section of the wire envelope, separate
- * from scalar arguments. The runtime resolves each reference to bytes
+ * from scalar arguments. A `FileRef` inside a list travels inline in the
+ * list instead. The runtime resolves each reference to bytes
  * before dispatching the event to the model handler.
  */
 export class FileRef {

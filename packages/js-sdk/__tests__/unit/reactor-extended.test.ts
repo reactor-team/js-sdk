@@ -881,6 +881,43 @@ describe("Reactor (extended)", () => {
       await r.disconnect();
     });
 
+    it("sends each FileRef in a list as an inline upload reference", async () => {
+      const r = new Reactor({ modelName: "echo" });
+      await connectAndReady(r);
+
+      const hero = new FileRef("id-1", "hero.jpg", "image/jpeg", 100);
+      const scene = new FileRef("id-2", "scene.png", "image/png", 200);
+      await r.sendCommand("enqueue", {
+        prompt: "a lighthouse at dusk",
+        reference_images: [hero, scene],
+      });
+
+      expect(mockTransportClient.sendCommand).toHaveBeenCalledWith(
+        "enqueue",
+        {
+          prompt: "a lighthouse at dusk",
+          reference_images: [
+            {
+              upload_id: "id-1",
+              name: "hero.jpg",
+              mime_type: "image/jpeg",
+              size: 100,
+            },
+            {
+              upload_id: "id-2",
+              name: "scene.png",
+              mime_type: "image/png",
+              size: 200,
+            },
+          ],
+        },
+        "application",
+        undefined
+      );
+
+      await r.disconnect();
+    });
+
     it("passes no uploads when data has no FileRefs", async () => {
       const r = new Reactor({ modelName: "echo" });
       await connectAndReady(r);
