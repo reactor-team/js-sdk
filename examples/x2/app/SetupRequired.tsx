@@ -1,8 +1,7 @@
 import { Header } from "./components/Header";
 import { cn, PANEL } from "./components/ui";
 
-const DASHBOARD_URL =
-  "https://www.reactor.inc/dashboard/account?section=api-keys";
+const DASHBOARD_URL = "https://www.reactor.inc/account/api-keys";
 const AUTH_DOCS_URL = "https://docs.reactor.inc/authentication";
 
 // Server Component shown when REACTOR_API_KEY is missing from the
