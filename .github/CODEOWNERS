@@ -8,9 +8,8 @@
 #
 # https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
-# GitHub Actions workflows — including the per-push CI pipeline, npm
-# publish on release, and the docs-PR automation that holds
-# DOCS_REPO_PAT / ANTHROPIC_API_KEY.
+# GitHub Actions workflows — including the per-push CI pipeline and npm
+# publish on release.
 /.github/workflows/           @Dere-Wah @bryceoz @tempusfrangit @mmassenzio @amontalban
 
 # Shell scripts invoked from CI (e.g. check-license.sh).
